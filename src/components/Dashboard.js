@@ -6,7 +6,7 @@ import AdminPanel from './AdminPanel';
 import UserManagement from './UserManagement';
 import Settings from './Settings';
 
-function Dashboard({ user, session }) {
+function Dashboard({ user, session, updateUser }) {
   const [activeSection, setActiveSection] = useState('table');
 
   const handleLogout = async () => {
@@ -29,7 +29,7 @@ function Dashboard({ user, session }) {
       case 'users':
         return user?.role === 'teamlead' ? <UserManagement user={user} /> : null;
       case 'settings':
-        return <Settings user={user} />;
+        return <Settings user={user} updateUser={updateUser} />;
       default:
         return <WorkTable user={user} />;
     }

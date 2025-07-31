@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, userService } from '../supabaseClient';
 import { 
   Save, 
   User, 
@@ -9,11 +9,15 @@ import {
   AlertCircle, 
   CheckCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Upload,
+  Camera,
+  Trash2
 } from 'lucide-react';
 
-function Settings({ user }) {
-  const [loading, setSaving] = useState(false);
+function Settings({ user, updateUser }) {
+  const [loading, setLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -21,7 +25,8 @@ function Settings({ user }) {
   
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
-    email: user?.email || ''
+    email: user?.email || '',
+    avatar_url: user?.avatar_url || ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -37,26 +42,96 @@ function Settings({ user }) {
     }
 
     try {
-      setSaving(true);
+      setLoading(true);
       setError('');
       setSuccess('');
 
-      // Обновляем профиль в таблице users
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          name: profileData.name,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
+      const updatedUser = await userService.updateUserProfile(user.id, {
+        name: profileData.name
+      });
 
-      if (updateError) throw updateError;
+      // Обновляем состояние пользователя в App
+      if (updateUser) {
+        updateUser({ ...user, name: profileData.name });
+      }
 
       setSuccess('Профиль успешно обновлен');
     } catch (error) {
       setError('Ошибка обновления профиля: ' + error.message);
     } finally {
-      setSaving(false);
+      setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (files) => {
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+      setError('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    // Проверяем размер файла (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    try {
+      setAvatarLoading(true);
+      setError('');
+
+      const updatedUser = await userService.uploadAvatar(user.id, file);
+      
+      setProfileData({
+        ...profileData,
+        avatar_url: updatedUser.avatar_url
+      });
+
+      // Обновляем состояние пользователя в App
+      if (updateUser) {
+        updateUser({ ...user, avatar_url: updatedUser.avatar_url });
+      }
+
+      setSuccess('Аватар успешно обновлен');
+    } catch (error) {
+      setError('Ошибка загрузки аватара: ' + error.message);
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    if (!window.confirm('Вы уверены, что хотите удалить аватар?')) {
+      return;
+    }
+
+    try {
+      setAvatarLoading(true);
+      setError('');
+
+      await userService.updateUserProfile(user.id, {
+        avatar_url: null
+      });
+
+      setProfileData({
+        ...profileData,
+        avatar_url: ''
+      });
+
+      // Обновляем состояние пользователя в App
+      if (updateUser) {
+        updateUser({ ...user, avatar_url: null });
+      }
+
+      setSuccess('Аватар удален');
+    } catch (error) {
+      setError('Ошибка удаления аватара: ' + error.message);
+    } finally {
+      setAvatarLoading(false);
     }
   };
 
@@ -77,18 +152,16 @@ function Settings({ user }) {
     }
 
     try {
-      setSaving(true);
+      setLoading(true);
       setError('');
       setSuccess('');
 
-      // Обновляем пароль через Supabase Auth
       const { error: passwordError } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
 
       if (passwordError) throw passwordError;
 
-      // Очищаем форму смены пароля
       setPasswordData({
         currentPassword: '',
         newPassword: '',
@@ -99,7 +172,7 @@ function Settings({ user }) {
     } catch (error) {
       setError('Ошибка смены пароля: ' + error.message);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -135,6 +208,71 @@ function Settings({ user }) {
         )}
 
         <div className="space-y-6">
+          {/* Avatar Section */}
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Фото профиля
+              </h3>
+              
+              <div className="flex items-center space-x-6">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                    {profileData.avatar_url ? (
+                      <img
+                        src={profileData.avatar_url}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center ${profileData.avatar_url ? 'hidden' : ''}`}>
+                      <User className="h-12 w-12 text-gray-400" />
+                    </div>
+                  </div>
+                  
+                  {avatarLoading && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col space-y-3">
+                  <label className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                    <Camera className="h-4 w-4 mr-2" />
+                    {profileData.avatar_url ? 'Изменить фото' : 'Загрузить фото'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleAvatarUpload(e.target.files)}
+                      className="sr-only"
+                      disabled={avatarLoading}
+                    />
+                  </label>
+
+                  {profileData.avatar_url && (
+                    <button
+                      onClick={handleAvatarDelete}
+                      disabled={avatarLoading}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Удалить фото
+                    </button>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    JPG, PNG или GIF. Максимум 5MB.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Profile Settings */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
@@ -334,8 +472,10 @@ function Settings({ user }) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Версия системы</dt>
-                  <dd className="mt-1 text-sm text-gray-900">v1.0</dd>
+                  <dt className="text-sm font-medium text-gray-500">Последнее обновление</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {user?.updated_at ? new Date(user.updated_at).toLocaleString('ru-RU') : 'Не указана'}
+                  </dd>
                 </div>
               </dl>
             </div>

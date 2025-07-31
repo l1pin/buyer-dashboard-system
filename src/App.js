@@ -58,7 +58,8 @@ function App() {
             id: userId,
             email: authUser.user.email,
             name: 'Новый пользователь',
-            role: 'buyer'
+            role: 'buyer',
+            avatar_url: null
           }
         ]);
 
@@ -67,12 +68,18 @@ function App() {
           id: userId,
           email: authUser.user.email,
           name: 'Новый пользователь',
-          role: 'buyer'
+          role: 'buyer',
+          avatar_url: null
         });
       }
     } catch (error) {
       console.error('Error creating user profile:', error);
     }
+  };
+
+  // Функция для обновления пользователя (вызывается из Settings)
+  const updateUser = (updatedUserData) => {
+    setUser(updatedUserData);
   };
 
   if (loading) {
@@ -87,7 +94,7 @@ function App() {
     return <Login />;
   }
 
-  return <Dashboard user={user} session={session} />;
+  return <Dashboard user={user} session={session} updateUser={updateUser} />;
 }
 
 export default App;

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Menu, 
-  X, 
   Table, 
   Users, 
   Settings, 
@@ -18,13 +16,13 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const menuItems = [
     {
       id: 'table',
-      label: user?.role === 'teamlead' ? 'Таблицы байеров' : 'Рабочая таблица',
+      label: user?.role === 'teamlead' ? 'Управление таблицами' : 'Рабочая таблица',
       icon: user?.role === 'teamlead' ? Database : Table,
       show: true
     },
     {
       id: 'users',
-      label: 'Пользователи',
+      label: 'Управление пользователями',
       icon: Users,
       show: user?.role === 'teamlead'
     },
@@ -75,12 +73,25 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       {!isCollapsed && (
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="bg-gray-200 rounded-full p-2">
-              {user?.role === 'teamlead' ? (
-                <Shield className="h-5 w-5 text-gray-600" />
-              ) : (
-                <Users className="h-5 w-5 text-gray-600" />
-              )}
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center ${user?.avatar_url ? 'hidden' : ''}`}>
+                {user?.role === 'teamlead' ? (
+                  <Shield className="h-5 w-5 text-gray-600" />
+                ) : (
+                  <Users className="h-5 w-5 text-gray-600" />
+                )}
+              </div>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
@@ -139,18 +150,6 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
           )}
         </button>
       </div>
-
-      {/* Collapse/Expand Button - Mobile */}
-      {isCollapsed && (
-        <div className="p-2 border-t border-gray-200 md:hidden">
-          <button
-            onClick={toggleSidebar}
-            className="w-full flex items-center justify-center px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-200"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

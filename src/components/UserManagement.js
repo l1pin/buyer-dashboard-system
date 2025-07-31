@@ -248,8 +248,21 @@ function UserManagement({ user }) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <User className="h-6 w-6 text-blue-600" />
+                              <div className="h-10 w-10 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
+                                {currentUser.avatar_url ? (
+                                  <img
+                                    src={currentUser.avatar_url}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
+                                  <User className="h-6 w-6 text-blue-600" />
+                                </div>
                               </div>
                             </div>
                             <div className="ml-4">

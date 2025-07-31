@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { tableService, userService } from '../supabaseClient';
+import { tableService, userService, cellService } from '../supabaseClient';
 import { 
   Eye, 
   Upload, 
@@ -10,7 +10,9 @@ import {
   Calendar,
   Search,
   FileText,
-  User
+  User,
+  Download,
+  CheckCircle
 } from 'lucide-react';
 
 function AdminPanel({ user }) {
@@ -18,6 +20,7 @@ function AdminPanel({ user }) {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploadingFor, setUploadingFor] = useState(null);
@@ -43,32 +46,64 @@ function AdminPanel({ user }) {
     }
   };
 
-  const handleFileUpload = async (buyerId, files) => {
+  const handleCSVUpload = async (buyerId, files) => {
     if (!files || files.length === 0) return;
+
+    const csvFile = Array.from(files).find(file => 
+      file.name.endsWith('.csv') || file.type === 'text/csv'
+    );
+
+    if (!csvFile) {
+      setError('Пожалуйста, выберите CSV файл');
+      return;
+    }
 
     try {
       setUploadingFor(buyerId);
+      setError('');
+      setSuccess('');
+
+      // Читаем содержимое CSV файла
+      const csvContent = await readFileContent(csvFile);
       
-      const htmlFile = Array.from(files).find(file => file.name.endsWith('.html'));
-      const cssFile = Array.from(files).find(file => file.name.endsWith('.css'));
-
-      if (!htmlFile) {
-        throw new Error('HTML файл не найден');
-      }
-
-      const htmlContent = await readFileContent(htmlFile);
-      const cssContent = cssFile ? await readFileContent(cssFile) : '';
-
-      await tableService.saveUserTable(buyerId, htmlContent, cssContent);
+      // Создаем таблицу из CSV
+      await tableService.createTableFromCSV(buyerId, csvContent);
       
       // Обновляем данные
       await loadData();
       
-      setError('');
+      setSuccess(`Таблица успешно загружена для пользователя ${getBuyerName(buyerId)}`);
     } catch (error) {
-      setError('Ошибка загрузки файлов: ' + error.message);
+      setError('Ошибка загрузки CSV: ' + error.message);
     } finally {
       setUploadingFor(null);
+    }
+  };
+
+  const handleExportCSV = async (buyerId, buyerName) => {
+    try {
+      const buyerTable = getBuyerTable(buyerId);
+      if (!buyerTable) {
+        setError('У пользователя нет загруженной таблицы');
+        return;
+      }
+
+      const csvContent = await cellService.exportTableToCSV(buyerTable.id);
+      
+      // Создаем и скачиваем файл
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${buyerName}_table_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSuccess(`Таблица ${buyerName} экспортирована`);
+    } catch (error) {
+      setError('Ошибка экспорта: ' + error.message);
     }
   };
 
@@ -77,12 +112,17 @@ function AdminPanel({ user }) {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target.result);
       reader.onerror = () => reject(new Error('Ошибка чтения файла'));
-      reader.readAsText(file);
+      reader.readAsText(file, 'UTF-8');
     });
   };
 
   const getBuyerTable = (buyerId) => {
     return tables.find(table => table.user_id === buyerId);
+  };
+
+  const getBuyerName = (buyerId) => {
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.name : 'Неизвестный';
   };
 
   const filteredBuyers = buyers.filter(buyer =>
@@ -100,6 +140,11 @@ function AdminPanel({ user }) {
     });
   };
 
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -112,8 +157,6 @@ function AdminPanel({ user }) {
   }
 
   if (selectedBuyer) {
-    const buyerTable = getBuyerTable(selectedBuyer.id);
-    
     return (
       <div className="h-full flex flex-col bg-white">
         {/* Header */}
@@ -135,41 +178,37 @@ function AdminPanel({ user }) {
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => handleExportCSV(selectedBuyer.id, selectedBuyer.name)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Экспорт CSV
+            </button>
           </div>
         </div>
 
-        {/* Table Content */}
-        <div className="flex-1 overflow-auto">
-          {buyerTable ? (
-            <div className="p-6">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                {buyerTable.css_content && (
-                  <style dangerouslySetInnerHTML={{ __html: buyerTable.css_content }} />
-                )}
-                <div 
-                  className="table-container p-4"
-                  dangerouslySetInnerHTML={{ __html: buyerTable.html_content }}
-                  style={{
-                    fontFamily: 'Arial, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '1.4'
-                  }}
-                />
-              </div>
+        {/* Buyer Table Preview */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+            <Table className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Просмотр таблицы
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Для полного просмотра и редактирования таблицы байера, 
+              войдите под его аккаунтом или используйте режим просмотра.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => window.open(`/buyer/${selectedBuyer.id}`, '_blank')}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Открыть таблицу
+              </button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <AlertCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Таблица не загружена
-                </h3>
-                <p className="text-gray-600">
-                  Для этого байера еще не загружена рабочая таблица.
-                </p>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -182,10 +221,10 @@ function AdminPanel({ user }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">
-              Таблицы байеров
+              Управление таблицами
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Управление рабочими таблицами пользователей
+              Загрузка и управление CSV таблицами байеров
             </p>
           </div>
           <button
@@ -208,16 +247,27 @@ function AdminPanel({ user }) {
             type="text"
             placeholder="Поиск по имени или email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              clearMessages();
+            }}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Messages */}
       {error && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+          {success}
         </div>
       )}
 
@@ -309,23 +359,43 @@ function AdminPanel({ user }) {
                       className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
                     >
                       <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {buyer.name}
-                          </h4>
-                          <p className="text-sm text-gray-500 truncate">
-                            {buyer.email}
-                          </p>
-                          <div className="mt-2 flex items-center text-xs text-gray-400">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Создан: {formatDate(buyer.created_at)}
-                          </div>
-                          {buyerTable && (
-                            <div className="mt-1 flex items-center text-xs text-gray-400">
-                              <Table className="h-3 w-3 mr-1" />
-                              Обновлена: {formatDate(buyerTable.updated_at)}
+                        <div className="flex items-center flex-1 min-w-0">
+                          <div className="flex-shrink-0 mr-3">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                              {buyer.avatar_url ? (
+                                <img
+                                  src={buyer.avatar_url}
+                                  alt="Avatar"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-5 w-5 text-gray-400" />
+                              </div>
                             </div>
-                          )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                              {buyer.name}
+                            </h4>
+                            <p className="text-sm text-gray-500 truncate">
+                              {buyer.email}
+                            </p>
+                            <div className="mt-2 flex items-center text-xs text-gray-400">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              Создан: {formatDate(buyer.created_at)}
+                            </div>
+                            {buyerTable && (
+                              <div className="mt-1 flex items-center text-xs text-gray-400">
+                                <Table className="h-3 w-3 mr-1" />
+                                Обновлена: {formatDate(buyerTable.updated_at)}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         
                         <div className="ml-4 flex-shrink-0">
@@ -343,13 +413,23 @@ function AdminPanel({ user }) {
                       
                       <div className="mt-4 flex space-x-2">
                         {buyerTable && (
-                          <button
-                            onClick={() => setSelectedBuyer(buyer)}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Просмотр
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setSelectedBuyer(buyer)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Просмотр
+                            </button>
+                            
+                            <button
+                              onClick={() => handleExportCSV(buyer.id, buyer.name)}
+                              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Экспорт
+                            </button>
+                          </>
                         )}
                         
                         <label className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
@@ -361,14 +441,13 @@ function AdminPanel({ user }) {
                           ) : (
                             <>
                               <Upload className="h-3 w-3 mr-1" />
-                              {buyerTable ? 'Обновить' : 'Загрузить'}
+                              {buyerTable ? 'Обновить CSV' : 'Загрузить CSV'}
                             </>
                           )}
                           <input
                             type="file"
-                            multiple
-                            accept=".html,.css"
-                            onChange={(e) => handleFileUpload(buyer.id, e.target.files)}
+                            accept=".csv,text/csv"
+                            onChange={(e) => handleCSVUpload(buyer.id, e.target.files)}
                             className="sr-only"
                             disabled={isUploading}
                           />

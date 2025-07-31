@@ -5,6 +5,10 @@
 /* Подключение шрифта Inter */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* AG Grid стили */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-alpine.css';
+
 /* Базовые стили */
 @layer base {
   html {
@@ -45,6 +49,247 @@
     scrollbar-width: thin;
     scrollbar-color: #d1d5db #f3f4f6;
   }
+}
+
+/* AG Grid кастомизация */
+.ag-theme-alpine {
+  --ag-background-color: #ffffff;
+  --ag-header-background-color: #f8fafc;
+  --ag-odd-row-background-color: #f9fafb;
+  --ag-border-color: #e5e7eb;
+  --ag-row-border-color: #e5e7eb;
+  --ag-header-cell-hover-background-color: #f1f5f9;
+  --ag-cell-horizontal-border: solid 1px #e5e7eb;
+  --ag-font-size: 11px;
+  --ag-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ag-foreground-color: #1f2937;
+  --ag-secondary-foreground-color: #6b7280;
+  --ag-disabled-foreground-color: #9ca3af;
+  --ag-input-focus-border-color: #3b82f6;
+  --ag-range-selection-background-color: #dbeafe;
+  --ag-range-selection-background-color-2: #bfdbfe;
+  --ag-range-selection-background-color-3: #93c5fd;
+  --ag-range-selection-background-color-4: #60a5fa;
+}
+
+/* Заголовки колонок */
+.ag-header-cell {
+  font-weight: 600;
+  color: #374151;
+  background-color: #f8fafc;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ag-header-cell-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ячейки */
+.ag-cell {
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ag-cell-wrapper {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Перенос текста в ячейках */
+.cell-wrap-text .ag-cell-wrapper {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  line-height: 1.2 !important;
+  height: auto !important;
+  padding: 2px 0;
+}
+
+/* Редактируемые ячейки */
+.ag-cell-edit-input {
+  font-size: 11px !important;
+  font-family: 'Inter', sans-serif !important;
+  padding: 2px 4px !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 2px;
+  outline: none !important;
+  background-color: white !important;
+}
+
+/* Фокус на ячейке */
+.ag-cell-focus {
+  border: 2px solid #3b82f6 !important;
+  outline: none !important;
+}
+
+.ag-cell-focus:not(.ag-cell-range-selected) {
+  border: 2px solid #3b82f6 !important;
+}
+
+/* Выделенные ячейки */
+.ag-cell-range-selected {
+  background-color: #dbeafe !important;
+}
+
+.ag-cell-range-selected-1 {
+  background-color: #bfdbfe !important;
+}
+
+.ag-cell-range-selected-2 {
+  background-color: #93c5fd !important;
+}
+
+/* Строки при наведении */
+.ag-row-hover {
+  background-color: #f9fafb !important;
+}
+
+/* Четные/нечетные строки */
+.ag-row-even {
+  background-color: #ffffff;
+}
+
+.ag-row-odd {
+  background-color: #f9fafb;
+}
+
+/* Изменения в реальном времени */
+.ag-cell-data-changed {
+  background-color: #fef3c7 !important;
+  animation: ag-data-changed-flash 1s;
+}
+
+.ag-cell-data-changed-animation {
+  background-color: #fbbf24 !important;
+}
+
+@keyframes ag-data-changed-flash {
+  0% { 
+    background-color: #fbbf24;
+    transform: scale(1.02);
+  }
+  50% {
+    background-color: #f59e0b;
+    transform: scale(1.01);
+  }
+  100% { 
+    background-color: #fef3c7;
+    transform: scale(1);
+  }
+}
+
+/* Скроллбары в AG Grid */
+.ag-theme-alpine .ag-body-horizontal-scroll-viewport,
+.ag-theme-alpine .ag-body-vertical-scroll-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6;
+}
+
+.ag-theme-alpine .ag-body-horizontal-scroll-viewport::-webkit-scrollbar,
+.ag-theme-alpine .ag-body-vertical-scroll-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ag-theme-alpine .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-track,
+.ag-theme-alpine .ag-body-vertical-scroll-viewport::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.ag-theme-alpine .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb,
+.ag-theme-alpine .ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.ag-theme-alpine .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb:hover,
+.ag-theme-alpine .ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Сортировка */
+.ag-header-cell-sorted-asc,
+.ag-header-cell-sorted-desc {
+  background-color: #eff6ff !important;
+}
+
+.ag-sort-indicator {
+  color: #3b82f6;
+}
+
+/* Фильтры */
+.ag-filter-toolpanel {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background-color: white;
+}
+
+.ag-filter-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+}
+
+/* Меню контекста */
+.ag-menu {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  font-size: 11px;
+  background-color: white;
+}
+
+.ag-menu-option {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 2px;
+}
+
+.ag-menu-option:hover {
+  background-color: #f3f4f6;
+}
+
+/* Загрузка */
+.ag-overlay-loading-wrapper {
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(2px);
+}
+
+.ag-overlay-loading-center {
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Пустая таблица */
+.ag-overlay-no-rows-center {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Фиксированные колонки */
+.ag-pinned-left-cols-container {
+  border-right: 2px solid #e5e7eb;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.ag-pinned-right-cols-container {
+  border-left: 2px solid #e5e7eb;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Компоненты */
@@ -154,38 +399,6 @@
     }
   }
 
-  /* Утилиты для работы с таблицами */
-  .table-container {
-    @apply overflow-x-auto;
-  }
-
-  .table-container table {
-    @apply min-w-full border-collapse;
-  }
-
-  .table-container th,
-  .table-container td {
-    @apply border border-gray-200 px-3 py-2 text-sm;
-  }
-
-  .table-container th {
-    @apply bg-gray-50 font-medium text-gray-900;
-  }
-
-  .table-container td {
-    @apply bg-white text-gray-700;
-  }
-
-  /* Редактируемые ячейки */
-  .table-container td[contenteditable="true"] {
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-blue-50 transition-all duration-200;
-    min-height: 20px;
-  }
-
-  .table-container td[contenteditable="true"]:hover {
-    @apply bg-gray-50;
-  }
-
   /* Размеры sidebar */
   .sidebar-collapsed {
     width: 4rem;
@@ -237,135 +450,194 @@
   }
 }
 
-/* Кастомные стили для Google Sheets таблиц */
-.google-sheets-table {
-  font-family: Arial, sans-serif;
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.google-sheets-table th,
-.google-sheets-table td {
-  border: 1px solid #d0d7de;
-  padding: 8px;
-  text-align: left;
-  vertical-align: top;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.google-sheets-table th {
-  background-color: #f6f8fa;
-  font-weight: 600;
-  color: #24292f;
-}
-
-.google-sheets-table td {
-  background-color: #ffffff;
-  color: #24292f;
-}
-
-.google-sheets-table tr:nth-child(even) td {
-  background-color: #f6f8fa;
-}
-
-.google-sheets-table td[contenteditable="true"]:focus {
-  background-color: #dbeafe;
-  outline: 2px solid #3b82f6;
-  outline-offset: -2px;
-}
-
-/* Стили для модальных окон */
-.modal-overlay {
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.modal-content {
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-/* Стили для уведомлений */
-.notification {
-  @apply fixed top-4 right-4 z-50 max-w-sm w-full;
-}
-
-.notification-enter {
-  @apply transform translate-x-full opacity-0;
-}
-
-.notification-enter-active {
-  @apply transform translate-x-0 opacity-100 transition-all duration-300;
-}
-
-.notification-exit {
-  @apply transform translate-x-0 opacity-100;
-}
-
-.notification-exit-active {
-  @apply transform translate-x-full opacity-0 transition-all duration-300;
-}
-
-/* Стили для индикатора загрузки */
-.loading-spinner {
-  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
-}
-
-/* Стили для пустых состояний */
-.empty-state {
-  @apply flex flex-col items-center justify-center p-8 text-center;
-}
-
-.empty-state-icon {
-  @apply w-16 h-16 text-gray-400 mb-4;
-}
-
-.empty-state-title {
-  @apply text-lg font-medium text-gray-900 mb-2;
-}
-
-.empty-state-description {
-  @apply text-gray-600 mb-4;
-}
-
-/* Стили для drag and drop */
-.drag-over {
-  @apply border-2 border-dashed border-blue-400 bg-blue-50;
-}
-
-.drag-active {
-  @apply border-blue-600 bg-blue-100;
-}
-
-/* Адаптивные стили */
+/* Мобильная адаптация AG Grid */
 @media (max-width: 768px) {
-  .table-container {
-    font-size: 12px;
+  .ag-theme-alpine {
+    --ag-font-size: 10px;
+    --ag-row-height: 32px;
+    --ag-header-height: 28px;
   }
   
-  .table-container th,
-  .table-container td {
-    padding: 6px;
+  .ag-header-cell-text {
+    font-size: 10px;
+  }
+  
+  .ag-cell {
+    padding: 1px 2px;
+    font-size: 10px;
+  }
+  
+  .ag-cell-edit-input {
+    font-size: 10px !important;
+    padding: 1px 2px !important;
+  }
+  
+  /* Скрываем некоторые колонки на мобильных */
+  .ag-header-cell.mobile-hidden,
+  .ag-cell.mobile-hidden {
+    display: none !important;
+  }
+}
+
+/* Темная тема (опционально) */
+@media (prefers-color-scheme: dark) {
+  .ag-theme-alpine.dark {
+    --ag-background-color: #1f2937;
+    --ag-header-background-color: #374151;
+    --ag-odd-row-background-color: #292f3b;
+    --ag-border-color: #4b5563;
+    --ag-row-border-color: #4b5563;
+    --ag-header-cell-hover-background-color: #4b5563;
+    --ag-foreground-color: #f9fafb;
+    --ag-secondary-foreground-color: #d1d5db;
+    --ag-disabled-foreground-color: #6b7280;
+    --ag-input-focus-border-color: #60a5fa;
+    --ag-range-selection-background-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  .dark .ag-header-cell {
+    color: #f9fafb;
+    background-color: #374151;
+    border-bottom-color: #4b5563;
+  }
+  
+  .dark .ag-cell {
+    color: #f9fafb;
+    border-right-color: #4b5563;
+    border-bottom-color: #374151;
+  }
+  
+  .dark .ag-row-even {
+    background-color: #1f2937;
+  }
+  
+  .dark .ag-row-odd {
+    background-color: #292f3b;
   }
 }
 
 /* Печать */
 @media print {
-  .no-print {
-    display: none !important;
+  .ag-theme-alpine {
+    --ag-font-size: 8px;
+    --ag-row-height: 20px;
+    --ag-header-height: 18px;
   }
   
-  .table-container {
+  .ag-body-horizontal-scroll,
+  .ag-body-vertical-scroll {
     overflow: visible !important;
   }
   
-  .table-container table {
-    page-break-inside: auto;
+  .ag-center-cols-clipper {
+    overflow: visible !important;
   }
   
-  .table-container tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
+  .ag-body-viewport {
+    overflow: visible !important;
+  }
+  
+  /* Скрыть элементы интерфейса при печати */
+  .no-print,
+  .ag-floating-filter-wrapper,
+  .ag-column-drop,
+  .ag-tool-panel {
+    display: none !important;
+  }
+}
+
+/* Кастомные анимации */
+@keyframes slideUp {
+  0% { 
+    transform: translateY(10px); 
+    opacity: 0; 
+  }
+  100% { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+}
+
+@keyframes slideDown {
+  0% { 
+    transform: translateY(-10px); 
+    opacity: 0; 
+  }
+  100% { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+}
+
+/* Кастомные классы для ячеек */
+.cell-number {
+  text-align: right !important;
+  font-family: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace !important;
+}
+
+.cell-currency {
+  text-align: right !important;
+  color: #059669 !important;
+  font-weight: 500 !important;
+}
+
+.cell-percentage {
+  text-align: right !important;
+  font-weight: 500 !important;
+}
+
+.cell-status-active {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  margin: 1px !important;
+  text-align: center !important;
+}
+
+.cell-status-inactive {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  margin: 1px !important;
+  text-align: center !important;
+}
+
+.cell-highlight {
+  background-color: #fef3c7 !important;
+  border: 1px solid #f59e0b !important;
+  border-radius: 2px !important;
+}
+
+/* Анимации для таблицы */
+.ag-row {
+  transition: background-color 0.15s ease;
+}
+
+.ag-cell {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Accessibility улучшения */
+.ag-cell:focus,
+.ag-header-cell:focus {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: -2px !important;
+}
+
+.ag-cell:focus-visible,
+.ag-header-cell:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: -2px !important;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .ag-theme-alpine {
+    --ag-border-color: #000000;
+    --ag-row-border-color: #000000;
+    --ag-foreground-color: #000000;
+    --ag-background-color: #ffffff;
   }
 }
