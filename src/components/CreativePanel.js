@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { creativeService } from '../supabaseClient';
-import {
-  Plus,
-  X,
+import { 
+  Plus, 
+  X, 
   Link as LinkIcon,
   Calendar,
   Eye,
@@ -22,7 +22,7 @@ function CreativePanel({ user }) {
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
-
+  
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
@@ -31,7 +31,7 @@ function CreativePanel({ user }) {
 
   const workTypes = [
     'Монтаж _Video',
-    'Upscale_Video',
+    'Upscale_Video', 
     'Ресайз 1',
     'Озвучка',
     'Субтитры',
@@ -42,12 +42,12 @@ function CreativePanel({ user }) {
     'Правки_video',
     'Превьюшка',
     'Статика 1',
-    'Статика 2',
+    'Статика 2', 
     'Статика 3',
     'Статика 4',
     'Ресайз St 1',
     'Ресайз St 2',
-    'Ресайз St 3',
+    'Ресайз St 3', 
     'Ресайз St 4',
     'Правки Статика',
     'Доп. 0,2',
@@ -156,14 +156,21 @@ function CreativePanel({ user }) {
   };
 
   const formatKyivTime = (dateString) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      timeZone: 'Europe/Kiev',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false  // Добавляем 24-часовой формат
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU');
+    }
   };
 
   const getWorkTypeIcon = (workType) => {
