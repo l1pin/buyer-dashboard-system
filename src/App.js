@@ -51,15 +51,30 @@ function App() {
   const createUserProfile = async (userId) => {
     try {
       const { data: authUser } = await supabase.auth.getUser();
+
+      // Определяем роль по умолчанию (можно изменить логику)
+      let defaultRole = 'buyer';
+
+      // Если это первый пользователь в системе, делаем его тим-лидом
+      const { data: existingUsers, error: countError } = await supabase
+        .from('users')
+        .select('id', { count: 'exact' });
+
+      if (!countError && existingUsers && existingUsers.length === 0) {
+        defaultRole = 'teamlead';
+      }
+
       const { error } = await supabase
         .from('users')
         .insert([
           {
             id: userId,
             email: authUser.user.email,
-            name: 'Новый пользователь',
-            role: 'buyer',
-            avatar_url: null
+            name: authUser.user.user_metadata?.name || 'Новый пользователь',
+            role: authUser.user.user_metadata?.role || defaultRole,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           }
         ]);
 
@@ -67,9 +82,11 @@ function App() {
         setUser({
           id: userId,
           email: authUser.user.email,
-          name: 'Новый пользователь',
-          role: 'buyer',
-          avatar_url: null
+          name: authUser.user.user_metadata?.name || 'Новый пользователь',
+          role: authUser.user.user_metadata?.role || defaultRole,
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
       }
     } catch (error) {
@@ -85,7 +102,10 @@ function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Загрузка приложения...</p>
+        </div>
       </div>
     );
   }
