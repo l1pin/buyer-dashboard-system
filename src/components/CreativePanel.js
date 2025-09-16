@@ -285,14 +285,7 @@ function CreativePanel({ user }) {
         </div>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
+      {/* Messages - только success сообщения, ошибки теперь в модале */}
       {success && (
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
           <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -379,9 +372,9 @@ function CreativePanel({ user }) {
                           href={link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-xs text-blue-600 hover:text-blue-800 hover:underline break-all bg-blue-50 p-2 rounded border"
+                          className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
                         >
-                          {link}
+                          🎬 Видео {index + 1}
                         </a>
                       ))}
                     </div>
