@@ -81,7 +81,10 @@ function CreativeAnalytics({ user }) {
       // Статистика по типам работ
       const workTypeStats = {};
       periodCreatives.forEach(creative => {
-        workTypeStats[creative.work_type] = (workTypeStats[creative.work_type] || 0) + 1;
+        // Поскольку теперь work_types это массив, обрабатываем каждый тип
+        creative.work_types.forEach(workType => {
+          workTypeStats[workType] = (workTypeStats[workType] || 0) + 1;
+        });
       });
 
       // Статистика по монтажерам
@@ -96,8 +99,11 @@ function CreativeAnalytics({ user }) {
           };
           
           editorCreatives.forEach(creative => {
-            editorStats[editor.id].types[creative.work_type] = 
-              (editorStats[editor.id].types[creative.work_type] || 0) + 1;
+            // Обрабатываем каждый тип работы в массиве
+            creative.work_types.forEach(workType => {
+              editorStats[editor.id].types[workType] = 
+                (editorStats[editor.id].types[workType] || 0) + 1;
+            });
           });
         }
       });
@@ -135,24 +141,28 @@ function CreativeAnalytics({ user }) {
     }
   };
 
-  const getWorkTypeIcon = (workType) => {
-    if (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж')) {
+  const getWorkTypeIcon = (workTypes) => {
+    // Если workTypes - массив, берем первый элемент, иначе обрабатываем как строку
+    const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
+    if (workType && workType.toLowerCase().includes('video') || workType && workType.toLowerCase().includes('монтаж')) {
       return <Video className="h-4 w-4" />;
     }
-    if (workType.toLowerCase().includes('статика')) {
+    if (workType && workType.toLowerCase().includes('статика')) {
       return <ImageIcon className="h-4 w-4" />;
     }
     return <Eye className="h-4 w-4" />;
   };
 
-  const getWorkTypeColor = (workType) => {
-    if (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж')) {
+  const getWorkTypeColor = (workTypes) => {
+    // Если workTypes - массив, берем первый элемент, иначе обрабатываем как строку
+    const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
+    if (workType && workType.toLowerCase().includes('video') || workType && workType.toLowerCase().includes('монтаж')) {
       return 'bg-blue-100 text-blue-800';
     }
-    if (workType.toLowerCase().includes('статика')) {
+    if (workType && workType.toLowerCase().includes('статика')) {
       return 'bg-green-100 text-green-800';
     }
-    if (workType.toLowerCase().includes('доп')) {
+    if (workType && workType.toLowerCase().includes('доп')) {
       return 'bg-purple-100 text-purple-800';
     }
     return 'bg-gray-100 text-gray-800';
@@ -433,7 +443,7 @@ function CreativeAnalytics({ user }) {
                         Монтажер
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Тип работы
+                        Типы работ
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Создан
