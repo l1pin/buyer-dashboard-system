@@ -441,7 +441,8 @@ export const creativeService = {
           user_id: creativeData.user_id,
           article: creativeData.article,
           links: creativeData.links,
-          work_types: creativeData.work_types // Изменено на work_types (массив)
+          link_titles: creativeData.link_titles || [], // Добавляем названия ссылок
+          work_types: creativeData.work_types
           // created_at и updated_at установятся автоматически через DEFAULT NOW()
         }
       ])
