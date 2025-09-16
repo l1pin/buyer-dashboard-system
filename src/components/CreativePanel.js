@@ -26,7 +26,7 @@ function CreativePanel({ user }) {
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
-    work_type: 'Монтаж _Video'
+    work_types: [] // Изменено на массив
   });
 
   const workTypes = [
@@ -87,6 +87,11 @@ function CreativePanel({ user }) {
       return;
     }
 
+    if (newCreative.work_types.length === 0) {
+      setError('Необходимо выбрать хотя бы один тип работы');
+      return;
+    }
+
     try {
       setCreating(true);
       setError('');
@@ -96,14 +101,14 @@ function CreativePanel({ user }) {
         user_id: user.id,
         article: newCreative.article.trim(),
         links: validLinks,
-        work_type: newCreative.work_type
+        work_types: newCreative.work_types
       });
 
       // Сбрасываем форму
       setNewCreative({
         article: '',
         links: [''],
-        work_type: 'Монтаж _Video'
+        work_types: []
       });
       setShowCreateModal(false);
 
@@ -155,6 +160,22 @@ function CreativePanel({ user }) {
     });
   };
 
+  const handleWorkTypeChange = (workType, isChecked) => {
+    let updatedWorkTypes;
+    if (isChecked) {
+      // Добавляем тип работы
+      updatedWorkTypes = [...newCreative.work_types, workType];
+    } else {
+      // Убираем тип работы
+      updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
+    }
+    
+    setNewCreative({
+      ...newCreative,
+      work_types: updatedWorkTypes
+    });
+  };
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -173,24 +194,28 @@ function CreativePanel({ user }) {
     }
   };
 
-  const getWorkTypeIcon = (workType) => {
-    if (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж')) {
+  const getWorkTypeIcon = (workTypes) => {
+    // Проверяем первый тип работы для определения иконки
+    const firstType = workTypes[0] || '';
+    if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
       return <Video className="h-4 w-4" />;
     }
-    if (workType.toLowerCase().includes('статика')) {
+    if (firstType.toLowerCase().includes('статика')) {
       return <ImageIcon className="h-4 w-4" />;
     }
     return <Eye className="h-4 w-4" />;
   };
 
-  const getWorkTypeColor = (workType) => {
-    if (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж')) {
+  const getWorkTypeColor = (workTypes) => {
+    // Проверяем первый тип работы для определения цвета
+    const firstType = workTypes[0] || '';
+    if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
       return 'bg-blue-100 text-blue-800';
     }
-    if (workType.toLowerCase().includes('статика')) {
+    if (firstType.toLowerCase().includes('статика')) {
       return 'bg-green-100 text-green-800';
     }
-    if (workType.toLowerCase().includes('доп')) {
+    if (firstType.toLowerCase().includes('доп')) {
       return 'bg-purple-100 text-purple-800';
     }
     return 'bg-gray-100 text-gray-800';
@@ -321,12 +346,24 @@ function CreativePanel({ user }) {
                     </button>
                   </div>
 
-                  {/* Work Type */}
+                  {/* Work Types */}
                   <div className="mb-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_type)}`}>
-                      {getWorkTypeIcon(creative.work_type)}
-                      <span className="ml-1">{creative.work_type}</span>
-                    </span>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      Типы работ ({creative.work_types.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {creative.work_types.slice(0, 3).map((workType, index) => (
+                        <span key={index} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
+                          {index === 0 && getWorkTypeIcon(creative.work_types)}
+                          <span className={index === 0 ? "ml-1" : ""}>{workType}</span>
+                        </span>
+                      ))}
+                      {creative.work_types.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          +{creative.work_types.length - 3} еще
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Links */}
@@ -367,6 +404,11 @@ function CreativePanel({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setNewCreative({
+                    article: '',
+                    links: [''],
+                    work_types: []
+                  });
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -430,22 +472,42 @@ function CreativePanel({ user }) {
                 </div>
               </div>
 
-              {/* Work Type */}
+              {/* Work Types */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Тип работы
+                  Типы работ * ({newCreative.work_types.length} выбрано)
                 </label>
-                <select
-                  value={newCreative.work_type}
-                  onChange={(e) => setNewCreative({ ...newCreative, work_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {workTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
+                  <div className="grid grid-cols-1 gap-2">
+                    {workTypes.map((type) => (
+                      <label key={type} className="flex items-center space-x-2 p-2 hover:bg-white rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newCreative.work_types.includes(type)}
+                          onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700 select-none">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {newCreative.work_types.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {newCreative.work_types.map((type, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                        {type}
+                        <button
+                          type="button"
+                          onClick={() => handleWorkTypeChange(type, false)}
+                          className="ml-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
