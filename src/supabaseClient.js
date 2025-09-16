@@ -26,7 +26,7 @@ export const userService = {
       .select('*')
       .eq('id', userId)
       .single();
-
+    
     if (error) throw error;
     return data;
   },
@@ -69,12 +69,12 @@ export const userService = {
   async deleteUser(userId) {
     await supabase.from('tables').delete().eq('user_id', userId);
     await supabase.from('creatives').delete().eq('user_id', userId);
-
+    
     const { error } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);
-
+    
     if (error) throw error;
   },
 
@@ -132,7 +132,7 @@ export const userService = {
       .select('*')
       .eq('role', 'buyer')
       .order('created_at', { ascending: false });
-
+    
     if (error) throw error;
     return data;
   },
@@ -143,7 +143,7 @@ export const userService = {
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-
+    
     if (error) throw error;
     return data;
   }
@@ -158,7 +158,7 @@ export const tableService = {
       .select('*')
       .eq('user_id', userId)
       .single();
-
+    
     if (error && error.code !== 'PGRST116') throw error;
     return data;
   },
@@ -205,7 +205,7 @@ export const tableService = {
 
       // Создаем новые ячейки из CSV данных
       const cellsToInsert = [];
-
+      
       parsedData.data.forEach((row, rowIndex) => {
         row.forEach((cellValue, colIndex) => {
           if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
@@ -229,7 +229,7 @@ export const tableService = {
           const { error: cellsError } = await supabase
             .from('cells')
             .insert(batch);
-
+          
           if (cellsError) {
             console.error('Error inserting cells batch:', cellsError);
             throw cellsError;
@@ -253,7 +253,7 @@ export const tableService = {
         users(name, email)
       `)
       .order('updated_at', { ascending: false });
-
+    
     if (error) throw error;
     return data;
   }
@@ -269,7 +269,7 @@ export const cellService = {
       .eq('table_id', tableId)
       .order('row_index')
       .order('column_index');
-
+    
     if (error) throw error;
     return data;
   },
@@ -277,7 +277,7 @@ export const cellService = {
   // Получить данные для AG Grid
   async getTableDataForGrid(tableId) {
     const cells = await this.getTableCells(tableId);
-
+    
     if (cells.length === 0) {
       return { columnDefs: [], rowData: [] };
     }
@@ -304,9 +304,9 @@ export const cellService = {
           editable: true,
           minWidth: 100,
           flex: 1,
-          cellStyle: {
+          cellStyle: { 
             fontSize: '11px',
-            padding: '2px 4px'
+            padding: '2px 4px' 
           }
         });
       });
@@ -404,7 +404,7 @@ export const cellService = {
   // Экспортировать данные в CSV
   async exportTableToCSV(tableId) {
     const cells = await this.getTableCells(tableId);
-
+    
     if (cells.length === 0) {
       return '';
     }
@@ -433,17 +433,7 @@ export const cellService = {
 export const creativeService = {
   // Создать новый креатив
   async createCreative(creativeData) {
-    // Формируем время создания по киевскому времени
-    const kyivTime = new Date().toLocaleString('en-CA', {
-      timeZone: 'Europe/Kiev',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).replace(', ', 'T');
-
+    // Используем текущее время - Supabase автоматически установит правильное время
     const { data, error } = await supabase
       .from('creatives')
       .insert([
@@ -451,9 +441,8 @@ export const creativeService = {
           user_id: creativeData.user_id,
           article: creativeData.article,
           links: creativeData.links,
-          work_type: creativeData.work_type,
-          created_at: kyivTime,
-          updated_at: kyivTime
+          work_type: creativeData.work_type
+          // created_at и updated_at установятся автоматически через DEFAULT NOW()
         }
       ])
       .select();
@@ -469,7 +458,7 @@ export const creativeService = {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-
+    
     if (error) throw error;
     return data;
   },
@@ -483,7 +472,7 @@ export const creativeService = {
         users(name, email)
       `)
       .order('created_at', { ascending: false });
-
+    
     if (error) throw error;
     return data;
   },
@@ -493,16 +482,8 @@ export const creativeService = {
     const { data, error } = await supabase
       .from('creatives')
       .update({
-        ...updates,
-        updated_at: new Date().toLocaleString('en-CA', {
-          timeZone: 'Europe/Kiev',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        }).replace(', ', 'T')
+        ...updates
+        // updated_at обновится автоматически через триггер
       })
       .eq('id', creativeId)
       .select();
@@ -517,7 +498,7 @@ export const creativeService = {
       .from('creatives')
       .delete()
       .eq('id', creativeId);
-
+    
     if (error) throw error;
   },
 
