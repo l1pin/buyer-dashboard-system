@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { creativeService } from '../supabaseClient';
+import { processLinksAndExtractTitles, formatFileName } from '../utils/googleDriveUtils';
 import { 
   Plus, 
   X, 
@@ -12,7 +13,8 @@ import {
   CheckCircle,
   Video,
   Image as ImageIcon,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -26,8 +28,11 @@ function CreativePanel({ user }) {
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
-    work_types: [] // Изменено на массив
+    work_types: [], // Изменено на массив
+    link_titles: [] // Добавляем поле для названий ссылок
   });
+
+  const [extractingTitles, setExtractingTitles] = useState(false);
 
   const workTypes = [
     'Монтаж _Video',
@@ -94,13 +99,20 @@ function CreativePanel({ user }) {
 
     try {
       setCreating(true);
+      setExtractingTitles(true);
       setError('');
       setSuccess('');
+
+      // Извлекаем названия из ссылок
+      const { links, titles } = await processLinksAndExtractTitles(validLinks);
+      
+      setExtractingTitles(false);
 
       await creativeService.createCreative({
         user_id: user.id,
         article: newCreative.article.trim(),
-        links: validLinks,
+        links: links,
+        link_titles: titles, // Сохраняем извлеченные названия
         work_types: newCreative.work_types
       });
 
@@ -108,15 +120,17 @@ function CreativePanel({ user }) {
       setNewCreative({
         article: '',
         links: [''],
-        work_types: []
+        work_types: [],
+        link_titles: []
       });
       setShowCreateModal(false);
 
       // Обновляем список креативов
       await loadCreatives();
-      setSuccess('Креатив успешно создан');
+      setSuccess('Креатив успешно создан с извлеченными названиями файлов');
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
+      setExtractingTitles(false);
     } finally {
       setCreating(false);
     }
@@ -366,17 +380,24 @@ function CreativePanel({ user }) {
                       Ссылки ({creative.links.length})
                     </h4>
                     <div className="max-h-24 overflow-y-auto space-y-1">
-                      {creative.links.map((link, index) => (
-                        <a
-                          key={index}
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
-                        >
-                          🎬 Видео {index + 1}
-                        </a>
-                      ))}
+                      {creative.links.map((link, index) => {
+                        const title = creative.link_titles && creative.link_titles[index] 
+                          ? formatFileName(creative.link_titles[index], 25)
+                          : `Видео ${index + 1}`;
+                        
+                        return (
+                          <a
+                            key={index}
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
+                            title={creative.link_titles && creative.link_titles[index] ? creative.link_titles[index] : link}
+                          >
+                            🎬 {title}
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -400,8 +421,10 @@ function CreativePanel({ user }) {
                   setNewCreative({
                     article: '',
                     links: [''],
-                    work_types: []
+                    work_types: [],
+                    link_titles: []
                   });
+                  setExtractingTitles(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
