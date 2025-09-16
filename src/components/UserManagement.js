@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { userService } from '../supabaseClient';
-import { 
-  Plus, 
-  Trash2, 
-  RefreshCw, 
-  AlertCircle, 
-  Users, 
+import {
+  Plus,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
+  Users,
   Shield,
   User,
   X,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  Monitor,
+  Video
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -22,7 +24,7 @@ function UserManagement({ user }) {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -37,8 +39,10 @@ function UserManagement({ user }) {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const buyersData = await userService.getAllBuyers();
-      setUsers(buyersData);
+      const usersData = await userService.getAllUsers();
+      // Исключаем тимлидов из списка для отображения
+      const filteredUsers = usersData.filter(u => u.role !== 'teamlead');
+      setUsers(filteredUsers);
     } catch (error) {
       setError('Ошибка загрузки пользователей: ' + error.message);
     } finally {
@@ -60,9 +64,9 @@ function UserManagement({ user }) {
     try {
       setCreating(true);
       setError('');
-      
+
       await userService.createUser(newUser);
-      
+
       // Очищаем форму и закрываем модал
       setNewUser({
         name: '',
@@ -71,7 +75,7 @@ function UserManagement({ user }) {
         role: 'buyer'
       });
       setShowCreateModal(false);
-      
+
       // Обновляем список пользователей
       await loadUsers();
     } catch (error) {
@@ -107,6 +111,53 @@ function UserManagement({ user }) {
     });
   };
 
+  const getRoleDisplayName = (role) => {
+    switch (role) {
+      case 'buyer':
+        return 'Байер';
+      case 'editor':
+        return 'Монтажер';
+      case 'teamlead':
+        return 'Тим лид';
+      default:
+        return 'Пользователь';
+    }
+  };
+
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'buyer':
+        return <Users className="h-6 w-6 text-blue-600" />;
+      case 'editor':
+        return <Monitor className="h-6 w-6 text-purple-600" />;
+      case 'teamlead':
+        return <Shield className="h-6 w-6 text-green-600" />;
+      default:
+        return <User className="h-6 w-6 text-gray-600" />;
+    }
+  };
+
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'buyer':
+        return 'bg-blue-100 text-blue-800';
+      case 'editor':
+        return 'bg-purple-100 text-purple-800';
+      case 'teamlead':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getUserStats = () => {
+    const buyersCount = users.filter(u => u.role === 'buyer').length;
+    const editorsCount = users.filter(u => u.role === 'editor').length;
+    return { buyersCount, editorsCount };
+  };
+
+  const { buyersCount, editorsCount } = getUserStats();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -128,7 +179,7 @@ function UserManagement({ user }) {
               Управление пользователями
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Создание и удаление аккаунтов байеров
+              Создание и удаление аккаунтов байеров и монтажеров
             </p>
           </div>
           <div className="flex space-x-3">
@@ -159,7 +210,7 @@ function UserManagement({ user }) {
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
             <div className="p-5">
               <div className="flex items-center">
@@ -169,10 +220,30 @@ function UserManagement({ user }) {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Всего байеров
+                      Байеров
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {users.length}
+                      {buyersCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Monitor className="h-8 w-8 text-purple-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Монтажеров
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {editorsCount}
                     </dd>
                   </dl>
                 </div>
@@ -189,7 +260,7 @@ function UserManagement({ user }) {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Активных пользователей
+                      Всего активных
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {users.length}
@@ -207,7 +278,7 @@ function UserManagement({ user }) {
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
               Список пользователей
             </h3>
-            
+
             {users.length === 0 ? (
               <div className="text-center py-8">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -261,7 +332,7 @@ function UserManagement({ user }) {
                                   />
                                 ) : null}
                                 <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
-                                  <User className="h-6 w-6 text-blue-600" />
+                                  {getRoleIcon(currentUser.role)}
                                 </div>
                               </div>
                             </div>
@@ -276,8 +347,8 @@ function UserManagement({ user }) {
                           <div className="text-sm text-gray-900">{currentUser.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Байер
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
+                            {getRoleDisplayName(currentUser.role)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -385,8 +456,14 @@ function UserManagement({ user }) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="buyer">Байер</option>
+                  <option value="editor">Монтажер</option>
                   <option value="teamlead">Тим лид</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
+                  {newUser.role === 'editor' && 'Доступ к управлению креативами'}
+                  {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                </p>
               </div>
             </div>
 
