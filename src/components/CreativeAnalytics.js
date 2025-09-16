@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { creativeService, userService } from '../supabaseClient';
-import {
+import { 
   BarChart3,
   Users,
   Calendar,
@@ -40,7 +40,7 @@ function CreativeAnalytics({ user }) {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-
+      
       // Загружаем все креативы и монтажеров
       const [creativesData, editorsData] = await Promise.all([
         creativeService.getAllCreatives(),
@@ -48,7 +48,7 @@ function CreativeAnalytics({ user }) {
       ]);
 
       const editors = editorsData.filter(u => u.role === 'editor');
-
+      
       // Фильтруем креативы по выбранному монтажеру
       let filteredCreatives = creativesData;
       if (selectedEditor !== 'all') {
@@ -94,9 +94,9 @@ function CreativeAnalytics({ user }) {
             count: editorCreatives.length,
             types: {}
           };
-
+          
           editorCreatives.forEach(creative => {
-            editorStats[editor.id].types[creative.work_type] =
+            editorStats[editor.id].types[creative.work_type] = 
               (editorStats[editor.id].types[creative.work_type] || 0) + 1;
           });
         }
@@ -118,14 +118,21 @@ function CreativeAnalytics({ user }) {
   };
 
   const formatKyivTime = (dateString) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      timeZone: 'Europe/Kiev',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false  // Добавляем 24-часовой формат
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU');
+    }
   };
 
   const getWorkTypeIcon = (workType) => {
@@ -220,7 +227,7 @@ function CreativeAnalytics({ user }) {
             <Filter className="h-4 w-4 text-gray-500" />
             <span className="text-sm font-medium text-gray-700">Фильтры:</span>
           </div>
-
+          
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -339,25 +346,25 @@ function CreativeAnalytics({ user }) {
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                 Статистика по типам работ
               </h3>
-
+              
               {Object.keys(analytics.workTypeStats).length === 0 ? (
                 <p className="text-gray-500 text-center py-4">Нет данных за выбранный период</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(analytics.workTypeStats)
-                    .sort(([, a], [, b]) => b - a)
+                    .sort(([,a], [,b]) => b - a)
                     .slice(0, 10)
                     .map(([workType, count]) => (
-                      <div key={workType} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(workType)}`}>
-                            {getWorkTypeIcon(workType)}
-                            <span className="ml-1">{workType}</span>
-                          </span>
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">{count}</span>
+                    <div key={workType} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(workType)}`}>
+                          {getWorkTypeIcon(workType)}
+                          <span className="ml-1">{workType}</span>
+                        </span>
                       </div>
-                    ))}
+                      <span className="text-sm font-medium text-gray-900">{count}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -369,36 +376,36 @@ function CreativeAnalytics({ user }) {
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                 Статистика по монтажерам
               </h3>
-
+              
               {Object.keys(analytics.editorStats).length === 0 ? (
                 <p className="text-gray-500 text-center py-4">Нет данных за выбранный период</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(analytics.editorStats)
-                    .sort(([, a], [, b]) => b.count - a.count)
+                    .sort(([,a], [,b]) => b.count - a.count)
                     .map(([editorId, stats]) => (
-                      <div key={editorId} className="border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-gray-500" />
-                            <span className="font-medium text-gray-900">{stats.name}</span>
-                          </div>
-                          <span className="text-sm font-medium text-blue-600">{stats.count} креативов</span>
+                    <div key={editorId} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4 text-gray-500" />
+                          <span className="font-medium text-gray-900">{stats.name}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(stats.types).slice(0, 3).map(([type, count]) => (
-                            <span key={type} className="text-xs px-2 py-1 bg-gray-100 rounded">
-                              {type}: {count}
-                            </span>
-                          ))}
-                          {Object.keys(stats.types).length > 3 && (
-                            <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                              +{Object.keys(stats.types).length - 3} еще
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-sm font-medium text-blue-600">{stats.count} креативов</span>
                       </div>
-                    ))}
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(stats.types).slice(0, 3).map(([type, count]) => (
+                          <span key={type} className="text-xs px-2 py-1 bg-gray-100 rounded">
+                            {type}: {count}
+                          </span>
+                        ))}
+                        {Object.keys(stats.types).length > 3 && (
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+                            +{Object.keys(stats.types).length - 3} еще
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -411,7 +418,7 @@ function CreativeAnalytics({ user }) {
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
               Последние креативы
             </h3>
-
+            
             {analytics.creatives.length === 0 ? (
               <p className="text-gray-500 text-center py-4">Нет креативов за выбранный период</p>
             ) : (
