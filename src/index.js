@@ -1,3 +1,6 @@
+// Исправленный index.js без ServiceWorker
+// Замените содержимое src/index.js
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -13,15 +16,4 @@ root.render(
   </React.StrictMode>
 );
 
-// Регистрируем service worker для PWA (опционально)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}
+// Убираем регистрацию ServiceWorker чтобы избежать ошибки 404
