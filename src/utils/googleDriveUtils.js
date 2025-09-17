@@ -1,6 +1,5 @@
-// ПОЛНОСТЬЮ РАБОЧЕЕ извлечение названий файлов из Google Drive
-// Версия 2.0 - Множество проверенных методов для получения РЕАЛЬНЫХ названий
-// Обновлено для поддержки ВСЕХ типов Google Drive ссылок
+// ФИНАЛЬНЫЙ googleDriveUtils.js с РЕАЛЬНЫМИ API ключами
+// Готов к использованию - замените содержимое src/utils/googleDriveUtils.js
 
 /**
  * Извлекает File ID из различных форматов Google Drive ссылок
@@ -27,14 +26,14 @@ export const extractFileIdFromUrl = (url) => {
 
 /**
  * ГЛАВНАЯ функция для получения названия файла
- * Пробует все доступные методы
+ * Пробует все доступные методы с вашими API ключами
  */
 export const getFileInfo = async (fileId) => {
   if (!fileId) return null;
   
   console.log(`🔍 Ищем название для файла: ${fileId}`);
 
-  // Метод 1: Google Drive API v3 (САМЫЙ НАДЕЖНЫЙ)
+  // Метод 1: Google Drive API v3 с ВАШИМИ ключами (САМЫЙ НАДЕЖНЫЙ)
   try {
     const title = await getFileNameViaAPIv3(fileId);
     if (title && isValidTitle(title)) {
@@ -45,51 +44,7 @@ export const getFileInfo = async (fileId) => {
     console.log('API v3 метод не сработал:', error.message);
   }
 
-  // Метод 2: Публичные метаданные через embed
-  try {
-    const title = await getFileNameViaEmbed(fileId);
-    if (title && isValidTitle(title)) {
-      console.log(`✅ Получено через embed: "${title}"`);
-      return { name: title, mimeType: 'video/mp4', id: fileId };
-    }
-  } catch (error) {
-    console.log('Embed метод не сработал:', error.message);
-  }
-
-  // Метод 3: Через RSS feed
-  try {
-    const title = await getFileNameViaRSS(fileId);
-    if (title && isValidTitle(title)) {
-      console.log(`✅ Получено через RSS: "${title}"`);
-      return { name: title, mimeType: 'video/mp4', id: fileId };
-    }
-  } catch (error) {
-    console.log('RSS метод не сработал:', error.message);
-  }
-
-  // Метод 4: Через экспорт ссылку
-  try {
-    const title = await getFileNameViaExport(fileId);
-    if (title && isValidTitle(title)) {
-      console.log(`✅ Получено через export: "${title}"`);
-      return { name: title, mimeType: 'video/mp4', id: fileId };
-    }
-  } catch (error) {
-    console.log('Export метод не сработал:', error.message);
-  }
-
-  // Метод 5: Через альтернативный API endpoint
-  try {
-    const title = await getFileNameViaAlternativeAPI(fileId);
-    if (title && isValidTitle(title)) {
-      console.log(`✅ Получено через альтернативный API: "${title}"`);
-      return { name: title, mimeType: 'video/mp4', id: fileId };
-    }
-  } catch (error) {
-    console.log('Альтернативный API не сработал:', error.message);
-  }
-
-  // Метод 6: Через ваш Netlify endpoint (улучшенный)
+  // Метод 2: Через Netlify функцию (серверная сторона)
   try {
     const title = await getFileNameViaNetlify(fileId);
     if (title && isValidTitle(title)) {
@@ -100,6 +55,17 @@ export const getFileInfo = async (fileId) => {
     console.log('Netlify метод не сработал:', error.message);
   }
 
+  // Метод 3: Публичные метаданные через embed
+  try {
+    const title = await getFileNameViaEmbed(fileId);
+    if (title && isValidTitle(title)) {
+      console.log(`✅ Получено через embed: "${title}"`);
+      return { name: title, mimeType: 'video/mp4', id: fileId };
+    }
+  } catch (error) {
+    console.log('Embed метод не сработал:', error.message);
+  }
+
   // Умный fallback
   const smartName = generateContextualFallback(fileId);
   console.log(`🤖 Используем контекстный fallback: "${smartName}"`);
@@ -108,14 +74,13 @@ export const getFileInfo = async (fileId) => {
 };
 
 /**
- * МЕТОД 1: Google Drive API v3 с публичными ключами
+ * МЕТОД 1: Google Drive API v3 с ВАШИМИ РЕАЛЬНЫМИ ключами
  */
 const getFileNameViaAPIv3 = async (fileId) => {
-  // Несколько публичных API ключей (ротация для надежности)
+  // ВАШИ РЕАЛЬНЫЕ API ключи
   const apiKeys = [
-    'AIzaSyBGpgdq8pSFxMQ5f7XpP7VKJ8xQA0cN1xE', // Публичный ключ 1
-    'AIzaSyC8A8K5q9B7xCpVQhA3GqJ8ZaXpF5yL1wE', // Публичный ключ 2
-    'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q'  // Публичный ключ 3
+    'AIzaSyAgBZt6xX69phg8vD2NUcrXtsVCFxrVV1w', // ✅ ВАШ КЛЮЧ 1
+    'AIzaSyDxrdk_ipzlUefe49uiEslMWt7laGdz4OU', // ✅ ВАШ КЛЮЧ 2
   ];
 
   for (const apiKey of apiKeys) {
@@ -126,6 +91,7 @@ const getFileNameViaAPIv3 = async (fileId) => {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
+            'User-Agent': 'DriveMetadataExtractor/1.0'
           }
         }
       );
@@ -133,140 +99,18 @@ const getFileNameViaAPIv3 = async (fileId) => {
       if (response.ok) {
         const data = await response.json();
         if (data.name) {
+          console.log(`✅ API ключ ${apiKey.substring(0, 15)}... сработал`);
           return cleanFileName(data.name);
         }
+      } else if (response.status === 403) {
+        console.log(`⚠️ API ключ ${apiKey.substring(0, 15)}... исчерпан, пробуем следующий`);
+        continue;
+      } else if (response.status === 404) {
+        console.log('❌ Файл не найден или приватный');
+        return null;
       }
     } catch (error) {
-      continue; // Пробуем следующий ключ
-    }
-  }
-  
-  return null;
-};
-
-/**
- * МЕТОД 2: Через embed viewer (часто работает даже для приватных файлов)
- */
-const getFileNameViaEmbed = async (fileId) => {
-  try {
-    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-    
-    const response = await fetch(embedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-
-    if (response.ok) {
-      const html = await response.text();
-      return extractTitleFromHTML(html);
-    }
-  } catch (error) {
-    throw error;
-  }
-  
-  return null;
-};
-
-/**
- * МЕТОД 3: Через RSS feed метаданные
- */
-const getFileNameViaRSS = async (fileId) => {
-  try {
-    // Google Drive поддерживает RSS для некоторых файлов
-    const rssUrl = `https://drive.google.com/feeds/default/private/full/${fileId}`;
-    
-    const response = await fetch(rssUrl, {
-      headers: {
-        'Accept': 'application/atom+xml, application/xml, text/xml',
-        'User-Agent': 'Mozilla/5.0 Feed Reader'
-      }
-    });
-
-    if (response.ok) {
-      const xml = await response.text();
-      
-      // Ищем название в XML
-      const titleMatch = xml.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (titleMatch && titleMatch[1]) {
-        const title = titleMatch[1].trim();
-        if (isValidTitle(title)) {
-          return cleanFileName(title);
-        }
-      }
-    }
-  } catch (error) {
-    throw error;
-  }
-  
-  return null;
-};
-
-/**
- * МЕТОД 4: Через export URL с Content-Disposition
- */
-const getFileNameViaExport = async (fileId) => {
-  try {
-    const exportUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    
-    const response = await fetch(exportUrl, {
-      method: 'HEAD',
-      redirect: 'manual',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    // Проверяем Content-Disposition header
-    const contentDisposition = response.headers.get('content-disposition');
-    if (contentDisposition) {
-      const matches = [
-        /filename\*=UTF-8''([^;]+)/,
-        /filename="([^"]+)"/,
-        /filename=([^;]+)/
-      ];
-
-      for (const regex of matches) {
-        const match = contentDisposition.match(regex);
-        if (match && match[1]) {
-          let filename = decodeURIComponent(match[1]);
-          return cleanFileName(filename);
-        }
-      }
-    }
-  } catch (error) {
-    throw error;
-  }
-  
-  return null;
-};
-
-/**
- * МЕТОД 5: Альтернативные API endpoints
- */
-const getFileNameViaAlternativeAPI = async (fileId) => {
-  const endpoints = [
-    `https://api.allorigins.win/get?url=${encodeURIComponent(`https://drive.google.com/file/d/${fileId}/view`)}`,
-    `https://cors-anywhere.herokuapp.com/https://drive.google.com/file/d/${fileId}/view`,
-    `https://crossorigin.me/https://drive.google.com/file/d/${fileId}/view`
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const html = data.contents || data.data;
-        
-        if (html) {
-          const title = extractTitleFromHTML(html);
-          if (title && isValidTitle(title)) {
-            return cleanFileName(title);
-          }
-        }
-      }
-    } catch (error) {
+      console.log(`❌ API ключ ${apiKey.substring(0, 15)}... ошибка:`, error.message);
       continue;
     }
   }
@@ -275,7 +119,7 @@ const getFileNameViaAlternativeAPI = async (fileId) => {
 };
 
 /**
- * МЕТОД 6: Улучшенный Netlify endpoint
+ * МЕТОД 2: Через Netlify функцию (серверная сторона)
  */
 const getFileNameViaNetlify = async (fileId) => {
   try {
@@ -301,13 +145,37 @@ const getFileNameViaNetlify = async (fileId) => {
 };
 
 /**
+ * МЕТОД 3: Через embed viewer (часто работает даже для приватных файлов)
+ */
+const getFileNameViaEmbed = async (fileId) => {
+  try {
+    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    
+    const response = await fetch(embedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      return extractTitleFromHTML(html);
+    }
+  } catch (error) {
+    throw error;
+  }
+  
+  return null;
+};
+
+/**
  * Извлечение названия из HTML с улучшенным парсингом
  */
 const extractTitleFromHTML = (html) => {
   if (!html) return null;
 
   const patterns = [
-    // Основной title
+    // Основной title tag
     /<title[^>]*>([^<]+)<\/title>/i,
     // Open Graph title
     /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
@@ -319,8 +187,8 @@ const extractTitleFromHTML = (html) => {
     /"name"\s*:\s*"([^"]+)"/i,
     // Data attributes
     /data-title=["']([^"']+)["']/i,
-    // Alt attributes в img
-    /alt=["']([^"']+\.(?:mp4|avi|mov|mkv|webm|m4v|jpg|jpeg|png))["']/i
+    // JavaScript переменные
+    /var\s+title\s*=\s*["']([^"']+)["']/i,
   ];
 
   for (const pattern of patterns) {
@@ -521,10 +389,10 @@ export const getContentTypeIcon = (mimeType) => {
 };
 
 /**
- * Тестовая функция для проверки работы
+ * Тестовая функция для проверки работы с вашими ключами
  */
 export const testFileExtraction = async (fileId) => {
-  console.log(`🧪 Тестируем извлечение для файла: ${fileId}`);
+  console.log(`🧪 Тестируем извлечение с ВАШИМИ ключами для файла: ${fileId}`);
   
   const result = await getFileInfo(fileId);
   
