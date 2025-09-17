@@ -1,7 +1,7 @@
 {
   "name": "buyer-dashboard-system",
-  "version": "1.0.0",
-  "description": "Система управления рабочими таблицами байеров с реальным временем",
+  "version": "1.1.0",
+  "description": "Система управления рабочими таблицами байеров с реальным временем и метриками рекламы",
   "homepage": ".",
   "private": true,
   "dependencies": {
@@ -23,13 +23,24 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "deploy": "npm run build && npx netlify deploy --prod --dir=build"
+    "deploy": "npm run build && npx netlify deploy --prod --dir=build",
+    "analyze": "npm run build && npx bundle-analyzer build/static/js/*.js",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write 'src/**/*.{js,jsx,ts,tsx,json,css,md}'",
+    "type-check": "tsc --noEmit",
+    "metrics:test": "node scripts/testMetricsAPI.js"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-console": ["warn", { "allow": ["warn", "error"] }],
+      "react-hooks/exhaustive-deps": "warn",
+      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    }
   },
   "browserslist": {
     "production": [
@@ -52,12 +63,59 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.17"
+    "prettier": "^3.2.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.3.3"
   },
   "proxy": "http://localhost:3000",
   "engines": {
     "node": ">=16.0.0",
     "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "react",
+    "dashboard",
+    "buyers",
+    "creatives",
+    "metrics",
+    "supabase",
+    "ads-analytics"
+  ],
+  "author": "Your Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourcompany/buyer-dashboard-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourcompany/buyer-dashboard-system/issues"
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/index.js",
+      "!src/serviceWorker.js",
+      "!src/**/*.test.{js,jsx,ts,tsx}"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
   }
 }
