@@ -1,4 +1,4 @@
-// Обновленный supabaseClient.js с интеграцией MetricsService через прокси
+// Обновленный supabaseClient.js с поддержкой комментариев к креативам
 // Замените содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
@@ -456,28 +456,41 @@ export const cellService = {
   }
 };
 
-// Функции для работы с креативами
+// Функции для работы с креативами - ОБНОВЛЕНО с поддержкой комментариев
 export const creativeService = {
   // Создать новый креатив
   async createCreative(creativeData) {
-    // Используем текущее время - Supabase автоматически установит правильное время
+    console.log('📝 Создание креатива с данными:', {
+      article: creativeData.article,
+      linksCount: creativeData.links?.length || 0,
+      workTypesCount: creativeData.work_types?.length || 0,
+      hasComment: !!creativeData.comment,
+      cof_rating: creativeData.cof_rating
+    });
+
     const { data, error } = await supabase
       .from('creatives')
       .insert([
         {
           user_id: creativeData.user_id,
-          editor_name: creativeData.editor_name, // Добавляем имя монтажера
+          editor_name: creativeData.editor_name,
           article: creativeData.article,
           links: creativeData.links,
           link_titles: creativeData.link_titles || [],
           work_types: creativeData.work_types,
-          cof_rating: creativeData.cof_rating // Добавляем COF оценку
+          cof_rating: creativeData.cof_rating,
+          comment: creativeData.comment || null // Добавляем поддержку комментария
           // created_at и updated_at установятся автоматически через DEFAULT NOW()
         }
       ])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка создания креатива:', error);
+      throw error;
+    }
+
+    console.log('✅ Креатив создан успешно:', data[0]);
     return data[0];
   },
 
@@ -499,6 +512,10 @@ export const creativeService = {
       
       const result = data || [];
       console.log('✅ getUserCreatives завершен, получено креативов:', result.length);
+      
+      // Показываем статистику комментариев
+      const withComments = result.filter(c => c.comment && c.comment.trim());
+      console.log('💬 Креативов с комментариями:', withComments.length);
       
       return result;
       
@@ -543,9 +560,14 @@ export const creativeService = {
           work_types: result[0].work_types,
           cof_rating: result[0].cof_rating,
           editor_name: result[0].editor_name,
+          hasComment: !!result[0].comment,
           hasUsers: !!result[0].users
         });
       }
+      
+      // Показываем статистику комментариев
+      const withComments = result.filter(c => c.comment && c.comment.trim());
+      console.log('💬 Креативов с комментариями:', withComments.length);
       
       return result;
       
@@ -558,6 +580,8 @@ export const creativeService = {
 
   // Обновить креатив
   async updateCreative(creativeId, updates) {
+    console.log('📝 Обновление креатива:', creativeId, updates);
+
     const { data, error } = await supabase
       .from('creatives')
       .update({
@@ -567,18 +591,37 @@ export const creativeService = {
       .eq('id', creativeId)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка обновления креатива:', error);
+      throw error;
+    }
+
+    console.log('✅ Креатив обновлен:', data[0]);
     return data[0];
+  },
+
+  // Обновить комментарий к креативу
+  async updateCreativeComment(creativeId, comment) {
+    return this.updateCreative(creativeId, { 
+      comment: comment && comment.trim() ? comment.trim() : null 
+    });
   },
 
   // Удалить креатив
   async deleteCreative(creativeId) {
+    console.log('🗑️ Удаление креатива:', creativeId);
+
     const { error } = await supabase
       .from('creatives')
       .delete()
       .eq('id', creativeId);
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка удаления креатива:', error);
+      throw error;
+    }
+
+    console.log('✅ Креатив удален');
   },
 
   // Подписаться на изменения креативов пользователя
