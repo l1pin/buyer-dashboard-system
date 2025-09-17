@@ -186,7 +186,7 @@ function CreativeMetrics({ creative, showDetails = true, size = 'normal' }) {
           </div>
           <div className="text-center">
             <div className={`font-medium ${getMetricColor('cpl', metrics.formatted.cpl)}`}>
-              {metrics.formatted.cpl}₴
+              {metrics.formatted.cpl}
             </div>
             <div className="text-gray-500">CPL</div>
           </div>
@@ -249,7 +249,7 @@ function CreativeMetrics({ creative, showDetails = true, size = 'normal' }) {
             <span className="text-xs font-medium text-green-600">CPL</span>
           </div>
           <div className={`text-lg font-bold ${getMetricColor('cpl', metrics.formatted.cpl)}`}>
-            {metrics.formatted.cpl}₴
+            {metrics.formatted.cpl}
           </div>
         </div>
 
@@ -272,7 +272,7 @@ function CreativeMetrics({ creative, showDetails = true, size = 'normal' }) {
               <DollarSign className="h-3 w-3 text-gray-500 mr-1" />
               <span className="text-gray-600">Расходы:</span>
             </div>
-            <span className="font-medium text-gray-900">{metrics.formatted.cost}₴</span>
+            <span className="font-medium text-gray-900">{metrics.formatted.cost}</span>
           </div>
 
           <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -280,7 +280,7 @@ function CreativeMetrics({ creative, showDetails = true, size = 'normal' }) {
               <MousePointer className="h-3 w-3 text-gray-500 mr-1" />
               <span className="text-gray-600">CPC:</span>
             </div>
-            <span className="font-medium text-gray-900">{metrics.formatted.cpc}₴</span>
+            <span className="font-medium text-gray-900">{metrics.formatted.cpc}</span>
           </div>
 
           <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -288,7 +288,7 @@ function CreativeMetrics({ creative, showDetails = true, size = 'normal' }) {
               <Eye className="h-3 w-3 text-gray-500 mr-1" />
               <span className="text-gray-600">CPM:</span>
             </div>
-            <span className="font-medium text-gray-900">{metrics.formatted.cpm}₴</span>
+            <span className="font-medium text-gray-900">{metrics.formatted.cpm}</span>
           </div>
 
           <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
