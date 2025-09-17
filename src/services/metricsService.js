@@ -1,4 +1,4 @@
-// Обновленный MetricsService.js с исправленным форматированием валют
+// Обновленный MetricsService.js без источника Facebook и с подсчетом дней
 // Замените содержимое src/services/metricsService.js
 
 // Определяем URL в зависимости от окружения
@@ -13,25 +13,24 @@ const getApiUrl = () => {
 };
 
 const METRICS_API_URL = getApiUrl();
-const DB_SOURCE = "facebook";
 const TIMEZONE = "Europe/Kiev";
 
 export class MetricsService {
   /**
    * Построение SQL запроса для агрегированных данных по имени видео
    */
-  static buildAggregateSqlForVideo(videoName, source = DB_SOURCE) {
+  static buildAggregateSqlForVideo(videoName) {
     const escapedVideoName = this.sqlEscapeLiteral(videoName);
-    const escapedSource = this.sqlEscapeLiteral(source);
     
     return `
       SELECT
         COALESCE(SUM(valid), 0)                       AS leads,
         COALESCE(SUM(cost), 0)                        AS cost,
         COALESCE(SUM(clicks_on_link_tracker), 0)      AS clicks,
-        COALESCE(SUM(showed), 0)                      AS impressions
+        COALESCE(SUM(showed), 0)                      AS impressions,
+        COUNT(DISTINCT adv_date)                      AS days_count
       FROM ads_collection
-      WHERE source='${escapedSource}' AND video_name='${escapedVideoName}'
+      WHERE video_name='${escapedVideoName}'
     `;
   }
 
@@ -123,7 +122,8 @@ export class MetricsService {
         leads: 0,
         cost: 0,
         clicks: 0,
-        impressions: 0
+        impressions: 0,
+        days_count: 0
       };
     }
 
@@ -134,7 +134,8 @@ export class MetricsService {
         leads: Number(row.leads) || 0,
         cost: Number(row.cost) || 0,
         clicks: Number(row.clicks) || 0,
-        impressions: Number(row.impressions) || 0
+        impressions: Number(row.impressions) || 0,
+        days_count: Number(row.days_count) || 0
       };
     }
 
@@ -148,14 +149,15 @@ export class MetricsService {
       leads: Number(map.leads) || 0,
       cost: Number(map.cost) || 0,
       clicks: Number(map.clicks) || 0,
-      impressions: Number(map.impressions) || 0
+      impressions: Number(map.impressions) || 0,
+      days_count: Number(map.days_count) || 0
     };
   }
 
   /**
    * Вычисление производных метрик
    */
-  static computeDerivedMetrics({ leads, cost, clicks, impressions }) {
+  static computeDerivedMetrics({ leads, cost, clicks, impressions, days_count }) {
     const fix2 = (x) => Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
     
     const CPL = leads > 0 ? cost / leads : 0;
@@ -168,6 +170,7 @@ export class MetricsService {
       cost: fix2(cost),
       clicks,
       impressions,
+      days_count,
       cpl: fix2(CPL),
       ctr_percent: fix2(CTR),
       cpc: fix2(CPC),
@@ -191,7 +194,8 @@ export class MetricsService {
       cpc: formatMoney(metrics.cpc),                     // CPC с $ после цифр
       cpm: formatMoney(metrics.cpm),                     // CPM с $ после цифр
       clicks: formatInt(metrics.clicks),
-      impressions: formatInt(metrics.impressions)
+      impressions: formatInt(metrics.impressions),
+      days: formatInt(metrics.days_count) + " дн."       // Количество дней
     };
   }
 
@@ -206,7 +210,7 @@ export class MetricsService {
     try {
       console.log(`🔍 Поиск метрик для видео: "${videoName}"`);
       
-      const sql = this.buildAggregateSqlForVideo(videoName, DB_SOURCE);
+      const sql = this.buildAggregateSqlForVideo(videoName);
       const dbResponse = await this.fetchFromDatabase(sql);
       
       if (!dbResponse || dbResponse.length === 0) {
@@ -239,7 +243,6 @@ export class MetricsService {
           raw: metrics,
           formatted: formatted,
           videoName: videoName,
-          source: DB_SOURCE,
           updatedAt: new Date().toLocaleString('ru-RU', {
             timeZone: TIMEZONE,
             year: 'numeric',
