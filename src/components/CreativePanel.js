@@ -6,9 +6,7 @@ import { creativeService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
-  checkGoogleAuth, 
-  requestGoogleAuth,
-  signOutGoogle 
+  ensureGoogleAuth
 } from '../utils/googleDriveUtils';
 import { 
   Plus, 
@@ -22,11 +20,7 @@ import {
   CheckCircle,
   Video,
   Image as ImageIcon,
-  User,
-  Shield,
-  ShieldCheck,
-  Key,
-  Info
+  User
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -36,8 +30,7 @@ function CreativePanel({ user }) {
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [isGoogleAuthorized, setIsGoogleAuthorized] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -79,7 +72,6 @@ function CreativePanel({ user }) {
 
   useEffect(() => {
     loadCreatives();
-    checkGoogleAuthStatus();
   }, []);
 
   const loadCreatives = async () => {
@@ -92,46 +84,6 @@ function CreativePanel({ user }) {
       setError('Ошибка загрузки креативов: ' + error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkGoogleAuthStatus = async () => {
-    try {
-      setCheckingAuth(true);
-      const isAuth = await checkGoogleAuth();
-      setIsGoogleAuthorized(isAuth);
-    } catch (error) {
-      console.log('Не удалось проверить статус авторизации Google');
-      setIsGoogleAuthorized(false);
-    } finally {
-      setCheckingAuth(false);
-    }
-  };
-
-  const handleGoogleAuth = async () => {
-    try {
-      setCheckingAuth(true);
-      const success = await requestGoogleAuth();
-      if (success) {
-        setIsGoogleAuthorized(true);
-        setSuccess('Google авторизация выполнена! Теперь можно извлекать названия приватных файлов.');
-      } else {
-        setError('Не удалось выполнить авторизацию Google');
-      }
-    } catch (error) {
-      setError('Ошибка авторизации Google: ' + error.message);
-    } finally {
-      setCheckingAuth(false);
-    }
-  };
-
-  const handleGoogleSignOut = async () => {
-    try {
-      await signOutGoogle();
-      setIsGoogleAuthorized(false);
-      setSuccess('Выход из Google аккаунта выполнен');
-    } catch (error) {
-      setError('Ошибка выхода из Google аккаунта: ' + error.message);
     }
   };
 
@@ -154,13 +106,23 @@ function CreativePanel({ user }) {
 
     try {
       setCreating(true);
-      setExtractingTitles(true);
       setError('');
       setSuccess('');
 
+      // Сначала обеспечиваем авторизацию Google
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setCreating(false);
+        return;
+      }
+
       // Извлекаем названия из ссылок
+      setExtractingTitles(true);
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      
       setExtractingTitles(false);
 
       await creativeService.createCreative({
@@ -183,14 +145,13 @@ function CreativePanel({ user }) {
       // Обновляем список креативов
       await loadCreatives();
       
-      const successMsg = titles.some(title => !title.startsWith('Видео ')) 
-        ? 'Креатив создан! Названия файлов успешно извлечены.'
-        : 'Креатив создан! Не удалось извлечь некоторые названия - проверьте доступ к файлам.';
-      
-      setSuccess(successMsg);
+      const successCount = titles.filter(title => !title.startsWith('Видео ')).length;
+      const totalCount = titles.length;
+      setSuccess(`Креатив создан! Извлечено названий: ${successCount}/${totalCount}`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
+      setAuthorizing(false);
     } finally {
       setCreating(false);
     }
@@ -337,37 +298,6 @@ function CreativePanel({ user }) {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            {/* Google Auth Status */}
-            <div className="flex items-center space-x-2">
-              {checkingAuth ? (
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-                  <span>Проверка...</span>
-                </div>
-              ) : isGoogleAuthorized ? (
-                <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-1 text-sm text-green-600">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>Google авторизован</span>
-                  </div>
-                  <button
-                    onClick={handleGoogleSignOut}
-                    className="text-xs text-gray-500 hover:text-gray-700 underline"
-                  >
-                    Выйти
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={handleGoogleAuth}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Key className="h-4 w-4 mr-2" />
-                  Авторизовать Google
-                </button>
-              )}
-            </div>
-
             <button
               onClick={loadCreatives}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -398,14 +328,6 @@ function CreativePanel({ user }) {
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {error}
-        </div>
-      )}
-
-      {/* Google Auth Info */}
-      {!isGoogleAuthorized && (
-        <div className="mx-6 mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <Info className="h-4 w-4 mr-2 flex-shrink-0" />
-          Для извлечения названий из приватных Google Drive файлов требуется авторизация.
         </div>
       )}
 
@@ -553,24 +475,6 @@ function CreativePanel({ user }) {
                 />
               </div>
 
-              {/* Google Auth Warning */}
-              {!isGoogleAuthorized && (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded-md text-sm">
-                  <div className="flex items-center space-x-2">
-                    <Shield className="h-4 w-4 flex-shrink-0" />
-                    <span>
-                      Для извлечения названий приватных файлов{' '}
-                      <button
-                        onClick={handleGoogleAuth}
-                        className="underline hover:no-underline font-medium"
-                      >
-                        авторизуйтесь в Google
-                      </button>
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {/* Links */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -675,10 +579,12 @@ function CreativePanel({ user }) {
                 {creating ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {extractingTitles ? 'Извлекаем названия...' : 'Добавление...'}
+                    {authorizing ? 'Авторизация Google...' : 
+                     extractingTitles ? 'Извлечение названий...' : 
+                     'Создание...'}
                   </div>
                 ) : (
-                  'Добавить'
+                  'Создать креатив'
                 )}
               </button>
             </div>
