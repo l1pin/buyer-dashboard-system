@@ -203,12 +203,17 @@ function CreativePanel({ user }) {
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
       setExtractingTitles(false);
 
+      // Вычисляем COF для сохранения в базе данных
+      const cofRating = calculateCOF(newCreative.work_types);
+
       await creativeService.createCreative({
         user_id: user.id,
+        editor_name: user.name, // Добавляем имя монтажера
         article: newCreative.article.trim(),
         links: links,
         link_titles: titles,
-        work_types: newCreative.work_types
+        work_types: newCreative.work_types,
+        cof_rating: cofRating // Добавляем COF оценку
       });
 
       setNewCreative({
