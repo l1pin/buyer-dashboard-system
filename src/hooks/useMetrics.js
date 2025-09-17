@@ -308,18 +308,18 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
 
   const formatStats = useCallback(() => {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
-    const formatMoney = (n) => (Number(n) || 0).toFixed(2).replace(".", ",");
-    const formatPercent = (n) => (Number(n) || 0).toFixed(2).replace(".", ",") + "%";
+    const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
+    const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
 
     return {
       totalLeads: formatInt(stats.totalLeads),
-      totalCost: formatMoney(stats.totalCost),
+      totalCost: formatMoney(stats.totalCost),           // Расходы с $ после цифр
       totalClicks: formatInt(stats.totalClicks),
       totalImpressions: formatInt(stats.totalImpressions),
-      avgCPL: formatMoney(stats.avgCPL),
-      avgCTR: formatPercent(stats.avgCTR),
-      avgCPC: formatMoney(stats.avgCPC),
-      avgCPM: formatMoney(stats.avgCPM),
+      avgCPL: formatMoney(stats.avgCPL),                 // CPL с $ после цифр
+      avgCTR: formatPercent(stats.avgCTR),               // CTR в %
+      avgCPC: formatMoney(stats.avgCPC),                 // CPC с $ после цифр
+      avgCPM: formatMoney(stats.avgCPM),                 // CPM с $ после цифр
       creativesWithMetrics: formatInt(stats.creativesWithMetrics),
       creativesWithoutMetrics: formatInt(stats.creativesWithoutMetrics),
       totalCreatives: formatInt(stats.creativesWithMetrics + stats.creativesWithoutMetrics),
