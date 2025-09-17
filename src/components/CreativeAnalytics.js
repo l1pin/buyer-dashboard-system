@@ -1,10 +1,11 @@
-// Обновленный CreativeAnalytics.js с интеграцией метрик рекламы
+// Обновленный CreativeAnalytics.js с исправленной интеграцией метрик
 // Замените содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
 import { creativeService, userService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { formatFileName } from '../utils/googleDriveUtils';
+import CreativeMetrics from './CreativeMetrics';
 import { 
   BarChart3,
   Users,
@@ -55,12 +56,13 @@ function CreativeAnalytics({ user }) {
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [showMetrics, setShowMetrics] = useState(true);
 
-  // Хуки for метрик
+  // Хуки for метрик - ИСПРАВЛЕНО: добавлена деструктуризация getCreativeMetrics
   const { 
     batchMetrics, 
     loading: metricsLoading, 
     error: metricsError,
     stats: metricsStats,
+    getCreativeMetrics,
     refresh: refreshMetrics 
   } = useBatchMetrics(analytics.creatives, showMetrics);
   
@@ -68,7 +70,7 @@ function CreativeAnalytics({ user }) {
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData 
-  } = useMetricsStats(analytics.creatives);
+  } = useMetricsStats(analytics.creatives, batchMetrics);
 
   const { 
     apiStatus, 
@@ -382,8 +384,8 @@ function CreativeAnalytics({ user }) {
         workTypes: analytics.workTypeStats,
         editors: analytics.editorStats,
         metricsApiStatus: apiStatus,
-        creativesWithMetrics: metricsStats.found,
-        creativesWithoutMetrics: metricsStats.total - metricsStats.found
+        creativesWithMetrics: metricsStats?.found || 0,
+        creativesWithoutMetrics: (metricsStats?.total || 0) - (metricsStats?.found || 0)
       };
 
       const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
@@ -851,8 +853,8 @@ function CreativeAnalytics({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        // Получаем метрики для этого креатива
-                        const creativeMetrics = showMetrics ? batchMetrics.getCreativeMetrics(creative.id) : null;
+                        // ИСПРАВЛЕНО: Используем getCreativeMetrics напрямую
+                        const creativeMetrics = showMetrics ? getCreativeMetrics(creative.id) : null;
                         
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
