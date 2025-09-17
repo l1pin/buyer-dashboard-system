@@ -1,48 +1,90 @@
-// Обновленный googleDriveUtils.js с OAuth авторизацией для Google Drive
+// Обновленный googleDriveUtils.js с новой Google Identity Services (GIS)
 // Замените содержимое src/utils/googleDriveUtils.js
 
 // Конфигурация Google OAuth
 const GOOGLE_CONFIG = {
   client_id: '570232776340-q495aojp96lvg75vbb54ud9ltp8u2kmn.apps.googleusercontent.com',
   api_key: 'AIzaSyAgBZt6xX69phg8vD2NUcrXtsVCFxrVV1w',
-  discovery_docs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-  scopes: 'https://www.googleapis.com/auth/drive.metadata.readonly'
+  scope: 'https://www.googleapis.com/auth/drive.metadata.readonly'
 };
 
 let gapi = null;
+let tokenClient = null;
 let isGapiInitialized = false;
+let currentAccessToken = null;
 
 /**
- * Инициализация Google API
+ * Загрузка Google API скриптов
+ */
+const loadGoogleScripts = async () => {
+  // Загружаем Google API Script
+  if (!window.gapi) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  // Загружаем Google Identity Services Script
+  if (!window.google?.accounts) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+};
+
+/**
+ * Инициализация Google API и GIS
  */
 const initializeGoogleAPI = async () => {
-  if (isGapiInitialized && gapi) {
-    return gapi;
+  if (isGapiInitialized) {
+    return { gapi, tokenClient };
   }
 
   try {
-    // Загружаем Google API Script
-    if (!window.gapi) {
-      await loadGoogleAPIScript();
-    }
-
+    // Загружаем скрипты
+    await loadGoogleScripts();
+    
     gapi = window.gapi;
 
-    // Инициализируем Google API
-    await new Promise((resolve, reject) => {
-      gapi.load('client:auth2', resolve);
+    // Инициализируем gapi client
+    await new Promise((resolve) => {
+      gapi.load('client', resolve);
     });
 
     await gapi.client.init({
       apiKey: GOOGLE_CONFIG.api_key,
-      clientId: GOOGLE_CONFIG.client_id,
-      discoveryDocs: GOOGLE_CONFIG.discovery_docs,
-      scope: GOOGLE_CONFIG.scopes
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+    });
+
+    // Инициализируем OAuth токен клиент
+    tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CONFIG.client_id,
+      scope: GOOGLE_CONFIG.scope,
+      callback: (response) => {
+        if (response.access_token) {
+          currentAccessToken = response.access_token;
+          gapi.client.setToken({ access_token: response.access_token });
+          console.log('Google авторизация успешна');
+        }
+      },
+      error_callback: (error) => {
+        console.error('Ошибка OAuth:', error);
+        currentAccessToken = null;
+      }
     });
 
     isGapiInitialized = true;
-    console.log('Google API инициализирован');
-    return gapi;
+    console.log('Google API и GIS инициализированы');
+    
+    return { gapi, tokenClient };
   } catch (error) {
     console.error('Ошибка инициализации Google API:', error);
     throw error;
@@ -50,43 +92,77 @@ const initializeGoogleAPI = async () => {
 };
 
 /**
- * Загрузка Google API Script
+ * Проверка авторизации
  */
-const loadGoogleAPIScript = () => {
-  return new Promise((resolve, reject) => {
-    if (window.gapi) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://apis.google.com/js/api.js';
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+export const checkGoogleAuth = async () => {
+  try {
+    await initializeGoogleAPI();
+    return !!currentAccessToken;
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+    return false;
+  }
 };
 
 /**
- * Авторизация пользователя в Google
+ * Запрос авторизации пользователя
  */
-const authorizeGoogleUser = async () => {
+export const requestGoogleAuth = async () => {
   try {
-    const gapi = await initializeGoogleAPI();
-    const authInstance = gapi.auth2.getAuthInstance();
+    await initializeGoogleAPI();
     
-    if (authInstance.isSignedIn.get()) {
-      console.log('Пользователь уже авторизован в Google');
-      return authInstance.currentUser.get();
-    }
+    return new Promise((resolve, reject) => {
+      // Обновляем callback для этого конкретного запроса
+      tokenClient.callback = (response) => {
+        if (response.access_token) {
+          currentAccessToken = response.access_token;
+          gapi.client.setToken({ access_token: response.access_token });
+          console.log('Google авторизация выполнена');
+          resolve(true);
+        } else {
+          reject(new Error('Не получен access token'));
+        }
+      };
+      
+      tokenClient.error_callback = (error) => {
+        console.error('Ошибка авторизации:', error);
+        currentAccessToken = null;
+        reject(error);
+      };
 
-    // Запрашиваем авторизацию
-    const user = await authInstance.signIn();
-    console.log('Пользователь авторизован в Google');
-    return user;
+      // Запрашиваем авторизацию
+      if (gapi.client.getToken() === null) {
+        // Prompt the user to select a Google Account and ask for consent to share their data
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      } else {
+        // Skip display of account chooser and consent dialog for an existing session.
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+    });
   } catch (error) {
-    console.error('Ошибка авторизации Google:', error);
-    throw error;
+    console.error('Ошибка запроса авторизации:', error);
+    return false;
+  }
+};
+
+/**
+ * Выход из Google аккаунта
+ */
+export const signOutGoogle = async () => {
+  try {
+    if (gapi && currentAccessToken) {
+      gapi.client.setToken(null);
+      currentAccessToken = null;
+      
+      // Отзываем токен
+      window.google.accounts.oauth2.revoke(currentAccessToken, () => {
+        console.log('Токен отозван');
+      });
+      
+      console.log('Выход из Google аккаунта выполнен');
+    }
+  } catch (error) {
+    console.error('Ошибка выхода из Google:', error);
   }
 };
 
@@ -113,18 +189,19 @@ export const extractFileIdFromUrl = (url) => {
 };
 
 /**
- * Получает название файла через OAuth авторизацию
+ * Получает название файла через OAuth (новый GIS способ)
  */
 const getFileNameViaOAuth = async (fileId) => {
   try {
-    const gapi = await initializeGoogleAPI();
-    const authInstance = gapi.auth2.getAuthInstance();
-
-    // Проверяем авторизацию
-    if (!authInstance.isSignedIn.get()) {
+    await initializeGoogleAPI();
+    
+    if (!currentAccessToken) {
       console.log('Требуется авторизация для доступа к приватным файлам');
-      await authorizeGoogleUser();
+      return null;
     }
+
+    // Устанавливаем токен перед запросом
+    gapi.client.setToken({ access_token: currentAccessToken });
 
     // Получаем информацию о файле
     const response = await gapi.client.drive.files.get({
@@ -137,18 +214,22 @@ const getFileNameViaOAuth = async (fileId) => {
     }
   } catch (error) {
     console.log('OAuth метод не сработал:', error);
-    // Если файл не найден или нет доступа, не выбрасываем ошибку
+    // Если файл не найден или нет доступа, возвращаем null
     if (error.status === 404 || error.status === 403) {
       return null;
     }
-    throw error;
+    // Если токен истек, сбрасываем его
+    if (error.status === 401) {
+      currentAccessToken = null;
+      gapi.client.setToken(null);
+    }
   }
   
   return null;
 };
 
 /**
- * Получает название файла через публичный API (для публичных файлов)
+ * Получает название файла через публичный API
  */
 const getFileNameViaPublicAPI = async (fileId) => {
   const apiKeys = [
@@ -181,24 +262,6 @@ const getFileNameViaPublicAPI = async (fileId) => {
 };
 
 /**
- * Получает название файла через альтернативные методы
- */
-const getFileNameViaAlternative = async (fileId) => {
-  try {
-    // Пытаемся получить название через встроенный просмотр
-    const response = await fetch(`https://drive.google.com/file/d/${fileId}/view`, {
-      method: 'HEAD',
-      mode: 'no-cors'
-    });
-    
-    // Этот метод может не работать из-за CORS, но попробуем
-    return null;
-  } catch (error) {
-    return null;
-  }
-};
-
-/**
  * Получает информацию о файле
  */
 export const getFileInfo = async (fileId, showAuthPrompt = true) => {
@@ -206,7 +269,7 @@ export const getFileInfo = async (fileId, showAuthPrompt = true) => {
   
   console.log(`Ищем название для файла: ${fileId}`);
 
-  // Метод 1: Пробуем OAuth авторизацию
+  // Метод 1: Пробуем OAuth авторизацию (новый GIS способ)
   if (showAuthPrompt) {
     try {
       const title = await getFileNameViaOAuth(fileId);
@@ -235,59 +298,24 @@ export const getFileInfo = async (fileId, showAuthPrompt = true) => {
     const response = await fetch(`/.netlify/functions/get-drive-title?fileId=${fileId}`);
     if (response.ok) {
       const data = await response.json();
-      if (data.title && isValidTitle(data.title)) {
+      
+      if (data.title && data.title !== null && isValidTitle(data.title)) {
         console.log(`✓ Получено через Netlify: "${data.title}"`);
         return { name: cleanFileName(data.title), mimeType: 'video/mp4', id: fileId };
       }
+      
+      if (data.title === null) {
+        console.log('Netlify функция не смогла получить название (файл приватный или не найден)');
+        return null;
+      }
     }
   } catch (error) {
-    console.log('Netlify метод не сработал:', error.message);
+    console.log('Ошибка запроса к Netlify функции:', error.message);
   }
 
   // Возвращаем null если ничего не получилось
   console.log(`✗ Не удалось получить название для файла ${fileId}`);
   return null;
-};
-
-/**
- * Проверка авторизации Google
- */
-export const checkGoogleAuth = async () => {
-  try {
-    const gapi = await initializeGoogleAPI();
-    const authInstance = gapi.auth2.getAuthInstance();
-    return authInstance.isSignedIn.get();
-  } catch (error) {
-    return false;
-  }
-};
-
-/**
- * Ручная авторизация Google (вызывается пользователем)
- */
-export const requestGoogleAuth = async () => {
-  try {
-    await authorizeGoogleUser();
-    return true;
-  } catch (error) {
-    console.error('Ошибка авторизации:', error);
-    return false;
-  }
-};
-
-/**
- * Выход из Google аккаунта
- */
-export const signOutGoogle = async () => {
-  try {
-    if (gapi) {
-      const authInstance = gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
-      console.log('Выход из Google аккаунта выполнен');
-    }
-  } catch (error) {
-    console.error('Ошибка выхода из Google:', error);
-  }
 };
 
 /**
