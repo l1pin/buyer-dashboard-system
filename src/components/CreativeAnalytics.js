@@ -30,7 +30,8 @@ import {
   XCircle,
   Globe,
   MessageCircle,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
