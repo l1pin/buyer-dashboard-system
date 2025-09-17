@@ -1,4 +1,4 @@
-// Обновленный CreativeAnalytics.js с исправленной интеграцией метрик
+// Обновленный CreativeAnalytics.js с поддержкой комментариев
 // Замените содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
@@ -28,7 +28,9 @@ import {
   Zap,
   CheckCircle,
   XCircle,
-  Globe
+  Globe,
+  MessageCircle,
+  FileText
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
@@ -45,7 +47,8 @@ function CreativeAnalytics({ user }) {
       totalCOF: 0,
       avgCOF: 0,
       todayCOF: 0,
-      weekCOF: 0
+      weekCOF: 0,
+      creativesWithComments: 0
     },
     workTypeStats: {},
     editorStats: {}
@@ -55,8 +58,10 @@ function CreativeAnalytics({ user }) {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [showMetrics, setShowMetrics] = useState(true);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedComment, setSelectedComment] = useState(null);
 
-  // Хуки for метрик - ИСПРАВЛЕНО: добавлена деструктуризация getCreativeMetrics
+  // Хуки для метрик
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -139,6 +144,17 @@ function CreativeAnalytics({ user }) {
     return 'bg-green-500 text-white border-green-500';
   };
 
+  // Функция для показа комментария
+  const showComment = (creative) => {
+    setSelectedComment({
+      article: creative.article,
+      comment: creative.comment,
+      createdAt: creative.created_at,
+      editorName: creative.editor_name
+    });
+    setShowCommentModal(true);
+  };
+
   const loadAnalytics = async () => {
     console.log('🚀 Начинаем загрузку аналитики с метриками...');
     
@@ -204,6 +220,9 @@ function CreativeAnalytics({ user }) {
       const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
       const avgCOF = filteredCreatives.length > 0 ? totalCOF / filteredCreatives.length : 0;
 
+      // Подсчитываем креативы с комментариями
+      const creativesWithComments = filteredCreatives.filter(c => c.comment && c.comment.trim()).length;
+
       const stats = {
         totalCreatives: filteredCreatives.length,
         totalEditors: editors.length,
@@ -212,10 +231,11 @@ function CreativeAnalytics({ user }) {
         totalCOF: totalCOF,
         avgCOF: avgCOF,
         todayCOF: todayCOF,
-        weekCOF: weekCOF
+        weekCOF: weekCOF,
+        creativesWithComments: creativesWithComments
       };
 
-      console.log('📈 Статистика COF:', stats);
+      console.log('📈 Статистика COF и комментариев:', stats);
 
       // Статистика по типам работ с COF
       const workTypeStats = {};
@@ -258,7 +278,8 @@ function CreativeAnalytics({ user }) {
             count: 0,
             totalCOF: 0,
             avgCOF: 0,
-            types: {}
+            types: {},
+            commentsCount: 0
           };
         }
 
@@ -266,6 +287,11 @@ function CreativeAnalytics({ user }) {
         
         const cof = calculateCreativeCOF(creative);
         editorStats[editorId].totalCOF += cof;
+        
+        // Подсчитываем комментарии
+        if (creative.comment && creative.comment.trim()) {
+          editorStats[editorId].commentsCount += 1;
+        }
         
         if (creative.work_types && Array.isArray(creative.work_types)) {
           creative.work_types.forEach(workType => {
@@ -312,7 +338,8 @@ function CreativeAnalytics({ user }) {
           totalCOF: 0,
           avgCOF: 0,
           todayCOF: 0,
-          weekCOF: 0
+          weekCOF: 0,
+          creativesWithComments: 0
         },
         workTypeStats: {},
         editorStats: {}
@@ -385,7 +412,8 @@ function CreativeAnalytics({ user }) {
         editors: analytics.editorStats,
         metricsApiStatus: apiStatus,
         creativesWithMetrics: metricsStats?.found || 0,
-        creativesWithoutMetrics: (metricsStats?.total || 0) - (metricsStats?.found || 0)
+        creativesWithoutMetrics: (metricsStats?.total || 0) - (metricsStats?.found || 0),
+        creativesWithComments: analytics.stats.creativesWithComments
       };
 
       const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
@@ -429,7 +457,7 @@ function CreativeAnalytics({ user }) {
               Аналитика креативов
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Статистика работы монтажеров, COF анализ и метрики рекламы
+              Статистика работы монтажеров, COF анализ, комментарии и метрики рекламы
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -612,6 +640,27 @@ function CreativeAnalytics({ user }) {
             </div>
           </div>
 
+          {/* Комментарии */}
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <MessageCircle className="h-8 w-8 text-indigo-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      С комментариями
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {analytics.stats.creativesWithComments}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Метрики рекламы */}
           {showMetrics && hasMetricsData && (
             <>
@@ -648,26 +697,6 @@ function CreativeAnalytics({ user }) {
                         </dt>
                         <dd className="text-lg font-medium text-gray-900">
                           {formatStats().totalCost}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <TrendingUp className="h-8 w-8 text-indigo-500" />
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Ср. CPL
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          {formatStats().avgCPL}
                         </dd>
                       </dl>
                     </div>
@@ -780,9 +809,17 @@ function CreativeAnalytics({ user }) {
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">
-                          Ср. COF: {formatCOF(stats.avgCOF)}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          {stats.commentsCount > 0 && (
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded flex items-center">
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              {stats.commentsCount}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            Ср. COF: {formatCOF(stats.avgCOF)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -814,6 +851,9 @@ function CreativeAnalytics({ user }) {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Комментарий
                       </th>
                       {showMetrics && (
                         <>
@@ -853,7 +893,6 @@ function CreativeAnalytics({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        // ИСПРАВЛЕНО: Используем getCreativeMetrics напрямую
                         const creativeMetrics = showMetrics ? getCreativeMetrics(creative.id) : null;
                         
                         return (
@@ -873,6 +912,20 @@ function CreativeAnalytics({ user }) {
                                 <span className="text-xs font-bold mr-1">COF</span>
                                 {formatCOF(cof)}
                               </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {creative.comment ? (
+                                <button
+                                  onClick={() => showComment(creative)}
+                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
+                                  title="Показать комментарий"
+                                >
+                                  <MessageCircle className="h-3 w-3 mr-1" />
+                                  Есть
+                                </button>
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
                             </td>
                             
                             {/* Метрики рекламы */}
@@ -932,6 +985,59 @@ function CreativeAnalytics({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Comment Modal */}
+      {showCommentModal && selectedComment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <MessageCircle className="h-5 w-5 mr-2 text-blue-600" />
+                Комментарий
+              </h3>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Артикул:</label>
+                <p className="text-gray-900 font-medium">{selectedComment.article}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Автор:</label>
+                <p className="text-gray-900">{selectedComment.editorName}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Дата создания:</label>
+                <p className="text-gray-600 text-sm">{formatKyivTime(selectedComment.createdAt)}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Комментарий:</label>
+                <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-gray-900 whitespace-pre-wrap">{selectedComment.comment}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
