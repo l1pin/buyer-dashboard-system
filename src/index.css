@@ -1364,3 +1364,275 @@
     display: none !important;
   }
 }
+
+/* Добавьте эти стили в конец файла src/index.css */
+
+/* Стили для компактных карточек метрик */
+.creative-metrics-compact {
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%);
+}
+
+.creative-metrics-compact:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #10b981;
+}
+
+/* Карточки метрик */
+.metric-card-mini {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.metric-card-mini:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Специальные стили для разных типов метрик */
+.metric-leads {
+  border-left: 3px solid #3b82f6;
+}
+
+.metric-cpl {
+  border-left: 3px solid #10b981;
+}
+
+.metric-cost {
+  border-left: 3px solid #8b5cf6;
+}
+
+.metric-shows {
+  border-left: 3px solid #6366f1;
+}
+
+.metric-clicks {
+  border-left: 3px solid #f59e0b;
+}
+
+.metric-ctr {
+  border-left: 3px solid #ec4899;
+}
+
+/* Анимированные иконки */
+.metric-icon {
+  transition: transform 0.2s ease;
+}
+
+.metric-card-mini:hover .metric-icon {
+  transform: scale(1.1);
+}
+
+/* Значения метрик */
+.metric-value-large {
+  font-feature-settings: 'tnum' on, 'lnum' on;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.metric-value-medium {
+  font-feature-settings: 'tnum' on, 'lnum' on;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.metric-label-mini {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+}
+
+/* Состояния карточек */
+.metrics-loading-card {
+  background: linear-gradient(90deg, #f0f9ff 25%, #e0f2fe 50%, #f0f9ff 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+.metrics-error-card {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+}
+
+.metrics-error-card:hover {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.metrics-success-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #f0f9ff 100%);
+  border-color: #86efac;
+  position: relative;
+  overflow: hidden;
+}
+
+.metrics-success-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.metrics-success-card:hover::before {
+  left: 100%;
+}
+
+/* Градиенты для разных типов */
+.gradient-leads {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.gradient-money {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.gradient-engagement {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.gradient-performance {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 640px) {
+  .creative-metrics-compact {
+    padding: 12px;
+  }
+  
+  .metric-card-mini {
+    padding: 8px;
+  }
+  
+  .metric-value-large {
+    font-size: 16px;
+  }
+  
+  .metric-value-medium {
+    font-size: 14px;
+  }
+  
+  .metric-label-mini {
+    font-size: 0.6rem;
+  }
+}
+
+/* Дополнительные анимации */
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes metric-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.metric-pulse {
+  animation: metric-pulse 2s ease-in-out infinite;
+}
+
+/* Эффекты при наведении */
+.metric-refresh-btn {
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.metric-refresh-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.8);
+  transform: rotate(180deg);
+}
+
+/* Статус индикаторы для метрик */
+.metrics-status-excellent .metric-card-mini {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+}
+
+.metrics-status-good .metric-card-mini {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+}
+
+.metrics-status-poor .metric-card-mini {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+/* Группировка карточек */
+.metrics-group {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.metrics-group-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+  .creative-metrics-compact {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #1e293b 100%);
+    border-color: #475569;
+    color: #f1f5f9;
+  }
+  
+  .metric-card-mini {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(51, 65, 85, 0.6);
+    color: #f1f5f9;
+  }
+  
+  .metric-card-mini:hover {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(71, 85, 105, 0.8);
+  }
+}
+
+/* Печать */
+@media print {
+  .creative-metrics-compact {
+    background: white !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+  }
+  
+  .metric-card-mini {
+    background: white !important;
+    border: 1px solid #d1d5db !important;
+    color: black !important;
+  }
+  
+  .metric-refresh-btn {
+    display: none !important;
+  }
+}
