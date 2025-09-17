@@ -19,10 +19,13 @@ import {
   User,
   Clock,
   Target,
-  Activity
+  Activity,
+  AlertCircle
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
+  console.log('CreativeAnalytics компонент загружен, пользователь:', user);
+  
   const [analytics, setAnalytics] = useState({
     creatives: [],
     editors: [],
@@ -40,6 +43,7 @@ function CreativeAnalytics({ user }) {
     editorStats: {}
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedEditor, setSelectedEditor] = useState('all');
 
@@ -106,17 +110,24 @@ function CreativeAnalytics({ user }) {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
+      setError('');
+      console.log('Загрузка аналитики...');
       
       const [creativesData, editorsData] = await Promise.all([
         creativeService.getAllCreatives(),
         userService.getAllUsers()
       ]);
 
+      console.log('Данные загружены:', { 
+        creativesCount: creativesData?.length, 
+        editorsCount: editorsData?.length 
+      });
+
       const editors = editorsData.filter(u => u.role === 'editor');
       
-      let filteredCreatives = creativesData;
+      let filteredCreatives = creativesData || [];
       if (selectedEditor !== 'all') {
-        filteredCreatives = creativesData.filter(c => c.user_id === selectedEditor);
+        filteredCreatives = filteredCreatives.filter(c => c.user_id === selectedEditor);
       }
 
       const now = new Date();
@@ -133,13 +144,26 @@ function CreativeAnalytics({ user }) {
         periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= monthStart);
       }
 
-      // Вычисляем COF статистику - используем сохраненный COF из базы данных
+      // Вычисляем COF статистику - используем сохраненный COF из базы данных или рассчитываем
       const todayCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= todayStart);
       const weekCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
-      const totalCOF = filteredCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
-      const todayCOF = todayCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
-      const weekCOF = weekCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
+      const totalCOF = filteredCreatives.reduce((sum, c) => {
+        // Используем сохраненный COF или рассчитываем на лету для обратной совместимости
+        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
+        return sum + (cof || 0);
+      }, 0);
+
+      const todayCOF = todayCreatives.reduce((sum, c) => {
+        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
+        return sum + (cof || 0);
+      }, 0);
+
+      const weekCOF = weekCreatives.reduce((sum, c) => {
+        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
+        return sum + (cof || 0);
+      }, 0);
+
       const avgCOF = filteredCreatives.length > 0 ? totalCOF / filteredCreatives.length : 0;
 
       const stats = {
@@ -156,55 +180,78 @@ function CreativeAnalytics({ user }) {
       // Статистика по типам работ с COF
       const workTypeStats = {};
       periodCreatives.forEach(creative => {
-        creative.work_types.forEach(workType => {
-          if (!workTypeStats[workType]) {
-            workTypeStats[workType] = {
-              count: 0,
-              totalCOF: 0
-            };
-          }
-          workTypeStats[workType].count += 1;
-          workTypeStats[workType].totalCOF += (workTypeValues[workType] || 0);
-        });
+        if (creative.work_types && Array.isArray(creative.work_types)) {
+          creative.work_types.forEach(workType => {
+            if (!workTypeStats[workType]) {
+              workTypeStats[workType] = {
+                count: 0,
+                totalCOF: 0
+              };
+            }
+            workTypeStats[workType].count += 1;
+            workTypeStats[workType].totalCOF += (workTypeValues[workType] || 0);
+          });
+        }
       });
 
-      // Статистика по монтажерам с COF - используем сохраненные данные
+      // Статистика по монтажерам с COF - используем сохраненные данные или связанные
       const editorStats = {};
       
-      // Группируем по editor_name из базы данных (если есть) или используем связанные данные пользователя
-      const creativesGroupedByEditor = {};
+      // Создаем группировку по монтажерам
       periodCreatives.forEach(creative => {
-        const editorName = creative.editor_name || creative.users?.name || 'Неизвестный монтажер';
-        const editorId = creative.user_id;
-        
-        if (!creativesGroupedByEditor[editorId]) {
-          creativesGroupedByEditor[editorId] = {
+        // Определяем имя монтажера из разных источников
+        let editorName = 'Неизвестный монтажер';
+        let editorId = creative.user_id;
+
+        if (creative.editor_name) {
+          // Используем сохраненное имя из базы
+          editorName = creative.editor_name;
+        } else if (creative.users && creative.users.name) {
+          // Используем связанные данные пользователя
+          editorName = creative.users.name;
+        } else {
+          // Ищем в массиве редакторов
+          const editor = editors.find(e => e.id === creative.user_id);
+          if (editor) {
+            editorName = editor.name;
+          }
+        }
+
+        if (!editorStats[editorId]) {
+          editorStats[editorId] = {
             name: editorName,
-            creatives: []
+            count: 0,
+            totalCOF: 0,
+            avgCOF: 0,
+            types: {}
           };
         }
-        creativesGroupedByEditor[editorId].creatives.push(creative);
-      });
 
-      // Создаем статистику для каждого монтажера
-      Object.entries(creativesGroupedByEditor).forEach(([editorId, editorData]) => {
-        const editorCreatives = editorData.creatives;
-        const editorCOF = editorCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
+        editorStats[editorId].count += 1;
         
-        editorStats[editorId] = {
-          name: editorData.name,
-          count: editorCreatives.length,
-          totalCOF: editorCOF,
-          avgCOF: editorCreatives.length > 0 ? editorCOF / editorCreatives.length : 0,
-          types: {}
-        };
+        // Рассчитываем COF для этого креатива
+        const cof = creative.cof_rating !== undefined ? creative.cof_rating : calculateCOF(creative.work_types || []);
+        editorStats[editorId].totalCOF += (cof || 0);
         
-        editorCreatives.forEach(creative => {
+        // Обновляем типы работ
+        if (creative.work_types && Array.isArray(creative.work_types)) {
           creative.work_types.forEach(workType => {
             editorStats[editorId].types[workType] = 
               (editorStats[editorId].types[workType] || 0) + 1;
           });
-        });
+        }
+      });
+
+      // Рассчитываем средний COF для каждого монтажера
+      Object.keys(editorStats).forEach(editorId => {
+        const stats = editorStats[editorId];
+        stats.avgCOF = stats.count > 0 ? stats.totalCOF / stats.count : 0;
+      });
+
+      console.log('Аналитика обработана:', {
+        periodCreativesCount: periodCreatives.length,
+        editorsStatsCount: Object.keys(editorStats).length,
+        workTypeStatsCount: Object.keys(workTypeStats).length
       });
 
       setAnalytics({
@@ -216,7 +263,27 @@ function CreativeAnalytics({ user }) {
       });
 
     } catch (error) {
-      console.error('Error loading analytics:', error);
+      console.error('Ошибка загрузки аналитики:', error);
+      console.error('Stack trace:', error.stack);
+      setError(`Ошибка загрузки данных: ${error.message}`);
+      
+      // Устанавливаем базовые данные при ошибке
+      setAnalytics({
+        creatives: [],
+        editors: [],
+        stats: {
+          totalCreatives: 0,
+          totalEditors: 0,
+          todayCreatives: 0,
+          weekCreatives: 0,
+          totalCOF: 0,
+          avgCOF: 0,
+          todayCOF: 0,
+          weekCOF: 0
+        },
+        workTypeStats: {},
+        editorStats: {}
+      });
     } finally {
       setLoading(false);
     }
@@ -268,22 +335,26 @@ function CreativeAnalytics({ user }) {
   };
 
   const exportReport = () => {
-    const reportData = {
-      period: selectedPeriod,
-      editor: selectedEditor === 'all' ? 'Все монтажеры' : analytics.editors.find(e => e.id === selectedEditor)?.name,
-      generated: new Date().toISOString(),
-      stats: analytics.stats,
-      workTypes: analytics.workTypeStats,
-      editors: analytics.editorStats
-    };
+    try {
+      const reportData = {
+        period: selectedPeriod,
+        editor: selectedEditor === 'all' ? 'Все монтажеры' : analytics.editors.find(e => e.id === selectedEditor)?.name,
+        generated: new Date().toISOString(),
+        stats: analytics.stats,
+        workTypes: analytics.workTypeStats,
+        editors: analytics.editorStats
+      };
 
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `creatives-report-${selectedPeriod}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `creatives-report-${selectedPeriod}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Ошибка при экспорте отчета:', error);
+    }
   };
 
   if (loading) {
@@ -292,6 +363,7 @@ function CreativeAnalytics({ user }) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Загрузка аналитики...</p>
+          <p className="mt-2 text-xs text-gray-500">Проверьте консоль браузера для отладки</p>
         </div>
       </div>
     );
@@ -312,7 +384,12 @@ function CreativeAnalytics({ user }) {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={loadAnalytics}
+              onClick={() => {
+                console.log('Кнопка обновления нажата');
+                loadAnalytics().catch(error => {
+                  console.error('Ошибка при ручном обновлении аналитики:', error);
+                });
+              }}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -362,6 +439,14 @@ function CreativeAnalytics({ user }) {
           </select>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+          {error}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
@@ -617,11 +702,15 @@ function CreativeAnalytics({ user }) {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {analytics.creatives
-                      .sort((a, b) => (b.cof_rating || 0) - (a.cof_rating || 0))
+                      .sort((a, b) => {
+                        const cofA = a.cof_rating !== undefined ? a.cof_rating : calculateCOF(a.work_types || []);
+                        const cofB = b.cof_rating !== undefined ? b.cof_rating : calculateCOF(b.work_types || []);
+                        return cofB - cofA;
+                      })
                       .slice(0, 10)
                       .map((creative) => {
                       const editorName = creative.editor_name || creative.users?.name || 'Неизвестен';
-                      const cof = creative.cof_rating || 0;
+                      const cof = creative.cof_rating !== undefined ? creative.cof_rating : calculateCOF(creative.work_types || []);
                       
                       return (
                         <tr key={creative.id} className="hover:bg-gray-50">
@@ -642,10 +731,10 @@ function CreativeAnalytics({ user }) {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                              {getWorkTypeIcon(creative.work_types)}
-                              <span className="ml-1">{creative.work_types[0]}</span>
-                              {creative.work_types.length > 1 && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
+                              {getWorkTypeIcon(creative.work_types || [])}
+                              <span className="ml-1">{(creative.work_types && creative.work_types[0]) || 'Не указано'}</span>
+                              {creative.work_types && creative.work_types.length > 1 && (
                                 <span className="ml-1">+{creative.work_types.length - 1}</span>
                               )}
                             </span>
@@ -657,7 +746,7 @@ function CreativeAnalytics({ user }) {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {creative.links.length} ссылок
+                            {(creative.links && creative.links.length) || 0} ссылок
                           </td>
                         </tr>
                       );
