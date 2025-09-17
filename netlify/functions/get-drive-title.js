@@ -1,19 +1,23 @@
-// СУПЕР УЛУЧШЕННАЯ Netlify функция для извлечения РЕАЛЬНЫХ названий
-// Версия 2.0 - Использует все доступные методы для получения настоящих имен файлов
-// Специально оптимизирована для украинского и русского контента
+// ФИНАЛЬНАЯ Netlify функция с РЕАЛЬНЫМИ API ключами
+// Готова к использованию - замените содержимое netlify/functions/get-drive-title.js
 
 exports.handler = async (event, context) => {
+  context.callbackWaitsForEmptyEventLoop = false;
+  
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Content-Type': 'application/json'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=300'
   };
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
 
+  const startTime = Date.now();
+  
   try {
     const fileId = event.queryStringParameters?.fileId;
     
@@ -23,170 +27,152 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: 'fileId parameter is required',
-          title: null 
+          title: null,
+          method: 'error'
         })
       };
     }
 
-    console.log('🔍 УЛУЧШЕННОЕ извлечение названия для File ID:', fileId);
+    console.log(`🔍 [${new Date().toISOString()}] Извлекаем название для: ${fileId}`);
 
-    // Метод 1: Google Drive API v3 с публичными ключами
-    let title = await getFileNameViaGoogleAPIv3(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через Google API v3:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'google-api-v3',
-          fileId: fileId 
-        })
-      };
+    // Методы с таймаутами
+    const methods = [
+      {
+        name: 'google-api-v3',
+        timeout: 5000,
+        fn: () => getFileNameViaGoogleAPIv3(fileId)
+      },
+      {
+        name: 'public-viewer-api',
+        timeout: 8000,
+        fn: () => getFileNameViaPublicViewerAPI(fileId)
+      },
+      {
+        name: 'metadata-scraping',
+        timeout: 10000,
+        fn: () => getFileNameViaMetadataScraping(fileId)
+      },
+      {
+        name: 'alternative-endpoints',
+        timeout: 12000,
+        fn: () => getFileNameViaAlternativeEndpoints(fileId)
+      }
+    ];
+
+    // Пробуем методы последовательно
+    for (const method of methods) {
+      try {
+        console.log(`🔄 Пробуем метод: ${method.name}`);
+        
+        const result = await Promise.race([
+          method.fn(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), method.timeout)
+          )
+        ]);
+
+        if (result && isValidTitle(result)) {
+          const elapsed = Date.now() - startTime;
+          console.log(`✅ Успех через ${method.name} за ${elapsed}ms: "${result}"`);
+          
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ 
+              title: cleanTitle(result),
+              method: method.name,
+              fileId: fileId,
+              elapsed: elapsed
+            })
+          };
+        }
+      } catch (error) {
+        console.log(`❌ Метод ${method.name} не сработал:`, error.message);
+        continue;
+      }
     }
 
-    // Метод 2: Через альтернативные API endpoints
-    title = await getFileNameViaAlternativeAPI(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через альтернативный API:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'alternative-api',
-          fileId: fileId 
-        })
-      };
-    }
-
-    // Метод 3: Через прямое обращение к метаданным
-    title = await getFileNameViaDirectMetadata(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через прямые метаданные:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'direct-metadata',
-          fileId: fileId 
-        })
-      };
-    }
-
-    // Метод 4: Через Content-Disposition header
-    title = await getFileNameViaContentDisposition(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через Content-Disposition:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'content-disposition',
-          fileId: fileId 
-        })
-      };
-    }
-
-    // Метод 5: Через HTML парсинг с продвинутыми техниками
-    title = await getFileNameViaAdvancedHTMLParsing(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через продвинутый HTML парсинг:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'advanced-html-parsing',
-          fileId: fileId 
-        })
-      };
-    }
-
-    // Метод 6: Через рабочие прокси сервисы
-    title = await getFileNameViaWorkingProxies(fileId);
-    if (title && isValidTitle(title)) {
-      console.log('✅ Получено через рабочие прокси:', title);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          title: cleanTitle(title),
-          method: 'working-proxies',
-          fileId: fileId 
-        })
-      };
-    }
-
-    // Контекстный fallback (более умный чем раньше)
-    const smartTitle = generateIntelligentFallback(fileId);
-    console.log('🤖 Используем интеллектуальный fallback:', smartTitle);
+    // Fallback
+    const smartTitle = generateContextualFallback(fileId);
+    const elapsed = Date.now() - startTime;
+    
+    console.log(`🤖 Используем fallback за ${elapsed}ms: "${smartTitle}"`);
     
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         title: smartTitle,
-        method: 'intelligent-fallback',
-        fileId: fileId 
+        method: 'contextual-fallback',
+        fileId: fileId,
+        elapsed: elapsed,
+        note: 'Все методы извлечения не сработали, использовано умное название'
       })
     };
 
   } catch (error) {
-    console.error('❌ Ошибка в функции:', error);
+    const elapsed = Date.now() - startTime;
+    console.error(`💥 Критическая ошибка за ${elapsed}ms:`, error);
     
-    const smartTitle = generateIntelligentFallback(event.queryStringParameters?.fileId || 'unknown');
+    const fallbackTitle = generateContextualFallback(
+      event.queryStringParameters?.fileId || 'unknown'
+    );
     
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        title: smartTitle,
+        title: fallbackTitle,
         method: 'error-fallback',
-        error: error.message
+        error: error.message,
+        elapsed: elapsed
       })
     };
   }
 };
 
 /**
- * МЕТОД 1: Google Drive API v3 с публичными ключами
+ * МЕТОД 1: Google Drive API v3 с ВАШИМИ РЕАЛЬНЫМИ ключами
  */
 async function getFileNameViaGoogleAPIv3(fileId) {
-  // Набор публичных API ключей для ротации
+  // ВАШИ РЕАЛЬНЫЕ API ключи
   const apiKeys = [
-    'AIzaSyBGpgdq8pSFxMQ5f7XpP7VKJ8xQA0cN1xE',
-    'AIzaSyC8A8K5q9B7xCpVQhA3GqJ8ZaXpF5yL1wE',
-    'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q',
-    // Добавьте свои действующие API ключи здесь
-  ];
+    process.env.GOOGLE_API_KEY_1, // из переменных окружения
+    process.env.GOOGLE_API_KEY_2,
+    process.env.GOOGLE_API_KEY_3,
+    // Ваши настоящие ключи
+    'AIzaSyAgBZt6xX69phg8vD2NUcrXtsVCFxrVV1w', // ✅ ВАШ КЛЮЧ 1
+    'AIzaSyDxrdk_ipzlUefe49uiEslMWt7laGdz4OU', // ✅ ВАШ КЛЮЧ 2
+  ].filter(Boolean);
 
   for (const apiKey of apiKeys) {
     try {
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,webViewLink&key=${apiKey}`,
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType&key=${apiKey}`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'User-Agent': 'DriveMetadataExtractor/1.0'
+            'User-Agent': 'FileNameExtractor/2.0'
           }
         }
       );
 
-      if (response.ok) {
+      if (response.status === 200) {
         const data = await response.json();
         if (data.name) {
+          console.log(`✅ API ключ ${apiKey.substring(0, 15)}... сработал`);
           return data.name;
         }
       } else if (response.status === 403) {
-        // Ключ исчерпан, пробуем следующий
+        console.log(`⚠️ API ключ ${apiKey.substring(0, 15)}... исчерпан, пробуем следующий`);
         continue;
+      } else if (response.status === 404) {
+        console.log('❌ Файл не найден или приватный');
+        return null;
       }
     } catch (error) {
-      console.log(`API ключ ${apiKey.substring(0, 10)}... не сработал:`, error.message);
+      console.log(`❌ API ключ ${apiKey.substring(0, 15)}... ошибка:`, error.message);
       continue;
     }
   }
@@ -195,126 +181,97 @@ async function getFileNameViaGoogleAPIv3(fileId) {
 }
 
 /**
- * МЕТОД 2: Альтернативные API endpoints
+ * МЕТОД 2: Публичный Viewer API (без ключей)
  */
-async function getFileNameViaAlternativeAPI(fileId) {
-  const endpoints = [
-    {
-      url: `https://api.allorigins.win/get?url=${encodeURIComponent(`https://drive.google.com/file/d/${fileId}/view`)}`,
-      parser: (data) => data.contents
-    },
-    {
-      url: `https://cors-anywhere.herokuapp.com/https://drive.google.com/file/d/${fileId}/view`,
-      parser: (data) => data
-    },
-    {
-      url: `https://crossorigin.me/https://drive.google.com/file/d/${fileId}/view`,
-      parser: (data) => data
+async function getFileNameViaPublicViewerAPI(fileId) {
+  try {
+    const endpoints = [
+      `https://clients6.google.com/drive/v2beta/files/${fileId}?fields=title`,
+      `https://www.googleapis.com/drive/v2/files/${fileId}?fields=title`,
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; FileExtractor/2.0)',
+            'Accept': 'application/json',
+            'Referer': 'https://drive.google.com/'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.title) {
+            return data.title;
+          }
+        }
+      } catch (error) {
+        continue;
+      }
     }
+  } catch (error) {
+    console.log('Public Viewer API не сработал:', error.message);
+  }
+  
+  return null;
+}
+
+/**
+ * МЕТОД 3: Scraping метаданных через серверную сторону
+ */
+async function getFileNameViaMetadataScraping(fileId) {
+  try {
+    const viewUrl = `https://drive.google.com/file/d/${fileId}/view`;
+    
+    const response = await fetch(viewUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      return extractTitleFromHTML(html);
+    }
+  } catch (error) {
+    console.log('Metadata scraping не сработал:', error.message);
+  }
+  
+  return null;
+}
+
+/**
+ * МЕТОД 4: Альтернативные endpoints
+ */
+async function getFileNameViaAlternativeEndpoints(fileId) {
+  const endpoints = [
+    `https://drive.google.com/uc?id=${fileId}`,
+    `https://drive.google.com/file/d/${fileId}/preview`,
+    `https://drive.google.com/feeds/default/private/full/${fileId}`,
   ];
 
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const html = endpoint.parser(data);
-        
-        if (html) {
-          const title = extractTitleFromHTML(html);
-          if (title) return title;
-        }
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  return null;
-}
-
-/**
- * МЕТОД 3: Прямое обращение к метаданным файла
- */
-async function getFileNameViaDirectMetadata(fileId) {
-  const metadataEndpoints = [
-    `https://drive.google.com/file/d/${fileId}/edit`,
-    `https://drive.google.com/file/d/${fileId}/preview`,
-    `https://drive.google.com/open?id=${fileId}`,
-    `https://docs.google.com/document/d/${fileId}/edit`
-  ];
-
-  for (const url of metadataEndpoints) {
-    try {
-      const response = await fetch(url, {
+      const response = await fetch(endpoint, {
         method: 'HEAD',
         redirect: 'manual',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (compatible; FileExtractor/2.0)'
         }
       });
 
-      // Проверяем Location header в редиректах
-      const location = response.headers.get('location');
-      if (location) {
-        const titleFromUrl = extractTitleFromUrl(location);
-        if (titleFromUrl) return titleFromUrl;
-      }
-
-      // Проверяем другие заголовки
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('filename')) {
-        const match = contentType.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (match && match[1]) {
-          return decodeURIComponent(match[1].replace(/['"]/g, ''));
-        }
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  return null;
-}
-
-/**
- * МЕТОД 4: Content-Disposition с расширенной обработкой
- */
-async function getFileNameViaContentDisposition(fileId) {
-  const downloadUrls = [
-    `https://drive.google.com/uc?export=download&id=${fileId}`,
-    `https://drive.google.com/uc?id=${fileId}&export=download`,
-    `https://docs.google.com/document/d/${fileId}/export?format=pdf`,
-    `https://docs.google.com/spreadsheets/d/${fileId}/export?format=xlsx`
-  ];
-
-  for (const url of downloadUrls) {
-    try {
-      const response = await fetch(url, {
-        method: 'HEAD',
-        redirect: 'manual',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; GoogleBot/2.1; +http://www.google.com/bot.html)',
-          'Accept': '*/*',
-          'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8'
-        }
-      });
-      
+      // Проверяем Content-Disposition
       const contentDisposition = response.headers.get('content-disposition');
       if (contentDisposition) {
-        // Расширенные паттерны для извлечения имени файла
         const patterns = [
           /filename\*=UTF-8''([^;]+)/i,
-          /filename\*=utf-8''([^;]+)/i,
           /filename="([^"]+)"/i,
-          /filename=([^;]+)/i,
-          /attachment;\s*filename="([^"]+)"/i,
-          /attachment;\s*filename=([^;]+)/i
+          /filename=([^;]+)/i
         ];
 
         for (const pattern of patterns) {
@@ -325,46 +282,14 @@ async function getFileNameViaContentDisposition(fileId) {
           }
         }
       }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  return null;
-}
 
-/**
- * МЕТОД 5: Продвинутый HTML парсинг с множественными техниками
- */
-async function getFileNameViaAdvancedHTMLParsing(fileId) {
-  const urls = [
-    `https://drive.google.com/file/d/${fileId}/view`,
-    `https://drive.google.com/file/d/${fileId}/preview`,
-    `https://drive.google.com/open?id=${fileId}`
-  ];
-
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      if (response.ok) {
-        const html = await response.text();
-        const title = extractTitleFromHTML(html);
-        if (title) return title;
+      // Проверяем Location header
+      const location = response.headers.get('location');
+      if (location) {
+        const titleFromUrl = extractTitleFromUrl(location);
+        if (titleFromUrl) return titleFromUrl;
       }
+
     } catch (error) {
       continue;
     }
@@ -374,71 +299,18 @@ async function getFileNameViaAdvancedHTMLParsing(fileId) {
 }
 
 /**
- * МЕТОД 6: Рабочие прокси сервисы
- */
-async function getFileNameViaWorkingProxies(fileId) {
-  const workingProxies = [
-    'https://api.codetabs.com/v1/proxy?quest=',
-    'https://thingproxy.freeboard.io/fetch/',
-    'https://yacdn.org/proxy/'
-  ];
-  
-  const targetUrl = `https://drive.google.com/file/d/${fileId}/view`;
-  
-  for (const proxy of workingProxies) {
-    try {
-      const response = await fetch(proxy + encodeURIComponent(targetUrl), {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      
-      if (response.ok) {
-        const html = await response.text();
-        const title = extractTitleFromHTML(html);
-        if (title && isValidTitle(title)) {
-          return title;
-        }
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  return null;
-}
-
-/**
- * Расширенное извлечение названия из HTML
+ * Извлечение названия из HTML
  */
 function extractTitleFromHTML(html) {
   if (!html) return null;
 
   const patterns = [
-    // Основной title тег
     /<title[^>]*>([^<]+)<\/title>/i,
-    // Open Graph title
     /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
-    // Twitter title
-    /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i,
-    // Schema.org name
-    /<meta[^>]+itemprop=["']name["'][^>]+content=["']([^"']+)["']/i,
-    // JSON-LD structured data
     /"name"\s*:\s*"([^"]+)"/i,
-    // Google Drive specific patterns
     /"title"\s*:\s*"([^"]+)"/i,
-    /"filename"\s*:\s*"([^"]+)"/i,
-    // Data attributes
     /data-title=["']([^"']+)["']/i,
-    /data-filename=["']([^"']+)["']/i,
-    // Alternative patterns
-    /'title':\s*'([^']+)'/i,
-    /'filename':\s*'([^']+)'/i,
-    // В JavaScript переменных
     /var\s+title\s*=\s*["']([^"']+)["']/i,
-    /window\.title\s*=\s*["']([^"']+)["']/i,
-    // В комментариях (иногда Google помещает метаданные в комментарии)
-    /<!--[^>]*title[^>]*:\s*([^>]+)-->/i
   ];
 
   for (const pattern of patterns) {
@@ -446,7 +318,7 @@ function extractTitleFromHTML(html) {
     if (match && match[1]) {
       let title = match[1].trim();
       
-      // Декодируем HTML entities
+      // Декодирование HTML entities
       title = title.replace(/&quot;/g, '"')
                   .replace(/&amp;/g, '&')
                   .replace(/&lt;/g, '<')
@@ -454,12 +326,11 @@ function extractTitleFromHTML(html) {
                   .replace(/&#39;/g, "'")
                   .replace(/&nbsp;/g, ' ');
       
-      // Очищаем от Google суффиксов
+      // Очистка от Google суффиксов
       title = title.replace(/ - Google Drive$/i, '')
                   .replace(/ - Google Docs$/i, '')
                   .replace(/ - Документы Google$/i, '')
-                  .replace(/^Google Drive - /, '')
-                  .replace(/^Drive - /, '');
+                  .replace(/^Google Drive - /, '');
       
       if (isValidTitle(title)) {
         return title;
@@ -479,20 +350,11 @@ function extractTitleFromUrl(url) {
   try {
     const urlObj = new URL(url);
     
-    // Проверяем параметры URL
-    const titleParams = ['title', 'name', 'filename', 't', 'n'];
+    const titleParams = ['title', 'name', 'filename', 't'];
     for (const param of titleParams) {
       const value = urlObj.searchParams.get(param);
       if (value && isValidTitle(value)) {
         return decodeURIComponent(value);
-      }
-    }
-    
-    // Проверяем фрагмент URL
-    if (urlObj.hash) {
-      const hashMatch = urlObj.hash.match(/title=([^&]+)/);
-      if (hashMatch) {
-        return decodeURIComponent(hashMatch[1]);
       }
     }
   } catch (error) {
@@ -503,16 +365,15 @@ function extractTitleFromUrl(url) {
 }
 
 /**
- * Проверяет валидность названия
+ * Проверка валидности названия
  */
 function isValidTitle(title) {
   if (!title || typeof title !== 'string') return false;
   
   const cleaned = title.trim();
   
-  if (cleaned.length === 0 || cleaned.length > 300) return false;
+  if (cleaned.length === 0 || cleaned.length > 500) return false;
   
-  // Исключаем явно невалидные названия
   const invalidPatterns = [
     /^untitled$/i,
     /^без названия$/i,
@@ -526,71 +387,64 @@ function isValidTitle(title) {
     /ошибка/i,
     /loading/i,
     /загрузка/i,
-    /^google/i,
-    /^drive\.google/i,
     /403 forbidden/i,
     /404 not found/i,
-    /страница не найдена/i
+    /^google drive/i
   ];
 
   return !invalidPatterns.some(pattern => pattern.test(cleaned));
 }
 
 /**
- * Очищает название от лишних элементов
+ * Очистка названия
  */
 function cleanTitle(title) {
   if (!title) return title;
   
   let cleaned = title.trim();
   
-  // Убираем расширения файлов
+  // Удаляем расширения файлов
   cleaned = cleaned.replace(/\.(mp4|avi|mov|mkv|webm|m4v|jpg|jpeg|png|gif|pdf|doc|docx|xlsx|pptx)$/i, '');
   
-  // Убираем лишние пробелы
+  // Нормализуем пробелы
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
-  // Убираем специальные символы в начале и конце
+  // Удаляем специальные символы в начале/конце
   cleaned = cleaned.replace(/^[\-_\.\s]+/, '').replace(/[\-_\.\s]+$/, '');
   
   return cleaned;
 }
 
 /**
- * Генерирует интеллектуальный fallback
+ * Контекстный fallback
  */
-function generateIntelligentFallback(fileId) {
+function generateContextualFallback(fileId) {
   if (!fileId || fileId === 'unknown') {
     return 'Медиафайл';
   }
   
-  // Более разнообразные и осмысленные названия на основе анализа fileId
-  const contextualPrefixes = [
-    'Презентация_проекта',
-    'Видеоурок_материал', 
+  const templates = [
+    'Видеопрезентация_проекта',
+    'Обучающий_материал',
     'Демонстрация_продукта',
-    'Обучающий_контент',
-    'Рекламный_ролик',
+    'Рекламный_ролик', 
     'Корпоративное_видео',
     'Инструкция_пользователя',
-    'Промо_материал',
-    'Образовательный_ресурс',
-    'Видеопрезентация'
+    'Презентация_товара',
+    'Образовательный_контент'
   ];
   
-  // Анализируем характеристики fileId для выбора подходящего префикса
   let hash = 0;
   for (let i = 0; i < fileId.length; i++) {
     const char = fileId.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   
-  const prefixIndex = Math.abs(hash) % contextualPrefixes.length;
-  const prefix = contextualPrefixes[prefixIndex];
+  const templateIndex = Math.abs(hash) % templates.length;
+  const template = templates[templateIndex];
   
-  // Создаем уникальный суффикс
   const shortId = fileId.substring(0, 6).toUpperCase();
   
-  return `${prefix}_${shortId}`;
+  return `${template}_${shortId}`;
 }
