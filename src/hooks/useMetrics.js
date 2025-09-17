@@ -1,5 +1,5 @@
-// Хук для работы с метриками рекламы
-// Создайте файл: src/hooks/useMetrics.js
+// Исправленный хук для работы с метриками рекламы
+// Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
@@ -231,8 +231,9 @@ export function useMetricsApi() {
 
 /**
  * Хук для агрегированной статистики метрик
+ * ИСПРАВЛЕНО: Теперь принимает готовую Map метрик вместо креативов
  */
-export function useMetricsStats(creatives) {
+export function useMetricsStats(creatives, batchMetricsMap = null) {
   const [stats, setStats] = useState({
     totalLeads: 0,
     totalCost: 0,
@@ -246,10 +247,20 @@ export function useMetricsStats(creatives) {
     creativesWithoutMetrics: 0
   });
 
-  const { batchMetrics, loading } = useBatchMetrics(creatives, true);
-
   useEffect(() => {
-    if (loading || !creatives || creatives.length === 0) {
+    if (!creatives || creatives.length === 0 || !batchMetricsMap) {
+      setStats({
+        totalLeads: 0,
+        totalCost: 0,
+        totalClicks: 0,
+        totalImpressions: 0,
+        avgCPL: 0,
+        avgCTR: 0,
+        avgCPC: 0,
+        avgCPM: 0,
+        creativesWithMetrics: 0,
+        creativesWithoutMetrics: 0
+      });
       return;
     }
 
@@ -261,7 +272,7 @@ export function useMetricsStats(creatives) {
     let creativesWithoutMetrics = 0;
 
     creatives.forEach(creative => {
-      const metrics = batchMetrics.get(creative.id);
+      const metrics = batchMetricsMap.get(creative.id);
       
       if (metrics && metrics.found && metrics.data) {
         const data = metrics.data.raw;
@@ -293,7 +304,7 @@ export function useMetricsStats(creatives) {
       creativesWithoutMetrics
     });
 
-  }, [creatives, batchMetrics, loading]);
+  }, [creatives, batchMetricsMap]);
 
   const formatStats = useCallback(() => {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
@@ -323,7 +334,6 @@ export function useMetricsStats(creatives) {
   return {
     stats,
     formatStats,
-    loading,
     hasData: stats.creativesWithMetrics > 0
   };
 }
