@@ -641,3 +641,454 @@
     --ag-background-color: #ffffff;
   }
 }
+
+/* Дополнительные CSS стили для компонентов метрик */
+/* Добавьте в конец файла src/index.css */
+
+/* Стили для компонента CreativeMetrics */
+.creative-metrics {
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.creative-metrics:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Анимация для загрузки метрик */
+.metrics-loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Стили для метрических карточек */
+.metric-card {
+  @apply bg-white rounded-lg border border-gray-200 p-4 transition-all duration-200;
+}
+
+.metric-card:hover {
+  @apply shadow-md border-gray-300;
+}
+
+.metric-card-compact {
+  @apply p-2;
+}
+
+.metric-value {
+  @apply text-lg font-semibold;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.metric-value-compact {
+  @apply text-base font-medium;
+}
+
+.metric-label {
+  @apply text-xs text-gray-600 uppercase tracking-wider;
+}
+
+/* Цветовые схемы для разных типов метрик */
+.metric-leads {
+  @apply bg-blue-50 border-blue-200;
+}
+
+.metric-leads .metric-value {
+  @apply text-blue-700;
+}
+
+.metric-leads .metric-label {
+  @apply text-blue-600;
+}
+
+.metric-cpl {
+  @apply bg-green-50 border-green-200;
+}
+
+.metric-cpl .metric-value {
+  @apply text-green-700;
+}
+
+.metric-cpl .metric-label {
+  @apply text-green-600;
+}
+
+.metric-ctr {
+  @apply bg-orange-50 border-orange-200;
+}
+
+.metric-ctr .metric-value {
+  @apply text-orange-700;
+}
+
+.metric-ctr .metric-label {
+  @apply text-orange-600;
+}
+
+.metric-cost {
+  @apply bg-purple-50 border-purple-200;
+}
+
+.metric-cost .metric-value {
+  @apply text-purple-700;
+}
+
+.metric-cost .metric-label {
+  @apply text-purple-600;
+}
+
+/* Статус индикаторы */
+.status-indicator {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.status-indicator.available {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-indicator.unavailable {
+  @apply bg-red-100 text-red-800;
+}
+
+.status-indicator.loading {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-indicator.unknown {
+  @apply bg-gray-100 text-gray-800;
+}
+
+/* Прогресс бар для метрик */
+.metrics-progress {
+  @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+}
+
+.metrics-progress-bar {
+  @apply h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-300;
+}
+
+/* Анимация успешной загрузки */
+.metrics-success {
+  animation: metrics-success-pulse 0.6s ease-out;
+}
+
+@keyframes metrics-success-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+/* Стили для ошибок метрик */
+.metrics-error {
+  @apply bg-red-50 border border-red-200 rounded-lg p-3;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.metrics-error-icon {
+  @apply text-red-500 h-4 w-4 mr-2 flex-shrink-0;
+}
+
+.metrics-error-text {
+  @apply text-red-700 text-sm;
+}
+
+/* Tooltip для метрик */
+.metrics-tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg;
+  transform: translateX(-50%);
+  top: -32px;
+  left: 50%;
+}
+
+.metrics-tooltip:after {
+  content: '';
+  @apply absolute top-full left-1/2 border-4 border-transparent border-t-gray-900;
+  transform: translateX(-50%);
+}
+
+/* Таблица с метриками */
+.metrics-table {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+.metrics-table th {
+  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50;
+}
+
+.metrics-table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm;
+}
+
+.metrics-table tr:hover {
+  @apply bg-blue-50;
+}
+
+/* Метрические бейджи */
+.metric-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.metric-badge.excellent {
+  @apply bg-green-100 text-green-800 border border-green-200;
+}
+
+.metric-badge.good {
+  @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+}
+
+.metric-badge.poor {
+  @apply bg-red-100 text-red-800 border border-red-200;
+}
+
+.metric-badge.no-data {
+  @apply bg-gray-100 text-gray-800 border border-gray-200;
+}
+
+/* Анимация для обновления метрик */
+.metrics-refresh {
+  animation: metrics-refresh-spin 1s linear infinite;
+}
+
+@keyframes metrics-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive дизайн для метрик */
+@media (max-width: 768px) {
+  .metric-card {
+    @apply p-3;
+  }
+  
+  .metric-value {
+    @apply text-base;
+  }
+  
+  .metrics-table th,
+  .metrics-table td {
+    @apply px-3 py-2 text-xs;
+  }
+  
+  .creative-metrics {
+    @apply text-sm;
+  }
+}
+
+/* Темная тема для метрик */
+@media (prefers-color-scheme: dark) {
+  .metric-card {
+    @apply bg-gray-800 border-gray-700 text-white;
+  }
+  
+  .metric-card:hover {
+    @apply border-gray-600;
+  }
+  
+  .metric-leads {
+    @apply bg-blue-900 border-blue-700;
+  }
+  
+  .metric-leads .metric-value {
+    @apply text-blue-300;
+  }
+  
+  .metric-leads .metric-label {
+    @apply text-blue-400;
+  }
+  
+  .metric-cpl {
+    @apply bg-green-900 border-green-700;
+  }
+  
+  .metric-cpl .metric-value {
+    @apply text-green-300;
+  }
+  
+  .metric-cpl .metric-label {
+    @apply text-green-400;
+  }
+  
+  .metric-ctr {
+    @apply bg-orange-900 border-orange-700;
+  }
+  
+  .metric-ctr .metric-value {
+    @apply text-orange-300;
+  }
+  
+  .metric-ctr .metric-label {
+    @apply text-orange-400;
+  }
+  
+  .metrics-table {
+    @apply bg-gray-800 text-white;
+  }
+  
+  .metrics-table th {
+    @apply bg-gray-700 text-gray-300;
+  }
+  
+  .metrics-table tr:hover {
+    @apply bg-gray-700;
+  }
+}
+
+/* Печать */
+@media print {
+  .metrics-loading,
+  .metrics-refresh,
+  .creative-metrics button {
+    @apply hidden;
+  }
+  
+  .metric-card {
+    @apply shadow-none border border-gray-400;
+  }
+  
+  .metrics-table {
+    @apply text-black;
+  }
+  
+  .metrics-table th,
+  .metrics-table td {
+    @apply border border-gray-400;
+  }
+}
+
+/* Accessibility улучшения */
+.metric-card:focus-within {
+  @apply ring-2 ring-blue-500 ring-opacity-50;
+}
+
+.metrics-button:focus {
+  @apply outline-none ring-2 ring-blue-500 ring-opacity-50;
+}
+
+/* Дополнительные утилиты */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.metrics-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.metrics-separator {
+  @apply border-t border-gray-200 my-4;
+}
+
+.metrics-section {
+  @apply mb-6;
+}
+
+.metrics-section:last-child {
+  @apply mb-0;
+}
+
+/* Специальные эффекты */
+.metrics-glow {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.metrics-pulse {
+  animation: metrics-pulse 2s infinite;
+}
+
+@keyframes metrics-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Индикаторы производительности */
+.performance-excellent {
+  @apply bg-green-500;
+}
+
+.performance-good {
+  @apply bg-yellow-500;
+}
+
+.performance-poor {
+  @apply bg-red-500;
+}
+
+.performance-indicator {
+  @apply w-3 h-3 rounded-full inline-block mr-2;
+}
+
+/* Финальные штрихи */
+.metrics-container {
+  @apply space-y-4;
+}
+
+.metrics-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.metrics-title {
+  @apply text-lg font-semibold text-gray-900 flex items-center;
+}
+
+.metrics-title svg {
+  @apply mr-2 h-5 w-5 text-blue-600;
+}
+
+.metrics-actions {
+  @apply flex items-center space-x-2;
+}
+
+.metrics-summary {
+  @apply bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4 mb-4;
+}
+
+.metrics-summary-title {
+  @apply text-sm font-medium text-gray-900 mb-2;
+}
+
+.metrics-summary-stats {
+  @apply grid grid-cols-2 md:grid-cols-4 gap-3;
+}
+
+.metrics-summary-stat {
+  @apply text-center;
+}
+
+.metrics-summary-value {
+  @apply text-lg font-bold text-gray-900;
+}
+
+.metrics-summary-label {
+  @apply text-xs text-gray-600;
+}
