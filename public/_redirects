@@ -1,0 +1,8 @@
+# Создайте файл: public/_redirects
+
+# API функции
+/api/metrics-proxy  /.netlify/functions/metrics-proxy  200
+/api/get-drive-title  /.netlify/functions/get-drive-title  200
+
+# SPA fallback для React Router
+/*    /index.html   200
