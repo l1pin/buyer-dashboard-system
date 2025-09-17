@@ -13,6 +13,47 @@ let tokenClient = null;
 let isGapiInitialized = false;
 let currentAccessToken = null;
 
+// Ключи для localStorage
+const STORAGE_KEY = 'google_drive_access_token';
+const STORAGE_EXPIRY_KEY = 'google_drive_token_expiry';
+
+/**
+ * Сохранение токена в localStorage
+ */
+const saveTokenToStorage = (token, expiresIn = 3600) => {
+  const expiryTime = Date.now() + (expiresIn * 1000);
+  localStorage.setItem(STORAGE_KEY, token);
+  localStorage.setItem(STORAGE_EXPIRY_KEY, expiryTime.toString());
+};
+
+/**
+ * Загрузка токена из localStorage
+ */
+const loadTokenFromStorage = () => {
+  const token = localStorage.getItem(STORAGE_KEY);
+  const expiry = localStorage.getItem(STORAGE_EXPIRY_KEY);
+  
+  if (!token || !expiry) return null;
+  
+  const expiryTime = parseInt(expiry);
+  if (Date.now() >= expiryTime) {
+    // Токен истек
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_EXPIRY_KEY);
+    return null;
+  }
+  
+  return token;
+};
+
+/**
+ * Очистка токена из localStorage
+ */
+const clearTokenFromStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_EXPIRY_KEY);
+};
+
 /**
  * Загрузка Google API скриптов
  */
@@ -72,14 +113,28 @@ const initializeGoogleAPI = async () => {
         if (response.access_token) {
           currentAccessToken = response.access_token;
           gapi.client.setToken({ access_token: response.access_token });
-          console.log('Google авторизация успешна');
+          
+          // Сохраняем токен в localStorage
+          const expiresIn = response.expires_in || 3600;
+          saveTokenToStorage(response.access_token, expiresIn);
+          
+          console.log('Google авторизация сохранена');
         }
       },
       error_callback: (error) => {
         console.error('Ошибка OAuth:', error);
         currentAccessToken = null;
+        clearTokenFromStorage();
       }
     });
+
+    // Проверяем сохраненный токен при инициализации
+    const savedToken = loadTokenFromStorage();
+    if (savedToken) {
+      currentAccessToken = savedToken;
+      gapi.client.setToken({ access_token: savedToken });
+      console.log('Восстановлен сохраненный токен авторизации');
+    }
 
     isGapiInitialized = true;
     console.log('Google API и GIS инициализированы');
@@ -152,17 +207,40 @@ export const signOutGoogle = async () => {
   try {
     if (gapi && currentAccessToken) {
       gapi.client.setToken(null);
-      currentAccessToken = null;
       
       // Отзываем токен
       window.google.accounts.oauth2.revoke(currentAccessToken, () => {
         console.log('Токен отозван');
       });
       
+      // Очищаем из памяти и localStorage
+      currentAccessToken = null;
+      clearTokenFromStorage();
+      
       console.log('Выход из Google аккаунта выполнен');
     }
   } catch (error) {
     console.error('Ошибка выхода из Google:', error);
+  }
+};
+
+/**
+ * Убеждается в наличии авторизации Google (для использования в процессе создания креатива)
+ */
+export const ensureGoogleAuth = async () => {
+  try {
+    await initializeGoogleAPI();
+    
+    // Если уже авторизован, возвращаем true
+    if (currentAccessToken) {
+      return true;
+    }
+    
+    // Запрашиваем авторизацию
+    return await requestGoogleAuth();
+  } catch (error) {
+    console.error('Ошибка обеспечения авторизации:', error);
+    return false;
   }
 };
 
