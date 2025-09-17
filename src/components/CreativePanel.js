@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с интеграцией метрик
+// Обновленный CreativePanel.js с исправленной интеграцией метрик
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -8,7 +8,8 @@ import {
   formatFileName, 
   ensureGoogleAuth
 } from '../utils/googleDriveUtils';
-import CreativeMetrics, { BatchCreativeMetrics } from './CreativeMetrics';
+import { useBatchMetrics } from '../hooks/useMetrics';
+import CreativeMetrics from './CreativeMetrics';
 import { 
   Plus, 
   X, 
@@ -37,7 +38,6 @@ function CreativePanel({ user }) {
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(true);
-  const [metricsStats, setMetricsStats] = useState(null);
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -107,6 +107,16 @@ function CreativePanel({ user }) {
     'Доп. 2': 2
   };
 
+  // ИСПРАВЛЕНО: Правильное использование хука useBatchMetrics
+  const { 
+    batchMetrics,
+    loading: metricsLoading, 
+    error: metricsError,
+    stats: metricsStats,
+    getCreativeMetrics,
+    refresh: refreshMetrics 
+  } = useBatchMetrics(creatives, showMetrics);
+
   /**
    * Вычисление COF для креатива (fallback для старых записей)
    */
@@ -154,12 +164,6 @@ function CreativePanel({ user }) {
       minCOF: creatives.length > 0 ? Math.min(...creatives.map(c => calculateCOF(c.work_types))) : 0
     };
   };
-
-  // Инициализация батчевых метрик
-  const batchMetrics = BatchCreativeMetrics({ 
-    creatives, 
-    onMetricsLoaded: setMetricsStats 
-  });
 
   useEffect(() => {
     loadCreatives();
@@ -471,7 +475,7 @@ function CreativePanel({ user }) {
                   <span className="text-gray-500">Не найдено:</span>
                   <span className="ml-1 font-medium text-red-600">{metricsStats.notFound}</span>
                 </div>
-                {batchMetrics.loading && (
+                {metricsLoading && (
                   <div className="flex items-center text-blue-600">
                     <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1"></div>
                     <span className="text-xs">Загрузка...</span>
@@ -521,7 +525,6 @@ function CreativePanel({ user }) {
           <div className="space-y-6">
             {creatives.map((creative) => {
               const cof = calculateCOF(creative.work_types);
-              const creativeMetrics = batchMetrics.getCreativeMetrics(creative.id);
               
               return (
                 <div
