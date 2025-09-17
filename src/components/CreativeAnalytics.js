@@ -1,8 +1,9 @@
-// Финальная рабочая версия CreativeAnalytics.js
+// Обновленный CreativeAnalytics.js с интеграцией метрик рекламы
 // Замените содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
 import { creativeService, userService } from '../supabaseClient';
+import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { formatFileName } from '../utils/googleDriveUtils';
 import { 
   BarChart3,
@@ -20,11 +21,17 @@ import {
   Clock,
   Target,
   Activity,
-  AlertCircle
+  AlertCircle,
+  DollarSign,
+  MousePointer,
+  Zap,
+  CheckCircle,
+  XCircle,
+  Globe
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
-  console.log('✅ CreativeAnalytics компонент загружен');
+  console.log('✅ CreativeAnalytics компонент загружен с метриками');
   
   const [analytics, setAnalytics] = useState({
     creatives: [],
@@ -46,6 +53,29 @@ function CreativeAnalytics({ user }) {
   const [error, setError] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedEditor, setSelectedEditor] = useState('all');
+  const [showMetrics, setShowMetrics] = useState(true);
+
+  // Хуки for метрик
+  const { 
+    batchMetrics, 
+    loading: metricsLoading, 
+    error: metricsError,
+    stats: metricsStats,
+    refresh: refreshMetrics 
+  } = useBatchMetrics(analytics.creatives, showMetrics);
+  
+  const { 
+    stats: aggregatedMetricsStats,
+    formatStats,
+    hasData: hasMetricsData 
+  } = useMetricsStats(analytics.creatives);
+
+  const { 
+    apiStatus, 
+    checking: checkingApi, 
+    checkApiStatus,
+    isAvailable: isMetricsApiAvailable 
+  } = useMetricsApi();
 
   // Оценки типов работ для подсчета COF
   const workTypeValues = {
@@ -100,15 +130,15 @@ function CreativeAnalytics({ user }) {
    * Получение цвета для COF бейджа
    */
   const getCOFBadgeColor = (cof) => {
-    if (cof >= 4) return 'bg-red-600 text-white border-red-600'; // Ярко красный от 4 и больше
-    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300'; // Светло красный от 3 до 3,99
-    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300'; // Желтый от 2 до 2,99
-    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200'; // Светло-зеленый от 1,01 до 1,99
-    return 'bg-green-500 text-white border-green-500'; // Ярко зеленый до 1
+    if (cof >= 4) return 'bg-red-600 text-white border-red-600';
+    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300';
+    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300';
+    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200';
+    return 'bg-green-500 text-white border-green-500';
   };
 
   const loadAnalytics = async () => {
-    console.log('🚀 Начинаем загрузку аналитики...');
+    console.log('🚀 Начинаем загрузку аналитики с метриками...');
     
     try {
       setLoading(true);
@@ -161,7 +191,6 @@ function CreativeAnalytics({ user }) {
       const weekCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
       const calculateCreativeCOF = (creative) => {
-        // Используем сохраненный COF из БД или рассчитываем на лету
         if (typeof creative.cof_rating === 'number') {
           return creative.cof_rating;
         }
@@ -207,7 +236,6 @@ function CreativeAnalytics({ user }) {
       const editorStats = {};
       
       periodCreatives.forEach(creative => {
-        // Определяем имя монтажера из разных источников
         let editorName = 'Неизвестный монтажер';
         let editorId = creative.user_id || 'unknown';
 
@@ -234,11 +262,9 @@ function CreativeAnalytics({ user }) {
 
         editorStats[editorId].count += 1;
         
-        // Рассчитываем COF для этого креатива
         const cof = calculateCreativeCOF(creative);
         editorStats[editorId].totalCOF += cof;
         
-        // Обновляем типы работ с защитой
         if (creative.work_types && Array.isArray(creative.work_types)) {
           creative.work_types.forEach(workType => {
             editorStats[editorId].types[workType] = 
@@ -273,7 +299,6 @@ function CreativeAnalytics({ user }) {
       
       setError(`Ошибка загрузки данных: ${error.message}`);
       
-      // Устанавливаем базовые данные при ошибке
       setAnalytics({
         creatives: [],
         editors: [],
@@ -353,8 +378,12 @@ function CreativeAnalytics({ user }) {
         editor: selectedEditor === 'all' ? 'Все монтажеры' : analytics.editors.find(e => e.id === selectedEditor)?.name,
         generated: new Date().toISOString(),
         stats: analytics.stats,
+        metricsStats: aggregatedMetricsStats,
         workTypes: analytics.workTypeStats,
-        editors: analytics.editorStats
+        editors: analytics.editorStats,
+        metricsApiStatus: apiStatus,
+        creativesWithMetrics: metricsStats.found,
+        creativesWithoutMetrics: metricsStats.total - metricsStats.found
       };
 
       const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
@@ -366,6 +395,13 @@ function CreativeAnalytics({ user }) {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Ошибка при экспорте отчета:', error);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    await loadAnalytics();
+    if (showMetrics) {
+      refreshMetrics();
     }
   };
 
@@ -391,18 +427,28 @@ function CreativeAnalytics({ user }) {
               Аналитика креативов
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Статистика работы монтажеров и COF анализ
+              Статистика работы монтажеров, COF анализ и метрики рекламы
             </p>
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => {
-                console.log('🔄 Ручное обновление аналитики');
-                loadAnalytics();
-              }}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
+              onClick={() => setShowMetrics(!showMetrics)}
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                showMetrics 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                  : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+              }`}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <Activity className="h-4 w-4 mr-2" />
+              {showMetrics ? 'Скрыть метрики' : 'Показать метрики'}
+            </button>
+            
+            <button
+              onClick={handleRefreshAll}
+              disabled={loading || metricsLoading}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
               Обновить
             </button>
             <button
@@ -418,35 +464,67 @@ function CreativeAnalytics({ user }) {
 
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">Фильтры:</span>
-          </div>
-          
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="today">Сегодня</option>
-            <option value="week">Неделя</option>
-            <option value="month">Месяц</option>
-            <option value="all">Все время</option>
-          </select>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Фильтры:</span>
+            </div>
+            
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="today">Сегодня</option>
+              <option value="week">Неделя</option>
+              <option value="month">Месяц</option>
+              <option value="all">Все время</option>
+            </select>
 
-          <select
-            value={selectedEditor}
-            onChange={(e) => setSelectedEditor(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Все монтажеры</option>
-            {analytics.editors.map(editor => (
-              <option key={editor.id} value={editor.id}>
-                {editor.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={selectedEditor}
+              onChange={(e) => setSelectedEditor(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Все монтажеры</option>
+              {analytics.editors.map(editor => (
+                <option key={editor.id} value={editor.id}>
+                  {editor.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* API Status */}
+          {showMetrics && (
+            <div className="flex items-center space-x-3 text-sm">
+              <div className="flex items-center space-x-2">
+                <Globe className="h-4 w-4 text-gray-500" />
+                <span className="text-gray-600">API метрик:</span>
+              </div>
+              <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                isMetricsApiAvailable 
+                  ? 'bg-green-100 text-green-700' 
+                  : apiStatus === 'unavailable' 
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-100 text-gray-700'
+              }`}>
+                {checkingApi ? (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                ) : isMetricsApiAvailable ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                <span>
+                  {checkingApi ? 'Проверка...' : 
+                   isMetricsApiAvailable ? 'Доступен' : 
+                   apiStatus === 'unavailable' ? 'Недоступен' : 'Неизвестно'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -455,6 +533,14 @@ function CreativeAnalytics({ user }) {
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {/* Metrics Error */}
+      {showMetrics && metricsError && (
+        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+          Ошибка загрузки метрик: {metricsError}
         </div>
       )}
 
@@ -524,65 +610,93 @@ function CreativeAnalytics({ user }) {
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Calendar className="h-8 w-8 text-purple-500" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      COF сегодня
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {formatCOF(analytics.stats.todayCOF)}
-                    </dd>
-                  </dl>
+          {/* Метрики рекламы */}
+          {showMetrics && hasMetricsData && (
+            <>
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-8 w-8 text-purple-500" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Лидов
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {formatStats().totalLeads}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <TrendingUp className="h-8 w-8 text-indigo-500" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      COF за неделю
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {formatCOF(analytics.stats.weekCOF)}
-                    </dd>
-                  </dl>
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <DollarSign className="h-8 w-8 text-green-500" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Расходы
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {formatStats().totalCost}₴
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Monitor className="h-8 w-8 text-red-500" />
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <TrendingUp className="h-8 w-8 text-indigo-500" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Ср. CPL
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {formatStats().avgCPL}₴
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Активных монтажеров
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {Object.keys(analytics.editorStats).length}
-                    </dd>
-                  </dl>
+              </div>
+            </>
+          )}
+
+          {/* Fallback для метрик если нет данных */}
+          {showMetrics && !hasMetricsData && (
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Monitor className="h-8 w-8 text-red-500" />
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        Метрики
+                      </dt>
+                      <dd className="text-sm font-medium text-red-600">
+                        {metricsLoading ? 'Загрузка...' : 'Недоступны'}
+                      </dd>
+                    </dl>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -676,11 +790,11 @@ function CreativeAnalytics({ user }) {
           </div>
         </div>
 
-        {/* Recent Creatives */}
+        {/* Recent Creatives with Metrics */}
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-              Креативы с высоким COF
+              {showMetrics ? 'Креативы с высоким COF и метриками' : 'Креативы с высоким COF'}
             </h3>
             
             {analytics.creatives.length === 0 ? (
@@ -699,6 +813,19 @@ function CreativeAnalytics({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
+                      {showMetrics && (
+                        <>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Лиды
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CPL
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CTR
+                          </th>
+                        </>
+                      )}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Типы работ
                       </th>
@@ -724,6 +851,9 @@ function CreativeAnalytics({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
+                        // Получаем метрики для этого креатива
+                        const creativeMetrics = showMetrics ? batchMetrics.getCreativeMetrics(creative.id) : null;
+                        
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -742,6 +872,31 @@ function CreativeAnalytics({ user }) {
                                 {formatCOF(cof)}
                               </span>
                             </td>
+                            
+                            {/* Метрики рекламы */}
+                            {showMetrics && (
+                              <>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {creativeMetrics?.found ? 
+                                    creativeMetrics.data.formatted.leads : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {creativeMetrics?.found ? 
+                                    creativeMetrics.data.formatted.cpl + '₴' : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {creativeMetrics?.found ? 
+                                    creativeMetrics.data.formatted.ctr : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                              </>
+                            )}
+                            
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
                                 {getWorkTypeIcon(creative.work_types || [])}
@@ -759,6 +914,11 @@ function CreativeAnalytics({ user }) {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {(creative.links && creative.links.length) || 0} ссылок
+                              {showMetrics && creativeMetrics && (
+                                <div className={`mt-1 text-xs ${creativeMetrics.found ? 'text-green-600' : 'text-red-600'}`}>
+                                  {creativeMetrics.found ? 'Метрики ✓' : 'Нет метрик'}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
