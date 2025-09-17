@@ -224,7 +224,9 @@ function CreativePanel({ user }) {
       });
     } catch (error) {
       console.error('Error formatting date:', error);
-      return new Date(dateString).toLocaleDateString('ru-RU');
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
     }
   };
 
