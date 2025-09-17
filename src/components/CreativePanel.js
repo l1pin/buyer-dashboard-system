@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с поддержкой COF оценки
+// Обновленный CreativePanel.js с интеграцией метрик
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -8,6 +8,7 @@ import {
   formatFileName, 
   ensureGoogleAuth
 } from '../utils/googleDriveUtils';
+import CreativeMetrics, { BatchCreativeMetrics } from './CreativeMetrics';
 import { 
   Plus, 
   X, 
@@ -22,7 +23,9 @@ import {
   Image as ImageIcon,
   User,
   Play,
-  TrendingUp
+  TrendingUp,
+  BarChart3,
+  Activity
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -33,6 +36,8 @@ function CreativePanel({ user }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(true);
+  const [metricsStats, setMetricsStats] = useState(null);
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -103,7 +108,7 @@ function CreativePanel({ user }) {
   };
 
   /**
-   * Вычисление COF для креатива
+   * Вычисление COF для креатива (fallback для старых записей)
    */
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
@@ -125,11 +130,11 @@ function CreativePanel({ user }) {
    * Получение цвета для COF бейджа
    */
   const getCOFBadgeColor = (cof) => {
-    if (cof >= 4) return 'bg-red-600 text-white border-red-600'; // Ярко красный от 4 и больше
-    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300'; // Светло красный от 3 до 3,99
-    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300'; // Желтый от 2 до 2,99
-    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200'; // Светло-зеленый от 1,01 до 1,99
-    return 'bg-green-500 text-white border-green-500'; // Ярко зеленый до 1
+    if (cof >= 4) return 'bg-red-600 text-white border-red-600';
+    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300';
+    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300';
+    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200';
+    return 'bg-green-500 text-white border-green-500';
   };
 
   /**
@@ -149,6 +154,12 @@ function CreativePanel({ user }) {
       minCOF: creatives.length > 0 ? Math.min(...creatives.map(c => calculateCOF(c.work_types))) : 0
     };
   };
+
+  // Инициализация батчевых метрик
+  const batchMetrics = BatchCreativeMetrics({ 
+    creatives, 
+    onMetricsLoaded: setMetricsStats 
+  });
 
   useEffect(() => {
     loadCreatives();
@@ -208,12 +219,12 @@ function CreativePanel({ user }) {
 
       await creativeService.createCreative({
         user_id: user.id,
-        editor_name: user.name, // Добавляем имя монтажера
+        editor_name: user.name,
         article: newCreative.article.trim(),
         links: links,
         link_titles: titles,
         work_types: newCreative.work_types,
-        cof_rating: cofRating // Добавляем COF оценку
+        cof_rating: cofRating
       });
 
       setNewCreative({
@@ -381,10 +392,27 @@ function CreativePanel({ user }) {
               <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name} • {creatives.length} креативов • COF: {formatCOF(cofStats.totalCOF)}
+                {metricsStats && (
+                  <span className="ml-2 text-blue-600">
+                    • Метрики: {metricsStats.found}/{metricsStats.total}
+                  </span>
+                )}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowMetrics(!showMetrics)}
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                showMetrics 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                  : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              {showMetrics ? 'Скрыть метрики' : 'Показать метрики'}
+            </button>
+            
             <button
               onClick={loadCreatives}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -427,6 +455,30 @@ function CreativePanel({ user }) {
                 </div>
               </div>
             </div>
+            
+            {/* Статистика метрик */}
+            {showMetrics && metricsStats && (
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <Activity className="h-4 w-4 text-blue-500" />
+                  <span className="text-gray-600">Метрики рекламы:</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Найдено:</span>
+                  <span className="ml-1 font-medium text-green-600">{metricsStats.found}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Не найдено:</span>
+                  <span className="ml-1 font-medium text-red-600">{metricsStats.notFound}</span>
+                </div>
+                {batchMetrics.loading && (
+                  <div className="flex items-center text-blue-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1"></div>
+                    <span className="text-xs">Загрузка...</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -466,17 +518,19 @@ function CreativePanel({ user }) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
             {creatives.map((creative) => {
               const cof = calculateCOF(creative.work_types);
+              const creativeMetrics = batchMetrics.getCreativeMetrics(creative.id);
               
               return (
                 <div
                   key={creative.id}
-                  className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
+                  className="bg-white rounded-lg border border-gray-200 shadow-sm"
                 >
+                  {/* Основная информация креатива */}
                   <div className="p-6">
-                    {/* Header */}
+                    {/* Header креатива */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-medium text-gray-900 truncate">
@@ -550,6 +604,24 @@ function CreativePanel({ user }) {
                       </div>
                     </div>
                   </div>
+
+                  {/* Метрики рекламы */}
+                  {showMetrics && (
+                    <div className="border-t border-gray-100 p-6 bg-gray-50">
+                      <div className="flex items-center mb-3">
+                        <Activity className="h-4 w-4 text-blue-600 mr-2" />
+                        <h4 className="text-sm font-medium text-gray-900">
+                          Метрики рекламы
+                        </h4>
+                      </div>
+                      
+                      <CreativeMetrics 
+                        creative={creative}
+                        showDetails={true}
+                        size="normal"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
