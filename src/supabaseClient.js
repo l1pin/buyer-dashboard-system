@@ -142,13 +142,19 @@ export const userService = {
 
   // Получить всех пользователей
   async getAllUsers() {
+    console.log('Выполняем запрос getAllUsers...');
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('Ошибка в getAllUsers:', error);
+      throw error;
+    }
+    
+    console.log('getAllUsers завершен, получено пользователей:', data?.length || 0);
+    return data || [];
   }
 };
 
@@ -471,6 +477,7 @@ export const creativeService = {
 
   // Получить все креативы (для админов)
   async getAllCreatives() {
+    console.log('Выполняем запрос getAllCreatives...');
     const { data, error } = await supabase
       .from('creatives')
       .select(`
@@ -479,8 +486,13 @@ export const creativeService = {
       `)
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('Ошибка в getAllCreatives:', error);
+      throw error;
+    }
+    
+    console.log('getAllCreatives завершен, получено записей:', data?.length || 0);
+    return data || [];
   },
 
   // Обновить креатив
