@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с поддержкой Google OAuth
+// Обновленный CreativePanel.js с поддержкой Google OAuth и полными названиями видео
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -20,7 +20,8 @@ import {
   CheckCircle,
   Video,
   Image as ImageIcon,
-  User
+  User,
+  Play
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -120,7 +121,7 @@ function CreativePanel({ user }) {
         return;
       }
 
-      // Извлекаем названия из ссылок
+      // Извлекаем названия из ссылок (с полными названиями)
       setExtractingTitles(true);
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
       setExtractingTitles(false);
@@ -397,16 +398,17 @@ function CreativePanel({ user }) {
                     </div>
                   </div>
 
-                  {/* Links */}
+                  {/* Videos - Изменено с "Ссылки" на "Видео" и показываем полные названия */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                      <LinkIcon className="h-3 w-3 mr-1" />
-                      Ссылки ({creative.links.length})
+                      <Play className="h-3 w-3 mr-1" />
+                      Видео ({creative.links.length})
                     </h4>
                     <div className="max-h-24 overflow-y-auto space-y-1">
                       {creative.links.map((link, index) => {
+                        // Показываем полное название без сокращений
                         const title = creative.link_titles && creative.link_titles[index] 
-                          ? formatFileName(creative.link_titles[index], 25)
+                          ? creative.link_titles[index] // Полное название с расширением
                           : `Видео ${index + 1}`;
                         
                         return (
@@ -416,9 +418,9 @@ function CreativePanel({ user }) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
-                            title={creative.link_titles && creative.link_titles[index] ? creative.link_titles[index] : link}
+                            title={title} // Полное название в tooltip
                           >
-                            {title}
+                            {title} {/* Показываем полное название */}
                           </a>
                         );
                       })}
@@ -479,7 +481,7 @@ function CreativePanel({ user }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Ссылки *
+                    Видео ссылки *
                   </label>
                   <button
                     onClick={addLinkField}
