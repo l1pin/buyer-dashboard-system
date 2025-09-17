@@ -22,7 +22,6 @@ import {
   Image as ImageIcon,
   User,
   Play,
-  DollarSign,
   TrendingUp
 } from 'lucide-react';
 
@@ -126,10 +125,11 @@ function CreativePanel({ user }) {
    * Получение цвета для COF бейджа
    */
   const getCOFBadgeColor = (cof) => {
-    if (cof >= 2) return 'bg-red-100 text-red-800 border-red-200';
-    if (cof >= 1) return 'bg-orange-100 text-orange-800 border-orange-200';
-    if (cof >= 0.5) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-green-100 text-green-800 border-green-200';
+    if (cof >= 4) return 'bg-red-600 text-white border-red-600'; // Ярко красный от 4 и больше
+    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300'; // Светло красный от 3 до 3,99
+    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300'; // Желтый от 2 до 2,99
+    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200'; // Светло-зеленый от 1,01 до 1,99
+    return 'bg-green-500 text-white border-green-500'; // Ярко зеленый до 1
   };
 
   /**
@@ -485,7 +485,7 @@ function CreativePanel({ user }) {
                       <div className="flex items-center space-x-2">
                         {/* COF Badge */}
                         <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium border ${getCOFBadgeColor(cof)}`}>
-                          <DollarSign className="h-3 w-3 mr-1" />
+                          <span className="text-xs font-bold mr-1">COF</span>
                           {formatCOF(cof)}
                         </div>
                         <button
