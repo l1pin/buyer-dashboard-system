@@ -133,13 +133,13 @@ function CreativeAnalytics({ user }) {
         periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= monthStart);
       }
 
-      // Вычисляем COF статистику
+      // Вычисляем COF статистику - используем сохраненный COF из базы данных
       const todayCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= todayStart);
       const weekCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
-      const totalCOF = filteredCreatives.reduce((sum, c) => sum + calculateCOF(c.work_types), 0);
-      const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCOF(c.work_types), 0);
-      const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCOF(c.work_types), 0);
+      const totalCOF = filteredCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
+      const todayCOF = todayCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
+      const weekCOF = weekCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
       const avgCOF = filteredCreatives.length > 0 ? totalCOF / filteredCreatives.length : 0;
 
       const stats = {
@@ -168,28 +168,43 @@ function CreativeAnalytics({ user }) {
         });
       });
 
-      // Статистика по монтажерам с COF
+      // Статистика по монтажерам с COF - используем сохраненные данные
       const editorStats = {};
-      editors.forEach(editor => {
-        const editorCreatives = periodCreatives.filter(c => c.user_id === editor.id);
-        if (editorCreatives.length > 0) {
-          const editorCOF = editorCreatives.reduce((sum, c) => sum + calculateCOF(c.work_types), 0);
-          
-          editorStats[editor.id] = {
-            name: editor.name,
-            count: editorCreatives.length,
-            totalCOF: editorCOF,
-            avgCOF: editorCreatives.length > 0 ? editorCOF / editorCreatives.length : 0,
-            types: {}
+      
+      // Группируем по editor_name из базы данных (если есть) или используем связанные данные пользователя
+      const creativesGroupedByEditor = {};
+      periodCreatives.forEach(creative => {
+        const editorName = creative.editor_name || creative.users?.name || 'Неизвестный монтажер';
+        const editorId = creative.user_id;
+        
+        if (!creativesGroupedByEditor[editorId]) {
+          creativesGroupedByEditor[editorId] = {
+            name: editorName,
+            creatives: []
           };
-          
-          editorCreatives.forEach(creative => {
-            creative.work_types.forEach(workType => {
-              editorStats[editor.id].types[workType] = 
-                (editorStats[editor.id].types[workType] || 0) + 1;
-            });
-          });
         }
+        creativesGroupedByEditor[editorId].creatives.push(creative);
+      });
+
+      // Создаем статистику для каждого монтажера
+      Object.entries(creativesGroupedByEditor).forEach(([editorId, editorData]) => {
+        const editorCreatives = editorData.creatives;
+        const editorCOF = editorCreatives.reduce((sum, c) => sum + (c.cof_rating || 0), 0);
+        
+        editorStats[editorId] = {
+          name: editorData.name,
+          count: editorCreatives.length,
+          totalCOF: editorCOF,
+          avgCOF: editorCreatives.length > 0 ? editorCOF / editorCreatives.length : 0,
+          types: {}
+        };
+        
+        editorCreatives.forEach(creative => {
+          creative.work_types.forEach(workType => {
+            editorStats[editorId].types[workType] = 
+              (editorStats[editorId].types[workType] || 0) + 1;
+          });
+        });
       });
 
       setAnalytics({
@@ -602,11 +617,11 @@ function CreativeAnalytics({ user }) {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {analytics.creatives
-                      .sort((a, b) => calculateCOF(b.work_types) - calculateCOF(a.work_types))
+                      .sort((a, b) => (b.cof_rating || 0) - (a.cof_rating || 0))
                       .slice(0, 10)
                       .map((creative) => {
-                      const editor = analytics.editors.find(e => e.id === creative.user_id);
-                      const cof = calculateCOF(creative.work_types);
+                      const editorName = creative.editor_name || creative.users?.name || 'Неизвестен';
+                      const cof = creative.cof_rating || 0;
                       
                       return (
                         <tr key={creative.id} className="hover:bg-gray-50">
@@ -617,7 +632,7 @@ function CreativeAnalytics({ user }) {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {editor?.name || 'Неизвестен'}
+                              {editorName}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
