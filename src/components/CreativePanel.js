@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с поддержкой комментариев и улучшенной валидацией
+// Обновленный CreativePanel.js с метриками для каждого видео отдельно
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +9,6 @@ import {
   ensureGoogleAuth,
   isGoogleDriveUrl
 } from '../utils/googleDriveUtils';
-import { useBatchMetrics } from '../hooks/useMetrics';
 import CreativeMetrics from './CreativeMetrics';
 import { 
   Plus, 
@@ -50,7 +49,7 @@ function CreativePanel({ user }) {
     links: [''],
     work_types: [],
     link_titles: [],
-    comment: '' // Добавляем поле для комментария
+    comment: ''
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
@@ -113,16 +112,6 @@ function CreativePanel({ user }) {
     'Доп. 1': 1,
     'Доп. 2': 2
   };
-
-  // Хук для метрик
-  const { 
-    batchMetrics,
-    loading: metricsLoading, 
-    error: metricsError,
-    stats: metricsStats,
-    getCreativeMetrics,
-    refresh: refreshMetrics 
-  } = useBatchMetrics(creatives, showMetrics);
 
   /**
    * Вычисление COF для креатива
@@ -264,7 +253,7 @@ function CreativePanel({ user }) {
         link_titles: titles,
         work_types: newCreative.work_types,
         cof_rating: cofRating,
-        comment: newCreative.comment.trim() || null // Добавляем комментарий
+        comment: newCreative.comment.trim() || null
       });
 
       setNewCreative({
@@ -444,11 +433,6 @@ function CreativePanel({ user }) {
               <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name} • {creatives.length} креативов • COF: {formatCOF(cofStats.totalCOF)}
-                {metricsStats && (
-                  <span className="ml-2 text-blue-600">
-                    • Метрики: {metricsStats.found}/{metricsStats.total}
-                  </span>
-                )}
               </p>
             </div>
           </div>
@@ -508,27 +492,10 @@ function CreativePanel({ user }) {
               </div>
             </div>
             
-            {/* Статистика метрик */}
-            {showMetrics && metricsStats && (
-              <div className="flex items-center space-x-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <Activity className="h-4 w-4 text-blue-500" />
-                  <span className="text-gray-600">Метрики рекламы:</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Найдено:</span>
-                  <span className="ml-1 font-medium text-green-600">{metricsStats.found}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Не найдено:</span>
-                  <span className="ml-1 font-medium text-red-600">{metricsStats.notFound}</span>
-                </div>
-                {metricsLoading && (
-                  <div className="flex items-center text-blue-600">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1"></div>
-                    <span className="text-xs">Загрузка...</span>
-                  </div>
-                )}
+            {showMetrics && (
+              <div className="flex items-center space-x-2 text-sm">
+                <Activity className="h-4 w-4 text-blue-500" />
+                <span className="text-blue-600">Метрики для каждого видео включены</span>
               </div>
             )}
           </div>
@@ -639,56 +606,55 @@ function CreativePanel({ user }) {
                       </div>
                     </div>
 
-                    {/* Videos */}
-                    <div className="space-y-2">
+                    {/* Videos with individual metrics */}
+                    <div className="space-y-4">
                       <h4 className="text-sm font-medium text-gray-700 flex items-center">
                         <Play className="h-3 w-3 mr-1" />
                         Видео ({creative.links.length})
                       </h4>
-                      <div className="max-h-24 overflow-y-auto space-y-1">
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                         {creative.links.map((link, index) => {
                           const title = creative.link_titles && creative.link_titles[index] 
                             ? creative.link_titles[index]
                             : `Видео ${index + 1}`;
                           
                           return (
-                            <div key={index} className="flex items-center justify-between text-xs bg-blue-50 p-2 rounded border">
-                              <span className="text-blue-900 truncate flex-1" title={title}>
-                                {title}
-                              </span>
-                              <a
-                                href={link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="ml-2 text-blue-600 hover:text-blue-800"
-                                title="Открыть в Google Drive"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                              {/* Заголовок видео */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="text-sm font-medium text-gray-900 truncate" title={title}>
+                                    {title}
+                                  </h5>
+                                </div>
+                                <a
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                  title="Открыть в Google Drive"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </div>
+
+                              {/* Метрики для этого видео */}
+                              {showMetrics && (
+                                <div className="border-t border-gray-200 pt-3">
+                                  <CreativeMetrics 
+                                    videoTitle={title}
+                                    showRefresh={true}
+                                    compact={true}
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     </div>
                   </div>
-
-                  {/* Метрики рекламы */}
-                  {showMetrics && (
-                    <div className="border-t border-gray-100 p-6 bg-gray-50">
-                      <div className="flex items-center mb-3">
-                        <Activity className="h-4 w-4 text-blue-600 mr-2" />
-                        <h4 className="text-sm font-medium text-gray-900">
-                          Метрики рекламы
-                        </h4>
-                      </div>
-                      
-                      <CreativeMetrics 
-                        creative={creative}
-                        showDetails={true}
-                        size="normal"
-                      />
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -745,7 +711,7 @@ function CreativePanel({ user }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Google Drive ссылки *
+                    Google Drive ссылки * (метрики будут показаны для каждой)
                   </label>
                   <button
                     onClick={addLinkField}
