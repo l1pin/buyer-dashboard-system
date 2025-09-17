@@ -236,6 +236,27 @@ function WorkTable({ user }) {
     });
   };
 
+  // Функция для форматирования времени по киевскому часовому поясу
+  const formatKyivTime = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -342,7 +363,7 @@ function WorkTable({ user }) {
                 Рабочая таблица
               </h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name} • Обновлено: {new Date(tableData.updated_at).toLocaleString('ru-RU')}
+                {user?.name} • Обновлено: {formatKyivTime(tableData.updated_at)}
               </p>
             </div>
           </div>
@@ -350,7 +371,7 @@ function WorkTable({ user }) {
             {lastSaved && !hasUnsavedChanges && (
               <div className="flex items-center text-sm text-green-600">
                 <CheckCircle className="h-4 w-4 mr-1" />
-                Сохранено {lastSaved.toLocaleTimeString('ru-RU')}
+                Сохранено {formatKyivTime(lastSaved.toISOString())}
               </div>
             )}
             
