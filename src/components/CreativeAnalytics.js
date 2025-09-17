@@ -18,7 +18,6 @@ import {
   Download,
   User,
   Clock,
-  DollarSign,
   Target,
   Activity
 } from 'lucide-react';
@@ -93,9 +92,16 @@ function CreativeAnalytics({ user }) {
     return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
   };
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [selectedPeriod, selectedEditor]);
+  /**
+   * Получение цвета для COF бейджа
+   */
+  const getCOFBadgeColor = (cof) => {
+    if (cof >= 4) return 'bg-red-600 text-white border-red-600'; // Ярко красный от 4 и больше
+    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300'; // Светло красный от 3 до 3,99
+    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300'; // Желтый от 2 до 2,99
+    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200'; // Светло-зеленый от 1,01 до 1,99
+    return 'bg-green-500 text-white border-green-500'; // Ярко зеленый до 1
+  };
 
   const loadAnalytics = async () => {
     try {
@@ -370,7 +376,9 @@ function CreativeAnalytics({ user }) {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <DollarSign className="h-8 w-8 text-green-500" />
+                  <div className="h-8 w-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">COF</span>
+                  </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
@@ -613,8 +621,8 @@ function CreativeAnalytics({ user }) {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <DollarSign className="h-3 w-3 mr-1" />
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                              <span className="text-xs font-bold mr-1">COF</span>
                               {formatCOF(cof)}
                             </span>
                           </td>
