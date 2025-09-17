@@ -130,14 +130,25 @@ function AdminPanel({ user }) {
     buyer.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  // Обновленная функция для форматирования времени по киевскому часовому поясу
+  const formatKyivTime = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
+    }
   };
 
   const clearMessages = () => {
@@ -387,12 +398,12 @@ function AdminPanel({ user }) {
                             </p>
                             <div className="mt-2 flex items-center text-xs text-gray-400">
                               <Calendar className="h-3 w-3 mr-1" />
-                              Создан: {formatDate(buyer.created_at)}
+                              Создан: {formatKyivTime(buyer.created_at)}
                             </div>
                             {buyerTable && (
                               <div className="mt-1 flex items-center text-xs text-gray-400">
                                 <Table className="h-3 w-3 mr-1" />
-                                Обновлена: {formatDate(buyerTable.updated_at)}
+                                Обновлена: {formatKyivTime(buyerTable.updated_at)}
                               </div>
                             )}
                           </div>
