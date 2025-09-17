@@ -176,6 +176,27 @@ function Settings({ user, updateUser }) {
     }
   };
 
+  // Функция для форматирования времени по киевскому часовому поясу
+  const formatKyivTime = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
+    }
+  };
+
   const clearMessages = () => {
     setError('');
     setSuccess('');
@@ -321,7 +342,7 @@ function Settings({ user, updateUser }) {
                   </label>
                   <input
                     type="text"
-                    value={user?.role === 'teamlead' ? 'Тим лид' : 'Байер'}
+                    value={user?.role === 'teamlead' ? 'Тим лид' : user?.role === 'editor' ? 'Монтажер' : 'Байер'}
                     disabled
                     className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                   />
@@ -460,7 +481,7 @@ function Settings({ user, updateUser }) {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Дата создания</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {user?.created_at ? new Date(user.created_at).toLocaleString('ru-RU') : 'Не указана'}
+                    {user?.created_at ? formatKyivTime(user.created_at) : 'Не указана'}
                   </dd>
                 </div>
                 <div>
@@ -474,7 +495,7 @@ function Settings({ user, updateUser }) {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Последнее обновление</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {user?.updated_at ? new Date(user.updated_at).toLocaleString('ru-RU') : 'Не указана'}
+                    {user?.updated_at ? formatKyivTime(user.updated_at) : 'Не указана'}
                   </dd>
                 </div>
               </dl>
