@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с группировкой по датам в стиле Telegram
+// CreativePanel.js с красивой группировкой по датам в стиле Telegram
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -593,30 +593,29 @@ function CreativePanel({ user }) {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-8">
             {/* Группируем креативы по датам и отображаем с заголовками */}
             {Object.entries(groupCreativesByDate(creatives)).map(([dateKey, dayCreatives]) => (
-              <div key={dateKey} className="date-group creative-day-section">
-                {/* Заголовок даты в стиле Telegram */}
-                <div className="date-separator">
-                  <div className={`date-badge ${
+              <div key={dateKey} className="date-group">
+                {/* Заголовок даты в стиле Telegram - СТРОГО ПО ЦЕНТРУ */}
+                <div className="date-divider">
+                  <span className={`date-badge ${
                     formatTelegramDate(dateKey) === 'Сегодня' ? 'today' : 
                     formatTelegramDate(dateKey) === 'Вчера' ? 'yesterday' : ''
                   }`}>
                     {formatTelegramDate(dateKey)}
-                    <span className="creative-count">{dayCreatives.length}</span>
-                  </div>
+                  </span>
                 </div>
                 
                 {/* Креативы за этот день */}
-                <div className="creatives-for-date space-y-6">
+                <div className="space-y-6">
                   {dayCreatives.map((creative) => {
                     const cof = calculateCOF(creative.work_types);
                     
                     return (
                       <div
                         key={creative.id}
-                        className="bg-white rounded-lg border border-gray-200 shadow-sm"
+                        className="creative-card bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
                       >
                         {/* Основная информация креатива */}
                         <div className="p-6">
@@ -692,7 +691,7 @@ function CreativePanel({ user }) {
                                   : `Видео ${index + 1}`;
                                 
                                 return (
-                                  <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                  <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                                     {/* Заголовок видео */}
                                     <div className="flex items-center justify-between mb-3">
                                       <div className="flex-1 min-w-0">
