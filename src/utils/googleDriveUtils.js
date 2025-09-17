@@ -1,4 +1,4 @@
-// Обновленный googleDriveUtils.js с новой Google Identity Services (GIS)
+// Обновленный googleDriveUtils.js с полными названиями и расширениями файлов
 // Замените содержимое src/utils/googleDriveUtils.js
 
 // Конфигурация Google OAuth
@@ -420,17 +420,15 @@ const isValidTitle = (title) => {
 };
 
 /**
- * Очистка названия файла
+ * Очистка названия файла - ОБНОВЛЕНО: НЕ удаляем расширения
  */
 const cleanFileName = (filename) => {
   if (!filename) return filename;
   
   let cleaned = filename.trim();
   
-  // Убираем расширения видео файлов
-  cleaned = cleaned.replace(/\.(mp4|avi|mov|mkv|webm|m4v|flv|wmv)$/i, '');
-  
-  // Убираем лишние пробелы
+  // НЕ удаляем расширения видео файлов - оставляем как есть с расширением!
+  // Убираем только лишние пробелы
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
   return cleaned;
@@ -509,17 +507,19 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
 };
 
 /**
- * Форматирование названия для отображения
+ * Форматирование названия для отображения - ОБНОВЛЕНО: показываем полное название
  */
-export const formatFileName = (name, maxLength = 25) => {
+export const formatFileName = (name, maxLength = null) => {
   if (!name) return 'Безымянный файл';
   
   let cleanName = name.trim();
   
-  if (cleanName.length <= maxLength) {
+  // Если maxLength не указан или равен null - возвращаем полное название
+  if (!maxLength || cleanName.length <= maxLength) {
     return cleanName;
   }
   
+  // Если всё-таки нужно обрезать (для совместимости), то обрезаем
   return cleanName.substring(0, maxLength - 3) + '...';
 };
 
