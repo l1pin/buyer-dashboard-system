@@ -29,7 +29,12 @@
     "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write 'src/**/*.{js,jsx,ts,tsx,json,css,md}'",
     "type-check": "tsc --noEmit",
-    "metrics:test": "node scripts/testMetricsAPI.js"
+    "metrics:test": "node scripts/testMetricsProxy.js",
+    "dev": "netlify dev",
+    "functions:serve": "netlify functions:serve",
+    "functions:build": "netlify functions:build",
+    "test:local": "npm run build && netlify dev --live",
+    "test:metrics": "node scripts/testMetricsProxy.js"
   },
   "eslintConfig": {
     "extends": [
@@ -69,7 +74,9 @@
     "postcss": "^8.5.6",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "node-fetch": "^2.7.0",
+    "netlify-cli": "^17.0.0"
   },
   "proxy": "http://localhost:3000",
   "engines": {
@@ -83,7 +90,8 @@
     "creatives",
     "metrics",
     "supabase",
-    "ads-analytics"
+    "ads-analytics",
+    "netlify-functions"
   ],
   "author": "Your Team",
   "license": "MIT",
