@@ -647,7 +647,7 @@ function CreativeAnalytics({ user }) {
                           Расходы
                         </dt>
                         <dd className="text-lg font-medium text-gray-900">
-                          {formatStats().totalCost}₴
+                          {formatStats().totalCost}
                         </dd>
                       </dl>
                     </div>
@@ -667,7 +667,7 @@ function CreativeAnalytics({ user }) {
                           Ср. CPL
                         </dt>
                         <dd className="text-lg font-medium text-gray-900">
-                          {formatStats().avgCPL}₴
+                          {formatStats().avgCPL}
                         </dd>
                       </dl>
                     </div>
@@ -886,7 +886,7 @@ function CreativeAnalytics({ user }) {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                   {creativeMetrics?.found ? 
-                                    creativeMetrics.data.formatted.cpl + '₴' : 
+                                    creativeMetrics.data.formatted.cpl : 
                                     <span className="text-gray-400">—</span>
                                   }
                                 </td>
