@@ -1,4 +1,4 @@
-// Обновленный supabaseClient.js с интеграцией MetricsService
+// Обновленный supabaseClient.js с интеграцией MetricsService через прокси
 // Замените содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
@@ -629,9 +629,20 @@ export const creativeService = {
   }
 };
 
-// Сервис для работы с метриками рекламы (интеграция с внешним API)
+// Сервис для работы с метриками рекламы (интеграция с внешним API через прокси)
 export const metricsService = {
-  API_URL: "https://api.trll-notif.com.ua/adsreportcollector/core.php",
+  // Определяем URL в зависимости от окружения
+  getApiUrl() {
+    // В продакшене используем Netlify функцию
+    if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
+      return '/.netlify/functions/metrics-proxy';
+    }
+    
+    // В разработке тоже используем Netlify функцию если она доступна
+    return '/.netlify/functions/metrics-proxy';
+  },
+  
+  API_URL: null, // Будет установлен динамически
   DB_SOURCE: "facebook",
   TIMEZONE: "Europe/Kiev",
 
@@ -661,11 +672,16 @@ export const metricsService = {
   },
 
   /**
-   * Отправка запроса к API базы данных
+   * Отправка запроса к API базы данных через Netlify прокси
    */
   async fetchFromDatabase(sql) {
     if (!/^(\s*select\b)/i.test(sql)) {
       throw new Error("Разрешены только SELECT-запросы.");
+    }
+
+    // Устанавливаем URL если не установлен
+    if (!this.API_URL) {
+      this.API_URL = this.getApiUrl();
     }
 
     const options = {
@@ -678,31 +694,56 @@ export const metricsService = {
     };
 
     try {
+      console.log('📡 Запрос к прокси функции:', this.API_URL);
+      
       const response = await fetch(this.API_URL, options);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: сервер БД недоступен`);
+        const errorText = await response.text();
+        let errorMessage;
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorJson.details || `HTTP ${response.status}`;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const text = await response.text();
       if (!text || !text.trim()) {
-        throw new Error("Пустой ответ от сервера БД");
+        console.log('⚠️ Пустой ответ от прокси функции');
+        return [];
       }
 
       let json;
       try {
         json = JSON.parse(text);
       } catch (e) {
-        throw new Error("Неверный JSON от сервера БД: " + e.message);
+        console.error('❌ Неверный JSON от прокси функции:', text.substring(0, 200));
+        throw new Error("Неверный JSON от сервера: " + e.message);
       }
 
+      // Проверяем на ошибки в ответе
       if (json && typeof json === "object" && json.error) {
-        throw new Error("Ошибка БД: " + json.error);
+        throw new Error("Ошибка API: " + (json.details || json.error));
       }
 
-      return Array.isArray(json) ? json : [];
+      const result = Array.isArray(json) ? json : [];
+      console.log('✅ Успешный ответ от прокси функции, записей:', result.length);
+      
+      return result;
+      
     } catch (error) {
-      console.error('Ошибка запроса к БД:', error);
+      console.error('❌ Ошибка запроса через прокси:', error);
+      
+      // Более детальная обработка ошибок
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error('Сервис метрик недоступен. Проверьте подключение к интернету.');
+      }
+      
       throw error;
     }
   },
@@ -811,6 +852,16 @@ export const metricsService = {
       }
 
       const aggregates = this.normalizeAggregateRow(dbResponse);
+      
+      // Проверяем что есть хоть какие-то данные
+      if (aggregates.leads === 0 && aggregates.cost === 0 && aggregates.clicks === 0 && aggregates.impressions === 0) {
+        console.log(`❌ Найдена запись, но все метрики равны 0 для видео: "${videoName}"`);
+        return {
+          found: false,
+          error: 'Нет активности по этому видео'
+        };
+      }
+      
       const metrics = this.computeDerivedMetrics(aggregates);
       const formatted = this.formatMetrics(metrics);
       
@@ -855,9 +906,9 @@ export const metricsService = {
     const results = await Promise.allSettled(
       videoNames.map(async (videoName, index) => {
         try {
-          // Небольшая задержка между запросами чтобы не перегружать API
+          // Небольшая задержка между запросами чтобы не перегружать прокси
           if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
           
           const result = await this.getVideoMetrics(videoName);
@@ -875,13 +926,18 @@ export const metricsService = {
       })
     );
 
-    return results.map((result, index) => ({
+    const finalResults = results.map((result, index) => ({
       videoName: videoNames[index],
       ...(result.status === 'fulfilled' ? result.value : {
         found: false,
         error: 'Неизвестная ошибка при обработке'
       })
     }));
+
+    const successCount = finalResults.filter(r => r.found).length;
+    console.log(`✅ Батчевая загрузка завершена: ${successCount}/${videoNames.length} видео с метриками`);
+
+    return finalResults;
   },
 
   /**
@@ -900,10 +956,15 @@ export const metricsService = {
    */
   async checkApiStatus() {
     try {
+      console.log('🔍 Проверка статуса API метрик...');
+      
       const testSql = "SELECT 1 as test LIMIT 1";
-      await this.fetchFromDatabase(testSql);
+      const result = await this.fetchFromDatabase(testSql);
+      
+      console.log('✅ API метрик доступен');
       return { available: true };
     } catch (error) {
+      console.error('❌ API метрик недоступен:', error.message);
       return { 
         available: false, 
         error: error.message 
