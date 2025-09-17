@@ -1,4 +1,4 @@
-// Простая рабочая Netlify функция с вашими API ключами
+// Обновленная Netlify функция с простым fallback
 // Замените содержимое netlify/functions/get-drive-title.js
 
 exports.handler = async (event, context) => {
@@ -32,7 +32,7 @@ exports.handler = async (event, context) => {
     // Метод 1: Google Drive API v3 с вашими ключами
     let title = await getFileNameViaAPI(fileId);
     if (title && isValidTitle(title)) {
-      console.log('Получено через API:', title);
+      console.log('✓ Получено через API:', title);
       return {
         statusCode: 200,
         headers,
@@ -47,7 +47,7 @@ exports.handler = async (event, context) => {
     // Метод 2: Content-Disposition
     title = await getFileNameViaHeaders(fileId);
     if (title && isValidTitle(title)) {
-      console.log('Получено через headers:', title);
+      console.log('✓ Получено через headers:', title);
       return {
         statusCode: 200,
         headers,
@@ -59,16 +59,16 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Fallback
-    const fallbackTitle = generateFallback(fileId);
-    console.log('Используем fallback:', fallbackTitle);
+    // Возвращаем null если не удалось извлечь название
+    // Клиент сам решит, как назвать файл (Видео 1, Видео 2...)
+    console.log('✗ Не удалось получить название для файла:', fileId);
     
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        title: fallbackTitle,
-        method: 'fallback',
+        title: null,
+        method: 'not-found',
         fileId: fileId 
       })
     };
@@ -76,15 +76,14 @@ exports.handler = async (event, context) => {
   } catch (error) {
     console.error('Ошибка в функции:', error);
     
-    const fallbackTitle = generateFallback(event.queryStringParameters?.fileId || 'unknown');
-    
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        title: fallbackTitle,
-        method: 'error-fallback',
-        error: error.message
+        title: null,
+        method: 'error',
+        error: error.message,
+        fileId: event.queryStringParameters?.fileId || 'unknown'
       })
     };
   }
@@ -119,6 +118,8 @@ async function getFileNameViaAPI(fileId) {
         }
       } else if (response.status === 403) {
         continue; // Пробуем следующий ключ
+      } else if (response.status === 404) {
+        break; // Файл не найден, не пробуем другие ключи
       }
     } catch (error) {
       continue;
@@ -155,7 +156,7 @@ async function getFileNameViaHeaders(fileId) {
 }
 
 /**
- * Проверка валидности
+ * Проверка валидности названия
  */
 function isValidTitle(title) {
   if (!title || typeof title !== 'string') return false;
@@ -171,7 +172,9 @@ function isValidTitle(title) {
     /войти/i,
     /access denied/i,
     /error/i,
-    /loading/i
+    /loading/i,
+    /file not found/i,
+    /not found/i
   ];
 
   return !invalidPatterns.some(pattern => pattern.test(cleaned));
@@ -191,32 +194,8 @@ function cleanTitle(title) {
   // Убираем лишние пробелы
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
+  // Убираем специальные символы в начале/конце
+  cleaned = cleaned.replace(/^[-_\s]+|[-_\s]+$/g, '');
+  
   return cleaned;
-}
-
-/**
- * Fallback название
- */
-function generateFallback(fileId) {
-  if (!fileId || fileId === 'unknown') {
-    return 'Видеофайл';
-  }
-  
-  const templates = [
-    'Презентация',
-    'Видеоурок', 
-    'Демонстрация',
-    'Обучающий_материал',
-    'Рекламный_ролик',
-    'Корпоративное_видео'
-  ];
-  
-  const prefixIndex = fileId.split('').reduce((sum, char) => {
-    return sum + char.charCodeAt(0);
-  }, 0) % templates.length;
-  
-  const prefix = templates[prefixIndex];
-  const shortId = fileId.substring(0, 6).toUpperCase();
-  
-  return `${prefix}_${shortId}`;
 }
