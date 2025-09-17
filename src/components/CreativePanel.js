@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с поддержкой Google OAuth и полными названиями видео
+// Обновленный CreativePanel.js с поддержкой COF оценки
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +21,9 @@ import {
   Video,
   Image as ImageIcon,
   User,
-  Play
+  Play,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -71,6 +73,83 @@ function CreativePanel({ user }) {
     'Доп. 2'
   ];
 
+  // Оценки типов работ для подсчета COF
+  const workTypeValues = {
+    'Монтаж _Video': 1,
+    'Монтаж > 21s': 0.4,
+    'Upscale_Video': 0.2,
+    'Ресайз 1': 0.4,
+    'Озвучка': 0.2,
+    'Субтитры': 0.2,
+    'Ресайз 2': 0.4,
+    'Написання_Sub': 0.2,
+    'Video_Avarat': 0.4,
+    'Правки_video': 0.2,
+    'Превьюшка': 0.2,
+    'Статика 1': 1,
+    'Статика 2': 1,
+    'Статика 3': 1,
+    'Статика 4': 1,
+    'Ресайз St 1': 0.2,
+    'Ресайз St 2': 0.2,
+    'Ресайз St 3': 0.2,
+    'Ресайз St 4': 0.2,
+    'Правки Статика': 0.2,
+    'Доп. 0,2': 0.2,
+    'Доп. 0,4': 0.4,
+    'Доп. 0,6': 0.6,
+    'Доп. 0,8': 0.8,
+    'Доп. 1': 1,
+    'Доп. 2': 2
+  };
+
+  /**
+   * Вычисление COF для креатива
+   */
+  const calculateCOF = (workTypes) => {
+    if (!workTypes || !Array.isArray(workTypes)) return 0;
+    
+    return workTypes.reduce((total, workType) => {
+      const value = workTypeValues[workType] || 0;
+      return total + value;
+    }, 0);
+  };
+
+  /**
+   * Форматирование COF для отображения
+   */
+  const formatCOF = (cof) => {
+    return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
+  };
+
+  /**
+   * Получение цвета для COF бейджа
+   */
+  const getCOFBadgeColor = (cof) => {
+    if (cof >= 2) return 'bg-red-100 text-red-800 border-red-200';
+    if (cof >= 1) return 'bg-orange-100 text-orange-800 border-orange-200';
+    if (cof >= 0.5) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-green-100 text-green-800 border-green-200';
+  };
+
+  /**
+   * Вычисление общей статистики COF
+   */
+  const getCOFStats = () => {
+    const totalCOF = creatives.reduce((sum, creative) => {
+      return sum + calculateCOF(creative.work_types);
+    }, 0);
+
+    const avgCOF = creatives.length > 0 ? totalCOF / creatives.length : 0;
+    
+    return {
+      totalCOF: totalCOF,
+      avgCOF: avgCOF,
+      maxCOF: Math.max(...creatives.map(c => calculateCOF(c.work_types)), 0),
+      minCOF: creatives.length > 0 ? Math.min(...creatives.map(c => calculateCOF(c.work_types))) : 0
+    };
+  };
+
   useEffect(() => {
     loadCreatives();
   }, []);
@@ -110,7 +189,6 @@ function CreativePanel({ user }) {
       setError('');
       setSuccess('');
 
-      // Сначала обеспечиваем авторизацию Google
       setAuthorizing(true);
       const authSuccess = await ensureGoogleAuth();
       setAuthorizing(false);
@@ -121,7 +199,6 @@ function CreativePanel({ user }) {
         return;
       }
 
-      // Извлекаем названия из ссылок (с полными названиями)
       setExtractingTitles(true);
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
       setExtractingTitles(false);
@@ -134,7 +211,6 @@ function CreativePanel({ user }) {
         work_types: newCreative.work_types
       });
 
-      // Сбрасываем форму
       setNewCreative({
         article: '',
         links: [''],
@@ -143,12 +219,12 @@ function CreativePanel({ user }) {
       });
       setShowCreateModal(false);
 
-      // Обновляем список креативов
       await loadCreatives();
       
       const successCount = titles.filter(title => !title.startsWith('Видео ')).length;
       const totalCount = titles.length;
-      setSuccess(`Креатив создан! Извлечено названий: ${successCount}/${totalCount}`);
+      const cof = calculateCOF(newCreative.work_types);
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Названий: ${successCount}/${totalCount}`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
@@ -260,6 +336,9 @@ function CreativePanel({ user }) {
     setSuccess('');
   };
 
+  // Получаем статистику COF
+  const cofStats = getCOFStats();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -296,7 +375,7 @@ function CreativePanel({ user }) {
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name} • Управление креативными задачами
+                {user?.name} • {creatives.length} креативов • COF: {formatCOF(cofStats.totalCOF)}
               </p>
             </div>
           </div>
@@ -318,6 +397,34 @@ function CreativePanel({ user }) {
           </div>
         </div>
       </div>
+
+      {/* COF Statistics */}
+      {creatives.length > 0 && (
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">Статистика COF:</span>
+              </div>
+              <div className="flex items-center space-x-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Общий:</span>
+                  <span className="ml-1 font-medium text-gray-900">{formatCOF(cofStats.totalCOF)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Средний:</span>
+                  <span className="ml-1 font-medium text-gray-900">{formatCOF(cofStats.avgCOF)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Макс:</span>
+                  <span className="ml-1 font-medium text-gray-900">{formatCOF(cofStats.maxCOF)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       {success && (
@@ -355,82 +462,92 @@ function CreativePanel({ user }) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {creatives.map((creative) => (
-              <div
-                key={creative.id}
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-medium text-gray-900 truncate">
-                        {creative.article}
-                      </h3>
-                      <div className="mt-1 flex items-center text-sm text-gray-500">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {formatKyivTime(creative.created_at)}
+            {creatives.map((creative) => {
+              const cof = calculateCOF(creative.work_types);
+              
+              return (
+                <div
+                  key={creative.id}
+                  className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
+                >
+                  <div className="p-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-medium text-gray-900 truncate">
+                          {creative.article}
+                        </h3>
+                        <div className="mt-1 flex items-center text-sm text-gray-500">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {formatKyivTime(creative.created_at)}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {/* COF Badge */}
+                        <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium border ${getCOFBadgeColor(cof)}`}>
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          {formatCOF(cof)}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteCreative(creative.id, creative.article)}
+                          className="text-gray-400 hover:text-red-600 transition-colors duration-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteCreative(creative.id, creative.article)}
-                      className="text-gray-400 hover:text-red-600 transition-colors duration-200"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
 
-                  {/* Work Types */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Типы работ ({creative.work_types.length})
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {creative.work_types.slice(0, 3).map((workType, index) => (
-                        <span key={index} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                          {index === 0 && getWorkTypeIcon(creative.work_types)}
-                          <span className={index === 0 ? "ml-1" : ""}>{workType}</span>
-                        </span>
-                      ))}
-                      {creative.work_types.length > 3 && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          +{creative.work_types.length - 3} еще
-                        </span>
-                      )}
+                    {/* Work Types */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Типы работ ({creative.work_types.length})
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {creative.work_types.slice(0, 3).map((workType, index) => (
+                          <span key={index} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
+                            {index === 0 && getWorkTypeIcon(creative.work_types)}
+                            <span className={index === 0 ? "ml-1" : ""}>{workType}</span>
+                          </span>
+                        ))}
+                        {creative.work_types.length > 3 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            +{creative.work_types.length - 3} еще
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Videos - Изменено с "Ссылки" на "Видео" и показываем полные названия */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                      <Play className="h-3 w-3 mr-1" />
-                      Видео ({creative.links.length})
-                    </h4>
-                    <div className="max-h-24 overflow-y-auto space-y-1">
-                      {creative.links.map((link, index) => {
-                        // Показываем полное название без сокращений
-                        const title = creative.link_titles && creative.link_titles[index] 
-                          ? creative.link_titles[index] // Полное название с расширением
-                          : `Видео ${index + 1}`;
-                        
-                        return (
-                          <a
-                            key={index}
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
-                            title={title} // Полное название в tooltip
-                          >
-                            {title} {/* Показываем полное название */}
-                          </a>
-                        );
-                      })}
+                    {/* Videos */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                        <Play className="h-3 w-3 mr-1" />
+                        Видео ({creative.links.length})
+                      </h4>
+                      <div className="max-h-24 overflow-y-auto space-y-1">
+                        {creative.links.map((link, index) => {
+                          const title = creative.link_titles && creative.link_titles[index] 
+                            ? creative.link_titles[index]
+                            : `Видео ${index + 1}`;
+                          
+                          return (
+                            <a
+                              key={index}
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
+                              title={title}
+                            >
+                              {title}
+                            </a>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -518,20 +635,35 @@ function CreativePanel({ user }) {
 
               {/* Work Types */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Типы работ * ({newCreative.work_types.length} выбрано)
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Типы работ * ({newCreative.work_types.length} выбрано)
+                  </label>
+                  {newCreative.work_types.length > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-gray-500">COF:</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(calculateCOF(newCreative.work_types))}`}>
+                        {formatCOF(calculateCOF(newCreative.work_types))}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
                   <div className="grid grid-cols-1 gap-2">
                     {workTypes.map((type) => (
-                      <label key={type} className="flex items-center space-x-2 p-2 hover:bg-white rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newCreative.work_types.includes(type)}
-                          onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700 select-none">{type}</span>
+                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={newCreative.work_types.includes(type)}
+                            onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700 select-none">{type}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatCOF(workTypeValues[type] || 0)}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -540,7 +672,7 @@ function CreativePanel({ user }) {
                   <div className="mt-2 flex flex-wrap gap-1">
                     {newCreative.work_types.map((type, index) => (
                       <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                        {type}
+                        {type} ({formatCOF(workTypeValues[type] || 0)})
                         <button
                           type="button"
                           onClick={() => handleWorkTypeChange(type, false)}
@@ -588,7 +720,14 @@ function CreativePanel({ user }) {
                      'Создание...'}
                   </div>
                 ) : (
-                  'Создать креатив'
+                  <>
+                    Создать креатив
+                    {newCreative.work_types.length > 0 && (
+                      <span className="ml-2 text-xs opacity-75">
+                        (COF: {formatCOF(calculateCOF(newCreative.work_types))})
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             </div>
