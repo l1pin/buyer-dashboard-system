@@ -1,4 +1,4 @@
-// Обновленный CreativePanel.js с исправленной интеграцией метрик
+// Обновленный CreativePanel.js с поддержкой комментариев и улучшенной валидацией
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +6,8 @@ import { creativeService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
-  ensureGoogleAuth
+  ensureGoogleAuth,
+  isGoogleDriveUrl
 } from '../utils/googleDriveUtils';
 import { useBatchMetrics } from '../hooks/useMetrics';
 import CreativeMetrics from './CreativeMetrics';
@@ -26,7 +27,10 @@ import {
   Play,
   TrendingUp,
   BarChart3,
-  Activity
+  Activity,
+  MessageCircle,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -35,6 +39,8 @@ function CreativePanel({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedComment, setSelectedComment] = useState(null);
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(true);
@@ -43,7 +49,8 @@ function CreativePanel({ user }) {
     article: '',
     links: [''],
     work_types: [],
-    link_titles: []
+    link_titles: [],
+    comment: '' // Добавляем поле для комментария
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
@@ -107,7 +114,7 @@ function CreativePanel({ user }) {
     'Доп. 2': 2
   };
 
-  // ИСПРАВЛЕНО: Правильное использование хука useBatchMetrics
+  // Хук для метрик
   const { 
     batchMetrics,
     loading: metricsLoading, 
@@ -118,7 +125,7 @@ function CreativePanel({ user }) {
   } = useBatchMetrics(creatives, showMetrics);
 
   /**
-   * Вычисление COF для креатива (fallback для старых записей)
+   * Вычисление COF для креатива
    */
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
@@ -182,15 +189,35 @@ function CreativePanel({ user }) {
     }
   };
 
+  // Валидация Google Drive ссылок
+  const validateGoogleDriveLinks = (links) => {
+    const validLinks = links.filter(link => link.trim() !== '');
+    const invalidLinks = [];
+
+    for (const link of validLinks) {
+      if (!isGoogleDriveUrl(link)) {
+        invalidLinks.push(link);
+      }
+    }
+
+    return { validLinks, invalidLinks };
+  };
+
   const handleCreateCreative = async () => {
     if (!newCreative.article.trim()) {
       setError('Артикул обязателен для заполнения');
       return;
     }
 
-    const validLinks = newCreative.links.filter(link => link.trim() !== '');
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    
     if (validLinks.length === 0) {
-      setError('Необходимо добавить хотя бы одну ссылку');
+      setError('Необходимо добавить хотя бы одну ссылку на Google Drive');
+      return;
+    }
+
+    if (invalidLinks.length > 0) {
+      setError(`Неверные ссылки (должны быть Google Drive): ${invalidLinks.join(', ')}`);
       return;
     }
 
@@ -218,6 +245,14 @@ function CreativePanel({ user }) {
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
       setExtractingTitles(false);
 
+      // Проверяем что удалось извлечь хотя бы одно реальное название
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
+        setCreating(false);
+        return;
+      }
+
       // Вычисляем COF для сохранения в базе данных
       const cofRating = calculateCOF(newCreative.work_types);
 
@@ -228,23 +263,25 @@ function CreativePanel({ user }) {
         links: links,
         link_titles: titles,
         work_types: newCreative.work_types,
-        cof_rating: cofRating
+        cof_rating: cofRating,
+        comment: newCreative.comment.trim() || null // Добавляем комментарий
       });
 
       setNewCreative({
         article: '',
         links: [''],
         work_types: [],
-        link_titles: []
+        link_titles: [],
+        comment: ''
       });
       setShowCreateModal(false);
 
       await loadCreatives();
       
-      const successCount = titles.filter(title => !title.startsWith('Видео ')).length;
+      const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Названий: ${successCount}/${totalCount}`);
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Названий извлечено: ${successCount}/${totalCount}`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
@@ -304,6 +341,17 @@ function CreativePanel({ user }) {
       ...newCreative,
       work_types: updatedWorkTypes
     });
+  };
+
+  // Функция для показа комментария
+  const showComment = (creative) => {
+    setSelectedComment({
+      article: creative.article,
+      comment: creative.comment,
+      createdAt: creative.created_at,
+      editorName: creative.editor_name
+    });
+    setShowCommentModal(true);
   };
 
   const formatKyivTime = (dateString) => {
@@ -511,7 +559,7 @@ function CreativePanel({ user }) {
               Нет креативов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив, нажав кнопку выше
+              Создайте свой первый креатив с Google Drive ссылками
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -545,6 +593,18 @@ function CreativePanel({ user }) {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
+                        {/* Маркер комментария */}
+                        {creative.comment && (
+                          <button
+                            onClick={() => showComment(creative)}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
+                            title="Показать комментарий"
+                          >
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            Комментарий
+                          </button>
+                        )}
+                        
                         {/* COF Badge */}
                         <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium border ${getCOFBadgeColor(cof)}`}>
                           <span className="text-xs font-bold mr-1">COF</span>
@@ -592,16 +652,20 @@ function CreativePanel({ user }) {
                             : `Видео ${index + 1}`;
                           
                           return (
-                            <a
-                              key={index}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
-                              title={title}
-                            >
-                              {title}
-                            </a>
+                            <div key={index} className="flex items-center justify-between text-xs bg-blue-50 p-2 rounded border">
+                              <span className="text-blue-900 truncate flex-1" title={title}>
+                                {title}
+                              </span>
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-2 text-blue-600 hover:text-blue-800"
+                                title="Открыть в Google Drive"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
                           );
                         })}
                       </div>
@@ -635,7 +699,7 @@ function CreativePanel({ user }) {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
                 Создать новый креатив
@@ -647,7 +711,8 @@ function CreativePanel({ user }) {
                     article: '',
                     links: [''],
                     work_types: [],
-                    link_titles: []
+                    link_titles: [],
+                    comment: ''
                   });
                   setExtractingTitles(false);
                   clearMessages();
@@ -680,7 +745,7 @@ function CreativePanel({ user }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Видео ссылки *
+                    Google Drive ссылки *
                   </label>
                   <button
                     onClick={addLinkField}
@@ -711,6 +776,27 @@ function CreativePanel({ user }) {
                     </div>
                   ))}
                 </div>
+                <p className="mt-1 text-xs text-yellow-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Используйте только ссылки на Google Drive файлы
+                </p>
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Комментарий
+                </label>
+                <textarea
+                  value={newCreative.comment}
+                  onChange={(e) => {
+                    setNewCreative({ ...newCreative, comment: e.target.value });
+                    clearMessages();
+                  }}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Добавьте комментарий к креативу (необязательно)"
+                />
               </div>
 
               {/* Work Types */}
@@ -809,6 +895,59 @@ function CreativePanel({ user }) {
                     )}
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {showCommentModal && selectedComment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <MessageCircle className="h-5 w-5 mr-2 text-blue-600" />
+                Комментарий
+              </h3>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Артикул:</label>
+                <p className="text-gray-900 font-medium">{selectedComment.article}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Автор:</label>
+                <p className="text-gray-900">{selectedComment.editorName}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Дата создания:</label>
+                <p className="text-gray-600 text-sm">{formatKyivTime(selectedComment.createdAt)}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">Комментарий:</label>
+                <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-gray-900 whitespace-pre-wrap">{selectedComment.comment}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Закрыть
               </button>
             </div>
           </div>
