@@ -1,3 +1,6 @@
+// Обновленный supabaseClient.js с поддержкой COF и имени монтажера
+// Замените содержимое src/supabaseClient.js
+
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
 
@@ -439,10 +442,12 @@ export const creativeService = {
       .insert([
         {
           user_id: creativeData.user_id,
+          editor_name: creativeData.editor_name, // Добавляем имя монтажера
           article: creativeData.article,
           links: creativeData.links,
-          link_titles: creativeData.link_titles || [], // Добавляем названия ссылок
-          work_types: creativeData.work_types
+          link_titles: creativeData.link_titles || [],
+          work_types: creativeData.work_types,
+          cof_rating: creativeData.cof_rating // Добавляем COF оценку
           // created_at и updated_at установятся автоматически через DEFAULT NOW()
         }
       ])
