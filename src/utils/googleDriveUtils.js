@@ -3,7 +3,7 @@
 
 // Конфигурация Google OAuth
 const GOOGLE_CONFIG = {
-  client_id: '1027516545893-5l0u9nr6l4u4ra4mj1rn5n5o2bhgk8va.apps.googleusercontent.com', // Замените на ваш Client ID
+  client_id: '570232776340-q495aojp96lvg75vbb54ud9ltp8u2kmn.apps.googleusercontent.com',
   api_key: 'AIzaSyAgBZt6xX69phg8vD2NUcrXtsVCFxrVV1w',
   discovery_docs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
   scopes: 'https://www.googleapis.com/auth/drive.metadata.readonly'
@@ -338,46 +338,49 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
     return { links, titles: [] };
   }
   
-  console.log('Начинаем извлечение названий для', links.length, 'ссылок...');
+  console.log('🔍 Начинаем извлечение названий для', links.length, 'ссылок...');
   
   // Проверяем авторизацию Google один раз для всех ссылок
   let isAuthorized = false;
   if (showAuthPrompt) {
     try {
       isAuthorized = await checkGoogleAuth();
-      if (!isAuthorized) {
-        console.log('Авторизация Google не выполнена');
-        // Можно показать пользователю кнопку для авторизации
+      if (isAuthorized) {
+        console.log('✓ Google авторизация активна - можем работать с приватными файлами');
+      } else {
+        console.log('⚠ Google авторизация не выполнена - работаем только с публичными файлами');
       }
     } catch (error) {
-      console.log('Не удалось проверить авторизацию Google');
+      console.log('⚠ Не удалось проверить авторизацию Google');
     }
   }
   
   const results = await Promise.allSettled(
     links.map(async (link, index) => {
       try {
-        console.log(`Обрабатываем ссылку ${index + 1}:`, link);
+        console.log(`📎 Ссылка ${index + 1}:`, link.substring(0, 50) + '...');
         
         const fileId = extractFileIdFromUrl(link);
         
         if (!fileId) {
-          console.log(`Не удалось извлечь File ID из ссылки ${index + 1}`);
+          console.log(`❌ Не удалось извлечь File ID из ссылки ${index + 1}`);
           return `Видео ${index + 1}`;
         }
+        
+        console.log(`🔑 File ID ${index + 1}: ${fileId}`);
         
         const fileInfo = await getFileInfo(fileId, showAuthPrompt);
         
         if (fileInfo?.name && isValidTitle(fileInfo.name)) {
-          console.log(`✓ Название ${index + 1}: "${fileInfo.name}"`);
+          console.log(`✅ Название ${index + 1}: "${fileInfo.name}"`);
           return fileInfo.name;
         } else {
-          console.log(`✗ Не удалось получить название ${index + 1}, используем fallback`);
+          console.log(`📹 Fallback ${index + 1}: Видео ${index + 1}`);
           return `Видео ${index + 1}`;
         }
         
       } catch (error) {
-        console.error(`Ошибка обработки ссылки ${index + 1}:`, error);
+        console.error(`❌ Ошибка обработки ссылки ${index + 1}:`, error);
         return `Видео ${index + 1}`;
       }
     })
@@ -387,7 +390,14 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
     result.status === 'fulfilled' ? result.value : `Видео ${index + 1}`
   );
   
-  console.log('Извлечение завершено. Названия:', titles);
+  // Статистика
+  const extractedCount = titles.filter(title => !title.startsWith('Видео ')).length;
+  const fallbackCount = titles.length - extractedCount;
+  
+  console.log('📊 Результаты извлечения:');
+  console.log(`  ✅ Извлечено названий: ${extractedCount}/${titles.length}`);
+  console.log(`  📹 Fallback названий: ${fallbackCount}/${titles.length}`);
+  console.log('📝 Итоговые названия:', titles);
   
   return { links, titles };
 };
