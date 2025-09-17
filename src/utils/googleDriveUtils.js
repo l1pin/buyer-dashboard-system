@@ -1,4 +1,4 @@
-// Обновленный googleDriveUtils.js с полными названиями и расширениями файлов
+// Обновленный googleDriveUtils.js с улучшенной валидацией Google Drive ссылок
 // Замените содержимое src/utils/googleDriveUtils.js
 
 // Конфигурация Google OAuth
@@ -245,10 +245,35 @@ export const ensureGoogleAuth = async () => {
 };
 
 /**
- * Извлекает File ID из ссылки
+ * Проверка является ли URL ссылкой на Google Drive - УЛУЧШЕНО
+ */
+export const isGoogleDriveUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Более строгая проверка Google Drive URLs
+  const googleDrivePatterns = [
+    /^https:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+/,
+    /^https:\/\/drive\.google\.com\/open\?id=[a-zA-Z0-9_-]+/,
+    /^https:\/\/docs\.google\.com\/.+\/d\/[a-zA-Z0-9_-]+/,
+    /^https:\/\/drive\.google\.com\/drive\/folders\/[a-zA-Z0-9_-]+/
+  ];
+  
+  return googleDrivePatterns.some(pattern => pattern.test(url.trim()));
+};
+
+/**
+ * Извлекает File ID из ссылки - УЛУЧШЕНО
  */
 export const extractFileIdFromUrl = (url) => {
-  if (!url) return null;
+  if (!url || typeof url !== 'string') return null;
+  
+  const trimmedUrl = url.trim();
+  
+  // Проверяем что это действительно Google Drive URL
+  if (!isGoogleDriveUrl(trimmedUrl)) {
+    console.warn('URL не является ссылкой на Google Drive:', trimmedUrl);
+    return null;
+  }
   
   const patterns = [
     /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
@@ -257,12 +282,13 @@ export const extractFileIdFromUrl = (url) => {
   ];
   
   for (const pattern of patterns) {
-    const match = url.match(pattern);
+    const match = trimmedUrl.match(pattern);
     if (match && match[1]) {
       return match[1];
     }
   }
   
+  console.warn('Не удалось извлечь File ID из Google Drive URL:', trimmedUrl);
   return null;
 };
 
@@ -340,12 +366,15 @@ const getFileNameViaPublicAPI = async (fileId) => {
 };
 
 /**
- * Получает информацию о файле
+ * Получает информацию о файле - УЛУЧШЕНО с детальным логированием
  */
 export const getFileInfo = async (fileId, showAuthPrompt = true) => {
-  if (!fileId) return null;
+  if (!fileId) {
+    console.warn('getFileInfo: fileId не предоставлен');
+    return null;
+  }
   
-  console.log(`Ищем название для файла: ${fileId}`);
+  console.log(`🔍 Ищем название для файла: ${fileId}`);
 
   // Метод 1: Пробуем OAuth авторизацию (новый GIS способ)
   if (showAuthPrompt) {
@@ -383,44 +412,56 @@ export const getFileInfo = async (fileId, showAuthPrompt = true) => {
       }
       
       if (data.title === null) {
-        console.log('Netlify функция не смогла получить название (файл приватный или не найден)');
+        console.log('❌ Netlify функция не смогла получить название (файл приватный или не найден)');
         return null;
       }
     }
   } catch (error) {
-    console.log('Ошибка запроса к Netlify функции:', error.message);
+    console.log('❌ Ошибка запроса к Netlify функции:', error.message);
   }
 
   // Возвращаем null если ничего не получилось
-  console.log(`✗ Не удалось получить название для файла ${fileId}`);
+  console.log(`❌ Не удалось получить название для файла ${fileId}`);
   return null;
 };
 
 /**
- * Проверка валидности названия
+ * Проверка валидности названия - УЛУЧШЕНО
  */
 const isValidTitle = (title) => {
   if (!title || typeof title !== 'string') return false;
   
   const cleaned = title.trim();
   
+  // Проверяем длину
+  if (cleaned.length === 0 || cleaned.length > 300) return false;
+  
+  // Паттерны невалидных названий
   const invalidPatterns = [
     /^untitled$/i,
     /^без названия$/i,
+    /^document$/i,
+    /^video$/i,
+    /^file$/i,
     /sign in/i,
     /войти/i,
     /access denied/i,
+    /доступ запрещен/i,
     /error/i,
-    /loading/i
+    /ошибка/i,
+    /loading/i,
+    /загрузка/i,
+    /file not found/i,
+    /файл не найден/i,
+    /not found/i,
+    /не найден/i
   ];
 
-  return !invalidPatterns.some(pattern => pattern.test(cleaned)) && 
-         cleaned.length > 0 && 
-         cleaned.length < 300;
+  return !invalidPatterns.some(pattern => pattern.test(cleaned));
 };
 
 /**
- * Очистка названия файла - ОБНОВЛЕНО: НЕ удаляем расширения
+ * Очистка названия файла - сохраняем расширения для лучшей идентификации
  */
 const cleanFileName = (filename) => {
   if (!filename) return filename;
@@ -428,21 +469,52 @@ const cleanFileName = (filename) => {
   let cleaned = filename.trim();
   
   // НЕ удаляем расширения видео файлов - оставляем как есть с расширением!
-  // Убираем только лишние пробелы
+  // Убираем только лишние пробелы и невидимые символы
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  // Убираем специальные символы в начале/конце (но не точки от расширений)
+  cleaned = cleaned.replace(/^[-_\s]+|[-_\s]+$/g, '');
   
   return cleaned;
 };
 
 /**
- * Обработка массива ссылок с извлечением названий
+ * Обработка массива ссылок с извлечением названий - УЛУЧШЕНО
  */
 export const processLinksAndExtractTitles = async (links, showAuthPrompt = true) => {
   if (!links || links.length === 0) {
-    return { links, titles: [] };
+    return { links: [], titles: [] };
   }
   
   console.log('🔍 Начинаем извлечение названий для', links.length, 'ссылок...');
+  
+  // Валидируем все ссылки сразу
+  const invalidLinks = [];
+  const validLinks = [];
+  
+  links.forEach((link, index) => {
+    if (!link || !link.trim()) {
+      console.warn(`❌ Пустая ссылка ${index + 1}`);
+      return;
+    }
+    
+    const trimmedLink = link.trim();
+    if (!isGoogleDriveUrl(trimmedLink)) {
+      console.warn(`❌ Ссылка ${index + 1} не является Google Drive URL:`, trimmedLink);
+      invalidLinks.push(trimmedLink);
+      return;
+    }
+    
+    validLinks.push(trimmedLink);
+  });
+
+  if (invalidLinks.length > 0) {
+    throw new Error(`Найдены неверные ссылки (должны быть Google Drive): ${invalidLinks.slice(0, 3).join(', ')}${invalidLinks.length > 3 ? '...' : ''}`);
+  }
+
+  if (validLinks.length === 0) {
+    throw new Error('Не найдено валидных Google Drive ссылок');
+  }
   
   // Проверяем авторизацию Google один раз для всех ссылок
   let isAuthorized = false;
@@ -460,7 +532,7 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
   }
   
   const results = await Promise.allSettled(
-    links.map(async (link, index) => {
+    validLinks.map(async (link, index) => {
       try {
         console.log(`📎 Ссылка ${index + 1}:`, link.substring(0, 50) + '...');
         
@@ -479,7 +551,7 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
           console.log(`✅ Название ${index + 1}: "${fileInfo.name}"`);
           return fileInfo.name;
         } else {
-          console.log(`📹 Fallback ${index + 1}: Видео ${index + 1}`);
+          console.log(`❌ Fallback ${index + 1}: Видео ${index + 1}`);
           return `Видео ${index + 1}`;
         }
         
@@ -503,11 +575,16 @@ export const processLinksAndExtractTitles = async (links, showAuthPrompt = true)
   console.log(`  📹 Fallback названий: ${fallbackCount}/${titles.length}`);
   console.log('📝 Итоговые названия:', titles);
   
-  return { links, titles };
+  // Проверяем что удалось извлечь хотя бы одно название
+  if (extractedCount === 0) {
+    throw new Error('Не удалось извлечь ни одного названия файла. Проверьте что ссылки ведут на доступные файлы Google Drive.');
+  }
+  
+  return { links: validLinks, titles };
 };
 
 /**
- * Форматирование названия для отображения - ОБНОВЛЕНО: показываем полное название
+ * Форматирование названия для отображения - показываем полное название
  */
 export const formatFileName = (name, maxLength = null) => {
   if (!name) return 'Безымянный файл';
@@ -524,9 +601,56 @@ export const formatFileName = (name, maxLength = null) => {
 };
 
 /**
- * Проверка Google Drive ссылки
+ * Валидация массива Google Drive ссылок - НОВАЯ ФУНКЦИЯ
  */
-export const isGoogleDriveUrl = (url) => {
-  if (!url) return false;
-  return /(?:drive|docs)\.google\.com/.test(url);
+export const validateGoogleDriveLinks = (links) => {
+  if (!Array.isArray(links)) {
+    return { 
+      isValid: false, 
+      errors: ['Ссылки должны быть массивом'], 
+      validLinks: [], 
+      invalidLinks: [] 
+    };
+  }
+
+  const errors = [];
+  const validLinks = [];
+  const invalidLinks = [];
+
+  // Фильтруем пустые ссылки
+  const nonEmptyLinks = links.filter(link => link && link.trim());
+
+  if (nonEmptyLinks.length === 0) {
+    return { 
+      isValid: false, 
+      errors: ['Необходимо добавить хотя бы одну ссылку'], 
+      validLinks: [], 
+      invalidLinks: [] 
+    };
+  }
+
+  nonEmptyLinks.forEach((link, index) => {
+    const trimmedLink = link.trim();
+    
+    if (!isGoogleDriveUrl(trimmedLink)) {
+      invalidLinks.push(trimmedLink);
+      errors.push(`Ссылка ${index + 1} не является Google Drive URL`);
+    } else {
+      const fileId = extractFileIdFromUrl(trimmedLink);
+      if (!fileId) {
+        invalidLinks.push(trimmedLink);
+        errors.push(`Не удалось извлечь File ID из ссылки ${index + 1}`);
+      } else {
+        validLinks.push(trimmedLink);
+      }
+    }
+  });
+
+  return {
+    isValid: validLinks.length > 0 && invalidLinks.length === 0,
+    errors,
+    validLinks,
+    invalidLinks,
+    summary: `Валидных ссылок: ${validLinks.length}, невалидных: ${invalidLinks.length}`
+  };
 };
