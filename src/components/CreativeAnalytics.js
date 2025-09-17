@@ -1,4 +1,4 @@
-// Обновленный CreativeAnalytics.js с поддержкой COF аналитики
+// Финальная рабочая версия CreativeAnalytics.js
 // Замените содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
-  console.log('CreativeAnalytics компонент загружен, пользователь:', user);
+  console.log('✅ CreativeAnalytics компонент загружен');
   
   const [analytics, setAnalytics] = useState({
     creatives: [],
@@ -47,7 +47,7 @@ function CreativeAnalytics({ user }) {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedEditor, setSelectedEditor] = useState('all');
 
-  // Оценки типов работ для подсчета COF (те же, что в CreativePanel)
+  // Оценки типов работ для подсчета COF
   const workTypeValues = {
     'Монтаж _Video': 1,
     'Монтаж > 21s': 0.4,
@@ -78,7 +78,7 @@ function CreativeAnalytics({ user }) {
   };
 
   /**
-   * Вычисление COF для креатива
+   * Вычисление COF для креатива (fallback для старых записей)
    */
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
@@ -108,34 +108,32 @@ function CreativeAnalytics({ user }) {
   };
 
   const loadAnalytics = async () => {
-    console.log('🚀 ФУНКЦИЯ loadAnalytics ВЫЗВАНА!');
-    console.log('📋 Параметры:', { selectedPeriod, selectedEditor });
+    console.log('🚀 Начинаем загрузку аналитики...');
     
     try {
-      console.log('🔄 loadAnalytics начата...');
       setLoading(true);
       setError('');
-      console.log('✅ Состояние loading установлено в true');
       
-      console.log('📡 Начинаем загрузку данных из API...');
-      console.log('🎯 Вызываем creativeService.getAllCreatives()...');
-      const creativesData = await creativeService.getAllCreatives();
-      console.log('✅ creativeService.getAllCreatives() выполнен');
-      
-      console.log('👥 Вызываем userService.getAllUsers()...');
-      const editorsData = await userService.getAllUsers();
-      console.log('✅ userService.getAllUsers() выполнен');
+      console.log('📡 Запрос к базе данных...');
+      const [creativesData, editorsData] = await Promise.all([
+        creativeService.getAllCreatives(),
+        userService.getAllUsers()
+      ]);
 
-      console.log('📊 Данные загружены:', { 
-        creativesCount: creativesData?.length, 
-        editorsCount: editorsData?.length 
+      console.log('📊 Данные получены:', {
+        креативов: creativesData?.length || 0,
+        пользователей: editorsData?.length || 0
       });
 
-      const editors = editorsData.filter(u => u.role === 'editor');
+      // Безопасное получение данных
+      const safeCreatives = creativesData || [];
+      const safeEditors = editorsData || [];
       
-      let filteredCreatives = creativesData || [];
+      const editors = safeEditors.filter(u => u.role === 'editor');
+      
+      let filteredCreatives = safeCreatives;
       if (selectedEditor !== 'all') {
-        filteredCreatives = filteredCreatives.filter(c => c.user_id === selectedEditor);
+        filteredCreatives = safeCreatives.filter(c => c.user_id === selectedEditor);
       }
 
       const now = new Date();
@@ -152,26 +150,27 @@ function CreativeAnalytics({ user }) {
         periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= monthStart);
       }
 
-      // Вычисляем COF статистику - используем сохраненный COF из базы данных или рассчитываем
+      console.log('📅 Фильтрация по периоду:', {
+        период: selectedPeriod,
+        всего: filteredCreatives.length,
+        заПериод: periodCreatives.length
+      });
+
+      // Вычисляем COF статистику с защитой от ошибок
       const todayCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= todayStart);
       const weekCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
-      const totalCOF = filteredCreatives.reduce((sum, c) => {
-        // Используем сохраненный COF или рассчитываем на лету для обратной совместимости
-        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
-        return sum + (cof || 0);
-      }, 0);
+      const calculateCreativeCOF = (creative) => {
+        // Используем сохраненный COF из БД или рассчитываем на лету
+        if (typeof creative.cof_rating === 'number') {
+          return creative.cof_rating;
+        }
+        return calculateCOF(creative.work_types || []);
+      };
 
-      const todayCOF = todayCreatives.reduce((sum, c) => {
-        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
-        return sum + (cof || 0);
-      }, 0);
-
-      const weekCOF = weekCreatives.reduce((sum, c) => {
-        const cof = c.cof_rating !== undefined ? c.cof_rating : calculateCOF(c.work_types || []);
-        return sum + (cof || 0);
-      }, 0);
-
+      const totalCOF = filteredCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+      const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+      const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
       const avgCOF = filteredCreatives.length > 0 ? totalCOF / filteredCreatives.length : 0;
 
       const stats = {
@@ -184,6 +183,8 @@ function CreativeAnalytics({ user }) {
         todayCOF: todayCOF,
         weekCOF: weekCOF
       };
+
+      console.log('📈 Статистика COF:', stats);
 
       // Статистика по типам работ с COF
       const workTypeStats = {};
@@ -202,23 +203,19 @@ function CreativeAnalytics({ user }) {
         }
       });
 
-      // Статистика по монтажерам с COF - используем сохраненные данные или связанные
+      // Статистика по монтажерам с защитой от ошибок
       const editorStats = {};
       
-      // Создаем группировку по монтажерам
       periodCreatives.forEach(creative => {
         // Определяем имя монтажера из разных источников
         let editorName = 'Неизвестный монтажер';
-        let editorId = creative.user_id;
+        let editorId = creative.user_id || 'unknown';
 
         if (creative.editor_name) {
-          // Используем сохраненное имя из базы
           editorName = creative.editor_name;
         } else if (creative.users && creative.users.name) {
-          // Используем связанные данные пользователя
           editorName = creative.users.name;
         } else {
-          // Ищем в массиве редакторов
           const editor = editors.find(e => e.id === creative.user_id);
           if (editor) {
             editorName = editor.name;
@@ -238,10 +235,10 @@ function CreativeAnalytics({ user }) {
         editorStats[editorId].count += 1;
         
         // Рассчитываем COF для этого креатива
-        const cof = creative.cof_rating !== undefined ? creative.cof_rating : calculateCOF(creative.work_types || []);
-        editorStats[editorId].totalCOF += (cof || 0);
+        const cof = calculateCreativeCOF(creative);
+        editorStats[editorId].totalCOF += cof;
         
-        // Обновляем типы работ
+        // Обновляем типы работ с защитой
         if (creative.work_types && Array.isArray(creative.work_types)) {
           creative.work_types.forEach(workType => {
             editorStats[editorId].types[workType] = 
@@ -252,17 +249,13 @@ function CreativeAnalytics({ user }) {
 
       // Рассчитываем средний COF для каждого монтажера
       Object.keys(editorStats).forEach(editorId => {
-        const stats = editorStats[editorId];
-        stats.avgCOF = stats.count > 0 ? stats.totalCOF / stats.count : 0;
+        const statsData = editorStats[editorId];
+        statsData.avgCOF = statsData.count > 0 ? statsData.totalCOF / statsData.count : 0;
       });
 
-      console.log('🔢 Аналитика обработана:', {
-        periodCreativesCount: periodCreatives.length,
-        editorsStatsCount: Object.keys(editorStats).length,
-        workTypeStatsCount: Object.keys(workTypeStats).length
-      });
+      console.log('👥 Статистика монтажеров:', Object.keys(editorStats).length);
+      console.log('🎯 Типы работ:', Object.keys(workTypeStats).length);
 
-      console.log('💾 Устанавливаем данные в state...');
       setAnalytics({
         creatives: periodCreatives,
         editors,
@@ -270,14 +263,16 @@ function CreativeAnalytics({ user }) {
         workTypeStats,
         editorStats
       });
-      console.log('✅ Данные установлены в state успешно');
+
+      console.log('✅ Аналитика успешно загружена');
 
     } catch (error) {
       console.error('❌ Ошибка загрузки аналитики:', error);
-      console.error('📍 Stack trace:', error.stack);
+      console.error('📍 Детали ошибки:', error.message);
+      console.error('🔍 Stack trace:', error.stack);
+      
       setError(`Ошибка загрузки данных: ${error.message}`);
       
-      console.log('🔄 Устанавливаем базовые данные при ошибке...');
       // Устанавливаем базовые данные при ошибке
       setAnalytics({
         creatives: [],
@@ -296,11 +291,15 @@ function CreativeAnalytics({ user }) {
         editorStats: {}
       });
     } finally {
-      console.log('🏁 Завершение loadAnalytics, устанавливаем loading = false');
+      console.log('🏁 Завершаем загрузку аналитики');
       setLoading(false);
-      console.log('✅ loadAnalytics завершена полностью');
     }
   };
+
+  useEffect(() => {
+    console.log('🔄 useEffect триггер:', { selectedPeriod, selectedEditor });
+    loadAnalytics();
+  }, [selectedPeriod, selectedEditor]);
 
   const formatKyivTime = (dateString) => {
     try {
@@ -324,7 +323,7 @@ function CreativeAnalytics({ user }) {
 
   const getWorkTypeIcon = (workTypes) => {
     const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
-    if (workType && workType.toLowerCase().includes('video') || workType && workType.toLowerCase().includes('монтаж')) {
+    if (workType && (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж'))) {
       return <Video className="h-4 w-4" />;
     }
     if (workType && workType.toLowerCase().includes('статика')) {
@@ -335,7 +334,7 @@ function CreativeAnalytics({ user }) {
 
   const getWorkTypeColor = (workTypes) => {
     const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
-    if (workType && workType.toLowerCase().includes('video') || workType && workType.toLowerCase().includes('монтаж')) {
+    if (workType && (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж'))) {
       return 'bg-blue-100 text-blue-800';
     }
     if (workType && workType.toLowerCase().includes('статика')) {
@@ -376,7 +375,7 @@ function CreativeAnalytics({ user }) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Загрузка аналитики...</p>
-          <p className="mt-2 text-xs text-gray-500">Проверьте консоль браузера для отладки</p>
+          <p className="mt-2 text-xs text-gray-500">Проверьте консоль для отладки</p>
         </div>
       </div>
     );
@@ -398,10 +397,8 @@ function CreativeAnalytics({ user }) {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => {
-                console.log('Кнопка обновления нажата');
-                loadAnalytics().catch(error => {
-                  console.error('Ошибка при ручном обновлении аналитики:', error);
-                });
+                console.log('🔄 Ручное обновление аналитики');
+                loadAnalytics();
               }}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
             >
@@ -683,7 +680,7 @@ function CreativeAnalytics({ user }) {
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-              Последние креативы с COF
+              Креативы с высоким COF
             </h3>
             
             {analytics.creatives.length === 0 ? (
@@ -716,54 +713,56 @@ function CreativeAnalytics({ user }) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {analytics.creatives
                       .sort((a, b) => {
-                        const cofA = a.cof_rating !== undefined ? a.cof_rating : calculateCOF(a.work_types || []);
-                        const cofB = b.cof_rating !== undefined ? b.cof_rating : calculateCOF(b.work_types || []);
+                        const cofA = typeof a.cof_rating === 'number' ? a.cof_rating : calculateCOF(a.work_types || []);
+                        const cofB = typeof b.cof_rating === 'number' ? b.cof_rating : calculateCOF(b.work_types || []);
                         return cofB - cofA;
                       })
                       .slice(0, 10)
                       .map((creative) => {
-                      const editorName = creative.editor_name || creative.users?.name || 'Неизвестен';
-                      const cof = creative.cof_rating !== undefined ? creative.cof_rating : calculateCOF(creative.work_types || []);
-                      
-                      return (
-                        <tr key={creative.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {creative.article}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {editorName}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
-                              <span className="text-xs font-bold mr-1">COF</span>
-                              {formatCOF(cof)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
-                              {getWorkTypeIcon(creative.work_types || [])}
-                              <span className="ml-1">{(creative.work_types && creative.work_types[0]) || 'Не указано'}</span>
-                              {creative.work_types && creative.work_types.length > 1 && (
-                                <span className="ml-1">+{creative.work_types.length - 1}</span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Clock className="h-3 w-3" />
-                              <span>{formatKyivTime(creative.created_at)}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {(creative.links && creative.links.length) || 0} ссылок
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        const editorName = creative.editor_name || creative.users?.name || 'Неизвестен';
+                        const cof = typeof creative.cof_rating === 'number' 
+                          ? creative.cof_rating 
+                          : calculateCOF(creative.work_types || []);
+                        
+                        return (
+                          <tr key={creative.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {creative.article}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {editorName}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                                <span className="text-xs font-bold mr-1">COF</span>
+                                {formatCOF(cof)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
+                                {getWorkTypeIcon(creative.work_types || [])}
+                                <span className="ml-1">{(creative.work_types && creative.work_types[0]) || 'Не указано'}</span>
+                                {creative.work_types && creative.work_types.length > 1 && (
+                                  <span className="ml-1">+{creative.work_types.length - 1}</span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatKyivTime(creative.created_at)}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {(creative.links && creative.links.length) || 0} ссылок
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
