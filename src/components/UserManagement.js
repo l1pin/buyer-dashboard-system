@@ -101,14 +101,25 @@ function UserManagement({ user }) {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  // Обновленная функция для форматирования времени по киевскому часовому поясу
+  const formatKyivTime = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Kiev',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
+    }
   };
 
   const getRoleDisplayName = (role) => {
@@ -352,7 +363,7 @@ function UserManagement({ user }) {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(currentUser.created_at)}
+                          {formatKyivTime(currentUser.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
