@@ -124,6 +124,7 @@ function CreativeAnalytics({ user }) {
     }
   };
 
+  // Функция для форматирования времени по киевскому часовому поясу
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -134,11 +135,13 @@ function CreativeAnalytics({ user }) {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false  // Добавляем 24-часовой формат
+        hour12: false
       });
     } catch (error) {
       console.error('Error formatting date:', error);
-      return new Date(dateString).toLocaleDateString('ru-RU');
+      return new Date(dateString).toLocaleDateString('ru-RU', {
+        timeZone: 'Europe/Kiev'
+      });
     }
   };
 
@@ -470,9 +473,9 @@ function CreativeAnalytics({ user }) {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_type)}`}>
-                              {getWorkTypeIcon(creative.work_type)}
-                              <span className="ml-1">{creative.work_type}</span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
+                              {getWorkTypeIcon(creative.work_types)}
+                              <span className="ml-1">{creative.work_types[0]}</span>
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
