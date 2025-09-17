@@ -142,19 +142,37 @@ export const userService = {
 
   // Получить всех пользователей
   async getAllUsers() {
-    console.log('Выполняем запрос getAllUsers...');
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Ошибка в getAllUsers:', error);
-      throw error;
+    try {
+      console.log('📡 Запрос к таблице users...');
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getAllUsers:', error);
+        console.error('📋 Детали ошибки:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        });
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getAllUsers завершен успешно, получено пользователей:', result.length);
+      
+      // Показываем сколько монтажеров найдено
+      const editors = result.filter(u => u.role === 'editor');
+      console.log('👥 Найдено монтажеров:', editors.length);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getAllUsers:', error);
+      return [];
     }
-    
-    console.log('getAllUsers завершен, получено пользователей:', data?.length || 0);
-    return data || [];
   }
 };
 
@@ -465,34 +483,77 @@ export const creativeService = {
 
   // Получить креативы пользователя
   async getUserCreatives(userId) {
-    const { data, error } = await supabase
-      .from('creatives')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+    try {
+      console.log('📡 Запрос креативов пользователя:', userId);
+      
+      const { data, error } = await supabase
+        .from('creatives')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getUserCreatives:', error);
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getUserCreatives завершен, получено креативов:', result.length);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getUserCreatives:', error);
+      return [];
+    }
   },
 
   // Получить все креативы (для админов)
   async getAllCreatives() {
-    console.log('Выполняем запрос getAllCreatives...');
-    const { data, error } = await supabase
-      .from('creatives')
-      .select(`
-        *,
-        users(name, email)
-      `)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Ошибка в getAllCreatives:', error);
-      throw error;
+    try {
+      console.log('📡 Запрос к таблице creatives...');
+      
+      const { data, error } = await supabase
+        .from('creatives')
+        .select(`
+          *,
+          users(name, email)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getAllCreatives:', error);
+        console.error('📋 Детали ошибки:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getAllCreatives завершен успешно, получено записей:', result.length);
+      
+      // Выводим пример первой записи для отладки
+      if (result.length > 0) {
+        console.log('📋 Пример записи креатива:', {
+          id: result[0].id,
+          article: result[0].article,
+          work_types: result[0].work_types,
+          cof_rating: result[0].cof_rating,
+          editor_name: result[0].editor_name,
+          hasUsers: !!result[0].users
+        });
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getAllCreatives:', error);
+      // Возвращаем пустой массив вместо null для предотвращения ошибок
+      return [];
     }
-    
-    console.log('getAllCreatives завершен, получено записей:', data?.length || 0);
-    return data || [];
   },
 
   // Обновить креатив
