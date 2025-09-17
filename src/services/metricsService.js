@@ -1,4 +1,5 @@
-// Обновленный MetricsService - замените содержимое src/services/metricsService.js
+// Обновленный MetricsService.js с исправленным форматированием валют
+// Замените содержимое src/services/metricsService.js
 
 // Определяем URL в зависимости от окружения
 const getApiUrl = () => {
@@ -175,20 +176,20 @@ export class MetricsService {
   }
 
   /**
-   * Форматирование метрик для отображения
+   * Форматирование метрик для отображения - ОБНОВЛЕНО
    */
   static formatMetrics(metrics) {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
-    const formatMoney = (n) => (Number(n) || 0).toFixed(2).replace(".", ",");
-    const formatPercent = (n) => (Number(n) || 0).toFixed(2).replace(".", ",") + "%";
+    const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
+    const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
 
     return {
       leads: formatInt(metrics.leads),
-      cpl: formatMoney(metrics.cpl),
-      cost: formatMoney(metrics.cost),
-      ctr: formatPercent(metrics.ctr_percent),
-      cpc: formatMoney(metrics.cpc),
-      cpm: formatMoney(metrics.cpm),
+      cpl: formatMoney(metrics.cpl),                     // CPL с $ после цифр
+      cost: formatMoney(metrics.cost),                   // Расходы с $ после цифр
+      ctr: formatPercent(metrics.ctr_percent),           // CTR в %
+      cpc: formatMoney(metrics.cpc),                     // CPC с $ после цифр
+      cpm: formatMoney(metrics.cpm),                     // CPM с $ после цифр
       clicks: formatInt(metrics.clicks),
       impressions: formatInt(metrics.impressions)
     };
