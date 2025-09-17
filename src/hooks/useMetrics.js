@@ -1,20 +1,20 @@
-// Исправленный хук для работы с метриками рекламы
+// Обновленный хук для работы с метриками рекламы (множественные видео на креатив)
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
 
 /**
- * Хук для получения метрик одного креатива
+ * Хук для получения метрик одного видео по названию
  */
-export function useCreativeMetrics(creative, autoLoad = true) {
+export function useVideoMetrics(videoTitle, autoLoad = true) {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const loadMetrics = useCallback(async () => {
-    if (!creative?.link_titles || creative.link_titles.length === 0) {
+    if (!videoTitle || videoTitle.startsWith('Видео ')) {
       return;
     }
 
@@ -22,16 +22,7 @@ export function useCreativeMetrics(creative, autoLoad = true) {
     setError('');
 
     try {
-      // Берем первое название из массива link_titles
-      const firstVideoName = creative.link_titles[0];
-      
-      if (!firstVideoName || firstVideoName.startsWith('Видео ')) {
-        setError('Название видео не определено');
-        setMetrics(null);
-        return;
-      }
-
-      const result = await MetricsService.getVideoMetrics(firstVideoName);
+      const result = await MetricsService.getVideoMetrics(videoTitle);
       
       if (result.found) {
         setMetrics(result.data);
@@ -48,13 +39,13 @@ export function useCreativeMetrics(creative, autoLoad = true) {
     } finally {
       setLoading(false);
     }
-  }, [creative]);
+  }, [videoTitle]);
 
   useEffect(() => {
-    if (autoLoad && creative) {
+    if (autoLoad && videoTitle) {
       loadMetrics();
     }
-  }, [creative, autoLoad, loadMetrics]);
+  }, [videoTitle, autoLoad, loadMetrics]);
 
   return {
     metrics,
@@ -67,7 +58,7 @@ export function useCreativeMetrics(creative, autoLoad = true) {
 }
 
 /**
- * Хук для батчевой загрузки метрик множества креативов
+ * Хук для батчевой загрузки метрик множества креативов (с множественными видео каждый)
  */
 export function useBatchMetrics(creatives, autoLoad = true) {
   const [batchMetrics, setBatchMetrics] = useState(new Map());
@@ -87,42 +78,55 @@ export function useBatchMetrics(creatives, autoLoad = true) {
     setError('');
 
     try {
-      // Собираем названия видео из всех креативов
-      const videoNames = [];
-      const creativeVideoMap = new Map();
+      // Собираем все названия видео из всех креативов
+      const videoToCreativeMap = new Map(); // videoName -> [creativeId, videoIndex]
+      let totalVideos = 0;
 
       creatives.forEach(creative => {
         if (creative.link_titles && creative.link_titles.length > 0) {
-          const firstVideoName = creative.link_titles[0];
-          if (firstVideoName && !firstVideoName.startsWith('Видео ')) {
-            videoNames.push(firstVideoName);
-            creativeVideoMap.set(firstVideoName, creative.id);
-          }
+          creative.link_titles.forEach((videoTitle, videoIndex) => {
+            if (videoTitle && !videoTitle.startsWith('Видео ')) {
+              totalVideos++;
+              // Создаем уникальный ключ для каждого видео
+              const videoKey = `${creative.id}_${videoIndex}`;
+              videoToCreativeMap.set(videoTitle, {
+                creativeId: creative.id,
+                videoIndex: videoIndex,
+                videoKey: videoKey
+              });
+            }
+          });
         }
       });
 
-      if (videoNames.length === 0) {
+      if (videoToCreativeMap.size === 0) {
         setError('Нет доступных названий видео для поиска метрик');
         setBatchMetrics(new Map());
         setStats({ total: 0, found: 0, notFound: 0 });
         return;
       }
 
-      console.log(`🔍 Батчевая загрузка метрик для ${videoNames.length} видео`);
+      console.log(`🔍 Батчевая загрузка метрик для ${videoToCreativeMap.size} видео из ${creatives.length} креативов`);
 
+      const videoNames = Array.from(videoToCreativeMap.keys());
       const results = await MetricsService.getBatchVideoMetrics(videoNames);
       
       const metricsMap = new Map();
       let successCount = 0;
 
       results.forEach(result => {
-        const creativeId = creativeVideoMap.get(result.videoName);
-        if (creativeId) {
-          metricsMap.set(creativeId, {
+        const videoMapping = videoToCreativeMap.get(result.videoName);
+        if (videoMapping) {
+          const { videoKey, creativeId, videoIndex } = videoMapping;
+          
+          // Сохраняем метрики по ключу видео
+          metricsMap.set(videoKey, {
             found: result.found,
             data: result.data,
             error: result.error,
-            videoName: result.videoName
+            videoName: result.videoName,
+            creativeId: creativeId,
+            videoIndex: videoIndex
           });
 
           if (result.found) {
@@ -133,13 +137,13 @@ export function useBatchMetrics(creatives, autoLoad = true) {
 
       setBatchMetrics(metricsMap);
       setStats({
-        total: videoNames.length,
+        total: totalVideos,
         found: successCount,
-        notFound: videoNames.length - successCount
+        notFound: totalVideos - successCount
       });
       setLastUpdated(new Date());
       
-      console.log(`✅ Загружено метрик: ${successCount}/${videoNames.length}`);
+      console.log(`✅ Загружено метрик: ${successCount}/${totalVideos} видео`);
 
     } catch (err) {
       console.error('Ошибка батчевой загрузки метрик:', err);
@@ -156,14 +160,43 @@ export function useBatchMetrics(creatives, autoLoad = true) {
     }
   }, [creatives, autoLoad, loadBatchMetrics]);
 
-  const getCreativeMetrics = useCallback((creativeId) => {
-    return batchMetrics.get(creativeId) || null;
+  const getVideoMetrics = useCallback((creativeId, videoIndex) => {
+    const videoKey = `${creativeId}_${videoIndex}`;
+    return batchMetrics.get(videoKey) || null;
   }, [batchMetrics]);
 
-  const hasMetrics = useCallback((creativeId) => {
-    const metrics = batchMetrics.get(creativeId);
-    return metrics && metrics.found;
+  const getCreativeMetrics = useCallback((creativeId) => {
+    // Возвращаем все метрики для всех видео креатива
+    const creativeMetrics = [];
+    let videoIndex = 0;
+    
+    while (true) {
+      const videoKey = `${creativeId}_${videoIndex}`;
+      const metrics = batchMetrics.get(videoKey);
+      
+      if (metrics) {
+        creativeMetrics.push({
+          videoIndex,
+          ...metrics
+        });
+        videoIndex++;
+      } else if (videoIndex === 0) {
+        // Если не найдено даже первое видео, выходим
+        break;
+      } else {
+        // Если есть пропуск, но уже найдены метрики, проверим еще несколько индексов
+        videoIndex++;
+        if (videoIndex > 10) break; // Защита от бесконечного цикла
+      }
+    }
+    
+    return creativeMetrics.length > 0 ? creativeMetrics : null;
   }, [batchMetrics]);
+
+  const hasVideoMetrics = useCallback((creativeId, videoIndex) => {
+    const metrics = getVideoMetrics(creativeId, videoIndex);
+    return metrics && metrics.found;
+  }, [getVideoMetrics]);
 
   const getSuccessRate = useCallback(() => {
     if (stats.total === 0) return 0;
@@ -177,8 +210,9 @@ export function useBatchMetrics(creatives, autoLoad = true) {
     stats,
     lastUpdated,
     refresh: loadBatchMetrics,
+    getVideoMetrics,
     getCreativeMetrics,
-    hasMetrics,
+    hasVideoMetrics,
     getSuccessRate
   };
 }
@@ -230,8 +264,7 @@ export function useMetricsApi() {
 }
 
 /**
- * Хук для агрегированной статистики метрик
- * ИСПРАВЛЕНО: Теперь принимает готовую Map метрик вместо креативов
+ * Хук для агрегированной статистики метрик (обновлен для множественных видео)
  */
 export function useMetricsStats(creatives, batchMetricsMap = null) {
   const [stats, setStats] = useState({
@@ -239,10 +272,13 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
     totalCost: 0,
     totalClicks: 0,
     totalImpressions: 0,
+    totalDays: 0,
     avgCPL: 0,
     avgCTR: 0,
     avgCPC: 0,
     avgCPM: 0,
+    videosWithMetrics: 0,
+    videosWithoutMetrics: 0,
     creativesWithMetrics: 0,
     creativesWithoutMetrics: 0
   });
@@ -254,10 +290,13 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
         totalCost: 0,
         totalClicks: 0,
         totalImpressions: 0,
+        totalDays: 0,
         avgCPL: 0,
         avgCTR: 0,
         avgCPC: 0,
         avgCPM: 0,
+        videosWithMetrics: 0,
+        videosWithoutMetrics: 0,
         creativesWithMetrics: 0,
         creativesWithoutMetrics: 0
       });
@@ -268,18 +307,35 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
     let totalCost = 0;
     let totalClicks = 0;
     let totalImpressions = 0;
+    let totalDays = 0;
+    let videosWithMetrics = 0;
+    let videosWithoutMetrics = 0;
     let creativesWithMetrics = 0;
     let creativesWithoutMetrics = 0;
 
     creatives.forEach(creative => {
-      const metrics = batchMetricsMap.get(creative.id);
+      let creativeHasMetrics = false;
+      const videoCount = creative.link_titles ? creative.link_titles.length : 0;
       
-      if (metrics && metrics.found && metrics.data) {
-        const data = metrics.data.raw;
-        totalLeads += data.leads || 0;
-        totalCost += data.cost || 0;
-        totalClicks += data.clicks || 0;
-        totalImpressions += data.impressions || 0;
+      for (let videoIndex = 0; videoIndex < videoCount; videoIndex++) {
+        const videoKey = `${creative.id}_${videoIndex}`;
+        const metrics = batchMetricsMap.get(videoKey);
+        
+        if (metrics && metrics.found && metrics.data) {
+          const data = metrics.data.raw;
+          totalLeads += data.leads || 0;
+          totalCost += data.cost || 0;
+          totalClicks += data.clicks || 0;
+          totalImpressions += data.impressions || 0;
+          totalDays += data.days_count || 0;
+          videosWithMetrics++;
+          creativeHasMetrics = true;
+        } else {
+          videosWithoutMetrics++;
+        }
+      }
+      
+      if (creativeHasMetrics) {
         creativesWithMetrics++;
       } else {
         creativesWithoutMetrics++;
@@ -296,10 +352,13 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
       totalCost,
       totalClicks,
       totalImpressions,
+      totalDays,
       avgCPL: Number(avgCPL.toFixed(2)),
       avgCTR: Number(avgCTR.toFixed(2)),
       avgCPC: Number(avgCPC.toFixed(2)),
       avgCPM: Number(avgCPM.toFixed(2)),
+      videosWithMetrics,
+      videosWithoutMetrics,
       creativesWithMetrics,
       creativesWithoutMetrics
     });
@@ -313,17 +372,26 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
 
     return {
       totalLeads: formatInt(stats.totalLeads),
-      totalCost: formatMoney(stats.totalCost),           // Расходы с $ после цифр
+      totalCost: formatMoney(stats.totalCost),
       totalClicks: formatInt(stats.totalClicks),
       totalImpressions: formatInt(stats.totalImpressions),
-      avgCPL: formatMoney(stats.avgCPL),                 // CPL с $ после цифр
-      avgCTR: formatPercent(stats.avgCTR),               // CTR в %
-      avgCPC: formatMoney(stats.avgCPC),                 // CPC с $ после цифр
-      avgCPM: formatMoney(stats.avgCPM),                 // CPM с $ после цифр
+      totalDays: formatInt(stats.totalDays) + " дн.",
+      avgCPL: formatMoney(stats.avgCPL),
+      avgCTR: formatPercent(stats.avgCTR),
+      avgCPC: formatMoney(stats.avgCPC),
+      avgCPM: formatMoney(stats.avgCPM),
+      videosWithMetrics: formatInt(stats.videosWithMetrics),
+      videosWithoutMetrics: formatInt(stats.videosWithoutMetrics),
       creativesWithMetrics: formatInt(stats.creativesWithMetrics),
       creativesWithoutMetrics: formatInt(stats.creativesWithoutMetrics),
+      totalVideos: formatInt(stats.videosWithMetrics + stats.videosWithoutMetrics),
       totalCreatives: formatInt(stats.creativesWithMetrics + stats.creativesWithoutMetrics),
-      metricsSuccessRate: formatPercent(
+      videoMetricsSuccessRate: formatPercent(
+        stats.videosWithMetrics + stats.videosWithoutMetrics > 0
+          ? (stats.videosWithMetrics / (stats.videosWithMetrics + stats.videosWithoutMetrics)) * 100
+          : 0
+      ),
+      creativeMetricsSuccessRate: formatPercent(
         stats.creativesWithMetrics + stats.creativesWithoutMetrics > 0
           ? (stats.creativesWithMetrics / (stats.creativesWithMetrics + stats.creativesWithoutMetrics)) * 100
           : 0
@@ -334,7 +402,7 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
   return {
     stats,
     formatStats,
-    hasData: stats.creativesWithMetrics > 0
+    hasData: stats.videosWithMetrics > 0
   };
 }
 
