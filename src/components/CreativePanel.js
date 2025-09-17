@@ -1,6 +1,9 @@
+// ФИНАЛЬНЫЙ CreativePanel.js готовый к использованию
+// Замените содержимое src/components/CreativePanel.js
+
 import React, { useState, useEffect } from 'react';
 import { creativeService } from '../supabaseClient';
-import { processLinksAndExtractTitles, formatFileName } from '../utils/googleDriveUtils';
+import { processLinksAndExtractTitles, formatFileName, extractFileIdFromUrl } from '../utils/googleDriveUtils';
 import { 
   Plus, 
   X, 
@@ -14,7 +17,12 @@ import {
   Video,
   Image as ImageIcon,
   User,
-  Loader2
+  Loader2,
+  ExternalLink,
+  FileText,
+  Download,
+  Search,
+  Sparkles
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -28,11 +36,13 @@ function CreativePanel({ user }) {
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
-    work_types: [], // Изменено на массив
-    link_titles: [] // Добавляем поле для названий ссылок
+    work_types: [],
+    link_titles: []
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
+  const [previewTitles, setPreviewTitles] = useState([]);
 
   const workTypes = [
     'Монтаж _Video',
@@ -80,6 +90,72 @@ function CreativePanel({ user }) {
     }
   };
 
+  // Предварительный просмотр названий при вводе ссылок
+  const handleLinksPreview = async () => {
+    const validLinks = newCreative.links.filter(link => link.trim() !== '');
+    if (validLinks.length === 0) {
+      setError('Добавьте хотя бы одну ссылку перед извлечением названий');
+      return;
+    }
+
+    try {
+      setExtractingTitles(true);
+      setExtractionProgress({ current: 0, total: validLinks.length });
+      setPreviewTitles([]);
+      setError('');
+
+      console.log('🚀 Начинаем извлечение названий с ВАШИМИ API ключами...');
+
+      // Обрабатываем ссылки по одной для показа прогресса
+      const titles = [];
+      for (let i = 0; i < validLinks.length; i++) {
+        setExtractionProgress({ current: i + 1, total: validLinks.length });
+        
+        const fileId = extractFileIdFromUrl(validLinks[i]);
+        let title = `Ссылка ${i + 1}`;
+        
+        if (fileId) {
+          try {
+            // Быстрый запрос к вашей Netlify функции с реальными ключами
+            const response = await fetch(`/.netlify/functions/get-drive-title?fileId=${fileId}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.title) {
+                title = data.title;
+                console.log(`✅ Получено название ${i + 1}: "${title}" (метод: ${data.method})`);
+              }
+            }
+          } catch (error) {
+            console.log(`❌ Не удалось получить название для ссылки ${i + 1}:`, error);
+          }
+        }
+        
+        titles.push(title);
+        setPreviewTitles([...titles]);
+      }
+
+      setNewCreative({
+        ...newCreative,
+        link_titles: titles
+      });
+
+      const successCount = titles.filter(title => 
+        !title.startsWith('Ссылка ') && 
+        !title.includes('_') && 
+        title.length > 10
+      ).length;
+
+      setSuccess(`Извлечено ${successCount} из ${validLinks.length} реальных названий файлов!`);
+
+    } catch (error) {
+      console.error('Ошибка предварительного просмотра:', error);
+      setError('Ошибка при извлечении названий: ' + error.message);
+    } finally {
+      setExtractingTitles(false);
+      setExtractionProgress({ current: 0, total: 0 });
+    }
+  };
+
   const handleCreateCreative = async () => {
     if (!newCreative.article.trim()) {
       setError('Артикул обязателен для заполнения');
@@ -99,20 +175,25 @@ function CreativePanel({ user }) {
 
     try {
       setCreating(true);
-      setExtractingTitles(true);
       setError('');
       setSuccess('');
 
-      // Извлекаем названия из ссылок
-      const { links, titles } = await processLinksAndExtractTitles(validLinks);
-      
-      setExtractingTitles(false);
+      let finalTitles = newCreative.link_titles;
+
+      // Если нет предварительно извлеченных названий, извлекаем их сейчас
+      if (!finalTitles || finalTitles.length === 0) {
+        setExtractingTitles(true);
+        console.log('🔄 Извлекаем названия файлов с ВАШИМИ ключами...');
+        const { titles } = await processLinksAndExtractTitles(validLinks);
+        finalTitles = titles;
+        setExtractingTitles(false);
+      }
 
       await creativeService.createCreative({
         user_id: user.id,
         article: newCreative.article.trim(),
-        links: links,
-        link_titles: titles, // Сохраняем извлеченные названия
+        links: validLinks,
+        link_titles: finalTitles,
         work_types: newCreative.work_types
       });
 
@@ -123,11 +204,19 @@ function CreativePanel({ user }) {
         work_types: [],
         link_titles: []
       });
+      setPreviewTitles([]);
       setShowCreateModal(false);
 
       // Обновляем список креативов
       await loadCreatives();
-      setSuccess('Креатив успешно создан с извлеченными названиями файлов');
+      
+      const realNamesCount = finalTitles.filter(title => 
+        !title.startsWith('Ссылка') && 
+        !title.includes('_') && 
+        title.length > 10
+      ).length;
+      
+      setSuccess(`🎉 Креатив создан! Извлечено ${realNamesCount} из ${finalTitles.length} реальных названий файлов.`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
@@ -159,10 +248,12 @@ function CreativePanel({ user }) {
 
   const removeLinkField = (index) => {
     const newLinks = newCreative.links.filter((_, i) => i !== index);
+    const newTitles = previewTitles.filter((_, i) => i !== index);
     setNewCreative({
       ...newCreative,
       links: newLinks.length === 0 ? [''] : newLinks
     });
+    setPreviewTitles(newTitles);
   };
 
   const updateLink = (index, value) => {
@@ -172,15 +263,23 @@ function CreativePanel({ user }) {
       ...newCreative,
       links: newLinks
     });
+    
+    // Сбрасываем предварительный просмотр при изменении ссылок
+    if (previewTitles.length > 0) {
+      setPreviewTitles([]);
+      setNewCreative({
+        ...newCreative,
+        links: newLinks,
+        link_titles: []
+      });
+    }
   };
 
   const handleWorkTypeChange = (workType, isChecked) => {
     let updatedWorkTypes;
     if (isChecked) {
-      // Добавляем тип работы
       updatedWorkTypes = [...newCreative.work_types, workType];
     } else {
-      // Убираем тип работы
       updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
     }
     
@@ -200,7 +299,7 @@ function CreativePanel({ user }) {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false  // Добавляем 24-часовой формат
+        hour12: false
       });
     } catch (error) {
       console.error('Error formatting date:', error);
@@ -209,7 +308,6 @@ function CreativePanel({ user }) {
   };
 
   const getWorkTypeIcon = (workTypes) => {
-    // Проверяем первый тип работы для определения иконки
     const firstType = workTypes[0] || '';
     if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
       return <Video className="h-4 w-4" />;
@@ -221,7 +319,6 @@ function CreativePanel({ user }) {
   };
 
   const getWorkTypeColor = (workTypes) => {
-    // Проверяем первый тип работы для определения цвета
     const firstType = workTypes[0] || '';
     if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
       return 'bg-blue-100 text-blue-800';
@@ -238,6 +335,19 @@ function CreativePanel({ user }) {
   const clearMessages = () => {
     setError('');
     setSuccess('');
+  };
+
+  const hasValidLinks = () => {
+    return newCreative.links.some(link => link.trim() !== '');
+  };
+
+  const isRealName = (title) => {
+    return title && 
+           !title.startsWith('Ссылка') && 
+           !title.includes('_') && 
+           title.length > 10 &&
+           !title.includes('Видеопрезентация') &&
+           !title.includes('Обучающий_материал');
   };
 
   if (loading) {
@@ -274,9 +384,12 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 flex items-center">
+                Креативы 
+                <Sparkles className="h-5 w-5 text-yellow-500 ml-2" />
+              </h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name} • Управление креативными задачами
+                {user?.name} • Автоматическое извлечение реальных названий файлов
               </p>
             </div>
           </div>
@@ -299,7 +412,7 @@ function CreativePanel({ user }) {
         </div>
       </div>
 
-      {/* Messages - только success сообщения, ошибки теперь в модале */}
+      {/* Messages */}
       {success && (
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
           <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -311,12 +424,16 @@ function CreativePanel({ user }) {
       <div className="flex-1 overflow-auto p-6">
         {creatives.length === 0 ? (
           <div className="text-center py-12">
-            <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <div className="flex justify-center mb-4">
+              <Video className="h-16 w-16 text-gray-400" />
+              <Sparkles className="h-8 w-8 text-yellow-500 -ml-4 -mt-2" />
+            </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               Нет креативов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив, нажав кнопку выше
+              Создайте свой первый креатив с автоматическим извлечением<br/>
+              <strong>реальных названий файлов</strong> из Google Drive ссылок
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -373,29 +490,56 @@ function CreativePanel({ user }) {
                     </div>
                   </div>
 
-                  {/* Links */}
+                  {/* Links with Real Names */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700 flex items-center">
                       <LinkIcon className="h-3 w-3 mr-1" />
-                      Ссылки ({creative.links.length})
+                      Файлы ({creative.links.length})
+                      {creative.link_titles && creative.link_titles.some(title => isRealName(title)) && (
+                        <Sparkles className="h-3 w-3 ml-1 text-yellow-500" />
+                      )}
                     </h4>
-                    <div className="max-h-24 overflow-y-auto space-y-1">
+                    <div className="max-h-32 overflow-y-auto space-y-2">
                       {creative.links.map((link, index) => {
                         const title = creative.link_titles && creative.link_titles[index] 
-                          ? formatFileName(creative.link_titles[index], 25)
-                          : `Видео ${index + 1}`;
+                          ? creative.link_titles[index]
+                          : `Файл ${index + 1}`;
+                        
+                        const displayTitle = formatFileName(title, 35);
+                        const realName = isRealName(title);
                         
                         return (
-                          <a
-                            key={index}
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 p-2 rounded border transition-colors duration-200"
-                            title={creative.link_titles && creative.link_titles[index] ? creative.link_titles[index] : link}
-                          >
-                            🎬 {title}
-                          </a>
+                          <div key={index} className="group">
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`flex items-center justify-between text-xs hover:text-blue-800 p-2 rounded border transition-all duration-200 ${
+                                realName 
+                                  ? 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200' 
+                                  : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-200'
+                              }`}
+                              title={title}
+                            >
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <span className="text-lg">
+                                  {realName ? '🎬' : '📁'}
+                                </span>
+                                <span className="truncate font-medium">
+                                  {displayTitle}
+                                </span>
+                                {realName && (
+                                  <div className="flex items-center">
+                                    <Sparkles className="h-3 w-3 text-yellow-500" />
+                                    <span className="text-green-600 text-xs bg-green-100 px-1 py-0.5 rounded ml-1">
+                                      Реальное название
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-blue-600 flex-shrink-0 ml-2" />
+                            </a>
+                          </div>
                         );
                       })}
                     </div>
@@ -410,10 +554,11 @@ function CreativePanel({ user }) {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
                 Создать новый креатив
+                <Sparkles className="h-5 w-5 text-yellow-500 ml-2" />
               </h3>
               <button
                 onClick={() => {
@@ -424,6 +569,7 @@ function CreativePanel({ user }) {
                     work_types: [],
                     link_titles: []
                   });
+                  setPreviewTitles([]);
                   setExtractingTitles(false);
                   clearMessages();
                 }}
@@ -433,7 +579,7 @@ function CreativePanel({ user }) {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Article */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -455,33 +601,87 @@ function CreativePanel({ user }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Ссылки *
+                    Ссылки на файлы * (с автоизвлечением названий)
                   </label>
-                  <button
-                    onClick={addLinkField}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Добавить
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    {hasValidLinks() && !extractingTitles && (
+                      <button
+                        onClick={handleLinksPreview}
+                        className="inline-flex items-center px-3 py-1 border border-green-300 text-xs font-medium rounded text-green-700 bg-green-50 hover:bg-green-100"
+                      >
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Получить реальные названия
+                      </button>
+                    )}
+                    <button
+                      onClick={addLinkField}
+                      className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Добавить
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+
+                {extractingTitles && (
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      <span className="text-sm text-blue-700">
+                        Извлекаем реальные названия файлов с ВАШИМИ API ключами... ({extractionProgress.current}/{extractionProgress.total})
+                      </span>
+                    </div>
+                    <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(extractionProgress.current / extractionProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-48 overflow-y-auto">
                   {newCreative.links.map((link, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input
-                        type="url"
-                        value={link}
-                        onChange={(e) => updateLink(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="https://example.com"
-                      />
-                      {newCreative.links.length > 1 && (
-                        <button
-                          onClick={() => removeLinkField(index)}
-                          className="text-gray-400 hover:text-red-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="url"
+                          value={link}
+                          onChange={(e) => updateLink(index, e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="https://drive.google.com/file/d/..."
+                        />
+                        {newCreative.links.length > 1 && (
+                          <button
+                            onClick={() => removeLinkField(index)}
+                            className="text-gray-400 hover:text-red-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Preview название */}
+                      {previewTitles[index] && (
+                        <div className="ml-2 flex items-center space-x-2 text-sm">
+                          <div className="flex items-center space-x-1">
+                            {isRealName(previewTitles[index]) ? (
+                              <>
+                                <Sparkles className="h-3 w-3 text-yellow-500" />
+                                <span className="text-green-700 bg-green-50 px-2 py-1 rounded text-xs font-medium">
+                                  ✅ {previewTitles[index]}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-3 w-3 text-blue-600" />
+                                <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded text-xs">
+                                  📁 {previewTitles[index]}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -494,14 +694,14 @@ function CreativePanel({ user }) {
                   Типы работ * ({newCreative.work_types.length} выбрано)
                 </label>
                 <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {workTypes.map((type) => (
                       <label key={type} className="flex items-center space-x-2 p-2 hover:bg-white rounded cursor-pointer">
                         <input
                           type="checkbox"
                           checked={newCreative.work_types.includes(type)}
                           onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all duration-200"
                         />
                         <span className="text-sm text-gray-700 select-none">{type}</span>
                       </label>
@@ -525,6 +725,14 @@ function CreativePanel({ user }) {
                   </div>
                 )}
               </div>
+
+              {/* Error в модале */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                  {error}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -534,23 +742,26 @@ function CreativePanel({ user }) {
                   setShowCreateModal(false);
                   clearMessages();
                 }}
-                disabled={creating}
+                disabled={creating || extractingTitles}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 Отменить
               </button>
               <button
                 onClick={handleCreateCreative}
-                disabled={creating}
+                disabled={creating || extractingTitles}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                {creating ? (
+                {creating || extractingTitles ? (
                   <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Добавление...
+                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                    {extractingTitles ? 'Извлекаем названия...' : 'Создаем...'}
                   </div>
                 ) : (
-                  'Добавить'
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Создать креатив
+                  </>
                 )}
               </button>
             </div>
