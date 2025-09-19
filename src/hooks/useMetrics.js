@@ -1,4 +1,4 @@
-// Обновленный хук для работы с метриками рекламы (множественные видео на креатив)
+// Обновленный хук для работы с метриками рекламы с поддержкой параметра period
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,7 +7,7 @@ import { MetricsService } from '../services/metricsService';
 /**
  * Хук для получения метрик одного видео по названию
  */
-export function useVideoMetrics(videoTitle, autoLoad = true) {
+export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +22,9 @@ export function useVideoMetrics(videoTitle, autoLoad = true) {
     setError('');
 
     try {
-      const result = await MetricsService.getVideoMetrics(videoTitle);
+      console.log(`🔍 Загрузка метрик для видео: ${videoTitle} за период: ${period}`);
+      
+      const result = await MetricsService.getVideoMetrics(videoTitle, period);
       
       if (result.found) {
         setMetrics(result.data);
@@ -39,13 +41,13 @@ export function useVideoMetrics(videoTitle, autoLoad = true) {
     } finally {
       setLoading(false);
     }
-  }, [videoTitle]);
+  }, [videoTitle, period]);
 
   useEffect(() => {
     if (autoLoad && videoTitle) {
       loadMetrics();
     }
-  }, [videoTitle, autoLoad, loadMetrics]);
+  }, [videoTitle, autoLoad, period, loadMetrics]);
 
   return {
     metrics,
@@ -60,7 +62,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true) {
 /**
  * Хук для батчевой загрузки метрик множества креативов (с множественными видео каждый)
  */
-export function useBatchMetrics(creatives, autoLoad = true) {
+export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   const [batchMetrics, setBatchMetrics] = useState(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -106,10 +108,10 @@ export function useBatchMetrics(creatives, autoLoad = true) {
         return;
       }
 
-      console.log(`🔍 Батчевая загрузка метрик для ${videoToCreativeMap.size} видео из ${creatives.length} креативов`);
+      console.log(`🔍 Батчевая загрузка метрик для ${videoToCreativeMap.size} видео из ${creatives.length} креативов за период: ${period}`);
 
       const videoNames = Array.from(videoToCreativeMap.keys());
-      const results = await MetricsService.getBatchVideoMetrics(videoNames);
+      const results = await MetricsService.getBatchVideoMetrics(videoNames, period);
       
       const metricsMap = new Map();
       let successCount = 0;
@@ -125,6 +127,7 @@ export function useBatchMetrics(creatives, autoLoad = true) {
             data: result.data,
             error: result.error,
             videoName: result.videoName,
+            period: period,
             creativeId: creativeId,
             videoIndex: videoIndex
           });
@@ -143,7 +146,7 @@ export function useBatchMetrics(creatives, autoLoad = true) {
       });
       setLastUpdated(new Date());
       
-      console.log(`✅ Загружено метрик: ${successCount}/${totalVideos} видео`);
+      console.log(`✅ Загружено метрик: ${successCount}/${totalVideos} видео за период: ${period}`);
 
     } catch (err) {
       console.error('Ошибка батчевой загрузки метрик:', err);
@@ -152,13 +155,13 @@ export function useBatchMetrics(creatives, autoLoad = true) {
     } finally {
       setLoading(false);
     }
-  }, [creatives]);
+  }, [creatives, period]);
 
   useEffect(() => {
     if (autoLoad && creatives) {
       loadBatchMetrics();
     }
-  }, [creatives, autoLoad, loadBatchMetrics]);
+  }, [creatives, autoLoad, period, loadBatchMetrics]);
 
   const getVideoMetrics = useCallback((creativeId, videoIndex) => {
     const videoKey = `${creativeId}_${videoIndex}`;
