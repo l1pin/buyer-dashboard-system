@@ -1,4 +1,4 @@
-// Исправленный MetricsService.js с корректной логикой для периода "4 дня"
+// Упрощенный MetricsService.js - загружаем все данные, фильтруем на клиенте
 // Замените содержимое src/services/metricsService.js
 
 // Определяем URL в зависимости от окружения
@@ -17,36 +17,24 @@ const TIMEZONE = "Europe/Kiev";
 
 export class MetricsService {
   /**
-   * Построение SQL запроса для агрегированных данных по имени видео с фильтрацией по периоду
-   * ИСПРАВЛЕНО: теперь берет последние 4 дня активности, а не первые
+   * Построение SQL запроса для получения ВСЕХ данных по видео (без фильтрации по дням)
+   * Фильтрацию будем делать на клиенте
    */
-  static buildAggregateSqlForVideo(videoName, period = 'all') {
+  static buildDetailedSqlForVideo(videoName) {
     const escapedVideoName = this.sqlEscapeLiteral(videoName);
-    
-    let dateFilter = '';
-    if (period === '4days') {
-      // ИСПРАВЛЕНИЕ: берем последние 4 дня активности (DESC вместо ASC)
-      dateFilter = `
-        AND adv_date IN (
-          SELECT adv_date 
-          FROM ads_collection 
-          WHERE video_name='${escapedVideoName}' 
-            AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
-          ORDER BY adv_date DESC 
-          LIMIT 4
-        )
-      `;
-    }
     
     return `
       SELECT
+        adv_date,
         COALESCE(SUM(valid), 0)                       AS leads,
         COALESCE(SUM(cost), 0)                        AS cost,
         COALESCE(SUM(clicks_on_link_tracker), 0)      AS clicks,
-        COALESCE(SUM(showed), 0)                      AS impressions,
-        COUNT(DISTINCT adv_date)                      AS days_count
+        COALESCE(SUM(showed), 0)                      AS impressions
       FROM ads_collection
-      WHERE video_name='${escapedVideoName}'${dateFilter}
+      WHERE video_name='${escapedVideoName}'
+        AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
+      GROUP BY adv_date
+      ORDER BY adv_date ASC
     `;
   }
 
@@ -59,7 +47,6 @@ export class MetricsService {
 
   /**
    * Отправка запроса к API базы данных через Netlify прокси
-   * УЛУЧШЕНО: добавлено больше логирования для отладки
    */
   static async fetchFromDatabase(sql) {
     if (!/^(\s*select\b)/i.test(sql)) {
@@ -119,11 +106,6 @@ export class MetricsService {
       const result = Array.isArray(json) ? json : [];
       console.log('✅ Успешный ответ от прокси функции, записей:', result.length);
       
-      // Дополнительное логирование для отладки
-      if (result.length > 0) {
-        console.log('📋 Пример данных:', JSON.stringify(result[0], null, 2));
-      }
-      
       return result;
       
     } catch (error) {
@@ -139,11 +121,83 @@ export class MetricsService {
   }
 
   /**
-   * Нормализация ответа базы данных к объекту агрегатов
+   * Нормализация подробного ответа базы данных к массиву дней
    */
-  static normalizeAggregateRow(dbResponse) {
+  static normalizeDetailedRows(dbResponse) {
     if (!dbResponse || dbResponse.length === 0) {
       console.log('⚠️ Пустой ответ от базы данных');
+      return [];
+    }
+
+    console.log('🔄 Нормализация подробных данных:', JSON.stringify(dbResponse.slice(0, 2), null, 2));
+
+    let normalizedRows = [];
+
+    // Случай A: массив объектов
+    if (typeof dbResponse[0] === "object" && !Array.isArray(dbResponse[0])) {
+      normalizedRows = dbResponse.map(row => ({
+        date: row.adv_date,
+        leads: Number(row.leads) || 0,
+        cost: Number(row.cost) || 0,
+        clicks: Number(row.clicks) || 0,
+        impressions: Number(row.impressions) || 0
+      }));
+    } else {
+      // Случай B: [headers, ...rows]
+      const headers = dbResponse[0];
+      const dataRows = dbResponse.slice(1);
+      
+      normalizedRows = dataRows.map(row => {
+        const map = {};
+        headers.forEach((h, i) => (map[h] = row[i]));
+        
+        return {
+          date: map.adv_date,
+          leads: Number(map.leads) || 0,
+          cost: Number(map.cost) || 0,
+          clicks: Number(map.clicks) || 0,
+          impressions: Number(map.impressions) || 0
+        };
+      });
+    }
+
+    // Сортируем по дате (первые дни сначала)
+    normalizedRows.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    console.log('✅ Нормализовано дней:', normalizedRows.length);
+    if (normalizedRows.length > 0) {
+      console.log('📅 Первый день:', normalizedRows[0].date, normalizedRows[0]);
+      console.log('📅 Последний день:', normalizedRows[normalizedRows.length - 1].date, normalizedRows[normalizedRows.length - 1]);
+    }
+    
+    return normalizedRows;
+  }
+
+  /**
+   * Фильтрация данных по периоду на стороне клиента
+   */
+  static filterDataByPeriod(dailyData, period) {
+    if (period === 'all' || !dailyData || dailyData.length === 0) {
+      console.log(`🔄 Используем все ${dailyData?.length || 0} дней данных`);
+      return dailyData;
+    }
+
+    if (period === '4days') {
+      // Берем первые 4 дня активности
+      const filtered = dailyData.slice(0, 4);
+      console.log(`🔄 Фильтрация: взяли первые 4 дня из ${dailyData.length} доступных`);
+      console.log('📅 Выбранные дни:', filtered.map(d => d.date));
+      return filtered;
+    }
+
+    return dailyData;
+  }
+
+  /**
+   * Агрегирование дневных данных в общие метрики
+   */
+  static aggregateDailyData(dailyData) {
+    if (!dailyData || dailyData.length === 0) {
       return {
         leads: 0,
         cost: 0,
@@ -153,37 +207,22 @@ export class MetricsService {
       };
     }
 
-    console.log('🔄 Нормализация ответа базы данных:', JSON.stringify(dbResponse, null, 2));
+    const aggregated = dailyData.reduce((acc, day) => ({
+      leads: acc.leads + day.leads,
+      cost: acc.cost + day.cost,
+      clicks: acc.clicks + day.clicks,
+      impressions: acc.impressions + day.impressions,
+      days_count: acc.days_count + 1
+    }), {
+      leads: 0,
+      cost: 0,
+      clicks: 0,
+      impressions: 0,
+      days_count: 0
+    });
 
-    // Случай A: массив объектов
-    if (typeof dbResponse[0] === "object" && !Array.isArray(dbResponse[0])) {
-      const row = dbResponse[0];
-      const normalized = {
-        leads: Number(row.leads) || 0,
-        cost: Number(row.cost) || 0,
-        clicks: Number(row.clicks) || 0,
-        impressions: Number(row.impressions) || 0,
-        days_count: Number(row.days_count) || 0
-      };
-      console.log('✅ Нормализовано (объект):', normalized);
-      return normalized;
-    }
-
-    // Случай B: [headers, ...rows]
-    const headers = dbResponse[0];
-    const dataRow = dbResponse[1] || [];
-    const map = {};
-    headers.forEach((h, i) => (map[h] = dataRow[i]));
-    
-    const normalized = {
-      leads: Number(map.leads) || 0,
-      cost: Number(map.cost) || 0,
-      clicks: Number(map.clicks) || 0,
-      impressions: Number(map.impressions) || 0,
-      days_count: Number(map.days_count) || 0
-    };
-    console.log('✅ Нормализовано (массив):', normalized);
-    return normalized;
+    console.log('📊 Агрегированные данные:', aggregated);
+    return aggregated;
   }
 
   /**
@@ -239,7 +278,7 @@ export class MetricsService {
 
   /**
    * Получение метрик для конкретного видео по названию с поддержкой периода
-   * УЛУЧШЕНО: добавлено детальное логирование для отладки
+   * НОВЫЙ ПОДХОД: загружаем все данные, фильтруем на клиенте
    */
   static async getVideoMetrics(videoName, period = 'all') {
     if (!videoName || typeof videoName !== 'string') {
@@ -249,29 +288,52 @@ export class MetricsService {
     console.log(`🔍 Поиск метрик для видео: "${videoName}" за период: ${period}`);
     
     try {
-      const sql = this.buildAggregateSqlForVideo(videoName, period);
+      // Получаем подробные данные за все время
+      const sql = this.buildDetailedSqlForVideo(videoName);
       console.log('🔍 Построенный SQL:', sql);
       
       const dbResponse = await this.fetchFromDatabase(sql);
       
       if (!dbResponse || dbResponse.length === 0) {
-        console.log(`❌ Пустой результат для видео: "${videoName}" за период: ${period}`);
+        console.log(`❌ Пустой результат для видео: "${videoName}"`);
         return {
           found: false,
           error: 'Не найдено в базе данных'
         };
       }
 
-      const aggregates = this.normalizeAggregateRow(dbResponse);
+      // Нормализуем подробные данные по дням
+      const allDailyData = this.normalizeDetailedRows(dbResponse);
       
-      // Проверяем что есть хоть какие-то данные
+      if (allDailyData.length === 0) {
+        console.log(`❌ Нет дневных данных для видео: "${videoName}"`);
+        return {
+          found: false,
+          error: 'Нет данных активности'
+        };
+      }
+
+      // Фильтруем данные по выбранному периоду
+      const filteredData = this.filterDataByPeriod(allDailyData, period);
+      
+      if (filteredData.length === 0) {
+        console.log(`❌ После фильтрации нет данных для периода: ${period}`);
+        return {
+          found: false,
+          error: `Нет данных за период: ${period === '4days' ? 'первые 4 дня' : period}`
+        };
+      }
+
+      // Агрегируем отфильтрованные данные
+      const aggregates = this.aggregateDailyData(filteredData);
+      
+      // Проверяем что есть хоть какая-то активность
       if (aggregates.leads === 0 && aggregates.cost === 0 && 
           aggregates.clicks === 0 && aggregates.impressions === 0) {
         console.log(`❌ Все метрики равны 0 для видео: "${videoName}" за период: ${period}`);
-        console.log('📋 Агрегированные данные:', aggregates);
         return {
           found: false,
-          error: 'Нет активности по этому видео за выбранный период'
+          error: 'Нет активности за выбранный период'
         };
       }
       
@@ -279,7 +341,7 @@ export class MetricsService {
       const formatted = this.formatMetrics(metrics);
       
       console.log(`✅ Найдены метрики для видео: "${videoName}" за период: ${period}`);
-      console.log('📊 Итоговые метрики:', formatted);
+      console.log(`📊 Использовано дней: ${filteredData.length} из ${allDailyData.length} доступных`);
       
       return {
         found: true,
@@ -288,6 +350,8 @@ export class MetricsService {
           formatted: formatted,
           videoName: videoName,
           period: period,
+          dailyData: filteredData, // Сохраняем подробные данные для отладки
+          totalDaysAvailable: allDailyData.length,
           updatedAt: new Date().toLocaleString('ru-RU', {
             timeZone: TIMEZONE,
             year: 'numeric',
@@ -309,7 +373,6 @@ export class MetricsService {
 
   /**
    * Получение метрик для множества видео (батчевая обработка) с поддержкой периода
-   * УЛУЧШЕНО: добавлено больше логирования и статистики
    */
   static async getBatchVideoMetrics(videoNames, period = 'all') {
     if (!Array.isArray(videoNames)) {
@@ -334,7 +397,7 @@ export class MetricsService {
           
           const result = await this.getVideoMetrics(videoName, period);
           
-          console.log(`${result.found ? '✅' : '❌'} Видео ${index + 1}: ${result.found ? 'найдены метрики' : result.error}`);
+          console.log(`${result.found ? '✅' : '❌'} Видео ${index + 1}: ${result.found ? `найдены метрики (${result.data?.dailyData?.length || 0} дней)` : result.error}`);
           
           return {
             videoName,
@@ -368,6 +431,14 @@ export class MetricsService {
     console.log(`✅ Батчевая загрузка завершена: ${successCount}/${videoNames.length} видео с метриками за период: ${period}`);
     console.log(`📊 Статистика: успешно - ${successCount}, неудачно - ${failureCount}`);
     
+    // Показываем статистику по дням для успешных результатов
+    const successfulResults = finalResults.filter(r => r.found);
+    if (successfulResults.length > 0) {
+      const totalDays = successfulResults.reduce((sum, r) => sum + (r.data?.dailyData?.length || 0), 0);
+      const avgDays = totalDays / successfulResults.length;
+      console.log(`📅 Среднее количество дней на видео: ${avgDays.toFixed(1)}`);
+    }
+    
     // Показываем примеры неудачных результатов для отладки
     if (failureCount > 0) {
       const failures = finalResults.filter(r => !r.found).slice(0, 3);
@@ -393,7 +464,6 @@ export class MetricsService {
 
   /**
    * Проверка статуса API
-   * УЛУЧШЕНО: добавлена проверка работоспособности с реальным запросом
    */
   static async checkApiStatus() {
     try {
@@ -428,37 +498,57 @@ export class MetricsService {
   }
 
   /**
-   * НОВЫЙ МЕТОД: Тестирование SQL запроса для конкретного видео
-   * Полезно для отладки проблем с периодами
+   * УЛУЧШЕННЫЙ МЕТОД: Тестирование запроса для конкретного видео с подробной информацией
    */
   static async testVideoQuery(videoName, period = 'all') {
     console.log(`🧪 Тестирование запроса для видео: "${videoName}" за период: ${period}`);
     
     try {
-      const sql = this.buildAggregateSqlForVideo(videoName, period);
-      console.log('🔍 SQL запрос для тестирования:', sql);
+      // Строим простой SQL запрос (без подзапросов!)
+      const sql = this.buildDetailedSqlForVideo(videoName);
+      console.log('🔍 SQL запрос для тестирования (простой, без подзапросов):', sql);
       
       const result = await this.fetchFromDatabase(sql);
-      console.log('📊 Результат тестирования:', result);
+      console.log('📊 Сырой результат тестирования:', result);
       
       if (result && result.length > 0) {
-        const normalized = this.normalizeAggregateRow(result);
-        console.log('📈 Нормализованные данные:', normalized);
+        const dailyData = this.normalizeDetailedRows(result);
+        console.log('📅 Нормализованные дневные данные:', dailyData);
         
-        const computed = this.computeDerivedMetrics(normalized);
+        // Показываем как работает фильтрация
+        const allPeriodData = this.filterDataByPeriod(dailyData, 'all');
+        const fourDaysData = this.filterDataByPeriod(dailyData, '4days');
+        
+        console.log('🔄 Данные за все время:', allPeriodData.length, 'дней');
+        console.log('🔄 Данные за первые 4 дня:', fourDaysData.length, 'дней');
+        
+        // Агрегируем для выбранного периода
+        const selectedData = period === '4days' ? fourDaysData : allPeriodData;
+        const aggregated = this.aggregateDailyData(selectedData);
+        console.log('📈 Агрегированные данные для периода:', aggregated);
+        
+        const computed = this.computeDerivedMetrics(aggregated);
         console.log('🎯 Вычисленные метрики:', computed);
         
         const formatted = this.formatMetrics(computed);
         console.log('🎨 Отформатированные метрики:', formatted);
         
-        return { success: true, data: formatted, sql, rawResult: result };
+        return { 
+          success: true, 
+          data: formatted, 
+          sql, 
+          rawResult: result,
+          dailyData: selectedData,
+          totalDaysAvailable: dailyData.length,
+          daysUsed: selectedData.length
+        };
       } else {
         console.log('❌ Пустой результат для тестового запроса');
         return { success: false, message: 'Пустой результат', sql };
       }
     } catch (error) {
       console.error('❌ Ошибка в тестовом запросе:', error);
-      return { success: false, error: error.message, sql: '' };
+      return { success: false, error: error.message, sql: this.buildDetailedSqlForVideo(videoName) };
     }
   }
 }
