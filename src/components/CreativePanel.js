@@ -31,7 +31,9 @@ import {
   MessageCircle,
   FileText,
   ExternalLink,
-  Clock
+  Clock,
+  MoreHorizontal,
+  Edit
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -46,6 +48,7 @@ function CreativePanel({ user }) {
   const [authorizing, setAuthorizing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(true);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
+  const [openDropdowns, setOpenDropdowns] = useState(new Set());
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -367,23 +370,53 @@ function CreativePanel({ user }) {
     setExpandedWorkTypes(newExpanded);
   };
 
+  // Функция для переключения выпадающего меню
+  const toggleDropdown = (creativeId) => {
+    const newOpenDropdowns = new Set(openDropdowns);
+    if (newOpenDropdowns.has(creativeId)) {
+      newOpenDropdowns.delete(creativeId);
+    } else {
+      newOpenDropdowns.add(creativeId);
+    }
+    setOpenDropdowns(newOpenDropdowns);
+  };
+
+  // Закрытие всех выпадающих меню при клике вне их
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-menu') && !event.target.closest('.dropdown-trigger')) {
+        setOpenDropdowns(new Set());
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleString('ru-RU', {
+      const dateStr = date.toLocaleDateString('ru-RU', {
         timeZone: 'Europe/Kiev',
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric',
+        year: 'numeric'
+      });
+      const timeStr = date.toLocaleTimeString('ru-RU', {
+        timeZone: 'Europe/Kiev',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
-      }).replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, '$1.$2.$3, $4');
+      });
+      return { date: dateStr, time: timeStr };
     } catch (error) {
       console.error('Error formatting date:', error);
-      return new Date(dateString).toLocaleDateString('ru-RU', {
+      const fallback = new Date(dateString).toLocaleDateString('ru-RU', {
         timeZone: 'Europe/Kiev'
       });
+      return { date: fallback, time: '00:00' };
     }
   };
 
@@ -610,10 +643,10 @@ function CreativePanel({ user }) {
                         COF
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Зоны эффективности
+                        Зоны
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Текущая зона эффективности
+                        Текущая зона
                       </th>
                       {showMetrics && (
                         <>
@@ -631,8 +664,8 @@ function CreativePanel({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trello
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Действия
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                        
                       </th>
                     </tr>
                   </thead>
@@ -647,12 +680,17 @@ function CreativePanel({ user }) {
                         // Получаем метрики для первого видео (основные метрики)
                         const firstVideoMetrics = showMetrics ? getVideoMetrics(creative.id, 0) : null;
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
+                        const isDropdownOpen = openDropdowns.has(creative.id);
+                        const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
                             {/* Дата */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatKyivTime(creative.created_at)}
+                              <div className="text-center">
+                                <div className="font-medium">{formattedDateTime.date}</div>
+                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                              </div>
                             </td>
                             
                             {/* Артикул */}
@@ -782,15 +820,44 @@ function CreativePanel({ user }) {
                               —
                             </td>
                             
-                            {/* Действия */}
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => handleDeleteCreative(creative.id, creative.article)}
-                                className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                                title="Удалить креатив"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                            {/* Меню действий */}
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <div className="relative">
+                                <button
+                                  onClick={() => toggleDropdown(creative.id)}
+                                  className="dropdown-trigger text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                
+                                {isDropdownOpen && (
+                                  <div className="dropdown-menu absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                                    <div className="py-1">
+                                      <button
+                                        onClick={() => {
+                                          // TODO: Добавить функционал редактирования
+                                          console.log('Редактировать креатив:', creative.id);
+                                          toggleDropdown(creative.id);
+                                        }}
+                                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                                      >
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Редактировать
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleDeleteCreative(creative.id, creative.article);
+                                          toggleDropdown(creative.id);
+                                        }}
+                                        className="flex items-center w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors duration-200"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Удалить
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
