@@ -45,6 +45,7 @@ function CreativePanel({ user }) {
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(true);
+  const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -355,18 +356,29 @@ function CreativePanel({ user }) {
     setShowCommentModal(true);
   };
 
+  // Функция для переключения раскрытия типов работ
+  const toggleWorkTypes = (creativeId) => {
+    const newExpanded = new Set(expandedWorkTypes);
+    if (newExpanded.has(creativeId)) {
+      newExpanded.delete(creativeId);
+    } else {
+      newExpanded.add(creativeId);
+    }
+    setExpandedWorkTypes(newExpanded);
+  };
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
       return date.toLocaleString('ru-RU', {
         timeZone: 'Europe/Kiev',
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric',
-        month: 'short',
-        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
-      });
+      }).replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, '$1.$2.$3, $4');
     } catch (error) {
       console.error('Error formatting date:', error);
       return new Date(dateString).toLocaleDateString('ru-RU', {
@@ -580,13 +592,28 @@ function CreativePanel({ user }) {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Дата
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Артикул
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Видео
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Типы работ
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Комментарий
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Комментарий
+                        Зоны эффективности
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Текущая зона эффективности
                       </th>
                       {showMetrics && (
                         <>
@@ -602,13 +629,7 @@ function CreativePanel({ user }) {
                         </>
                       )}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Типы работ
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Создан
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Видео
+                        Trello
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Действия
@@ -625,20 +646,80 @@ function CreativePanel({ user }) {
                         
                         // Получаем метрики для первого видео (основные метрики)
                         const firstVideoMetrics = showMetrics ? getVideoMetrics(creative.id, 0) : null;
+                        const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
+                            {/* Дата */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatKyivTime(creative.created_at)}
+                            </td>
+                            
+                            {/* Артикул */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">
                                 {creative.article}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
-                                <span className="text-xs font-bold mr-1">COF</span>
-                                {formatCOF(cof)}
-                              </span>
+                            
+                            {/* Видео - все названия */}
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              <div className="space-y-1">
+                                {creative.link_titles && creative.link_titles.length > 0 ? (
+                                  creative.link_titles.map((title, index) => (
+                                    <div key={index} className="flex items-center justify-between">
+                                      <span className="block">{title}</span>
+                                      <a
+                                        href={creative.links[index]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                        title="Открыть в Google Drive"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span className="text-gray-400">Нет видео</span>
+                                )}
+                              </div>
                             </td>
+                            
+                            {/* Типы работ - раскрывающиеся */}
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {creative.work_types && creative.work_types.length > 0 ? (
+                                <div>
+                                  <button
+                                    onClick={() => toggleWorkTypes(creative.id)}
+                                    className="flex items-center text-blue-600 hover:text-blue-800 focus:outline-none"
+                                  >
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
+                                      {getWorkTypeIcon(creative.work_types)}
+                                      <span className="ml-1">
+                                        {isWorkTypesExpanded 
+                                          ? `Скрыть (${creative.work_types.length})` 
+                                          : `${creative.work_types[0]} ${creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}`
+                                        }
+                                      </span>
+                                    </span>
+                                  </button>
+                                  {isWorkTypesExpanded && (
+                                    <div className="mt-2 space-y-1">
+                                      {creative.work_types.map((workType, index) => (
+                                        <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                                          {workType}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                            
+                            {/* Комментарий */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               {creative.comment ? (
                                 <button
@@ -652,6 +733,24 @@ function CreativePanel({ user }) {
                               ) : (
                                 <span className="text-gray-400 text-xs">—</span>
                               )}
+                            </td>
+                            
+                            {/* COF */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                                <span className="text-xs font-bold mr-1">COF</span>
+                                {formatCOF(cof)}
+                              </span>
+                            </td>
+                            
+                            {/* Зоны эффективности - пустая */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                              —
+                            </td>
+                            
+                            {/* Текущая зона эффективности - пустая */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                              —
                             </td>
                             
                             {/* Метрики рекламы */}
@@ -678,31 +777,12 @@ function CreativePanel({ user }) {
                               </>
                             )}
                             
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
-                                {getWorkTypeIcon(creative.work_types || [])}
-                                <span className="ml-1">{(creative.work_types && creative.work_types[0]) || 'Не указано'}</span>
-                                {creative.work_types && creative.work_types.length > 1 && (
-                                  <span className="ml-1">+{creative.work_types.length - 1}</span>
-                                )}
-                              </span>
+                            {/* Trello - пустая */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                              —
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{formatKyivTime(creative.created_at)}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <div className="space-y-1">
-                                <div>{(creative.links && creative.links.length) || 0} видео</div>
-                                {showMetrics && (
-                                  <div className={`text-xs ${firstVideoMetrics?.found ? 'text-green-600' : 'text-red-600'}`}>
-                                    {firstVideoMetrics?.found ? 'Метрики ✓' : 'Нет метрик'}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
+                            
+                            {/* Действия */}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => handleDeleteCreative(creative.id, creative.article)}
