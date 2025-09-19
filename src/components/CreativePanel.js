@@ -1,4 +1,4 @@
-// CreativePanel.js с табличным представлением как в CreativeAnalytics
+// CreativePanel.js с улучшенной отладкой метрик для периода "4 дня"
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +11,7 @@ import {
 } from '../utils/googleDriveUtils';
 import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics } from '../hooks/useMetrics';
+import { MetricsService } from '../services/metricsService'; // Импортируем для отладки
 import { 
   Plus, 
   X, 
@@ -33,7 +34,8 @@ import {
   ExternalLink,
   Clock,
   MoreHorizontal,
-  Edit
+  Edit,
+  Bug
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -50,6 +52,7 @@ function CreativePanel({ user }) {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
+  const [debugMode, setDebugMode] = useState(false); // Новый режим отладки
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -198,9 +201,12 @@ function CreativePanel({ user }) {
     try {
       setLoading(true);
       setError('');
+      console.log('📡 Загрузка креативов пользователя...');
       const data = await creativeService.getUserCreatives(user.id);
       setCreatives(data);
+      console.log(`✅ Загружено ${data.length} креативов`);
     } catch (error) {
+      console.error('❌ Ошибка загрузки креативов:', error);
       setError('Ошибка загрузки креативов: ' + error.message);
     } finally {
       setLoading(false);
@@ -413,13 +419,50 @@ function CreativePanel({ user }) {
 
   // Обработчик изменения периода метрик
   const handlePeriodChange = (period) => {
+    console.log(`🔄 Смена периода метрик: ${metricsPeriod} -> ${period}`);
     setMetricsPeriod(period);
     setShowPeriodDropdown(false);
+    clearMessages();
+    
+    // Дополнительное логирование для отладки
+    if (period === '4days') {
+      console.log('🐛 Включен режим "4 дня" - проверьте консоль для отладочной информации');
+    }
   };
 
-  // Получение текста для кнопки периода
+  // Получение текста for кнопки периода
   const getPeriodButtonText = () => {
     return metricsPeriod === 'all' ? 'Все время' : '4 дня';
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Отладка метрик для конкретного креатива
+  const debugCreativeMetrics = async (creative) => {
+    if (!creative.link_titles || creative.link_titles.length === 0) {
+      console.log('❌ У креатива нет названий видео для отладки');
+      return;
+    }
+
+    console.log(`🐛 === ОТЛАДКА МЕТРИК ДЛЯ КРЕАТИВА "${creative.article}" ===`);
+    console.log('📋 Информация о креативе:');
+    console.log('  - ID:', creative.id);
+    console.log('  - Артикул:', creative.article);
+    console.log('  - Видео:', creative.link_titles);
+    console.log('  - Период:', metricsPeriod);
+    
+    for (let i = 0; i < creative.link_titles.length; i++) {
+      const videoTitle = creative.link_titles[i];
+      if (videoTitle && !videoTitle.startsWith('Видео ')) {
+        console.log(`🔍 Тестирование метрик для видео ${i + 1}: "${videoTitle}"`);
+        try {
+          const result = await MetricsService.testVideoQuery(videoTitle, metricsPeriod);
+          console.log(`📊 Результат теста для видео ${i + 1}:`, result);
+        } catch (error) {
+          console.error(`❌ Ошибка теста для видео ${i + 1}:`, error);
+        }
+      }
+    }
+    
+    console.log('🐛 === КОНЕЦ ОТЛАДКИ МЕТРИК ===');
   };
 
   const formatKyivTime = (dateString) => {
@@ -478,6 +521,7 @@ function CreativePanel({ user }) {
   };
 
   const handleRefreshAll = async () => {
+    console.log(`🔄 Полное обновление данных (период: ${metricsPeriod})`);
     await loadCreatives();
     refreshMetrics();
   };
@@ -563,6 +607,22 @@ function CreativePanel({ user }) {
                 </div>
               )}
             </div>
+
+            {/* Кнопка отладки - показывается только при выборе "4 дня" */}
+            {metricsPeriod === '4days' && (
+              <button
+                onClick={() => setDebugMode(!debugMode)}
+                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  debugMode 
+                    ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+                title="Включить режим отладки метрик"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                {debugMode ? 'Отладка ВКЛ' : 'Отладка'}
+              </button>
+            )}
             
             <button
               onClick={handleRefreshAll}
@@ -614,6 +674,11 @@ function CreativePanel({ user }) {
                  metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
                  `Метрики (${getPeriodButtonText()}) включены`}
               </span>
+              {metricsPeriod === '4days' && metricsStats?.found === 0 && metricsStats?.total > 0 && (
+                <span className="text-red-600 text-xs font-medium">
+                  (Возможно, нет данных за последние 4 дня)
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -639,6 +704,25 @@ function CreativePanel({ user }) {
         <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           Ошибка загрузки метрик: {metricsError}
+          {metricsPeriod === '4days' && (
+            <span className="ml-2 text-xs">
+              (Проблема может быть связана с фильтрацией по 4 дням)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Debug Mode Information */}
+      {debugMode && metricsPeriod === '4days' && (
+        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm">
+          <div className="flex items-center mb-2">
+            <Bug className="h-4 w-4 mr-2" />
+            <span className="font-medium">Режим отладки активен</span>
+          </div>
+          <p className="text-xs">
+            Откройте консоль браузера (F12) для детальной информации о загрузке метрик за период "4 дня".
+            Кликните на кнопку "🐛" рядом с креативом для детального анализа.
+          </p>
         </div>
       )}
 
@@ -742,6 +826,16 @@ function CreativePanel({ user }) {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">
                                 {creative.article}
+                                {/* Кнопка отладки в режиме отладки */}
+                                {debugMode && (
+                                  <button
+                                    onClick={() => debugCreativeMetrics(creative)}
+                                    className="ml-2 text-yellow-600 hover:text-yellow-800"
+                                    title="Отладить метрики для этого креатива"
+                                  >
+                                    🐛
+                                  </button>
+                                )}
                               </div>
                             </td>
                             
@@ -838,22 +932,38 @@ function CreativePanel({ user }) {
                             
                             {/* Метрики рекламы */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? 
-                                firstVideoMetrics.data.formatted.leads : 
-                                <span className="text-gray-400">—</span>
-                              }
+                              {firstVideoMetrics?.found ? (
+                                <span className="text-green-700 font-medium">
+                                  {firstVideoMetrics.data.formatted.leads}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">
+                                  —
+                                  {metricsPeriod === '4days' && debugMode && (
+                                    <span className="text-xs text-red-500 block">
+                                      (нет за 4 дня)
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? 
-                                firstVideoMetrics.data.formatted.cpl : 
+                              {firstVideoMetrics?.found ? (
+                                <span className="text-green-700 font-medium">
+                                  {firstVideoMetrics.data.formatted.cpl}
+                                </span>
+                              ) : (
                                 <span className="text-gray-400">—</span>
-                              }
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? 
-                                firstVideoMetrics.data.formatted.ctr : 
+                              {firstVideoMetrics?.found ? (
+                                <span className="text-blue-700 font-medium">
+                                  {firstVideoMetrics.data.formatted.ctr}
+                                </span>
+                              ) : (
                                 <span className="text-gray-400">—</span>
-                              }
+                              )}
                             </td>
                             
                             {/* Trello - пустая */}
@@ -885,6 +995,18 @@ function CreativePanel({ user }) {
                                         <Edit className="h-4 w-4 mr-2" />
                                         Редактировать
                                       </button>
+                                      {debugMode && (
+                                        <button
+                                          onClick={() => {
+                                            debugCreativeMetrics(creative);
+                                            toggleDropdown(creative.id);
+                                          }}
+                                          className="flex items-center w-full px-3 py-2 text-sm text-yellow-700 hover:bg-yellow-50 transition-colors duration-200"
+                                        >
+                                          <Bug className="h-4 w-4 mr-2" />
+                                          Отладить
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => {
                                           handleDeleteCreative(creative.id, creative.article);
@@ -911,7 +1033,7 @@ function CreativePanel({ user }) {
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* Create Modal - остается без изменений */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
@@ -1116,7 +1238,7 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Comment Modal */}
+      {/* Comment Modal - остается без изменений */}
       {showCommentModal && selectedComment && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -1146,7 +1268,7 @@ function CreativePanel({ user }) {
 
               <div>
                 <label className="text-sm font-medium text-gray-700">Дата создания:</label>
-                <p className="text-gray-600 text-sm">{formatKyivTime(selectedComment.createdAt)}</p>
+                <p className="text-gray-600 text-sm">{formatKyivTime(selectedComment.createdAt).date} {formatKyivTime(selectedComment.createdAt).time}</p>
               </div>
 
               <div>
