@@ -1,4 +1,4 @@
-// Обновленный CreativeAnalytics.js с поддержкой комментариев
+// Обновленный CreativeAnalytics.js с поддержкой передачи параметра 'all' для метрик
 // Замените содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
@@ -62,7 +62,7 @@ function CreativeAnalytics({ user }) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
 
-  // Хуки для метрик
+  // Хуки для метрик - передаем параметр 'all' для отображения всех данных
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -70,7 +70,7 @@ function CreativeAnalytics({ user }) {
     stats: metricsStats,
     getCreativeMetrics,
     refresh: refreshMetrics 
-  } = useBatchMetrics(analytics.creatives, showMetrics);
+  } = useBatchMetrics(analytics.creatives, showMetrics, 'all');
   
   const { 
     stats: aggregatedMetricsStats,
@@ -933,20 +933,20 @@ function CreativeAnalytics({ user }) {
                             {showMetrics && (
                               <>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {creativeMetrics?.found ? 
-                                    creativeMetrics.data.formatted.leads : 
+                                  {creativeMetrics && creativeMetrics.length > 0 ? 
+                                    creativeMetrics[0].data.formatted.leads : 
                                     <span className="text-gray-400">—</span>
                                   }
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {creativeMetrics?.found ? 
-                                    creativeMetrics.data.formatted.cpl : 
+                                  {creativeMetrics && creativeMetrics.length > 0 ? 
+                                    creativeMetrics[0].data.formatted.cpl : 
                                     <span className="text-gray-400">—</span>
                                   }
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {creativeMetrics?.found ? 
-                                    creativeMetrics.data.formatted.ctr : 
+                                  {creativeMetrics && creativeMetrics.length > 0 ? 
+                                    creativeMetrics[0].data.formatted.ctr : 
                                     <span className="text-gray-400">—</span>
                                   }
                                 </td>
@@ -971,8 +971,8 @@ function CreativeAnalytics({ user }) {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {(creative.links && creative.links.length) || 0} ссылок
                               {showMetrics && creativeMetrics && (
-                                <div className={`mt-1 text-xs ${creativeMetrics.found ? 'text-green-600' : 'text-red-600'}`}>
-                                  {creativeMetrics.found ? 'Метрики ✓' : 'Нет метрик'}
+                                <div className={`mt-1 text-xs ${creativeMetrics.some(m => m.found) ? 'text-green-600' : 'text-red-600'}`}>
+                                  {creativeMetrics.some(m => m.found) ? 'Метрики ✓' : 'Нет метрик'}
                                 </div>
                               )}
                             </td>
