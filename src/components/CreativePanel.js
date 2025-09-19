@@ -1,4 +1,4 @@
-// CreativePanel.js с красивой группировкой по датам в стиле Telegram
+// CreativePanel.js с табличным представлением как в CreativeAnalytics
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -10,6 +10,7 @@ import {
   isGoogleDriveUrl
 } from '../utils/googleDriveUtils';
 import CreativeMetrics from './CreativeMetrics';
+import { useBatchMetrics } from '../hooks/useMetrics';
 import { 
   Plus, 
   X, 
@@ -29,64 +30,9 @@ import {
   Activity,
   MessageCircle,
   FileText,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
-
-/**
- * Группировка креативов по датам
- */
-const groupCreativesByDate = (creatives) => {
-  const grouped = {};
-  
-  creatives.forEach(creative => {
-    const date = new Date(creative.created_at);
-    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    if (!grouped[dateKey]) {
-      grouped[dateKey] = [];
-    }
-    grouped[dateKey].push(creative);
-  });
-  
-  // Сортируем по датам (новые сверху)
-  const sortedEntries = Object.entries(grouped).sort((a, b) => 
-    new Date(b[0]) - new Date(a[0])
-  );
-  
-  return Object.fromEntries(sortedEntries);
-};
-
-/**
- * Форматирование даты в стиле Telegram
- */
-const formatTelegramDate = (dateString) => {
-  const date = new Date(dateString);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  
-  // Проверяем если это сегодня
-  if (date.toDateString() === today.toDateString()) {
-    return 'Сегодня';
-  }
-  
-  // Проверяем если это вчера
-  if (date.toDateString() === yesterday.toDateString()) {
-    return 'Вчера';
-  }
-  
-  // Форматируем в стиле "17 сент. 2025 г."
-  const months = [
-    'янв.', 'февр.', 'март', 'апр.', 'май', 'июнь',
-    'июль', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'
-  ];
-  
-  const day = date.getDate();
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
-  
-  return `${day} ${month} ${year} г.`;
-};
 
 function CreativePanel({ user }) {
   const [creatives, setCreatives] = useState([]);
@@ -109,6 +55,16 @@ function CreativePanel({ user }) {
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
+
+  // Хуки для метрик
+  const { 
+    batchMetrics, 
+    loading: metricsLoading, 
+    error: metricsError,
+    stats: metricsStats,
+    getVideoMetrics,
+    refresh: refreshMetrics 
+  } = useBatchMetrics(creatives, showMetrics);
 
   const workTypes = [
     'Монтаж _Video',
@@ -449,6 +405,13 @@ function CreativePanel({ user }) {
     setSuccess('');
   };
 
+  const handleRefreshAll = async () => {
+    await loadCreatives();
+    if (showMetrics) {
+      refreshMetrics();
+    }
+  };
+
   // Получаем статистику COF
   const cofStats = getCOFStats();
 
@@ -506,7 +469,7 @@ function CreativePanel({ user }) {
             </button>
             
             <button
-              onClick={loadCreatives}
+              onClick={handleRefreshAll}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -551,7 +514,11 @@ function CreativePanel({ user }) {
             {showMetrics && (
               <div className="flex items-center space-x-2 text-sm">
                 <Activity className="h-4 w-4 text-blue-500" />
-                <span className="text-blue-600">Метрики для каждого видео включены</span>
+                <span className="text-blue-600">
+                  {metricsLoading ? 'Загрузка метрик...' : 
+                   metricsStats ? `Метрики: ${metricsStats.found}/${metricsStats.total}` : 
+                   'Метрики включены'}
+                </span>
               </div>
             )}
           </div>
@@ -570,6 +537,14 @@ function CreativePanel({ user }) {
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {/* Metrics Error */}
+      {showMetrics && metricsError && (
+        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+          Ошибка загрузки метрик: {metricsError}
         </div>
       )}
 
@@ -593,145 +568,157 @@ function CreativePanel({ user }) {
             </button>
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Группируем креативы по датам и отображаем с заголовками */}
-            {Object.entries(groupCreativesByDate(creatives)).map(([dateKey, dayCreatives]) => (
-              <div key={dateKey} className="date-group">
-                {/* Заголовок даты в стиле Telegram - СТРОГО ПО ЦЕНТРУ */}
-                <div className="date-divider">
-                  <span className={`date-badge ${
-                    formatTelegramDate(dateKey) === 'Сегодня' ? 'today' : 
-                    formatTelegramDate(dateKey) === 'Вчера' ? 'yesterday' : ''
-                  }`}>
-                    {formatTelegramDate(dateKey)}
-                  </span>
-                </div>
-                
-                {/* Креативы за этот день */}
-                <div className="space-y-6">
-                  {dayCreatives.map((creative) => {
-                    const cof = calculateCOF(creative.work_types);
-                    
-                    return (
-                      <div
-                        key={creative.id}
-                        className="creative-card bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
-                      >
-                        {/* Основная информация креатива */}
-                        <div className="p-6">
-                          {/* Header креатива */}
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-medium text-gray-900 truncate">
+          /* Таблица креативов */
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Мои креативы ({creatives.length})
+              </h3>
+              
+              <div className="overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Артикул
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        COF
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Комментарий
+                      </th>
+                      {showMetrics && (
+                        <>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Лиды
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CPL
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CTR
+                          </th>
+                        </>
+                      )}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Типы работ
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Создан
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Видео
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Действия
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {creatives
+                      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                      .map((creative) => {
+                        const cof = typeof creative.cof_rating === 'number' 
+                          ? creative.cof_rating 
+                          : calculateCOF(creative.work_types || []);
+                        
+                        // Получаем метрики для первого видео (основные метрики)
+                        const firstVideoMetrics = showMetrics ? getVideoMetrics(creative.id, 0) : null;
+                        
+                        return (
+                          <tr key={creative.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
                                 {creative.article}
-                              </h3>
-                              <div className="mt-1 flex items-center text-sm text-gray-500">
-                                <Calendar className="h-3 w-3 mr-1" />
-                                {formatKyivTime(creative.created_at)}
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {/* Маркер комментария */}
-                              {creative.comment && (
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                                <span className="text-xs font-bold mr-1">COF</span>
+                                {formatCOF(cof)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {creative.comment ? (
                                 <button
                                   onClick={() => showComment(creative)}
                                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
                                   title="Показать комментарий"
                                 >
                                   <MessageCircle className="h-3 w-3 mr-1" />
-                                  Комментарий
+                                  Есть
                                 </button>
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
                               )}
-                              
-                              {/* COF Badge */}
-                              <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium border ${getCOFBadgeColor(cof)}`}>
-                                <span className="text-xs font-bold mr-1">COF</span>
-                                {formatCOF(cof)}
+                            </td>
+                            
+                            {/* Метрики рекламы */}
+                            {showMetrics && (
+                              <>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {firstVideoMetrics?.found ? 
+                                    firstVideoMetrics.data.formatted.leads : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {firstVideoMetrics?.found ? 
+                                    firstVideoMetrics.data.formatted.cpl : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {firstVideoMetrics?.found ? 
+                                    firstVideoMetrics.data.formatted.ctr : 
+                                    <span className="text-gray-400">—</span>
+                                  }
+                                </td>
+                              </>
+                            )}
+                            
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types || [])}`}>
+                                {getWorkTypeIcon(creative.work_types || [])}
+                                <span className="ml-1">{(creative.work_types && creative.work_types[0]) || 'Не указано'}</span>
+                                {creative.work_types && creative.work_types.length > 1 && (
+                                  <span className="ml-1">+{creative.work_types.length - 1}</span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatKyivTime(creative.created_at)}</span>
                               </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="space-y-1">
+                                <div>{(creative.links && creative.links.length) || 0} видео</div>
+                                {showMetrics && (
+                                  <div className={`text-xs ${firstVideoMetrics?.found ? 'text-green-600' : 'text-red-600'}`}>
+                                    {firstVideoMetrics?.found ? 'Метрики ✓' : 'Нет метрик'}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => handleDeleteCreative(creative.id, creative.article)}
-                                className="text-gray-400 hover:text-red-600 transition-colors duration-200"
+                                className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                title="Удалить креатив"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
-                            </div>
-                          </div>
-
-                          {/* Work Types */}
-                          <div className="mb-4">
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">
-                              Типы работ ({creative.work_types.length})
-                            </h4>
-                            <div className="flex flex-wrap gap-1">
-                              {creative.work_types.slice(0, 3).map((workType, index) => (
-                                <span key={index} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                                  {index === 0 && getWorkTypeIcon(creative.work_types)}
-                                  <span className={index === 0 ? "ml-1" : ""}>{workType}</span>
-                                </span>
-                              ))}
-                              {creative.work_types.length > 3 && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                  +{creative.work_types.length - 3} еще
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Videos with individual metrics */}
-                          <div className="space-y-4">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <Play className="h-3 w-3 mr-1" />
-                              Видео ({creative.links.length})
-                            </h4>
-                            
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                              {creative.links.map((link, index) => {
-                                const title = creative.link_titles && creative.link_titles[index] 
-                                  ? creative.link_titles[index]
-                                  : `Видео ${index + 1}`;
-                                
-                                return (
-                                  <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
-                                    {/* Заголовок видео */}
-                                    <div className="flex items-center justify-between mb-3">
-                                      <div className="flex-1 min-w-0">
-                                        <h5 className="text-sm font-medium text-gray-900 truncate" title={title}>
-                                          {title}
-                                        </h5>
-                                      </div>
-                                      <a
-                                        href={link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        title="Открыть в Google Drive"
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                      </a>
-                                    </div>
-
-                                    {/* Метрики для этого видео */}
-                                    {showMetrics && (
-                                      <div className="border-t border-gray-200 pt-3">
-                                        <CreativeMetrics 
-                                          videoTitle={title}
-                                          showRefresh={true}
-                                          compact={true}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            </div>
           </div>
         )}
       </div>
