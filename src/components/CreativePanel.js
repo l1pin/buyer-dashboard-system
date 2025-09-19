@@ -46,7 +46,8 @@ function CreativePanel({ user }) {
   const [selectedComment, setSelectedComment] = useState(null);
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
-  const [showMetrics, setShowMetrics] = useState(true);
+  const [metricsPeriod, setMetricsPeriod] = useState('all'); // 'all' или '4days'
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   
@@ -60,7 +61,7 @@ function CreativePanel({ user }) {
 
   const [extractingTitles, setExtractingTitles] = useState(false);
 
-  // Хуки для метрик
+  // Хуки для метрик - метрики всегда загружаются, но меняется период
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -68,7 +69,7 @@ function CreativePanel({ user }) {
     stats: metricsStats,
     getVideoMetrics,
     refresh: refreshMetrics 
-  } = useBatchMetrics(creatives, showMetrics);
+  } = useBatchMetrics(creatives, true, metricsPeriod);
 
   const workTypes = [
     'Монтаж _Video',
@@ -399,6 +400,9 @@ function CreativePanel({ user }) {
       if (!event.target.closest('.dropdown-menu') && !event.target.closest('.dropdown-trigger')) {
         setOpenDropdowns(new Set());
       }
+      if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
+        setShowPeriodDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -406,6 +410,17 @@ function CreativePanel({ user }) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Обработчик изменения периода метрик
+  const handlePeriodChange = (period) => {
+    setMetricsPeriod(period);
+    setShowPeriodDropdown(false);
+  };
+
+  // Получение текста для кнопки периода
+  const getPeriodButtonText = () => {
+    return metricsPeriod === 'all' ? 'Все время' : '4 дня';
+  };
 
   const formatKyivTime = (dateString) => {
     try {
@@ -464,9 +479,7 @@ function CreativePanel({ user }) {
 
   const handleRefreshAll = async () => {
     await loadCreatives();
-    if (showMetrics) {
-      refreshMetrics();
-    }
+    refreshMetrics();
   };
 
   // Получаем статистику COF
@@ -513,17 +526,43 @@ function CreativePanel({ user }) {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowMetrics(!showMetrics)}
-              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                showMetrics 
-                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                  : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              {showMetrics ? 'Скрыть метрики' : 'Показать метрики'}
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                className="period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                {getPeriodButtonText()}
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showPeriodDropdown && (
+                <div className="period-dropdown absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handlePeriodChange('all')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        metricsPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Все время
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('4days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        metricsPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      4 дня
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             
             <button
               onClick={handleRefreshAll}
@@ -568,16 +607,14 @@ function CreativePanel({ user }) {
               </div>
             </div>
             
-            {showMetrics && (
-              <div className="flex items-center space-x-2 text-sm">
-                <Activity className="h-4 w-4 text-blue-500" />
-                <span className="text-blue-600">
-                  {metricsLoading ? 'Загрузка метрик...' : 
-                   metricsStats ? `Метрики: ${metricsStats.found}/${metricsStats.total}` : 
-                   'Метрики включены'}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center space-x-2 text-sm">
+              <Activity className="h-4 w-4 text-blue-500" />
+              <span className="text-blue-600">
+                {metricsLoading ? 'Загрузка метрик...' : 
+                 metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
+                 `Метрики (${getPeriodButtonText()}) включены`}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -598,7 +635,7 @@ function CreativePanel({ user }) {
       )}
 
       {/* Metrics Error */}
-      {showMetrics && metricsError && (
+      {metricsError && (
         <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           Ошибка загрузки метрик: {metricsError}
@@ -660,19 +697,15 @@ function CreativePanel({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Текущая зона
                       </th>
-                      {showMetrics && (
-                        <>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Лиды
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CPL
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CTR
-                          </th>
-                        </>
-                      )}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Лиды
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CPL
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CTR
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trello
                       </th>
@@ -690,7 +723,7 @@ function CreativePanel({ user }) {
                           : calculateCOF(creative.work_types || []);
                         
                         // Получаем метрики для первого видео (основные метрики)
-                        const firstVideoMetrics = showMetrics ? getVideoMetrics(creative.id, 0) : null;
+                        const firstVideoMetrics = getVideoMetrics(creative.id, 0);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
@@ -804,28 +837,24 @@ function CreativePanel({ user }) {
                             </td>
                             
                             {/* Метрики рекламы */}
-                            {showMetrics && (
-                              <>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.leads : 
-                                    <span className="text-gray-400">—</span>
-                                  }
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.cpl : 
-                                    <span className="text-gray-400">—</span>
-                                  }
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.ctr : 
-                                    <span className="text-gray-400">—</span>
-                                  }
-                                </td>
-                              </>
-                            )}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {firstVideoMetrics?.found ? 
+                                firstVideoMetrics.data.formatted.leads : 
+                                <span className="text-gray-400">—</span>
+                              }
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {firstVideoMetrics?.found ? 
+                                firstVideoMetrics.data.formatted.cpl : 
+                                <span className="text-gray-400">—</span>
+                              }
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {firstVideoMetrics?.found ? 
+                                firstVideoMetrics.data.formatted.ctr : 
+                                <span className="text-gray-400">—</span>
+                              }
+                            </td>
                             
                             {/* Trello - пустая */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
