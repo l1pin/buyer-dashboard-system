@@ -1,4 +1,4 @@
-// Обновленный MetricsService.js без источника Facebook и с подсчетом дней
+// Обновленный MetricsService.js с поддержкой параметра period
 // Замените содержимое src/services/metricsService.js
 
 // Определяем URL в зависимости от окружения
@@ -17,10 +17,24 @@ const TIMEZONE = "Europe/Kiev";
 
 export class MetricsService {
   /**
-   * Построение SQL запроса для агрегированных данных по имени видео
+   * Построение SQL запроса для агрегированных данных по имени видео с фильтрацией по периоду
    */
-  static buildAggregateSqlForVideo(videoName) {
+  static buildAggregateSqlForVideo(videoName, period = 'all') {
     const escapedVideoName = this.sqlEscapeLiteral(videoName);
+    
+    let dateFilter = '';
+    if (period === '4days') {
+      dateFilter = `
+        AND adv_date IN (
+          SELECT adv_date 
+          FROM ads_collection 
+          WHERE video_name='${escapedVideoName}' 
+            AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
+          ORDER BY adv_date ASC 
+          LIMIT 4
+        )
+      `;
+    }
     
     return `
       SELECT
@@ -30,7 +44,7 @@ export class MetricsService {
         COALESCE(SUM(showed), 0)                      AS impressions,
         COUNT(DISTINCT adv_date)                      AS days_count
       FROM ads_collection
-      WHERE video_name='${escapedVideoName}'
+      WHERE video_name='${escapedVideoName}'${dateFilter}
     `;
   }
 
@@ -200,21 +214,21 @@ export class MetricsService {
   }
 
   /**
-   * Получение метрик для конкретного видео по названию
+   * Получение метрик для конкретного видео по названию с поддержкой периода
    */
-  static async getVideoMetrics(videoName) {
+  static async getVideoMetrics(videoName, period = 'all') {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
 
     try {
-      console.log(`🔍 Поиск метрик для видео: "${videoName}"`);
+      console.log(`🔍 Поиск метрик для видео: "${videoName}" за период: ${period}`);
       
-      const sql = this.buildAggregateSqlForVideo(videoName);
+      const sql = this.buildAggregateSqlForVideo(videoName, period);
       const dbResponse = await this.fetchFromDatabase(sql);
       
       if (!dbResponse || dbResponse.length === 0) {
-        console.log(`❌ Не найдено метрик для видео: "${videoName}"`);
+        console.log(`❌ Не найдено метрик для видео: "${videoName}" за период: ${period}`);
         return {
           found: false,
           error: 'Не найдено в базе данных'
@@ -225,7 +239,7 @@ export class MetricsService {
       
       // Проверяем что есть хоть какие-то данные
       if (aggregates.leads === 0 && aggregates.cost === 0 && aggregates.clicks === 0 && aggregates.impressions === 0) {
-        console.log(`❌ Найдена запись, но все метрики равны 0 для видео: "${videoName}"`);
+        console.log(`❌ Найдена запись, но все метрики равны 0 для видео: "${videoName}" за период: ${period}`);
         return {
           found: false,
           error: 'Нет активности по этому видео'
@@ -235,7 +249,7 @@ export class MetricsService {
       const metrics = this.computeDerivedMetrics(aggregates);
       const formatted = this.formatMetrics(metrics);
       
-      console.log(`✅ Найдены метрики для видео: "${videoName}"`, formatted);
+      console.log(`✅ Найдены метрики для видео: "${videoName}" за период: ${period}`, formatted);
       
       return {
         found: true,
@@ -243,6 +257,7 @@ export class MetricsService {
           raw: metrics,
           formatted: formatted,
           videoName: videoName,
+          period: period,
           updatedAt: new Date().toLocaleString('ru-RU', {
             timeZone: TIMEZONE,
             year: 'numeric',
@@ -254,7 +269,7 @@ export class MetricsService {
         }
       };
     } catch (error) {
-      console.error(`❌ Ошибка получения метрик для видео: "${videoName}"`, error);
+      console.error(`❌ Ошибка получения метрик для видео: "${videoName}" за период: ${period}`, error);
       return {
         found: false,
         error: error.message
@@ -263,14 +278,14 @@ export class MetricsService {
   }
 
   /**
-   * Получение метрик для множества видео (батчевая обработка)
+   * Получение метрик для множества видео (батчевая обработка) с поддержкой периода
    */
-  static async getBatchVideoMetrics(videoNames) {
+  static async getBatchVideoMetrics(videoNames, period = 'all') {
     if (!Array.isArray(videoNames)) {
       throw new Error('videoNames должен быть массивом');
     }
 
-    console.log(`🔍 Батчевый поиск метрик для ${videoNames.length} видео`);
+    console.log(`🔍 Батчевый поиск метрик для ${videoNames.length} видео за период: ${period}`);
 
     const results = await Promise.allSettled(
       videoNames.map(async (videoName, index) => {
@@ -280,14 +295,16 @@ export class MetricsService {
             await new Promise(resolve => setTimeout(resolve, 200));
           }
           
-          const result = await this.getVideoMetrics(videoName);
+          const result = await this.getVideoMetrics(videoName, period);
           return {
             videoName,
+            period,
             ...result
           };
         } catch (error) {
           return {
             videoName,
+            period,
             found: false,
             error: error.message
           };
@@ -297,6 +314,7 @@ export class MetricsService {
 
     const finalResults = results.map((result, index) => ({
       videoName: videoNames[index],
+      period,
       ...(result.status === 'fulfilled' ? result.value : {
         found: false,
         error: 'Неизвестная ошибка при обработке'
@@ -304,7 +322,7 @@ export class MetricsService {
     }));
 
     const successCount = finalResults.filter(r => r.found).length;
-    console.log(`✅ Батчевая загрузка завершена: ${successCount}/${videoNames.length} видео с метриками`);
+    console.log(`✅ Батчевая загрузка завершена: ${successCount}/${videoNames.length} видео с метриками за период: ${period}`);
 
     return finalResults;
   }
