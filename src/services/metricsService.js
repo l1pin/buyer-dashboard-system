@@ -1,4 +1,4 @@
-// Обновленный MetricsService.js с поддержкой параметра period
+// Исправленный MetricsService.js с корректной логикой для периода "4 дня"
 // Замените содержимое src/services/metricsService.js
 
 // Определяем URL в зависимости от окружения
@@ -18,19 +18,21 @@ const TIMEZONE = "Europe/Kiev";
 export class MetricsService {
   /**
    * Построение SQL запроса для агрегированных данных по имени видео с фильтрацией по периоду
+   * ИСПРАВЛЕНО: теперь берет последние 4 дня активности, а не первые
    */
   static buildAggregateSqlForVideo(videoName, period = 'all') {
     const escapedVideoName = this.sqlEscapeLiteral(videoName);
     
     let dateFilter = '';
     if (period === '4days') {
+      // ИСПРАВЛЕНИЕ: берем последние 4 дня активности (DESC вместо ASC)
       dateFilter = `
         AND adv_date IN (
           SELECT adv_date 
           FROM ads_collection 
           WHERE video_name='${escapedVideoName}' 
             AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
-          ORDER BY adv_date ASC 
+          ORDER BY adv_date DESC 
           LIMIT 4
         )
       `;
@@ -57,6 +59,7 @@ export class MetricsService {
 
   /**
    * Отправка запроса к API базы данных через Netlify прокси
+   * УЛУЧШЕНО: добавлено больше логирования для отладки
    */
   static async fetchFromDatabase(sql) {
     if (!/^(\s*select\b)/i.test(sql)) {
@@ -74,6 +77,7 @@ export class MetricsService {
 
     try {
       console.log('📡 Запрос к прокси функции:', METRICS_API_URL);
+      console.log('🔍 SQL запрос:', sql.substring(0, 200) + (sql.length > 200 ? '...' : ''));
       
       const response = await fetch(METRICS_API_URL, options);
       
@@ -88,6 +92,7 @@ export class MetricsService {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         }
         
+        console.error('❌ Ошибка ответа от прокси:', errorMessage);
         throw new Error(errorMessage);
       }
 
@@ -107,11 +112,17 @@ export class MetricsService {
 
       // Проверяем на ошибки в ответе
       if (json && typeof json === "object" && json.error) {
+        console.error('❌ Ошибка API:', json.error, json.details);
         throw new Error("Ошибка API: " + (json.details || json.error));
       }
 
       const result = Array.isArray(json) ? json : [];
       console.log('✅ Успешный ответ от прокси функции, записей:', result.length);
+      
+      // Дополнительное логирование для отладки
+      if (result.length > 0) {
+        console.log('📋 Пример данных:', JSON.stringify(result[0], null, 2));
+      }
       
       return result;
       
@@ -132,6 +143,7 @@ export class MetricsService {
    */
   static normalizeAggregateRow(dbResponse) {
     if (!dbResponse || dbResponse.length === 0) {
+      console.log('⚠️ Пустой ответ от базы данных');
       return {
         leads: 0,
         cost: 0,
@@ -141,16 +153,20 @@ export class MetricsService {
       };
     }
 
+    console.log('🔄 Нормализация ответа базы данных:', JSON.stringify(dbResponse, null, 2));
+
     // Случай A: массив объектов
     if (typeof dbResponse[0] === "object" && !Array.isArray(dbResponse[0])) {
       const row = dbResponse[0];
-      return {
+      const normalized = {
         leads: Number(row.leads) || 0,
         cost: Number(row.cost) || 0,
         clicks: Number(row.clicks) || 0,
         impressions: Number(row.impressions) || 0,
         days_count: Number(row.days_count) || 0
       };
+      console.log('✅ Нормализовано (объект):', normalized);
+      return normalized;
     }
 
     // Случай B: [headers, ...rows]
@@ -159,13 +175,15 @@ export class MetricsService {
     const map = {};
     headers.forEach((h, i) => (map[h] = dataRow[i]));
     
-    return {
+    const normalized = {
       leads: Number(map.leads) || 0,
       cost: Number(map.cost) || 0,
       clicks: Number(map.clicks) || 0,
       impressions: Number(map.impressions) || 0,
       days_count: Number(map.days_count) || 0
     };
+    console.log('✅ Нормализовано (массив):', normalized);
+    return normalized;
   }
 
   /**
@@ -179,7 +197,7 @@ export class MetricsService {
     const CPC = clicks > 0 ? cost / clicks : 0;
     const CPM = impressions > 0 ? (cost / impressions) * 1000 : 0;
 
-    return {
+    const computed = {
       leads,
       cost: fix2(cost),
       clicks,
@@ -190,45 +208,54 @@ export class MetricsService {
       cpc: fix2(CPC),
       cpm: fix2(CPM)
     };
+    
+    console.log('📊 Вычисленные метрики:', computed);
+    return computed;
   }
 
   /**
-   * Форматирование метрик для отображения - ОБНОВЛЕНО
+   * Форматирование метрик для отображения
    */
   static formatMetrics(metrics) {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
     const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
     const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
 
-    return {
+    const formatted = {
       leads: formatInt(metrics.leads),
-      cpl: formatMoney(metrics.cpl),                     // CPL с $ после цифр
-      cost: formatMoney(metrics.cost),                   // Расходы с $ после цифр
-      ctr: formatPercent(metrics.ctr_percent),           // CTR в %
-      cpc: formatMoney(metrics.cpc),                     // CPC с $ после цифр
-      cpm: formatMoney(metrics.cpm),                     // CPM с $ после цифр
+      cpl: formatMoney(metrics.cpl),
+      cost: formatMoney(metrics.cost),
+      ctr: formatPercent(metrics.ctr_percent),
+      cpc: formatMoney(metrics.cpc),
+      cpm: formatMoney(metrics.cpm),
       clicks: formatInt(metrics.clicks),
       impressions: formatInt(metrics.impressions),
-      days: formatInt(metrics.days_count) + " дн."       // Количество дней
+      days: formatInt(metrics.days_count) + " дн."
     };
+    
+    console.log('🎨 Отформатированные метрики:', formatted);
+    return formatted;
   }
 
   /**
    * Получение метрик для конкретного видео по названию с поддержкой периода
+   * УЛУЧШЕНО: добавлено детальное логирование для отладки
    */
   static async getVideoMetrics(videoName, period = 'all') {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
 
+    console.log(`🔍 Поиск метрик для видео: "${videoName}" за период: ${period}`);
+    
     try {
-      console.log(`🔍 Поиск метрик для видео: "${videoName}" за период: ${period}`);
-      
       const sql = this.buildAggregateSqlForVideo(videoName, period);
+      console.log('🔍 Построенный SQL:', sql);
+      
       const dbResponse = await this.fetchFromDatabase(sql);
       
       if (!dbResponse || dbResponse.length === 0) {
-        console.log(`❌ Не найдено метрик для видео: "${videoName}" за период: ${period}`);
+        console.log(`❌ Пустой результат для видео: "${videoName}" за период: ${period}`);
         return {
           found: false,
           error: 'Не найдено в базе данных'
@@ -238,18 +265,21 @@ export class MetricsService {
       const aggregates = this.normalizeAggregateRow(dbResponse);
       
       // Проверяем что есть хоть какие-то данные
-      if (aggregates.leads === 0 && aggregates.cost === 0 && aggregates.clicks === 0 && aggregates.impressions === 0) {
-        console.log(`❌ Найдена запись, но все метрики равны 0 для видео: "${videoName}" за период: ${period}`);
+      if (aggregates.leads === 0 && aggregates.cost === 0 && 
+          aggregates.clicks === 0 && aggregates.impressions === 0) {
+        console.log(`❌ Все метрики равны 0 для видео: "${videoName}" за период: ${period}`);
+        console.log('📋 Агрегированные данные:', aggregates);
         return {
           found: false,
-          error: 'Нет активности по этому видео'
+          error: 'Нет активности по этому видео за выбранный период'
         };
       }
       
       const metrics = this.computeDerivedMetrics(aggregates);
       const formatted = this.formatMetrics(metrics);
       
-      console.log(`✅ Найдены метрики для видео: "${videoName}" за период: ${period}`, formatted);
+      console.log(`✅ Найдены метрики для видео: "${videoName}" за период: ${period}`);
+      console.log('📊 Итоговые метрики:', formatted);
       
       return {
         found: true,
@@ -279,6 +309,7 @@ export class MetricsService {
 
   /**
    * Получение метрик для множества видео (батчевая обработка) с поддержкой периода
+   * УЛУЧШЕНО: добавлено больше логирования и статистики
    */
   static async getBatchVideoMetrics(videoNames, period = 'all') {
     if (!Array.isArray(videoNames)) {
@@ -286,22 +317,32 @@ export class MetricsService {
     }
 
     console.log(`🔍 Батчевый поиск метрик для ${videoNames.length} видео за период: ${period}`);
+    console.log('📋 Список видео для поиска:', videoNames.slice(0, 5).map(v => `"${v}"`).join(', ') + (videoNames.length > 5 ? '...' : ''));
 
     const results = await Promise.allSettled(
       videoNames.map(async (videoName, index) => {
         try {
           // Небольшая задержка между запросами чтобы не перегружать прокси
-          if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+          if (index > 0 && index % 5 === 0) {
+            console.log(`⏳ Пауза после ${index} запросов...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
           
+          console.log(`📹 Обрабатываем видео ${index + 1}/${videoNames.length}: "${videoName}"`);
+          
           const result = await this.getVideoMetrics(videoName, period);
+          
+          console.log(`${result.found ? '✅' : '❌'} Видео ${index + 1}: ${result.found ? 'найдены метрики' : result.error}`);
+          
           return {
             videoName,
             period,
             ...result
           };
         } catch (error) {
+          console.error(`❌ Ошибка для видео ${index + 1}: "${videoName}"`, error);
           return {
             videoName,
             period,
@@ -322,7 +363,19 @@ export class MetricsService {
     }));
 
     const successCount = finalResults.filter(r => r.found).length;
+    const failureCount = finalResults.length - successCount;
+    
     console.log(`✅ Батчевая загрузка завершена: ${successCount}/${videoNames.length} видео с метриками за период: ${period}`);
+    console.log(`📊 Статистика: успешно - ${successCount}, неудачно - ${failureCount}`);
+    
+    // Показываем примеры неудачных результатов для отладки
+    if (failureCount > 0) {
+      const failures = finalResults.filter(r => !r.found).slice(0, 3);
+      console.log('❌ Примеры неудачных запросов:');
+      failures.forEach(f => {
+        console.log(`  - "${f.videoName}": ${f.error}`);
+      });
+    }
 
     return finalResults;
   }
@@ -340,21 +393,29 @@ export class MetricsService {
 
   /**
    * Проверка статуса API
+   * УЛУЧШЕНО: добавлена проверка работоспособности с реальным запросом
    */
   static async checkApiStatus() {
     try {
       console.log('🔍 Проверка статуса API метрик...');
       
+      // Делаем простой тестовый запрос
       const testSql = "SELECT 1 as test LIMIT 1";
       const result = await this.fetchFromDatabase(testSql);
       
-      console.log('✅ API метрик доступен');
-      return { available: true };
+      if (result && Array.isArray(result)) {
+        console.log('✅ API метрик доступен и работает');
+        return { available: true, message: 'API работает корректно' };
+      } else {
+        console.log('⚠️ API метрик доступен, но возвращает неожиданный результат');
+        return { available: true, message: 'API доступен, но результат неожиданный' };
+      }
     } catch (error) {
       console.error('❌ API метрик недоступен:', error.message);
       return { 
         available: false, 
-        error: error.message 
+        error: error.message,
+        message: 'API недоступен или работает некорректно'
       };
     }
   }
@@ -364,6 +425,41 @@ export class MetricsService {
    */
   static getApiUrl() {
     return METRICS_API_URL;
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Тестирование SQL запроса для конкретного видео
+   * Полезно для отладки проблем с периодами
+   */
+  static async testVideoQuery(videoName, period = 'all') {
+    console.log(`🧪 Тестирование запроса для видео: "${videoName}" за период: ${period}`);
+    
+    try {
+      const sql = this.buildAggregateSqlForVideo(videoName, period);
+      console.log('🔍 SQL запрос для тестирования:', sql);
+      
+      const result = await this.fetchFromDatabase(sql);
+      console.log('📊 Результат тестирования:', result);
+      
+      if (result && result.length > 0) {
+        const normalized = this.normalizeAggregateRow(result);
+        console.log('📈 Нормализованные данные:', normalized);
+        
+        const computed = this.computeDerivedMetrics(normalized);
+        console.log('🎯 Вычисленные метрики:', computed);
+        
+        const formatted = this.formatMetrics(computed);
+        console.log('🎨 Отформатированные метрики:', formatted);
+        
+        return { success: true, data: formatted, sql, rawResult: result };
+      } else {
+        console.log('❌ Пустой результат для тестового запроса');
+        return { success: false, message: 'Пустой результат', sql };
+      }
+    } catch (error) {
+      console.error('❌ Ошибка в тестовом запросе:', error);
+      return { success: false, error: error.message, sql: '' };
+    }
   }
 }
 
