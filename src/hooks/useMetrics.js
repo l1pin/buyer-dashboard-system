@@ -1,4 +1,4 @@
-// Обновленный хук для работы с метриками рекламы с поддержкой параметра period
+// Чистый хук для работы с метриками без отладки
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -22,8 +22,6 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
     setError('');
 
     try {
-      console.log(`🔍 Загрузка метрик для видео: ${videoTitle} за период: ${period}`);
-      
       const result = await MetricsService.getVideoMetrics(videoTitle, period);
       
       if (result.found) {
@@ -35,7 +33,6 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
         setMetrics(null);
       }
     } catch (err) {
-      console.error('Ошибка загрузки метрик:', err);
       setError('Ошибка загрузки: ' + err.message);
       setMetrics(null);
     } finally {
@@ -81,7 +78,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
 
     try {
       // Собираем все названия видео из всех креативов
-      const videoToCreativeMap = new Map(); // videoName -> [creativeId, videoIndex]
+      const videoToCreativeMap = new Map();
       let totalVideos = 0;
 
       creatives.forEach(creative => {
@@ -89,7 +86,6 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
           creative.link_titles.forEach((videoTitle, videoIndex) => {
             if (videoTitle && !videoTitle.startsWith('Видео ')) {
               totalVideos++;
-              // Создаем уникальный ключ для каждого видео
               const videoKey = `${creative.id}_${videoIndex}`;
               videoToCreativeMap.set(videoTitle, {
                 creativeId: creative.id,
@@ -108,8 +104,6 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         return;
       }
 
-      console.log(`🔍 Батчевая загрузка метрик для ${videoToCreativeMap.size} видео из ${creatives.length} креативов за период: ${period}`);
-
       const videoNames = Array.from(videoToCreativeMap.keys());
       const results = await MetricsService.getBatchVideoMetrics(videoNames, period);
       
@@ -121,7 +115,6 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         if (videoMapping) {
           const { videoKey, creativeId, videoIndex } = videoMapping;
           
-          // Сохраняем метрики по ключу видео
           metricsMap.set(videoKey, {
             found: result.found,
             data: result.data,
@@ -145,11 +138,8 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         notFound: totalVideos - successCount
       });
       setLastUpdated(new Date());
-      
-      console.log(`✅ Загружено метрик: ${successCount}/${totalVideos} видео за период: ${period}`);
 
     } catch (err) {
-      console.error('Ошибка батчевой загрузки метрик:', err);
       setError('Ошибка загрузки: ' + err.message);
       setBatchMetrics(new Map());
     } finally {
@@ -169,7 +159,6 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   }, [batchMetrics]);
 
   const getCreativeMetrics = useCallback((creativeId) => {
-    // Возвращаем все метрики для всех видео креатива
     const creativeMetrics = [];
     let videoIndex = 0;
     
@@ -184,12 +173,10 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         });
         videoIndex++;
       } else if (videoIndex === 0) {
-        // Если не найдено даже первое видео, выходим
         break;
       } else {
-        // Если есть пропуск, но уже найдены метрики, проверим еще несколько индексов
         videoIndex++;
-        if (videoIndex > 10) break; // Защита от бесконечного цикла
+        if (videoIndex > 10) break;
       }
     }
     
@@ -224,7 +211,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
  * Хук для работы с API метрик (проверка статуса, общие операции)
  */
 export function useMetricsApi() {
-  const [apiStatus, setApiStatus] = useState('unknown'); // 'unknown', 'available', 'unavailable'
+  const [apiStatus, setApiStatus] = useState('unknown');
   const [checking, setChecking] = useState(false);
   const lastCheck = useRef(null);
 
@@ -244,7 +231,6 @@ export function useMetricsApi() {
       lastCheck.current = now;
       return status;
     } catch (error) {
-      console.error('Ошибка проверки статуса API:', error);
       setApiStatus('unavailable');
       return 'unavailable';
     } finally {
@@ -253,7 +239,6 @@ export function useMetricsApi() {
   }, [apiStatus]);
 
   useEffect(() => {
-    // Проверяем статус API при первой загрузке
     checkApiStatus();
   }, [checkApiStatus]);
 
@@ -267,7 +252,7 @@ export function useMetricsApi() {
 }
 
 /**
- * Хук для агрегированной статистики метрик (обновлен для множественных видео)
+ * Хук для агрегированной статистики метрик
  */
 export function useMetricsStats(creatives, batchMetricsMap = null) {
   const [stats, setStats] = useState({
@@ -406,53 +391,5 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
     stats,
     formatStats,
     hasData: stats.videosWithMetrics > 0
-  };
-}
-
-/**
- * Хук для кэширования метрик
- */
-export function useMetricsCache(cacheKey, ttlMinutes = 30) {
-  const [cache, setCache] = useState(new Map());
-
-  const getCachedData = useCallback((key) => {
-    const fullKey = `${cacheKey}_${key}`;
-    const cached = cache.get(fullKey);
-    
-    if (!cached) return null;
-    
-    // Проверяем TTL
-    if (Date.now() - cached.timestamp > ttlMinutes * 60 * 1000) {
-      cache.delete(fullKey);
-      setCache(new Map(cache));
-      return null;
-    }
-    
-    return cached.data;
-  }, [cache, cacheKey, ttlMinutes]);
-
-  const setCachedData = useCallback((key, data) => {
-    const fullKey = `${cacheKey}_${key}`;
-    const newCache = new Map(cache);
-    newCache.set(fullKey, {
-      data,
-      timestamp: Date.now()
-    });
-    setCache(newCache);
-  }, [cache, cacheKey]);
-
-  const clearCache = useCallback(() => {
-    setCache(new Map());
-  }, []);
-
-  const getCacheSize = useCallback(() => {
-    return cache.size;
-  }, [cache]);
-
-  return {
-    getCachedData,
-    setCachedData,
-    clearCache,
-    getCacheSize
   };
 }
