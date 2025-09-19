@@ -177,6 +177,18 @@ function CreativePanel({ user }) {
     };
   };
 
+  // Функция для получения текущего месяца и года
+  const getCurrentMonthYear = () => {
+    const now = new Date();
+    const months = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    return `${month}, ${year}`;
+  };
+
   useEffect(() => {
     loadCreatives();
   }, []);
@@ -616,8 +628,8 @@ function CreativePanel({ user }) {
           /* Таблица креативов */
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Мои креативы ({creatives.length})
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
+                {getCurrentMonthYear()}
               </h3>
               
               <div className="overflow-hidden">
