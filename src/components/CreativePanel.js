@@ -1,4 +1,4 @@
-// CreativePanel.js с табличным представлением как в CreativeAnalytics
+// Исправленный CreativePanel.js с улучшенной отладкой метрик
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import {
   isGoogleDriveUrl
 } from '../utils/googleDriveUtils';
 import CreativeMetrics from './CreativeMetrics';
-import { useBatchMetrics } from '../hooks/useMetrics';
+import { useBatchMetrics, useMetricsApi } from '../hooks/useMetrics';
 import { 
   Plus, 
   X, 
@@ -33,7 +33,9 @@ import {
   ExternalLink,
   Clock,
   MoreHorizontal,
-  Edit
+  Edit,
+  Bug,
+  Info
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -43,12 +45,14 @@ function CreativePanel({ user }) {
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(true);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
+  const [debugInfo, setDebugInfo] = useState(null);
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -67,8 +71,17 @@ function CreativePanel({ user }) {
     error: metricsError,
     stats: metricsStats,
     getVideoMetrics,
+    getCreativeMetrics,
     refresh: refreshMetrics 
   } = useBatchMetrics(creatives, showMetrics);
+
+  // API статус
+  const { 
+    apiStatus, 
+    checking: checkingApi, 
+    checkApiStatus,
+    isAvailable: isMetricsApiAvailable 
+  } = useMetricsApi();
 
   const workTypes = [
     'Монтаж _Video',
@@ -177,9 +190,63 @@ function CreativePanel({ user }) {
     };
   };
 
+  /**
+   * НОВАЯ ФУНКЦИЯ: Генерация отладочной информации
+   */
+  const generateDebugInfo = () => {
+    const debugData = {
+      timestamp: new Date().toISOString(),
+      user: {
+        id: user?.id,
+        name: user?.name,
+        role: user?.role
+      },
+      creatives: {
+        total: creatives.length,
+        withLinkTitles: creatives.filter(c => c.link_titles && c.link_titles.length > 0).length,
+        withValidTitles: creatives.filter(c => 
+          c.link_titles && 
+          c.link_titles.some(title => title && !title.startsWith('Видео '))
+        ).length,
+        withFallbackTitles: creatives.filter(c => 
+          c.link_titles && 
+          c.link_titles.every(title => !title || title.startsWith('Видео '))
+        ).length
+      },
+      metrics: {
+        enabled: showMetrics,
+        loading: metricsLoading,
+        error: metricsError,
+        apiStatus: apiStatus,
+        apiAvailable: isMetricsApiAvailable,
+        stats: metricsStats,
+        batchSize: batchMetrics?.size || 0
+      },
+      samples: creatives.slice(0, 3).map(creative => ({
+        id: creative.id,
+        article: creative.article,
+        link_titles: creative.link_titles,
+        hasValidTitles: creative.link_titles && creative.link_titles.some(title => 
+          title && !title.startsWith('Видео ')
+        ),
+        firstVideoMetrics: getVideoMetrics(creative.id, 0)
+      }))
+    };
+
+    console.log('🐛 Debug Info:', debugData);
+    return debugData;
+  };
+
   useEffect(() => {
     loadCreatives();
   }, []);
+
+  // Генерируем отладочную информацию при изменении данных
+  useEffect(() => {
+    if (creatives.length > 0) {
+      setDebugInfo(generateDebugInfo());
+    }
+  }, [creatives, batchMetrics, metricsLoading, apiStatus]);
 
   const loadCreatives = async () => {
     try {
@@ -187,6 +254,17 @@ function CreativePanel({ user }) {
       setError('');
       const data = await creativeService.getUserCreatives(user.id);
       setCreatives(data);
+      console.log('✅ Креативы загружены:', data.length);
+      
+      // Выводим информацию о названиях видео для отладки
+      data.forEach((creative, index) => {
+        console.log(`Креатив ${index + 1} (${creative.article}):`, {
+          link_titles: creative.link_titles,
+          hasValidTitles: creative.link_titles && creative.link_titles.some(title => 
+            title && !title.startsWith('Видео ')
+          )
+        });
+      });
     } catch (error) {
       setError('Ошибка загрузки креативов: ' + error.message);
     } finally {
@@ -252,11 +330,12 @@ function CreativePanel({ user }) {
 
       // Проверяем что удалось извлечь хотя бы одно реальное название
       const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
-        setCreating(false);
-        return;
-      }
+      console.log('📝 Извлеченные названия:', {
+        всего: titles.length,
+        извлечено: extractedTitles.length,
+        fallback: titles.length - extractedTitles.length,
+        titles: titles
+      });
 
       // Вычисляем COF для сохранения в базе данных
       const cofRating = calculateCOF(newCreative.work_types);
@@ -286,7 +365,13 @@ function CreativePanel({ user }) {
       const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Названий извлечено: ${successCount}/${totalCount}`);
+      let message = `Креатив создан! COF: ${formatCOF(cof)} | Названий извлечено: ${successCount}/${totalCount}`;
+      
+      if (successCount === 0) {
+        message += ' ⚠️ Все названия fallback - метрики могут быть недоступны';
+      }
+      
+      setSuccess(message);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
@@ -501,6 +586,16 @@ function CreativePanel({ user }) {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {/* НОВАЯ КНОПКА ОТЛАДКИ */}
+            <button
+              onClick={() => setShowDebugModal(true)}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
+              title="Показать информацию для отладки"
+            >
+              <Bug className="h-4 w-4 mr-2" />
+              Отладка
+            </button>
+
             <button
               onClick={() => setShowMetrics(!showMetrics)}
               className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
@@ -564,6 +659,28 @@ function CreativePanel({ user }) {
                    metricsStats ? `Метрики: ${metricsStats.found}/${metricsStats.total}` : 
                    'Метрики включены'}
                 </span>
+                
+                {/* API Status */}
+                <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                  isMetricsApiAvailable 
+                    ? 'bg-green-100 text-green-700' 
+                    : apiStatus === 'unavailable' 
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {checkingApi ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                  ) : isMetricsApiAvailable ? (
+                    <CheckCircle className="h-3 w-3" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3" />
+                  )}
+                  <span>
+                    {checkingApi ? 'Проверка...' : 
+                     isMetricsApiAvailable ? 'API ОК' : 
+                     'API недоступен'}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -642,12 +759,6 @@ function CreativePanel({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Зоны
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Текущая зона
-                      </th>
                       {showMetrics && (
                         <>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -661,9 +772,6 @@ function CreativePanel({ user }) {
                           </th>
                         </>
                       )}
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Trello
-                      </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                         
                       </th>
@@ -677,11 +785,24 @@ function CreativePanel({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        // Получаем метрики для первого видео (основные метрики)
+                        // ИСПРАВЛЕННАЯ ЛОГИКА: получаем метрики для первого видео
                         const firstVideoMetrics = showMetrics ? getVideoMetrics(creative.id, 0) : null;
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
+                        
+                        // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
+                        if (showMetrics && creative.id) {
+                          console.log(`🔍 Креатив ${creative.article}:`, {
+                            id: creative.id,
+                            link_titles: creative.link_titles,
+                            hasValidTitles: creative.link_titles && creative.link_titles.some(title => 
+                              title && !title.startsWith('Видео ')
+                            ),
+                            firstVideoMetrics: firstVideoMetrics,
+                            metricFound: firstVideoMetrics?.found
+                          });
+                        }
                         
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
@@ -706,7 +827,19 @@ function CreativePanel({ user }) {
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
                                   creative.link_titles.map((title, index) => (
                                     <div key={index} className="flex items-center justify-between">
-                                      <span className="block">{title}</span>
+                                      <div className="flex items-center space-x-1">
+                                        <span className="block">{title}</span>
+                                        {/* ИНДИКАТОР ВАЛИДНОСТИ НАЗВАНИЯ */}
+                                        {title && !title.startsWith('Видео ') ? (
+                                          <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Реальное название">
+                                            ✓
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title="Fallback название">
+                                            ⚠
+                                          </span>
+                                        )}
+                                      </div>
                                       <a
                                         href={creative.links[index]}
                                         target="_blank"
@@ -781,44 +914,50 @@ function CreativePanel({ user }) {
                               </span>
                             </td>
                             
-                            {/* Зоны эффективности - пустая */}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                              —
-                            </td>
-                            
-                            {/* Текущая зона эффективности - пустая */}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                              —
-                            </td>
-                            
-                            {/* Метрики рекламы */}
+                            {/* Метрики рекламы - ИСПРАВЛЕННАЯ ЛОГИКА */}
                             {showMetrics && (
                               <>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.leads : 
-                                    <span className="text-gray-400">—</span>
-                                  }
+                                  {firstVideoMetrics?.found ? (
+                                    <span className="font-medium text-blue-600">
+                                      {firstVideoMetrics.data.formatted.leads}
+                                    </span>
+                                  ) : (
+                                    <div className="flex items-center space-x-1">
+                                      <span className="text-gray-400">—</span>
+                                      {/* ИНДИКАТОР ПРИЧИНЫ */}
+                                      {!creative.link_titles || creative.link_titles.every(title => !title || title.startsWith('Видео ')) ? (
+                                        <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title="Fallback названия - метрики недоступны">
+                                          ⚠
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" title="Видео не найдено в базе метрик">
+                                          ❌
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.cpl : 
+                                  {firstVideoMetrics?.found ? (
+                                    <span className="font-medium text-green-600">
+                                      {firstVideoMetrics.data.formatted.cpl}
+                                    </span>
+                                  ) : (
                                     <span className="text-gray-400">—</span>
-                                  }
+                                  )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {firstVideoMetrics?.found ? 
-                                    firstVideoMetrics.data.formatted.ctr : 
+                                  {firstVideoMetrics?.found ? (
+                                    <span className="font-medium text-orange-600">
+                                      {firstVideoMetrics.data.formatted.ctr}
+                                    </span>
+                                  ) : (
                                     <span className="text-gray-400">—</span>
-                                  }
+                                  )}
                                 </td>
                               </>
                             )}
-                            
-                            {/* Trello - пустая */}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                              —
-                            </td>
                             
                             {/* Меню действий */}
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -869,6 +1008,125 @@ function CreativePanel({ user }) {
           </div>
         )}
       </div>
+
+      {/* Debug Modal - НОВОЕ ОКНО ОТЛАДКИ */}
+      {showDebugModal && debugInfo && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Bug className="h-5 w-5 mr-2 text-yellow-600" />
+                Отладочная информация
+              </h3>
+              <button
+                onClick={() => setShowDebugModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Общая информация */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Общая информация:</h4>
+                <div className="bg-gray-50 p-3 rounded-md text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <strong>Пользователь:</strong> {debugInfo.user.name} ({debugInfo.user.role})
+                    </div>
+                    <div>
+                      <strong>Время:</strong> {new Date(debugInfo.timestamp).toLocaleString('ru-RU')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Статистика креативов */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Статистика креативов:</h4>
+                <div className="bg-blue-50 p-3 rounded-md text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><strong>Всего:</strong> {debugInfo.creatives.total}</div>
+                    <div><strong>С link_titles:</strong> {debugInfo.creatives.withLinkTitles}</div>
+                    <div><strong>С валидными названиями:</strong> {debugInfo.creatives.withValidTitles}</div>
+                    <div><strong>С fallback названиями:</strong> {debugInfo.creatives.withFallbackTitles}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Статистика метрик */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Статистика метрик:</h4>
+                <div className="bg-green-50 p-3 rounded-md text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><strong>Включены:</strong> {debugInfo.metrics.enabled ? '✅' : '❌'}</div>
+                    <div><strong>Загрузка:</strong> {debugInfo.metrics.loading ? '⏳' : '✅'}</div>
+                    <div><strong>API статус:</strong> {debugInfo.metrics.apiStatus}</div>
+                    <div><strong>API доступен:</strong> {debugInfo.metrics.apiAvailable ? '✅' : '❌'}</div>
+                    <div><strong>Найдено метрик:</strong> {debugInfo.metrics.stats?.found || 0}</div>
+                    <div><strong>Всего запросов:</strong> {debugInfo.metrics.stats?.total || 0}</div>
+                  </div>
+                  {debugInfo.metrics.error && (
+                    <div className="mt-2 p-2 bg-red-100 rounded text-red-700">
+                      <strong>Ошибка:</strong> {debugInfo.metrics.error}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Примеры креативов */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Примеры креативов:</h4>
+                <div className="space-y-3">
+                  {debugInfo.samples.map((sample, index) => (
+                    <div key={index} className="bg-yellow-50 p-3 rounded-md text-sm">
+                      <div className="font-medium">{sample.article}</div>
+                      <div className="text-gray-600 mt-1">
+                        <div><strong>Названия видео:</strong> {JSON.stringify(sample.link_titles)}</div>
+                        <div><strong>Валидные названия:</strong> {sample.hasValidTitles ? '✅' : '❌'}</div>
+                        <div><strong>Метрики первого видео:</strong> {sample.firstVideoMetrics?.found ? '✅ Найдены' : '❌ Не найдены'}</div>
+                        {sample.firstVideoMetrics && (
+                          <div className="mt-1 text-xs">
+                            <pre>{JSON.stringify(sample.firstVideoMetrics, null, 2)}</pre>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Рекомендации */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Рекомендации:</h4>
+                <div className="bg-indigo-50 p-3 rounded-md text-sm">
+                  <ul className="list-disc list-inside space-y-1">
+                    {debugInfo.creatives.withFallbackTitles > 0 && (
+                      <li>У вас есть креативы с fallback названиями ("Видео 1", "Видео 2") - для них метрики недоступны</li>
+                    )}
+                    {!debugInfo.metrics.apiAvailable && (
+                      <li>API метрик недоступен - проверьте подключение к интернету</li>
+                    )}
+                    {debugInfo.metrics.enabled && debugInfo.metrics.stats?.found === 0 && (
+                      <li>Не найдено метрик ни для одного видео - возможно названия не совпадают с базой данных</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowDebugModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showCreateModal && (
