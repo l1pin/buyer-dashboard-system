@@ -1,19 +1,21 @@
-// Оптимизированный хук для работы с метриками - загружаем один раз, фильтруем на клиенте
+// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЕ хуки для метрик - МГНОВЕННАЯ клиентская фильтрация
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
 
 /**
- * Хук для получения метрик одного видео по названию
+ * Хук для получения метрик одного видео по названию - ПЕРЕПИСАН
  */
 export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
-  const [metrics, setMetrics] = useState(null);
+  const [rawMetrics, setRawMetrics] = useState(null); // Сырые данные за все время
+  const [filteredMetrics, setFilteredMetrics] = useState(null); // Отфильтрованные данные
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const loadMetrics = useCallback(async () => {
+  // Загрузка сырых данных - ТОЛЬКО один раз
+  const loadRawMetrics = useCallback(async () => {
     if (!videoTitle || videoTitle.startsWith('Видео ')) {
       return;
     }
@@ -22,56 +24,82 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
     setError('');
 
     try {
-      const result = await MetricsService.getVideoMetrics(videoTitle, period);
+      console.log(`🔍 Загружаем сырые метрики для: ${videoTitle}`);
+      const result = await MetricsService.getVideoMetricsRaw(videoTitle);
       
       if (result.found) {
-        setMetrics(result.data);
+        setRawMetrics(result);
         setLastUpdated(new Date());
         setError('');
+        console.log(`✅ Сырые метрики загружены для: ${videoTitle}`);
       } else {
         setError(result.error || 'Метрики не найдены');
-        setMetrics(null);
+        setRawMetrics(null);
       }
     } catch (err) {
       setError('Ошибка загрузки: ' + err.message);
-      setMetrics(null);
+      setRawMetrics(null);
     } finally {
       setLoading(false);
     }
-  }, [videoTitle, period]);
+  }, [videoTitle]);
 
+  // Мгновенная фильтрация на клиенте при смене периода
+  const applyFilter = useCallback((rawData, targetPeriod) => {
+    if (!rawData || !rawData.found) {
+      setFilteredMetrics(null);
+      return;
+    }
+
+    console.log(`⚡ МГНОВЕННАЯ фильтрация для ${videoTitle}: ${targetPeriod}`);
+    
+    const filtered = MetricsService.filterRawMetricsByPeriod(rawData, targetPeriod);
+    setFilteredMetrics(filtered);
+  }, [videoTitle]);
+
+  // Загружаем сырые данные только при смене videoTitle
   useEffect(() => {
     if (autoLoad && videoTitle) {
-      loadMetrics();
+      loadRawMetrics();
     }
-  }, [videoTitle, autoLoad, period, loadMetrics]);
+  }, [videoTitle, autoLoad, loadRawMetrics]); // period НЕТ в зависимостях!
+
+  // Применяем фильтр при смене периода или сырых данных
+  useEffect(() => {
+    if (rawMetrics) {
+      applyFilter(rawMetrics, period);
+    } else {
+      setFilteredMetrics(null);
+    }
+  }, [rawMetrics, period, applyFilter]);
 
   return {
-    metrics,
+    metrics: filteredMetrics?.found ? filteredMetrics.data : null,
     loading,
-    error,
+    error: filteredMetrics?.found === false ? filteredMetrics.error : error,
     lastUpdated,
-    refresh: loadMetrics,
-    hasMetrics: !!metrics
+    refresh: loadRawMetrics, // Обновляет только сырые данные
+    hasMetrics: filteredMetrics?.found || false,
+    period: period // Для отладки
   };
 }
 
 /**
- * Хук для батчевой загрузки метрик множества креативов - ОПТИМИЗИРОВАННЫЙ
- * Загружает данные за все время один раз, применяет фильтрацию на клиенте
+ * ПЕРЕПИСАННЫЙ хук для батчевой загрузки метрик - МГНОВЕННАЯ фильтрация
  */
 export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
-  // Кэшируем данные за все время
+  // Сырые данные за все время (загружаются один раз)
   const [rawBatchMetrics, setRawBatchMetrics] = useState(new Map());
+  
+  // Отфильтрованные данные (пересчитываются мгновенно)
+  const [filteredBatchMetrics, setFilteredBatchMetrics] = useState(new Map());
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
-  
-  // Отфильтрованные данные по периоду (вычисляются на лету)
-  const [filteredBatchMetrics, setFilteredBatchMetrics] = useState(new Map());
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
 
-  const loadBatchMetrics = useCallback(async () => {
+  const loadRawBatchMetrics = useCallback(async () => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
@@ -83,7 +111,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     setError('');
 
     try {
-      console.log('🚀 Загружаем метрики за ВСЕ время (один раз)...');
+      console.log('🚀 Батчевая загрузка СЫРЫХ данных за ВСЕ время...');
       
       // Собираем все названия видео из всех креативов
       const videoToCreativeMap = new Map();
@@ -114,10 +142,11 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       }
 
       const videoNames = Array.from(videoToCreativeMap.keys());
-      // ВАЖНО: всегда загружаем за 'all' - все время
-      const results = await MetricsService.getBatchVideoMetrics(videoNames, 'all');
       
-      const metricsMap = new Map();
+      // КЛЮЧЕВОЕ: загружаем сырые данные за ВСЕ время
+      const results = await MetricsService.getBatchVideoMetricsRaw(videoNames);
+      
+      const rawMetricsMap = new Map();
 
       results.forEach(result => {
         const videoMapping = videoToCreativeMap.get(result.videoName);
@@ -125,12 +154,11 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
           const { videoKey, creativeId, videoIndex } = videoMapping;
           
           // Сохраняем сырые данные со всеми днями
-          metricsMap.set(videoKey, {
+          rawMetricsMap.set(videoKey, {
             found: result.found,
             data: result.data,
             error: result.error,
             videoName: result.videoName,
-            period: 'all', // Всегда сохраняем как 'all'
             creativeId: creativeId,
             videoIndex: videoIndex
           });
@@ -138,10 +166,10 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       });
 
       // Сохраняем сырые данные за все время
-      setRawBatchMetrics(metricsMap);
+      setRawBatchMetrics(rawMetricsMap);
       setLastUpdated(new Date());
       
-      console.log('✅ Загружены сырые метрики за все время');
+      console.log('✅ Загружены сырые данные за ВСЕ время');
 
     } catch (err) {
       setError('Ошибка загрузки: ' + err.message);
@@ -152,7 +180,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     }
   }, [creatives]);
 
-  // Фильтрация данных по периоду (выполняется мгновенно на клиенте)
+  // МГНОВЕННАЯ фильтрация сырых данных по периоду
   const applyPeriodFilter = useCallback((rawMetrics, targetPeriod) => {
     if (!rawMetrics || rawMetrics.size === 0) {
       setFilteredBatchMetrics(new Map());
@@ -160,7 +188,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       return;
     }
 
-    console.log(`⚡ МГНОВЕННАЯ фильтрация на клиенте для периода: ${targetPeriod}`);
+    console.log(`⚡ МГНОВЕННАЯ батчевая фильтрация для периода: ${targetPeriod}`);
     
     const filteredMap = new Map();
     let successCount = 0;
@@ -170,8 +198,8 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     for (const [videoKey, rawMetric] of rawMetrics) {
       totalCount++;
       
-      if (!rawMetric.found || !rawMetric.data || !rawMetric.data.allDailyData) {
-        // Если метрик нет или нет сырых данных, просто копируем как есть
+      if (!rawMetric.found || !rawMetric.data) {
+        // Если метрик нет, просто копируем как есть
         filteredMap.set(videoKey, {
           ...rawMetric,
           period: targetPeriod
@@ -181,13 +209,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
 
       try {
         // КЛИЕНТСКАЯ фильтрация без запросов к БД
-        const filteredResult = MetricsService.filterRawMetricsByPeriod({
-          found: true,
-          data: {
-            ...rawMetric.data,
-            dailyData: rawMetric.data.allDailyData // Используем все дневные данные для фильтрации
-          }
-        }, targetPeriod);
+        const filteredResult = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
         
         if (filteredResult.found) {
           filteredMap.set(videoKey, {
@@ -216,7 +238,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         filteredMap.set(videoKey, {
           found: false,
           data: null,
-          error: `Нет данных за период: ${targetPeriod}`,
+          error: `Ошибка фильтрации: ${err.message}`,
           videoName: rawMetric.videoName,
           period: targetPeriod,
           creativeId: rawMetric.creativeId,
@@ -232,17 +254,17 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       notFound: totalCount - successCount
     });
 
-    console.log(`✅ Клиентская фильтрация завершена мгновенно: ${successCount}/${totalCount} метрик найдено`);
+    console.log(`✅ Клиентская фильтрация завершена МГНОВЕННО: ${successCount}/${totalCount} метрик найдено`);
   }, []);
 
-  // Загружаем данные только при изменении креативов (не периода!)
+  // Загружаем сырые данные только при изменении креативов (НЕ периода!)
   useEffect(() => {
     if (autoLoad && creatives) {
-      loadBatchMetrics();
+      loadRawBatchMetrics();
     }
-  }, [creatives, autoLoad, loadBatchMetrics]); // period убран из зависимостей!
+  }, [creatives, autoLoad, loadRawBatchMetrics]); // period убран из зависимостей!
 
-  // Применяем фильтр при изменении периода или сырых данных
+  // Применяем фильтр при изменении периода или сырых данных - МГНОВЕННО
   useEffect(() => {
     if (rawBatchMetrics.size > 0) {
       applyPeriodFilter(rawBatchMetrics, period);
@@ -293,12 +315,13 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   }, [stats]);
 
   const refresh = useCallback(async () => {
-    console.log('🔄 Принудительное обновление метрик...');
-    await loadBatchMetrics();
-  }, [loadBatchMetrics]);
+    console.log('🔄 Принудительное обновление сырых метрик...');
+    await loadRawBatchMetrics();
+  }, [loadRawBatchMetrics]);
 
   return {
     batchMetrics: filteredBatchMetrics, // Возвращаем отфильтрованные данные
+    rawBatchMetrics, // Для отладки
     loading,
     error,
     stats,
@@ -307,7 +330,8 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
-    getSuccessRate
+    getSuccessRate,
+    currentPeriod: period // Для отладки
   };
 }
 
