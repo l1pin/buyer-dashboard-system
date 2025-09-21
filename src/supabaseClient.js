@@ -465,7 +465,8 @@ export const creativeService = {
       linksCount: creativeData.links?.length || 0,
       workTypesCount: creativeData.work_types?.length || 0,
       hasComment: !!creativeData.comment,
-      cof_rating: creativeData.cof_rating
+      cof_rating: creativeData.cof_rating,
+      is_poland: creativeData.is_poland
     });
 
     const { data, error } = await supabase
@@ -479,7 +480,8 @@ export const creativeService = {
           link_titles: creativeData.link_titles || [],
           work_types: creativeData.work_types,
           cof_rating: creativeData.cof_rating,
-          comment: creativeData.comment || null // Добавляем поддержку комментария
+          comment: creativeData.comment || null, // Добавляем поддержку комментария
+          is_poland: creativeData.is_poland || false // Добавляем поддержку флага страны
           // created_at и updated_at установятся автоматически через DEFAULT NOW()
         }
       ])
