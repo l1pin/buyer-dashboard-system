@@ -1354,7 +1354,7 @@ function CreativePanel({ user }) {
                     </div>
                   )}
                 </div>
-                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
+                <div className="max-h-72 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
                   <div className="grid grid-cols-1 gap-2">
                     {workTypes.map((type) => (
                       <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
