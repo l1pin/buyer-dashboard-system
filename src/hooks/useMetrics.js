@@ -1,4 +1,4 @@
-// Чистый хук для работы с метриками без отладки
+// Оптимизированный хук для работы с метриками - загружаем один раз, фильтруем на клиенте
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -57,18 +57,24 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
 }
 
 /**
- * Хук для батчевой загрузки метрик множества креативов (с множественными видео каждый)
+ * Хук для батчевой загрузки метрик множества креативов - ОПТИМИЗИРОВАННЫЙ
+ * Загружает данные за все время один раз, применяет фильтрацию на клиенте
  */
 export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
-  const [batchMetrics, setBatchMetrics] = useState(new Map());
+  // Кэшируем данные за все время
+  const [rawBatchMetrics, setRawBatchMetrics] = useState(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
   const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Отфильтрованные данные по периоду (вычисляются на лету)
+  const [filteredBatchMetrics, setFilteredBatchMetrics] = useState(new Map());
+  const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
 
   const loadBatchMetrics = useCallback(async () => {
     if (!creatives || creatives.length === 0) {
-      setBatchMetrics(new Map());
+      setRawBatchMetrics(new Map());
+      setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
       return;
     }
@@ -77,6 +83,8 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     setError('');
 
     try {
+      console.log('🚀 Загружаем метрики за ВСЕ время (один раз)...');
+      
       // Собираем все названия видео из всех креативов
       const videoToCreativeMap = new Map();
       let totalVideos = 0;
@@ -99,64 +107,155 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
 
       if (videoToCreativeMap.size === 0) {
         setError('Нет доступных названий видео для поиска метрик');
-        setBatchMetrics(new Map());
+        setRawBatchMetrics(new Map());
+        setFilteredBatchMetrics(new Map());
         setStats({ total: 0, found: 0, notFound: 0 });
         return;
       }
 
       const videoNames = Array.from(videoToCreativeMap.keys());
-      const results = await MetricsService.getBatchVideoMetrics(videoNames, period);
+      // ВАЖНО: всегда загружаем за 'all' - все время
+      const results = await MetricsService.getBatchVideoMetrics(videoNames, 'all');
       
       const metricsMap = new Map();
-      let successCount = 0;
 
       results.forEach(result => {
         const videoMapping = videoToCreativeMap.get(result.videoName);
         if (videoMapping) {
           const { videoKey, creativeId, videoIndex } = videoMapping;
           
+          // Сохраняем сырые данные со всеми днями
           metricsMap.set(videoKey, {
             found: result.found,
             data: result.data,
             error: result.error,
             videoName: result.videoName,
-            period: period,
+            period: 'all', // Всегда сохраняем как 'all'
             creativeId: creativeId,
             videoIndex: videoIndex
           });
-
-          if (result.found) {
-            successCount++;
-          }
         }
       });
 
-      setBatchMetrics(metricsMap);
-      setStats({
-        total: totalVideos,
-        found: successCount,
-        notFound: totalVideos - successCount
-      });
+      // Сохраняем сырые данные за все время
+      setRawBatchMetrics(metricsMap);
       setLastUpdated(new Date());
+      
+      console.log('✅ Загружены сырые метрики за все время');
 
     } catch (err) {
       setError('Ошибка загрузки: ' + err.message);
-      setBatchMetrics(new Map());
+      setRawBatchMetrics(new Map());
+      setFilteredBatchMetrics(new Map());
     } finally {
       setLoading(false);
     }
-  }, [creatives, period]);
+  }, [creatives]);
 
+  // Фильтрация данных по периоду (выполняется мгновенно на клиенте)
+  const applyPeriodFilter = useCallback((rawMetrics, targetPeriod) => {
+    if (!rawMetrics || rawMetrics.size === 0) {
+      setFilteredBatchMetrics(new Map());
+      setStats({ total: 0, found: 0, notFound: 0 });
+      return;
+    }
+
+    console.log(`⚡ МГНОВЕННАЯ фильтрация на клиенте для периода: ${targetPeriod}`);
+    
+    const filteredMap = new Map();
+    let successCount = 0;
+    let totalCount = 0;
+
+    // Применяем фильтр к каждой записи НА КЛИЕНТЕ
+    for (const [videoKey, rawMetric] of rawMetrics) {
+      totalCount++;
+      
+      if (!rawMetric.found || !rawMetric.data || !rawMetric.data.allDailyData) {
+        // Если метрик нет или нет сырых данных, просто копируем как есть
+        filteredMap.set(videoKey, {
+          ...rawMetric,
+          period: targetPeriod
+        });
+        continue;
+      }
+
+      try {
+        // КЛИЕНТСКАЯ фильтрация без запросов к БД
+        const filteredResult = MetricsService.filterRawMetricsByPeriod({
+          found: true,
+          data: {
+            ...rawMetric.data,
+            dailyData: rawMetric.data.allDailyData // Используем все дневные данные для фильтрации
+          }
+        }, targetPeriod);
+        
+        if (filteredResult.found) {
+          filteredMap.set(videoKey, {
+            found: true,
+            data: filteredResult.data,
+            error: null,
+            videoName: rawMetric.videoName,
+            period: targetPeriod,
+            creativeId: rawMetric.creativeId,
+            videoIndex: rawMetric.videoIndex
+          });
+          successCount++;
+        } else {
+          filteredMap.set(videoKey, {
+            found: false,
+            data: null,
+            error: filteredResult.error || `Нет данных за период: ${targetPeriod}`,
+            videoName: rawMetric.videoName,
+            period: targetPeriod,
+            creativeId: rawMetric.creativeId,
+            videoIndex: rawMetric.videoIndex
+          });
+        }
+      } catch (err) {
+        // В случае ошибки фильтрации, показываем что метрик нет за этот период
+        filteredMap.set(videoKey, {
+          found: false,
+          data: null,
+          error: `Нет данных за период: ${targetPeriod}`,
+          videoName: rawMetric.videoName,
+          period: targetPeriod,
+          creativeId: rawMetric.creativeId,
+          videoIndex: rawMetric.videoIndex
+        });
+      }
+    }
+
+    setFilteredBatchMetrics(filteredMap);
+    setStats({
+      total: totalCount,
+      found: successCount,
+      notFound: totalCount - successCount
+    });
+
+    console.log(`✅ Клиентская фильтрация завершена мгновенно: ${successCount}/${totalCount} метрик найдено`);
+  }, []);
+
+  // Загружаем данные только при изменении креативов (не периода!)
   useEffect(() => {
     if (autoLoad && creatives) {
       loadBatchMetrics();
     }
-  }, [creatives, autoLoad, period, loadBatchMetrics]);
+  }, [creatives, autoLoad, loadBatchMetrics]); // period убран из зависимостей!
+
+  // Применяем фильтр при изменении периода или сырых данных
+  useEffect(() => {
+    if (rawBatchMetrics.size > 0) {
+      applyPeriodFilter(rawBatchMetrics, period);
+    } else {
+      setFilteredBatchMetrics(new Map());
+      setStats({ total: 0, found: 0, notFound: 0 });
+    }
+  }, [rawBatchMetrics, period, applyPeriodFilter]);
 
   const getVideoMetrics = useCallback((creativeId, videoIndex) => {
     const videoKey = `${creativeId}_${videoIndex}`;
-    return batchMetrics.get(videoKey) || null;
-  }, [batchMetrics]);
+    return filteredBatchMetrics.get(videoKey) || null;
+  }, [filteredBatchMetrics]);
 
   const getCreativeMetrics = useCallback((creativeId) => {
     const creativeMetrics = [];
@@ -164,7 +263,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     
     while (true) {
       const videoKey = `${creativeId}_${videoIndex}`;
-      const metrics = batchMetrics.get(videoKey);
+      const metrics = filteredBatchMetrics.get(videoKey);
       
       if (metrics) {
         creativeMetrics.push({
@@ -181,7 +280,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     }
     
     return creativeMetrics.length > 0 ? creativeMetrics : null;
-  }, [batchMetrics]);
+  }, [filteredBatchMetrics]);
 
   const hasVideoMetrics = useCallback((creativeId, videoIndex) => {
     const metrics = getVideoMetrics(creativeId, videoIndex);
@@ -193,13 +292,18 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     return Math.round((stats.found / stats.total) * 100);
   }, [stats]);
 
+  const refresh = useCallback(async () => {
+    console.log('🔄 Принудительное обновление метрик...');
+    await loadBatchMetrics();
+  }, [loadBatchMetrics]);
+
   return {
-    batchMetrics,
+    batchMetrics: filteredBatchMetrics, // Возвращаем отфильтрованные данные
     loading,
     error,
     stats,
     lastUpdated,
-    refresh: loadBatchMetrics,
+    refresh,
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
