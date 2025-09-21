@@ -1,4 +1,4 @@
-// CreativePanel.js с улучшенной отладкой метрик для периода "4 дня" и карточками статистики
+// CreativePanel.js - ПОЛНАЯ ВЕРСИЯ с карточками статистики и оптимизированными метриками
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +11,7 @@ import {
 } from '../utils/googleDriveUtils';
 import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
-import { MetricsService } from '../services/metricsService'; // Импортируем для отладки
+import { MetricsService } from '../services/metricsService';
 import { 
   Plus, 
   X, 
@@ -52,11 +52,11 @@ function CreativePanel({ user }) {
   const [selectedComment, setSelectedComment] = useState(null);
   const [creating, setCreating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
-  const [metricsPeriod, setMetricsPeriod] = useState('all'); // 'all' или '4days'
+  const [metricsPeriod, setMetricsPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
-  const [debugMode, setDebugMode] = useState(false); // Новый режим отладки
+  const [debugMode, setDebugMode] = useState(false);
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -68,7 +68,7 @@ function CreativePanel({ user }) {
 
   const [extractingTitles, setExtractingTitles] = useState(false);
 
-  // Хуки для метрик - метрики всегда загружаются, но меняется период
+  // Хуки для метрик - оптимизированные с кэшированием
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -113,7 +113,6 @@ function CreativePanel({ user }) {
     'Доп. 2'
   ];
 
-  // Оценки типов работ для подсчета COF
   const workTypeValues = {
     'Монтаж _Video': 1,
     'Монтаж > 21s': 0.4,
@@ -143,28 +142,18 @@ function CreativePanel({ user }) {
     'Доп. 2': 2
   };
 
-  /**
-   * Вычисление COF для креатива
-   */
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
-    
     return workTypes.reduce((total, workType) => {
       const value = workTypeValues[workType] || 0;
       return total + value;
     }, 0);
   };
 
-  /**
-   * Форматирование COF для отображения
-   */
   const formatCOF = (cof) => {
     return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
   };
 
-  /**
-   * Получение цвета для COF бейджа
-   */
   const getCOFBadgeColor = (cof) => {
     if (cof >= 4) return 'bg-red-600 text-white border-red-600';
     if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300';
@@ -173,9 +162,6 @@ function CreativePanel({ user }) {
     return 'bg-green-500 text-white border-green-500';
   };
 
-  /**
-   * Вычисление общей статистики COF
-   */
   const getCOFStats = () => {
     const totalCOF = creatives.reduce((sum, creative) => {
       return sum + calculateCOF(creative.work_types);
@@ -191,7 +177,6 @@ function CreativePanel({ user }) {
     };
   };
 
-  // Функция для получения текущего месяца и года
   const getCurrentMonthYear = () => {
     const now = new Date();
     const months = [
@@ -223,7 +208,6 @@ function CreativePanel({ user }) {
     }
   };
 
-  // Валидация Google Drive ссылок
   const validateGoogleDriveLinks = (links) => {
     const validLinks = links.filter(link => link.trim() !== '');
     const invalidLinks = [];
@@ -279,7 +263,6 @@ function CreativePanel({ user }) {
       const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
       setExtractingTitles(false);
 
-      // Проверяем что удалось извлечь хотя бы одно реальное название
       const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
       if (extractedTitles.length === 0) {
         setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
@@ -287,7 +270,6 @@ function CreativePanel({ user }) {
         return;
       }
 
-      // Вычисляем COF для сохранения в базе данных
       const cofRating = calculateCOF(newCreative.work_types);
 
       await creativeService.createCreative({
@@ -377,7 +359,6 @@ function CreativePanel({ user }) {
     });
   };
 
-  // Функция для показа комментария
   const showComment = (creative) => {
     setSelectedComment({
       article: creative.article,
@@ -388,7 +369,6 @@ function CreativePanel({ user }) {
     setShowCommentModal(true);
   };
 
-  // Функция для переключения раскрытия типов работ
   const toggleWorkTypes = (creativeId) => {
     const newExpanded = new Set(expandedWorkTypes);
     if (newExpanded.has(creativeId)) {
@@ -399,7 +379,6 @@ function CreativePanel({ user }) {
     setExpandedWorkTypes(newExpanded);
   };
 
-  // Функция для переключения выпадающего меню
   const toggleDropdown = (creativeId) => {
     const newOpenDropdowns = new Set(openDropdowns);
     if (newOpenDropdowns.has(creativeId)) {
@@ -410,7 +389,6 @@ function CreativePanel({ user }) {
     setOpenDropdowns(newOpenDropdowns);
   };
 
-  // Закрытие всех выпадающих меню при клике вне их
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.dropdown-menu') && !event.target.closest('.dropdown-trigger')) {
@@ -427,25 +405,21 @@ function CreativePanel({ user }) {
     };
   }, []);
 
-  // Обработчик изменения периода метрик
   const handlePeriodChange = (period) => {
-    console.log(`🔄 Смена периода метрик: ${metricsPeriod} -> ${period}`);
+    console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
     setMetricsPeriod(period);
     setShowPeriodDropdown(false);
     clearMessages();
     
-    // Дополнительное логирование для отладки
     if (period === '4days') {
-      console.log('🐛 Включен режим "4 дня" - проверьте консоль для отладочной информации');
+      console.log('⚡ Включен режим "4 дня" - фильтрация на клиенте без запросов к БД');
     }
   };
 
-  // Получение текста for кнопки периода
   const getPeriodButtonText = () => {
     return metricsPeriod === 'all' ? 'Все время' : '4 дня';
   };
 
-  // НОВАЯ ФУНКЦИЯ: Отладка метрик для конкретного креатива
   const debugCreativeMetrics = async (creative) => {
     if (!creative.link_titles || creative.link_titles.length === 0) {
       console.log('❌ У креатива нет названий видео для отладки');
@@ -464,7 +438,7 @@ function CreativePanel({ user }) {
       if (videoTitle && !videoTitle.startsWith('Видео ')) {
         console.log(`🔍 Тестирование метрик для видео ${i + 1}: "${videoTitle}"`);
         try {
-          const result = await MetricsService.testVideoQuery(videoTitle, metricsPeriod);
+          const result = await MetricsService.getVideoMetrics(videoTitle, metricsPeriod);
           console.log(`📊 Результат теста для видео ${i + 1}:`, result);
         } catch (error) {
           console.error(`❌ Ошибка теста для видео ${i + 1}:`, error);
@@ -536,7 +510,6 @@ function CreativePanel({ user }) {
     refreshMetrics();
   };
 
-  // Получаем статистику COF
   const cofStats = getCOFStats();
 
   if (loading) {
@@ -618,7 +591,6 @@ function CreativePanel({ user }) {
               )}
             </div>
 
-            {/* Кнопка отладки - показывается только при выборе "4 дня" */}
             {metricsPeriod === '4days' && (
               <button
                 onClick={() => setDebugMode(!debugMode)}
@@ -892,7 +864,6 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Metrics Error */}
       {metricsError && (
         <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -905,7 +876,6 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Debug Mode Information */}
       {debugMode && metricsPeriod === '4days' && (
         <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm">
           <div className="flex items-center mb-2">
@@ -939,7 +909,6 @@ function CreativePanel({ user }) {
             </button>
           </div>
         ) : (
-          /* Таблица креативов */
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
@@ -999,7 +968,6 @@ function CreativePanel({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        // Получаем метрики для первого видео (основные метрики)
                         const firstVideoMetrics = getVideoMetrics(creative.id, 0);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
@@ -1007,7 +975,6 @@ function CreativePanel({ user }) {
                         
                         return (
                           <tr key={creative.id} className="hover:bg-gray-50">
-                            {/* Дата */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               <div className="text-center">
                                 <div className="font-medium">{formattedDateTime.date}</div>
@@ -1015,11 +982,9 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            {/* Артикул */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">
                                 {creative.article}
-                                {/* Кнопка отладки в режиме отладки */}
                                 {debugMode && (
                                   <button
                                     onClick={() => debugCreativeMetrics(creative)}
@@ -1032,7 +997,6 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            {/* Видео - все названия */}
                             <td className="px-6 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
@@ -1056,7 +1020,6 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            {/* Типы работ - раскрывающиеся */}
                             <td className="px-6 py-4 text-sm text-gray-900">
                               {creative.work_types && creative.work_types.length > 0 ? (
                                 <div>
@@ -1089,7 +1052,6 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            {/* Комментарий */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               {creative.comment ? (
                                 <button
@@ -1105,7 +1067,6 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            {/* COF */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
                                 <span className="text-xs font-bold mr-1">COF</span>
@@ -1113,17 +1074,14 @@ function CreativePanel({ user }) {
                               </span>
                             </td>
                             
-                            {/* Зоны эффективности - пустая */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                               —
                             </td>
                             
-                            {/* Текущая зона эффективности - пустая */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                               —
                             </td>
                             
-                            {/* Метрики рекламы */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {firstVideoMetrics?.found ? (
                                 <span className="text-green-700 font-medium">
@@ -1159,12 +1117,10 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            {/* Trello - пустая */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                               —
                             </td>
                             
-                            {/* Меню действий */}
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                               <div className="relative">
                                 <button
@@ -1179,7 +1135,6 @@ function CreativePanel({ user }) {
                                     <div className="py-1">
                                       <button
                                         onClick={() => {
-                                          // TODO: Добавить функционал редактирования
                                           console.log('Редактировать креатив:', creative.id);
                                           toggleDropdown(creative.id);
                                         }}
@@ -1226,7 +1181,7 @@ function CreativePanel({ user }) {
         )}
       </div>
 
-      {/* Create Modal - остается без изменений */}
+      {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
@@ -1254,7 +1209,6 @@ function CreativePanel({ user }) {
             </div>
 
             <div className="space-y-4">
-              {/* Article */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Артикул *
@@ -1271,7 +1225,6 @@ function CreativePanel({ user }) {
                 />
               </div>
 
-              {/* Links */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
@@ -1312,7 +1265,6 @@ function CreativePanel({ user }) {
                 </p>
               </div>
 
-              {/* Comment */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Комментарий
@@ -1329,7 +1281,6 @@ function CreativePanel({ user }) {
                 />
               </div>
 
-              {/* Work Types */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
@@ -1382,7 +1333,6 @@ function CreativePanel({ user }) {
                 )}
               </div>
 
-              {/* Error в модале */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
                   <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -1391,7 +1341,6 @@ function CreativePanel({ user }) {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={() => {
@@ -1431,7 +1380,7 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Comment Modal - остается без изменений */}
+      {/* Comment Modal */}
       {showCommentModal && selectedComment && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
