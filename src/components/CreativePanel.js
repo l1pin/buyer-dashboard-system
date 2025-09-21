@@ -1218,7 +1218,7 @@ function CreativePanel({ user }) {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
                 Создать новый креатив
@@ -1287,26 +1287,17 @@ function CreativePanel({ user }) {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Google Drive ссылки * (метрики будут показаны для каждой)
-                  </label>
-                  <button
-                    onClick={addLinkField}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Добавить
-                  </button>
-                </div>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Google Drive ссылки *
+                </label>
+                <div className="space-y-2">
                   {newCreative.links.map((link, index) => (
                     <div key={index} className="flex items-center space-x-2">
                       <input
                         type="url"
                         value={link}
                         onChange={(e) => updateLink(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                         placeholder="https://drive.google.com/file/d/..."
                       />
                       {newCreative.links.length > 1 && (
@@ -1320,7 +1311,14 @@ function CreativePanel({ user }) {
                     </div>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-yellow-600 flex items-center">
+                <button
+                  onClick={addLinkField}
+                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить ссылку
+                </button>
+                <p className="mt-2 text-xs text-yellow-600 flex items-center">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   Используйте только ссылки на Google Drive файлы
                 </p>
