@@ -951,9 +951,6 @@ function CreativePanel({ user }) {
                         Типы работ
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Комментарий
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1003,6 +1000,17 @@ function CreativePanel({ user }) {
                             
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
+                                {/* Иконка комментария */}
+                                {creative.comment && (
+                                  <button
+                                    onClick={() => showComment(creative)}
+                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                    title="Показать комментарий"
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                                
                                 {/* Флаг страны */}
                                 {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                 
@@ -1075,22 +1083,7 @@ function CreativePanel({ user }) {
                                 <span className="text-gray-400">—</span>
                               )}
                             </td>
-                            
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {creative.comment ? (
-                                <button
-                                  onClick={() => showComment(creative)}
-                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
-                                  title="Показать комментарий"
-                                >
-                                  <MessageCircle className="h-3 w-3 mr-1" />
-                                  Есть
-                                </button>
-                              ) : (
-                                <span className="text-gray-400 text-xs">—</span>
-                              )}
-                            </td>
-                            
+
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
                                 <span className="text-xs font-bold mr-1">COF</span>
