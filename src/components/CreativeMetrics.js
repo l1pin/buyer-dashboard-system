@@ -1,4 +1,4 @@
-// Красивый и компактный компонент для отображения метрик отдельных видео
+// Оптимизированный CreativeMetrics.js для работы с новой системой метрик
 // Замените содержимое src/components/CreativeMetrics.js
 
 import React, { useState, useEffect } from 'react';
@@ -18,20 +18,17 @@ import {
 
 /**
  * Компонент для отображения метрик отдельного видео в красивом компактном виде
+ * ОБНОВЛЕН для работы с новой системой мгновенной фильтрации
  */
-function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
-  const [metrics, setMetrics] = useState(null);
+function CreativeMetrics({ videoTitle, showRefresh = true, compact = false, period = 'all' }) {
+  const [rawMetrics, setRawMetrics] = useState(null); // Сырые данные за все время
+  const [filteredMetrics, setFilteredMetrics] = useState(null); // Отфильтрованные данные
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  useEffect(() => {
-    if (videoTitle && !videoTitle.startsWith('Видео ')) {
-      loadMetrics();
-    }
-  }, [videoTitle]);
-
-  const loadMetrics = async () => {
+  // Загрузка сырых данных за все время (только один раз)
+  const loadRawMetrics = async () => {
     if (!videoTitle || videoTitle.startsWith('Видео ')) {
       return;
     }
@@ -40,29 +37,64 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
     setError('');
 
     try {
-      console.log(`🔍 Загрузка метрик для видео: ${videoTitle}`);
+      console.log(`🔍 CreativeMetrics: Загрузка сырых данных для: ${videoTitle}`);
       
-      const result = await MetricsService.getVideoMetrics(videoTitle);
+      const result = await MetricsService.getVideoMetricsRaw(videoTitle);
       
       if (result.found) {
-        setMetrics(result.data);
+        setRawMetrics(result);
         setLastUpdated(new Date());
         setError('');
       } else {
         setError(result.error || 'Метрики не найдены');
-        setMetrics(null);
+        setRawMetrics(null);
       }
     } catch (err) {
       console.error('Ошибка загрузки метрик:', err);
       setError('Ошибка загрузки: ' + err.message);
-      setMetrics(null);
+      setRawMetrics(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Мгновенная фильтрация при смене периода
+  const applyPeriodFilter = (rawData, targetPeriod) => {
+    if (!rawData || !rawData.found) {
+      setFilteredMetrics(null);
+      return;
+    }
+
+    console.log(`⚡ CreativeMetrics: МГНОВЕННАЯ фильтрация для ${videoTitle}: ${targetPeriod}`);
+    
+    try {
+      const filtered = MetricsService.filterRawMetricsByPeriod(rawData, targetPeriod);
+      setFilteredMetrics(filtered);
+      setError(filtered.found ? '' : (filtered.error || 'Нет данных за период'));
+    } catch (err) {
+      setError('Ошибка фильтрации: ' + err.message);
+      setFilteredMetrics(null);
+    }
+  };
+
+  // Загружаем сырые данные только при смене videoTitle
+  useEffect(() => {
+    if (videoTitle && !videoTitle.startsWith('Видео ')) {
+      loadRawMetrics();
+    }
+  }, [videoTitle]); // period НЕТ в зависимостях!
+
+  // Применяем фильтр при смене периода или сырых данных
+  useEffect(() => {
+    if (rawMetrics) {
+      applyPeriodFilter(rawMetrics, period);
+    } else {
+      setFilteredMetrics(null);
+    }
+  }, [rawMetrics, period]);
+
   const handleRefresh = () => {
-    loadMetrics();
+    loadRawMetrics(); // Обновляем только сырые данные
   };
 
   // Если название видео не определено
@@ -116,7 +148,7 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
   }
 
   // Состояние без метрик
-  if (!metrics) {
+  if (!filteredMetrics || !filteredMetrics.found) {
     return (
       <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
         <div className="flex items-center justify-between">
@@ -134,9 +166,16 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
             </button>
           )}
         </div>
+        {period === '4days' && (
+          <div className="text-xs text-gray-500 mt-1">
+            За первые 4 дня нет данных
+          </div>
+        )}
       </div>
     );
   }
+
+  const metrics = filteredMetrics.data;
 
   // Отображение метрик в красивом компактном виде
   return (
@@ -145,7 +184,12 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center text-green-700">
           <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-          <span className="font-semibold text-sm">Метрики рекламы</span>
+          <span className="font-semibold text-sm">
+            Метрики рекламы
+            {period === '4days' && (
+              <span className="ml-1 text-xs text-blue-600">(4 дня)</span>
+            )}
+          </span>
         </div>
         <div className="flex items-center space-x-2">
           {lastUpdated && (
@@ -263,6 +307,11 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false }) {
           {metrics.updatedAt && (
             <div className="text-xs text-gray-500 mt-1">
               Обновлено: {metrics.updatedAt}
+            </div>
+          )}
+          {period === '4days' && metrics.period === '4days' && (
+            <div className="text-xs text-blue-600 mt-1 font-medium">
+              📊 Период: Первые 4 дня
             </div>
           )}
         </div>
