@@ -1102,8 +1102,13 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? (
-                                <span className="text-green-700 font-medium">
+                              {metricsLoading ? (
+                                <div className="flex items-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                                  <span className="text-gray-500 text-xs">Загрузка...</span>
+                                </div>
+                              ) : firstVideoMetrics?.found ? (
+                                <span className="text-black font-bold text-base">
                                   {firstVideoMetrics.data.formatted.leads}
                                 </span>
                               ) : (
@@ -1118,8 +1123,13 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? (
-                                <span className="text-green-700 font-medium">
+                              {metricsLoading ? (
+                                <div className="flex items-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                                  <span className="text-gray-500 text-xs">Загрузка...</span>
+                                </div>
+                              ) : firstVideoMetrics?.found ? (
+                                <span className="text-black font-bold text-base">
                                   {firstVideoMetrics.data.formatted.cpl}
                                 </span>
                               ) : (
@@ -1127,8 +1137,13 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {firstVideoMetrics?.found ? (
-                                <span className="text-blue-700 font-medium">
+                              {metricsLoading ? (
+                                <div className="flex items-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                  <span className="text-gray-500 text-xs">Загрузка...</span>
+                                </div>
+                              ) : firstVideoMetrics?.found ? (
+                                <span className="text-black font-bold text-base">
                                   {firstVideoMetrics.data.formatted.ctr}
                                 </span>
                               ) : (
