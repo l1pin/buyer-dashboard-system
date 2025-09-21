@@ -1,4 +1,4 @@
-// CreativePanel.js - ПОЛНАЯ ВЕРСИЯ с карточками статистики и оптимизированными метриками
+// CreativePanel.js - ПОЛНАЯ ВЕРСИЯ с карточками статистики и флагами стран
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -63,7 +63,8 @@ function CreativePanel({ user }) {
     links: [''],
     work_types: [],
     link_titles: [],
-    comment: ''
+    comment: '',
+    is_poland: false  // Новое поле для флага страны
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
@@ -141,6 +142,21 @@ function CreativePanel({ user }) {
     'Доп. 1': 1,
     'Доп. 2': 2
   };
+
+  // Компоненты флагов
+  const UkraineFlag = () => (
+    <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
+      <div className="w-full h-3 bg-blue-500"></div>
+      <div className="w-full h-3 bg-yellow-400"></div>
+    </div>
+  );
+
+  const PolandFlag = () => (
+    <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
+      <div className="w-full h-3 bg-white"></div>
+      <div className="w-full h-3 bg-red-500"></div>
+    </div>
+  );
 
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
@@ -280,7 +296,8 @@ function CreativePanel({ user }) {
         link_titles: titles,
         work_types: newCreative.work_types,
         cof_rating: cofRating,
-        comment: newCreative.comment.trim() || null
+        comment: newCreative.comment.trim() || null,
+        is_poland: newCreative.is_poland  // Добавляем флаг страны
       });
 
       setNewCreative({
@@ -288,7 +305,8 @@ function CreativePanel({ user }) {
         links: [''],
         work_types: [],
         link_titles: [],
-        comment: ''
+        comment: '',
+        is_poland: false
       });
       setShowCreateModal(false);
 
@@ -297,7 +315,8 @@ function CreativePanel({ user }) {
       const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Названий извлечено: ${successCount}/${totalCount}`);
+      const country = newCreative.is_poland ? 'PL' : 'UA';
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
@@ -983,17 +1002,22 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {creative.article}
-                                {debugMode && (
-                                  <button
-                                    onClick={() => debugCreativeMetrics(creative)}
-                                    className="ml-2 text-yellow-600 hover:text-yellow-800"
-                                    title="Отладить метрики для этого креатива"
-                                  >
-                                    🐛
-                                  </button>
-                                )}
+                              <div className="flex items-center space-x-2">
+                                {/* Флаг страны */}
+                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                
+                                <div className="text-sm font-medium text-gray-900">
+                                  {creative.article}
+                                  {debugMode && (
+                                    <button
+                                      onClick={() => debugCreativeMetrics(creative)}
+                                      className="ml-2 text-yellow-600 hover:text-yellow-800"
+                                      title="Отладить метрики для этого креатива"
+                                    >
+                                      🐛
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             
@@ -1197,7 +1221,8 @@ function CreativePanel({ user }) {
                     links: [''],
                     work_types: [],
                     link_titles: [],
-                    comment: ''
+                    comment: '',
+                    is_poland: false
                   });
                   setExtractingTitles(false);
                   clearMessages();
@@ -1209,20 +1234,46 @@ function CreativePanel({ user }) {
             </div>
 
             <div className="space-y-4">
+              {/* Артикул и флаг страны */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Артикул *
                 </label>
-                <input
-                  type="text"
-                  value={newCreative.article}
-                  onChange={(e) => {
-                    setNewCreative({ ...newCreative, article: e.target.value });
-                    clearMessages();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Введите артикул"
-                />
+                <div className="flex items-center space-x-3">
+                  {/* Поле артикула (уменьшенная ширина) */}
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newCreative.article}
+                      onChange={(e) => {
+                        setNewCreative({ ...newCreative, article: e.target.value });
+                        clearMessages();
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Введите артикул"
+                    />
+                  </div>
+                  
+                  {/* Кнопка-чекбокс Poland */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCreative({ ...newCreative, is_poland: !newCreative.is_poland });
+                      clearMessages();
+                    }}
+                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
+                      newCreative.is_poland
+                        ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                    }`}
+                    title={newCreative.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
+                  >
+                    {newCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    <span className="ml-2">
+                      {newCreative.is_poland ? 'Poland' : 'Ukraine'}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1365,14 +1416,18 @@ function CreativePanel({ user }) {
                      'Создание...'}
                   </div>
                 ) : (
-                  <>
-                    Создать креатив
+                  <div className="flex items-center">
+                    <span>Создать креатив</span>
                     {newCreative.work_types.length > 0 && (
                       <span className="ml-2 text-xs opacity-75">
                         (COF: {formatCOF(calculateCOF(newCreative.work_types))})
                       </span>
                     )}
-                  </>
+                    {/* Показываем флаг рядом с кнопкой */}
+                    <div className="ml-2">
+                      {newCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    </div>
+                  </div>
                 )}
               </button>
             </div>
