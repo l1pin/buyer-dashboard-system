@@ -1000,16 +1000,18 @@ function CreativePanel({ user }) {
                             
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
-                                {/* Иконка комментария */}
-                                {creative.comment && (
-                                  <button
-                                    onClick={() => showComment(creative)}
-                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                    title="Показать комментарий"
-                                  >
-                                    <MessageCircle className="h-4 w-4" />
-                                  </button>
-                                )}
+                                {/* Зарезервированное место для иконки комментария */}
+                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  {creative.comment && (
+                                    <button
+                                      onClick={() => showComment(creative)}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title="Показать комментарий"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
                                 
                                 {/* Флаг страны */}
                                 {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
