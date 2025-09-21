@@ -1,4 +1,4 @@
-// Чистый MetricsService.js - загружаем за все время, фильтруем на клиенте
+// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ MetricsService.js - МГНОВЕННАЯ клиентская фильтрация
 // Замените содержимое src/services/metricsService.js
 
 const getApiUrl = () => {
@@ -13,7 +13,7 @@ const TIMEZONE = "Europe/Kiev";
 
 export class MetricsService {
   /**
-   * Построение SQL запроса для получения всех дневных данных по видео
+   * Построение SQL запроса для получения всех дневных данных по видео - ТОЛЬКО ЗА ВСЕ ВРЕМЯ
    */
   static buildDetailedSqlForVideo(videoName) {
     const escapedVideoName = this.sqlEscapeLiteral(videoName);
@@ -145,19 +145,90 @@ export class MetricsService {
   }
 
   /**
-   * Фильтрация данных по периоду на стороне клиента
+   * КЛЮЧЕВОЙ МЕТОД: Клиентская фильтрация данных по периоду - МГНОВЕННО
    */
   static filterDataByPeriod(dailyData, period) {
-    if (period === 'all' || !dailyData || dailyData.length === 0) {
+    if (!dailyData || dailyData.length === 0) {
+      return [];
+    }
+
+    if (period === 'all') {
       return dailyData;
     }
 
     if (period === '4days') {
-      // Берем первые 4 дня активности
+      // Берем только первые 4 дня активности - МГНОВЕННО на клиенте
       return dailyData.slice(0, 4);
     }
 
+    // Добавьте другие периоды если нужно
     return dailyData;
+  }
+
+  /**
+   * НОВЫЙ МЕТОД: Клиентская фильтрация уже загруженных метрик по периоду
+   */
+  static filterRawMetricsByPeriod(rawMetrics, targetPeriod) {
+    if (!rawMetrics || !rawMetrics.found || !rawMetrics.data) {
+      return {
+        found: false,
+        error: 'Нет сырых данных для фильтрации'
+      };
+    }
+
+    // Берем сырые дневные данные
+    const allDailyData = rawMetrics.data.allDailyData || rawMetrics.data.dailyData || [];
+    
+    if (allDailyData.length === 0) {
+      return {
+        found: false,
+        error: 'Нет дневных данных для фильтрации'
+      };
+    }
+
+    // МГНОВЕННАЯ фильтрация на клиенте
+    const filteredData = this.filterDataByPeriod(allDailyData, targetPeriod);
+    
+    if (filteredData.length === 0) {
+      return {
+        found: false,
+        error: `Нет данных за период: ${targetPeriod === '4days' ? 'первые 4 дня' : targetPeriod}`
+      };
+    }
+
+    // Агрегируем отфильтрованные данные
+    const aggregates = this.aggregateDailyData(filteredData);
+    
+    // Проверяем что есть хоть какая-то активность
+    if (aggregates.leads === 0 && aggregates.cost === 0 && 
+        aggregates.clicks === 0 && aggregates.impressions === 0) {
+      return {
+        found: false,
+        error: 'Нет активности за выбранный период'
+      };
+    }
+    
+    const metrics = this.computeDerivedMetrics(aggregates);
+    const formatted = this.formatMetrics(metrics);
+    
+    return {
+      found: true,
+      data: {
+        raw: metrics,
+        formatted: formatted,
+        dailyData: filteredData, // Отфильтрованные дневные данные
+        allDailyData: allDailyData, // Сохраняем оригинальные данные для повторной фильтрации
+        period: targetPeriod,
+        updatedAt: new Date().toLocaleString('ru-RU', {
+          timeZone: TIMEZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      }
+    };
   }
 
   /**
@@ -235,15 +306,17 @@ export class MetricsService {
   }
 
   /**
-   * Получение метрик для конкретного видео по названию с поддержкой периода
+   * ПЕРЕПИСАННЫЙ метод: Получение метрик для конкретного видео - ТОЛЬКО за все время
    */
-  static async getVideoMetrics(videoName, period = 'all') {
+  static async getVideoMetricsRaw(videoName) {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
 
     try {
-      // Получаем подробные данные за все время
+      console.log(`🔍 Загружаем сырые данные ЗА ВСЕ ВРЕМЯ для: ${videoName}`);
+      
+      // ВСЕГДА получаем данные за ВСЕ время
       const sql = this.buildDetailedSqlForVideo(videoName);
       const dbResponse = await this.fetchFromDatabase(sql);
       
@@ -264,38 +337,32 @@ export class MetricsService {
         };
       }
 
-      // Фильтруем данные по выбранному периоду
-      const filteredData = this.filterDataByPeriod(allDailyData, period);
-      
-      if (filteredData.length === 0) {
-        return {
-          found: false,
-          error: `Нет данных за период: ${period === '4days' ? 'первые 4 дня' : period}`
-        };
-      }
-
-      // Агрегируем отфильтрованные данные
-      const aggregates = this.aggregateDailyData(filteredData);
+      // Агрегируем данные за ВСЕ время для проверки активности
+      const aggregates = this.aggregateDailyData(allDailyData);
       
       // Проверяем что есть хоть какая-то активность
       if (aggregates.leads === 0 && aggregates.cost === 0 && 
           aggregates.clicks === 0 && aggregates.impressions === 0) {
         return {
           found: false,
-          error: 'Нет активности за выбранный период'
+          error: 'Нет активности за всё время'
         };
       }
       
       const metrics = this.computeDerivedMetrics(aggregates);
       const formatted = this.formatMetrics(metrics);
       
+      console.log(`✅ Сырые данные загружены: ${allDailyData.length} дней активности`);
+      
       return {
         found: true,
         data: {
           raw: metrics,
           formatted: formatted,
+          allDailyData: allDailyData, // КЛЮЧЕВОЕ: сохраняем ВСЕ дневные данные для фильтрации
+          dailyData: allDailyData, // По умолчанию показываем все дни
           videoName: videoName,
-          period: period,
+          period: 'all', // Сырые данные всегда за все время
           updatedAt: new Date().toLocaleString('ru-RU', {
             timeZone: TIMEZONE,
             year: 'numeric',
@@ -315,12 +382,30 @@ export class MetricsService {
   }
 
   /**
-   * Получение метрик для множества видео (батчевая обработка) с поддержкой периода
+   * УСТАРЕВШИЙ метод - больше не используется для избежания запросов
    */
-  static async getBatchVideoMetrics(videoNames, period = 'all') {
+  static async getVideoMetrics(videoName, period = 'all') {
+    console.warn('⚠️ getVideoMetrics используется напрямую - используйте getVideoMetricsRaw + filterRawMetricsByPeriod');
+    
+    // Для обратной совместимости
+    const rawResult = await this.getVideoMetricsRaw(videoName);
+    
+    if (!rawResult.found) {
+      return rawResult;
+    }
+
+    return this.filterRawMetricsByPeriod(rawResult, period);
+  }
+
+  /**
+   * ПЕРЕПИСАННЫЙ метод: Батчевая загрузка - ТОЛЬКО за все время
+   */
+  static async getBatchVideoMetricsRaw(videoNames) {
     if (!Array.isArray(videoNames)) {
       throw new Error('videoNames должен быть массивом');
     }
+
+    console.log(`🚀 Батчевая загрузка сырых данных для ${videoNames.length} видео`);
 
     const results = await Promise.allSettled(
       videoNames.map(async (videoName, index) => {
@@ -332,17 +417,16 @@ export class MetricsService {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
           
-          const result = await this.getVideoMetrics(videoName, period);
+          // ВАЖНО: получаем только сырые данные за ВСЕ время
+          const result = await this.getVideoMetricsRaw(videoName);
           
           return {
             videoName,
-            period,
             ...result
           };
         } catch (error) {
           return {
             videoName,
-            period,
             found: false,
             error: error.message
           };
@@ -352,14 +436,46 @@ export class MetricsService {
 
     const finalResults = results.map((result, index) => ({
       videoName: videoNames[index],
-      period,
       ...(result.status === 'fulfilled' ? result.value : {
         found: false,
         error: 'Неизвестная ошибка при обработке'
       })
     }));
 
+    console.log(`✅ Батчевая загрузка завершена: ${finalResults.filter(r => r.found).length}/${finalResults.length} успешно`);
+
     return finalResults;
+  }
+
+  /**
+   * УСТАРЕВШИЙ метод - больше не используется
+   */
+  static async getBatchVideoMetrics(videoNames, period = 'all') {
+    console.warn('⚠️ getBatchVideoMetrics используется с периодом - используйте getBatchVideoMetricsRaw + клиентскую фильтрацию');
+    
+    // Для обратной совместимости
+    const rawResults = await this.getBatchVideoMetricsRaw(videoNames);
+    
+    if (period === 'all') {
+      return rawResults;
+    }
+
+    // Применяем фильтрацию ко всем результатам
+    return rawResults.map(rawResult => {
+      if (!rawResult.found) {
+        return {
+          ...rawResult,
+          period
+        };
+      }
+
+      const filtered = this.filterRawMetricsByPeriod(rawResult, period);
+      return {
+        videoName: rawResult.videoName,
+        period,
+        ...filtered
+      };
+    });
   }
 
   /**
