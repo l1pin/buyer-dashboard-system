@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с упрощенными зональными данными
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с колонкой "Текущая зона"
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +11,7 @@ import {
 } from '../utils/googleDriveUtils';
 import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
-import { useZoneData } from '../hooks/useZoneData'; // НОВЫЙ ИМПОРТ
+import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
 import { 
   Plus, 
@@ -41,7 +41,7 @@ import {
   Target,
   DollarSign,
   MousePointer,
-  Layers // НОВАЯ ИКОНКА ДЛЯ ЗОН
+  Layers
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -87,7 +87,7 @@ function CreativePanel({ user }) {
     hasData: hasMetricsData 
   } = useMetricsStats(creatives, batchMetrics);
 
-  // НОВЫЙ ХУК ДЛЯ ЗОНАЛЬНЫХ ДАННЫХ
+  // Хук для зональных данных
   const {
     zoneDataMap,
     loading: zoneDataLoading,
@@ -173,7 +173,7 @@ function CreativePanel({ user }) {
     </div>
   );
 
-  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - компактные цены в два ряда
+  // Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -187,7 +187,6 @@ function CreativePanel({ user }) {
 
     return (
       <div className="grid grid-cols-2 gap-1">
-        {/* Цены зон в два ряда, стиль как в MetricsAnalytics */}
         {zoneData.red !== '—' && (
           <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-red-100 text-red-800 border-red-200">
             {zoneData.red}
@@ -208,6 +207,127 @@ function CreativePanel({ user }) {
             {zoneData.green}
           </span>
         )}
+      </div>
+    );
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Определение текущей зоны на основе CPL
+  const getCurrentZoneByMetrics = (article, cplValue) => {
+    // Получаем зональные данные
+    const zoneData = getZoneDataForArticle(article);
+    
+    if (!zoneData || !cplValue || cplValue <= 0) {
+      return null;
+    }
+
+    // Парсим цены зон (убираем $ и конвертируем в числа)
+    const zones = [];
+    
+    if (zoneData.red !== '—') {
+      const price = parseFloat(zoneData.red.replace('$', ''));
+      if (!isNaN(price)) zones.push({ zone: 'red', price, name: 'Красная' });
+    }
+    
+    if (zoneData.pink !== '—') {
+      const price = parseFloat(zoneData.pink.replace('$', ''));
+      if (!isNaN(price)) zones.push({ zone: 'pink', price, name: 'Розовая' });
+    }
+    
+    if (zoneData.gold !== '—') {
+      const price = parseFloat(zoneData.gold.replace('$', ''));
+      if (!isNaN(price)) zones.push({ zone: 'gold', price, name: 'Золотая' });
+    }
+    
+    if (zoneData.green !== '—') {
+      const price = parseFloat(zoneData.green.replace('$', ''));
+      if (!isNaN(price)) zones.push({ zone: 'green', price, name: 'Зеленая' });
+    }
+
+    if (zones.length === 0) {
+      return null;
+    }
+
+    // Сортируем зоны по цене (от большей к меньшей)
+    zones.sort((a, b) => b.price - a.price);
+
+    // Находим подходящую зону
+    // CPL должен быть меньше или равен цене зоны
+    for (const zone of zones) {
+      if (cplValue <= zone.price) {
+        return {
+          zone: zone.zone,
+          name: zone.name,
+          price: zone.price
+        };
+      }
+    }
+
+    // Если CPL больше всех зон, возвращаем самую дорогую (красную)
+    return {
+      zone: zones[0].zone,
+      name: zones[0].name,
+      price: zones[0].price
+    };
+  };
+
+  // НОВЫЙ КОМПОНЕНТ: Отображение текущей зоны
+  const CurrentZoneDisplay = ({ article, firstVideoMetrics }) => {
+    if (!firstVideoMetrics?.found || !firstVideoMetrics.data) {
+      return (
+        <div className="text-center">
+          <span className="text-gray-400 text-xs">—</span>
+        </div>
+      );
+    }
+
+    // Получаем CPL из метрик (без символа $)
+    const cplString = firstVideoMetrics.data.formatted.cpl;
+    const cplValue = parseFloat(cplString.replace('$', ''));
+
+    if (isNaN(cplValue)) {
+      return (
+        <div className="text-center">
+          <span className="text-gray-400 text-xs">—</span>
+        </div>
+      );
+    }
+
+    const currentZone = getCurrentZoneByMetrics(article, cplValue);
+
+    if (!currentZone) {
+      return (
+        <div className="text-center">
+          <span className="text-gray-400 text-xs">—</span>
+        </div>
+      );
+    }
+
+    // Определяем цвета для зоны
+    const getZoneColors = (zone) => {
+      switch (zone) {
+        case 'red':
+          return { bg: 'bg-red-500', text: 'text-white', border: 'border-red-500' };
+        case 'pink':
+          return { bg: 'bg-pink-500', text: 'text-white', border: 'border-pink-500' };
+        case 'gold':
+          return { bg: 'bg-yellow-500', text: 'text-black', border: 'border-yellow-500' };
+        case 'green':
+          return { bg: 'bg-green-500', text: 'text-white', border: 'border-green-500' };
+        default:
+          return { bg: 'bg-gray-500', text: 'text-white', border: 'border-gray-500' };
+      }
+    };
+
+    const colors = getZoneColors(currentZone.zone);
+
+    return (
+      <div className="text-center">
+        <span 
+          className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${colors.bg} ${colors.text} ${colors.border}`}
+          title={`CPL: $${cplValue.toFixed(2)} ≤ $${currentZone.price.toFixed(2)}`}
+        >
+          {currentZone.name}
+        </span>
       </div>
     );
   };
@@ -581,7 +701,7 @@ function CreativePanel({ user }) {
     console.log(`🔄 Полное обновление данных (период: ${metricsPeriod})`);
     await loadCreatives();
     refreshMetrics();
-    refreshZoneData(); // НОВОЕ: обновляем зональные данные
+    refreshZoneData();
   };
 
   const cofStats = getCOFStats();
@@ -623,7 +743,6 @@ function CreativePanel({ user }) {
               <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name} • {creatives.length} креативов • COF: {formatCOF(cofStats.totalCOF)}
-                {/* НОВОЕ: статистика зональных данных */}
                 {zoneDataStats.total > 0 && (
                   <span className="ml-2">• Зоны: {zoneDataStats.found}/{zoneDataStats.total}</span>
                 )}
@@ -792,7 +911,7 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            {/* НОВОЕ: С зональными данными */}
+            {/* С зональными данными */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -936,7 +1055,7 @@ function CreativePanel({ user }) {
                 )}
               </div>
 
-              {/* НОВОЕ: статус зональных данных */}
+              {/* Статус зональных данных */}
               <div className="flex items-center space-x-2">
                 <Layers className="h-4 w-4 text-emerald-500" />
                 <span className="text-emerald-600">
@@ -971,7 +1090,6 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* НОВОЕ: ошибка загрузки зональных данных */}
       {zoneDataError && (
         <div className="mx-6 mt-4 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -1024,14 +1142,18 @@ function CreativePanel({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
-                      {/* ОБНОВЛЕННАЯ КОЛОНКА ЗОН */}
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <div className="flex items-center justify-center">
                           <Layers className="h-4 w-4 mr-1" />
                           Зоны
                         </div>
                       </th>
-
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <div className="flex items-center justify-center">
+                          <Target className="h-4 w-4 mr-1" />
+                          Текущая
+                        </div>
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Лиды
                       </th>
@@ -1164,12 +1286,18 @@ function CreativePanel({ user }) {
                               </span>
                             </td>
                             
-                            {/* ОБНОВЛЕННАЯ КОЛОНКА: Зоны с данными из metrics_analytics */}
+                            {/* Колонка зон */}
                             <td className="px-6 py-4 text-sm text-gray-900">
                               <ZoneDataDisplay article={creative.article} />
                             </td>
-                            
 
+                            {/* НОВАЯ КОЛОНКА: Текущая зона */}
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              <CurrentZoneDisplay 
+                                article={creative.article} 
+                                firstVideoMetrics={firstVideoMetrics}
+                              />
+                            </td>
                             
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {metricsLoading ? (
