@@ -173,54 +173,41 @@ function CreativePanel({ user }) {
     </div>
   );
 
-  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - только цены
+  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - компактные цены в одну строку
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
     if (!zoneData) {
       return (
         <div className="text-center">
-          <span className="text-gray-400 text-sm">—</span>
-          <div className="text-xs text-gray-500 mt-1">Нет данных</div>
+          <span className="text-gray-400 text-xs">—</span>
         </div>
       );
     }
 
     return (
-      <div className="space-y-2">
-        {/* Текущая зона */}
-        {zoneData.currentZone !== '—' && (
-          <div className="text-center">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-              <Layers className="h-3 w-3 mr-1" />
-              {zoneData.currentZone}
-            </span>
-          </div>
+      <div className="flex flex-wrap gap-1 justify-center">
+        {/* Только цены зон в одну строку, как в MetricsAnalytics */}
+        {zoneData.red !== '—' && (
+          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-red-100 text-red-800 border-red-200">
+            {zoneData.red}
+          </span>
         )}
-        
-        {/* Цены зон - ТОЛЬКО ЗНАЧЕНИЯ без названий */}
-        <div className="grid grid-cols-2 gap-1 text-xs">
-          {zoneData.red !== '—' && (
-            <div className="bg-red-50 text-red-700 px-2 py-1.5 rounded border border-red-200 text-center">
-              <div className="text-sm font-bold">{zoneData.red}</div>
-            </div>
-          )}
-          {zoneData.pink !== '—' && (
-            <div className="bg-pink-50 text-pink-700 px-2 py-1.5 rounded border border-pink-200 text-center">
-              <div className="text-sm font-bold">{zoneData.pink}</div>
-            </div>
-          )}
-          {zoneData.gold !== '—' && (
-            <div className="bg-yellow-50 text-yellow-700 px-2 py-1.5 rounded border border-yellow-200 text-center">
-              <div className="text-sm font-bold">{zoneData.gold}</div>
-            </div>
-          )}
-          {zoneData.green !== '—' && (
-            <div className="bg-green-50 text-green-700 px-2 py-1.5 rounded border border-green-200 text-center">
-              <div className="text-sm font-bold">{zoneData.green}</div>
-            </div>
-          )}
-        </div>
+        {zoneData.pink !== '—' && (
+          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-pink-100 text-pink-800 border-pink-200">
+            {zoneData.pink}
+          </span>
+        )}
+        {zoneData.gold !== '—' && (
+          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-yellow-100 text-yellow-800 border-yellow-200">
+            {zoneData.gold}
+          </span>
+        )}
+        {zoneData.green !== '—' && (
+          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-green-100 text-green-800 border-green-200">
+            {zoneData.green}
+          </span>
+        )}
       </div>
     );
   };
@@ -1044,9 +1031,7 @@ function CreativePanel({ user }) {
                           Зоны
                         </div>
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Текущая зона
-                      </th>
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Лиды
                       </th>
@@ -1184,18 +1169,7 @@ function CreativePanel({ user }) {
                               <ZoneDataDisplay article={creative.article} />
                             </td>
                             
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {(() => {
-                                const currentZone = getCurrentZone(creative.article);
-                                return currentZone && currentZone !== '—' ? (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                    {currentZone}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                );
-                              })()}
-                            </td>
+
                             
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {metricsLoading ? (
