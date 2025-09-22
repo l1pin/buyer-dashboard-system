@@ -1485,6 +1485,42 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
           </div>
+
+          {/* Статистика по типам работ */}
+          <div className="mt-6">
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Статистика по типам работ
+                </h3>
+                
+                {Object.keys(analytics.workTypeStats).length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">Нет данных за выбранный период</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(analytics.workTypeStats)
+                      .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
+                      .map(([workType, stats]) => (
+                      <div key={workType} className="flex items-center justify-between border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center space-x-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor([workType])}`}>
+                            {getWorkTypeIcon([workType])}
+                            <span className="ml-1">{workType}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm text-gray-600">{stats.count}x</span>
+                          <span className="text-sm font-medium text-green-600">
+                            {formatCOF(stats.totalCOF)} COF
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
