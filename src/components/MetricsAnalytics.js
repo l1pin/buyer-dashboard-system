@@ -368,10 +368,10 @@ function MetricsAnalytics({ user }) {
 
     switch (type) {
       case 'currency':
-        return <span className="font-mono text-green-600">${Number(value).toFixed(2)}</span>;
+        return <span className="font-mono font-bold text-green-600">${Number(value).toFixed(2)}</span>;
       
       case 'currency_uah_plain':
-        return <span className="font-mono text-gray-900">{Number(value).toFixed(2)} ₴</span>;
+        return <span className="font-mono font-bold text-gray-900">{Number(value).toFixed(2)} ₴</span>;
       
       case 'red_zone_currency':
       case 'pink_zone_currency':
@@ -380,26 +380,26 @@ function MetricsAnalytics({ user }) {
         const zoneType = type.replace('_zone_currency', '');
         const zoneColors = getZoneColorsByType(zoneType);
         return (
-          <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+          <span className={`font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
             ${Number(value).toFixed(2)}
           </span>
         );
       
       case 'zone_styled_currency':
         if (value === 'нет данных') {
-          return <span className="text-gray-500 italic">нет данных</span>;
+          return <span className="text-gray-500 italic font-bold">нет данных</span>;
         }
         // Определяем стиль на основе зоны оффера из метрики
         const offerZone = metric?.offer_zone;
         const zoneColorsForCurrency = getZoneColors(offerZone);
         if (zoneColorsForCurrency) {
           return (
-            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColorsForCurrency.bg} ${zoneColorsForCurrency.text} ${zoneColorsForCurrency.border}`}>
+            <span className={`font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColorsForCurrency.bg} ${zoneColorsForCurrency.text} ${zoneColorsForCurrency.border}`}>
               ${Number(value).toFixed(2)}
             </span>
           );
         }
-        return <span className="font-mono text-gray-900">${Number(value).toFixed(2)}</span>;
+        return <span className="font-mono font-bold text-gray-900">${Number(value).toFixed(2)}</span>;
       
       case 'zone_styled_percentage':
         // Определяем стиль на основе зоны оффера из метрики
@@ -407,12 +407,12 @@ function MetricsAnalytics({ user }) {
         const zoneColorsForPercent = getZoneColors(offerZoneForPercent);
         if (zoneColorsForPercent) {
           return (
-            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColorsForPercent.bg} ${zoneColorsForPercent.text} ${zoneColorsForPercent.border}`}>
+            <span className={`font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColorsForPercent.bg} ${zoneColorsForPercent.text} ${zoneColorsForPercent.border}`}>
               {Number(value).toFixed(1)}%
             </span>
           );
         }
-        return <span className="font-mono text-gray-900">{Number(value).toFixed(1)}%</span>;
+        return <span className="font-mono font-bold text-gray-900">{Number(value).toFixed(1)}%</span>;
       
       case 'depth_percentage':
         const numValue = Number(value);
@@ -450,11 +450,11 @@ function MetricsAnalytics({ user }) {
   const ZoneBadge = ({ zone }) => {
     const colors = getZoneColors(zone);
     if (!colors) {
-      return <span className="text-gray-600">{zone}</span>;
+      return <span className="text-gray-600 font-bold">{zone}</span>;
     }
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border ${colors.bg} ${colors.text} ${colors.border}`}>
         {zone}
       </span>
     );
@@ -731,7 +731,7 @@ function MetricsAnalytics({ user }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
+              <thead className="bg-gray-50 sticky top-0 z-50 shadow-sm">
                 <tr>
                   {columns.map(column => (
                     <th
