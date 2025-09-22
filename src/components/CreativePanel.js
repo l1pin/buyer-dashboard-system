@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с агрегированными метриками и детализацией
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с новыми карточками статистики
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -44,7 +44,9 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  TrendingDown
+  TrendingDown,
+  Globe,
+  Star
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -62,7 +64,7 @@ function CreativePanel({ user }) {
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
-  const [expandedMetrics, setExpandedMetrics] = useState(new Set()); // Новое состояние для раскрытых метрик
+  const [expandedMetrics, setExpandedMetrics] = useState(new Set());
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -201,7 +203,7 @@ function CreativePanel({ user }) {
         cost: acc.cost + (data.cost || 0),
         clicks: acc.clicks + (data.clicks || 0),
         impressions: acc.impressions + (data.impressions || 0),
-        days_count: Math.max(acc.days_count, data.days_count || 0) // Используем максимальное количество дней
+        days_count: Math.max(acc.days_count, data.days_count || 0)
       };
     }, {
       leads: 0,
@@ -561,6 +563,34 @@ function CreativePanel({ user }) {
     };
   };
 
+  // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
+  const getCountryStats = () => {
+    const ukraineCount = creatives.filter(c => !c.is_poland).length;
+    const polandCount = creatives.filter(c => c.is_poland).length;
+    return { ukraineCount, polandCount };
+  };
+
+  const getZoneStats = () => {
+    const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
+    
+    creatives.forEach(creative => {
+      const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+      if (aggregatedMetrics?.found && aggregatedMetrics.data) {
+        const cplString = aggregatedMetrics.data.formatted.cpl;
+        const cplValue = parseFloat(cplString.replace('$', ''));
+        
+        if (!isNaN(cplValue)) {
+          const currentZone = getCurrentZoneByMetrics(creative.article, cplValue);
+          if (currentZone) {
+            zoneCount[currentZone.zone]++;
+          }
+        }
+      }
+    });
+    
+    return zoneCount;
+  };
+
   const getCurrentMonthYear = () => {
     const now = new Date();
     const months = [
@@ -899,6 +929,8 @@ function CreativePanel({ user }) {
   };
 
   const cofStats = getCOFStats();
+  const countryStats = getCountryStats();
+  const zoneStats = getZoneStats();
 
   if (loading) {
     return (
@@ -913,7 +945,7 @@ function CreativePanel({ user }) {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header - остается без изменений */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -1015,11 +1047,12 @@ function CreativePanel({ user }) {
         </div>
       </div>
 
-      {/* Statistics Cards - остаются без изменений */}
+      {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {creatives.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-4 mb-4">
-            {/* Все карточки статистики остаются прежними */}
+          {/* ПЕРВАЯ СТРОКА */}
+          <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
+            {/* Креативы */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1040,6 +1073,53 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
+            {/* С комментарием */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <MessageCircle className="h-6 w-6 text-indigo-500" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        С комментарием
+                      </dt>
+                      <dd className="text-lg font-semibold text-gray-900">
+                        {creatives.filter(c => c.comment && c.comment.trim()).length}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* По странам */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Globe className="h-6 w-6 text-emerald-500" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        UA/PL
+                      </dt>
+                      <dd className="text-lg font-semibold text-gray-900">
+                        <div className="flex items-center space-x-1">
+                          <span>{countryStats.ukraineCount}</span>
+                          <span className="text-gray-400">/</span>
+                          <span>{countryStats.polandCount}</span>
+                        </div>
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Общий COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1062,6 +1142,7 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
+            {/* Средний COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1082,19 +1163,20 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            {/* Красная зона */}
+            <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <MessageCircle className="h-6 w-6 text-indigo-500" />
+                    <Star className="h-6 w-6 text-white" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С комментариями
+                      <dt className="text-xs font-medium text-red-100 truncate">
+                        Красная зона
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {creatives.filter(c => c.comment && c.comment.trim()).length}
+                      <dd className="text-lg font-semibold text-white">
+                        {zoneStats.red}
                       </dd>
                     </dl>
                   </div>
@@ -1102,19 +1184,20 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            {/* Розовая зона */}
+            <div className="bg-pink-500 overflow-hidden shadow-sm rounded-lg border border-pink-600">
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Layers className="h-6 w-6 text-emerald-500" />
+                    <Star className="h-6 w-6 text-white" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С зонами
+                      <dt className="text-xs font-medium text-pink-100 truncate">
+                        Розовая зона
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {zoneDataStats.found}
+                      <dd className="text-lg font-semibold text-white">
+                        {zoneStats.pink}
                       </dd>
                     </dl>
                   </div>
@@ -1122,112 +1205,248 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            {hasMetricsData && (
-              <>
-                <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Users className="h-6 w-6 text-purple-500" />
-                      </div>
-                      <div className="ml-3 w-0 flex-1">
-                        <dl>
-                          <dt className="text-xs font-medium text-gray-500 truncate">
-                            Лидов
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            {formatStats().totalLeads}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
+            {/* Золотая зона */}
+            <div className="bg-yellow-500 overflow-hidden shadow-sm rounded-lg border border-yellow-600">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Star className="h-6 w-6 text-black" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-yellow-800 truncate">
+                        Золотая зона
+                      </dt>
+                      <dd className="text-lg font-semibold text-black">
+                        {zoneStats.gold}
+                      </dd>
+                    </dl>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <DollarSign className="h-6 w-6 text-green-500" />
-                      </div>
-                      <div className="ml-3 w-0 flex-1">
-                        <dl>
-                          <dt className="text-xs font-medium text-gray-500 truncate">
-                            Расходы
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            {formatStats().totalCost}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
+            {/* Зеленая зона */}
+            <div className="bg-green-500 overflow-hidden shadow-sm rounded-lg border border-green-600">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Star className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-green-100 truncate">
+                        Зеленая зона
+                      </dt>
+                      <dd className="text-lg font-semibold text-white">
+                        {zoneStats.green}
+                      </dd>
+                    </dl>
                   </div>
                 </div>
-
-                <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <MousePointer className="h-6 w-6 text-pink-500" />
-                      </div>
-                      <div className="ml-3 w-0 flex-1">
-                        <dl>
-                          <dt className="text-xs font-medium text-gray-500 truncate">
-                            CTR
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            {formatStats().avgCTR}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <TrendingUp className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div className="ml-3 w-0 flex-1">
-                        <dl>
-                          <dt className="text-xs font-medium text-gray-500 truncate">
-                            Ср. лидов
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            {creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <BarChart3 className="h-6 w-6 text-red-500" />
-                      </div>
-                      <div className="ml-3 w-0 flex-1">
-                        <dl>
-                          <dt className="text-xs font-medium text-gray-500 truncate">
-                            Ср. расходы
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            ${creatives.length > 0 ? (aggregatedMetricsStats.totalCost / creatives.length).toFixed(2) : '0.00'}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
+          {/* ВТОРАЯ СТРОКА - метрики */}
+          {hasMetricsData && (
+            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4">
+              {/* Лидов */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-6 w-6 text-purple-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Лидов
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {formatStats().totalLeads}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CPL */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Target className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Ср. CPL
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          ${creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) : 
+                            '0.00'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Расходы */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <DollarSign className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Расходы
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {formatStats().totalCost}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTR */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <MousePointer className="h-6 w-6 text-pink-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CTR
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {formatStats().avgCTR}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CPC */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <MousePointer className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Ср. CPC
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          ${aggregatedMetricsStats.totalClicks > 0 ? 
+                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) : 
+                            '0.00'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Показы */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Eye className="h-6 w-6 text-indigo-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Показы
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Клики */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <MousePointer className="h-6 w-6 text-orange-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Клики
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {Math.round(aggregatedMetricsStats.totalClicks).toLocaleString()}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ср. лидов */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Ср. лидов
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ср. расходы */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <BarChart3 className="h-6 w-6 text-red-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Ср. расходы
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          ${creatives.length > 0 ? (aggregatedMetricsStats.totalCost / creatives.length).toFixed(2) : '0.00'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-sm mt-4">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Activity className="h-4 w-4 text-blue-500" />
@@ -1255,7 +1474,7 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Messages - остаются без изменений */}
+      {/* Messages */}
       {success && (
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
           <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -1369,7 +1588,6 @@ function CreativePanel({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        // Используем новую функцию агрегации метрик
                         const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
@@ -1490,7 +1708,6 @@ function CreativePanel({ user }) {
                                 />
                               </td>
                               
-                              {/* ОБНОВЛЕННЫЕ КОЛОНКИ МЕТРИК - теперь показывают агрегированные данные */}
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {metricsLoading ? (
                                   <div className="flex items-center">
@@ -1562,7 +1779,6 @@ function CreativePanel({ user }) {
                                         )}
                                       </div>
                                       
-                                      {/* НОВАЯ ИКОНКА ДЛЯ ДЕТАЛИЗАЦИИ */}
                                       <button
                                         onClick={() => toggleMetricsDetail(creative.id)}
                                         className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors duration-200"
@@ -1636,7 +1852,6 @@ function CreativePanel({ user }) {
                               </td>
                             </tr>
                             
-                            {/* НОВАЯ СТРОКА ДЕТАЛИЗАЦИИ МЕТРИК */}
                             {isMetricsExpanded && (
                               <MetricsDetailRow creative={creative} />
                             )}
