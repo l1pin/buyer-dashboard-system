@@ -1,4 +1,4 @@
-// src/components/MetricsAnalytics.js - ПОЛНАЯ ВЕРСИЯ С ЦВЕТНЫМИ ЗОНАМИ
+// src/components/MetricsAnalytics.js - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ ОШИБКИ JSX
 import React, { useState, useEffect } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import Papa from 'papaparse';
@@ -753,23 +753,22 @@ function MetricsAnalytics({ user }) {
                 ))}
               </tr>
             </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredMetrics.map((metric, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    {columns.map(column => (
-                      <td
-                        key={column.key}
-                        className="px-3 py-4 whitespace-nowrap text-sm"
-                        style={{ minWidth: column.width }}
-                      >
-                        {formatCellValue(metric[column.key], column.type, metric)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMetrics.map((metric, index) => (
+                <tr key={index} className="hover:bg-gray-50">
+                  {columns.map(column => (
+                    <td
+                      key={column.key}
+                      className="px-3 py-4 whitespace-nowrap text-sm"
+                      style={{ minWidth: column.width }}
+                    >
+                      {formatCellValue(metric[column.key], column.type, metric)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
