@@ -731,7 +731,7 @@ function MetricsAnalytics({ user }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-50 shadow-sm">
+              <thead className="bg-gray-50 z-50 shadow-sm" style={{ position: 'sticky', top: 0 }}>
                 <tr>
                   {columns.map(column => (
                     <th
