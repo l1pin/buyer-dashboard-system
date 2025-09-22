@@ -1558,6 +1558,9 @@ function CreativeAnalytics({ user }) {
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           <div className="w-3 h-3 bg-green-500 rounded-full mx-auto"></div>
                         </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Σ
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1628,6 +1631,11 @@ function CreativeAnalytics({ user }) {
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-green-600">
                                   {stats.zones.green}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-blue-600">
+                                  {stats.count}
                                 </span>
                               </td>
                             </tr>
@@ -1943,24 +1951,19 @@ function CreativeAnalytics({ user }) {
                                         </button>
                                       </div>
                                     ) : (
-                                      // Показываем сокращенную версию
-                                      <div className="flex items-center space-x-2">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                                          {getWorkTypeIcon(creative.work_types)}
-                                          <span className="ml-1">
-                                            {creative.work_types[0]} {creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}
-                                          </span>
+                                      // Показываем сокращенную версию - кликабельный бейдж
+                                      <button
+                                        onClick={() => creative.work_types.length > 1 ? toggleWorkTypesDetail(creative.id) : null}
+                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)} ${
+                                          creative.work_types.length > 1 ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'
+                                        }`}
+                                        disabled={creative.work_types.length <= 1}
+                                      >
+                                        {getWorkTypeIcon(creative.work_types)}
+                                        <span className="ml-1">
+                                          {creative.work_types[0]} {creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}
                                         </span>
-                                        {creative.work_types.length > 1 && (
-                                          <button
-                                            onClick={() => toggleWorkTypesDetail(creative.id)}
-                                            className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
-                                          >
-                                            <ChevronDown className="h-3 w-3 mr-1" />
-                                            Показать все
-                                          </button>
-                                        )}
-                                      </div>
+                                      </button>
                                     )}
                                   </div>
                                 ) : (
