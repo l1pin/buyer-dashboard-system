@@ -70,6 +70,7 @@ function CreativeAnalytics({ user }) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedMetrics, setExpandedMetrics] = useState(new Set());
+  const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
 
   // Хуки для метрик - с поддержкой периодов
@@ -225,6 +226,17 @@ function CreativeAnalytics({ user }) {
       newExpanded.add(creativeId);
     }
     setExpandedMetrics(newExpanded);
+  };
+
+  // Переключение детализации типов работ
+  const toggleWorkTypesDetail = (creativeId) => {
+    const newExpanded = new Set(expandedWorkTypes);
+    if (newExpanded.has(creativeId)) {
+      newExpanded.delete(creativeId);
+    } else {
+      newExpanded.add(creativeId);
+    }
+    setExpandedWorkTypes(newExpanded);
   };
 
   // Детальная информация по видео
@@ -1910,12 +1922,47 @@ function CreativeAnalytics({ user }) {
                               
                               <td className="px-6 py-4 text-sm text-gray-900">
                                 {creative.work_types && creative.work_types.length > 0 ? (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                                    {getWorkTypeIcon(creative.work_types)}
-                                    <span className="ml-1">
-                                      {creative.work_types[0]} {creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}
-                                    </span>
-                                  </span>
+                                  <div className="space-y-1">
+                                    {expandedWorkTypes.has(creative.id) ? (
+                                      // Показываем все типы работ
+                                      <div className="space-y-1">
+                                        {creative.work_types.map((workType, index) => (
+                                          <div key={index} className="flex items-center">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor([workType])}`}>
+                                              {getWorkTypeIcon([workType])}
+                                              <span className="ml-1">{workType}</span>
+                                            </span>
+                                          </div>
+                                        ))}
+                                        <button
+                                          onClick={() => toggleWorkTypesDetail(creative.id)}
+                                          className="text-blue-600 hover:text-blue-800 text-xs mt-1 flex items-center"
+                                        >
+                                          <ChevronUp className="h-3 w-3 mr-1" />
+                                          Свернуть
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      // Показываем сокращенную версию
+                                      <div className="flex items-center space-x-2">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
+                                          {getWorkTypeIcon(creative.work_types)}
+                                          <span className="ml-1">
+                                            {creative.work_types[0]} {creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}
+                                          </span>
+                                        </span>
+                                        {creative.work_types.length > 1 && (
+                                          <button
+                                            onClick={() => toggleWorkTypesDetail(creative.id)}
+                                            className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                                          >
+                                            <ChevronDown className="h-3 w-3 mr-1" />
+                                            Показать все
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="text-gray-400">—</span>
                                 )}
