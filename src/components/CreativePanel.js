@@ -173,7 +173,7 @@ function CreativePanel({ user }) {
     </div>
   );
 
-  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - компактные цены в одну строку
+  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -186,25 +186,25 @@ function CreativePanel({ user }) {
     }
 
     return (
-      <div className="flex flex-wrap gap-1 justify-center">
-        {/* Только цены зон в одну строку, как в MetricsAnalytics */}
+      <div className="grid grid-cols-2 gap-1">
+        {/* Цены зон в два ряда, стиль как в MetricsAnalytics */}
         {zoneData.red !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-red-100 text-red-800 border-red-200">
+          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-red-100 text-red-800 border-red-200">
             {zoneData.red}
           </span>
         )}
         {zoneData.pink !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-pink-100 text-pink-800 border-pink-200">
+          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-pink-100 text-pink-800 border-pink-200">
             {zoneData.pink}
           </span>
         )}
         {zoneData.gold !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-yellow-100 text-yellow-800 border-yellow-200">
+          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-yellow-100 text-yellow-800 border-yellow-200">
             {zoneData.gold}
           </span>
         )}
         {zoneData.green !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center px-2 py-1 rounded-full text-xs border bg-green-100 text-green-800 border-green-200">
+          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-green-100 text-green-800 border-green-200">
             {zoneData.green}
           </span>
         )}
