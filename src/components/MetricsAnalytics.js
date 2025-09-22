@@ -1,9 +1,6 @@
-// Исправленный MetricsAnalytics.js с улучшенной обработкой больших файлов
-// Замените содержимое src/components/MetricsAnalytics.js
-
+// src/components/MetricsAnalytics.js
 import React, { useState, useEffect } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
-import { metricsDebugger } from '../utils/debugMetricsUpload';
 import Papa from 'papaparse';
 import { 
   Upload,
@@ -21,17 +18,13 @@ import {
   BarChart3,
   Info,
   X,
-  Eye,
-  Loader,
-  Bug,
-  Play
+  Eye
 } from 'lucide-react';
 
 function MetricsAnalytics({ user }) {
   const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percentage: 0 });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -39,9 +32,6 @@ function MetricsAnalytics({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [diagnosing, setDiagnosing] = useState(false);
-  const [diagnosticReport, setDiagnosticReport] = useState(null);
-  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
 
   // Определение колонок для отображения
   const columns = [
@@ -80,55 +70,13 @@ function MetricsAnalytics({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📊 Загружаем метрики аналитики...');
-      
       const data = await metricsAnalyticsService.getAllMetrics();
       setMetrics(data.metrics || []);
       setLastUpdated(data.lastUpdated);
-      
-      console.log(`✅ Загружено ${data.metrics?.length || 0} записей метрик`);
     } catch (error) {
-      console.error('❌ Ошибка загрузки метрик:', error);
       setError('Ошибка загрузки метрик: ' + error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleFileDiagnosis = async (files) => {
-    if (!files || files.length === 0) return;
-
-    const csvFile = Array.from(files).find(file => 
-      file.name.endsWith('.csv') || file.type === 'text/csv'
-    );
-
-    if (!csvFile) {
-      setError('Пожалуйста, выберите CSV файл для диагностики');
-      return;
-    }
-
-    try {
-      setDiagnosing(true);
-      setError('');
-      setSuccess('');
-
-      console.log('🔍 Запускаем диагностику файла:', csvFile.name);
-      
-      const report = await metricsDebugger.runFullDiagnosis(csvFile);
-      setDiagnosticReport(report);
-      setShowDiagnosticModal(true);
-
-      if (report.summary.success) {
-        setSuccess('✅ Диагностика прошла успешно - файл готов к загрузке');
-      } else {
-        setError(`❌ Обнаружены проблемы: ${report.summary.errorsCount} ошибок`);
-      }
-
-    } catch (error) {
-      console.error('❌ Ошибка диагностики:', error);
-      setError('Ошибка диагностики: ' + error.message);
-    } finally {
-      setDiagnosing(false);
     }
   };
 
@@ -148,13 +96,9 @@ function MetricsAnalytics({ user }) {
       setUploading(true);
       setError('');
       setSuccess('');
-      setUploadProgress({ current: 0, total: 0, percentage: 0 });
-
-      console.log('📁 Начинаем обработку файла:', csvFile.name, 'размер:', csvFile.size);
 
       // Читаем CSV файл
       const csvContent = await readFileContent(csvFile);
-      console.log('📖 Файл прочитан, размер содержимого:', csvContent.length);
       
       // Парсим CSV
       const parsedData = Papa.parse(csvContent, {
@@ -163,19 +107,8 @@ function MetricsAnalytics({ user }) {
         delimiter: ';'
       });
 
-      console.log('📊 CSV распарсен:', {
-        totalRows: parsedData.data.length,
-        hasErrors: parsedData.errors.length > 0,
-        firstRowLength: parsedData.data[0]?.length || 0
-      });
-
       if (!parsedData.data || parsedData.data.length < 2) {
         throw new Error('CSV файл должен содержать заголовки и данные');
-      }
-
-      // Показываем ошибки парсинга если есть
-      if (parsedData.errors.length > 0) {
-        console.warn('⚠️ Ошибки парсинга CSV:', parsedData.errors);
       }
 
       // Проверяем количество колонок (берем 4-ю строку как эталон)
@@ -190,88 +123,23 @@ function MetricsAnalytics({ user }) {
 
       // Преобразуем данные в объекты, начиная с 5-й строки (индекс 4)
       const dataRows = parsedData.data.slice(4); // Пропускаем первые 4 строки
-      console.log(`🔄 Обрабатываем ${dataRows.length} строк данных...`);
+      const processedMetrics = dataRows.map(row => processCSVRow(row));
 
-      setUploadProgress({ 
-        current: 0, 
-        total: dataRows.length, 
-        percentage: 0 
-      });
-
-      const processedMetrics = [];
-      const batchSize = 50; // Уменьшили размер батча для лучшей надежности
-      
-      // Обрабатываем данные батчами с прогрессом
-      for (let i = 0; i < dataRows.length; i += batchSize) {
-        const batch = dataRows.slice(i, i + batchSize);
-        
-        batch.forEach(row => {
-          try {
-            const processedRow = processCSVRow(row);
-            if (processedRow) {
-              processedMetrics.push(processedRow);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Ошибка обработки строки ${i + processedMetrics.length}:`, error);
-          }
-        });
-
-        // Обновляем прогресс
-        const processed = Math.min(i + batchSize, dataRows.length);
-        const percentage = Math.round((processed / dataRows.length) * 100);
-        setUploadProgress({ 
-          current: processed, 
-          total: dataRows.length, 
-          percentage 
-        });
-
-        // Небольшая пауза для UI
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-
-      console.log(`✅ Обработано ${processedMetrics.length} записей из ${dataRows.length}`);
-
-      if (processedMetrics.length === 0) {
-        throw new Error('Не удалось обработать ни одной записи из CSV');
-      }
-
-      // Сохраняем в базу данных с улучшенной обработкой ошибок
-      console.log('💾 Сохраняем данные в базу...');
-      const uploadResult = await metricsAnalyticsService.uploadMetricsWithProgress(
-        processedMetrics,
-        (progress) => {
-          setUploadProgress({
-            current: progress.processed,
-            total: progress.total,
-            percentage: Math.round((progress.processed / progress.total) * 100),
-            stage: 'Загрузка в базу данных'
-          });
-        }
-      );
-
-      console.log('✅ Данные сохранены в базу:', uploadResult);
+      // Сохраняем в базу данных
+      await metricsAnalyticsService.uploadMetrics(processedMetrics);
 
       // Обновляем список
       await loadMetrics();
       
-      setSuccess(`✅ Успешно загружено ${processedMetrics.length} записей метрик из ${dataRows.length} строк CSV`);
-      setUploadProgress({ current: 0, total: 0, percentage: 0 });
-
+      setSuccess(`Успешно загружено ${processedMetrics.length} записей метрик`);
     } catch (error) {
-      console.error('❌ Ошибка загрузки CSV:', error);
       setError('Ошибка загрузки CSV: ' + error.message);
-      setUploadProgress({ current: 0, total: 0, percentage: 0 });
     } finally {
       setUploading(false);
     }
   };
 
   const processCSVRow = (row) => {
-    if (!row || row.length < 25) {
-      console.warn('⚠️ Неполная строка данных:', row?.length || 0, 'колонок');
-      return null;
-    }
-
     const parseDate = (dateStr) => {
       if (!dateStr || dateStr.trim() === '') return null;
       
@@ -281,13 +149,8 @@ function MetricsAnalytics({ user }) {
         const day = parseInt(parts[0]);
         const month = parseInt(parts[1]) - 1; // Месяцы в JS начинаются с 0
         const year = parseInt(parts[2]);
-        
-        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-          const date = new Date(year, month, day);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0]; // Возвращаем в формате YYYY-MM-DD
-          }
-        }
+        const date = new Date(year, month, day);
+        return date.toISOString().split('T')[0]; // Возвращаем в формате YYYY-MM-DD
       }
       return null;
     };
@@ -298,44 +161,33 @@ function MetricsAnalytics({ user }) {
       return isNaN(num) ? null : num;
     };
 
-    const parseInt = (str) => {
-      if (!str || str.trim() === '') return null;
-      const num = Number.parseInt(str.replace(/[^\d-]/g, ''));
-      return isNaN(num) ? null : num;
+    return {
+      id: parseInt(row[0]) || null,
+      article: row[1] || '',
+      offer: row[2] || '',
+      total_batches: parseInt(row[3]) || null,
+      first_arrival_date: parseDate(row[4]),
+      next_calculated_arrival: parseDate(row[5]),
+      special_season_start: parseDate(row[6]),
+      special_season_end: parseDate(row[7]),
+      offer_price: parseNumber(row[8]),
+      red_zone_price: parseNumber(row[9]),
+      pink_zone_price: parseNumber(row[10]),
+      gold_zone_price: parseNumber(row[11]),
+      green_zone_price: parseNumber(row[12]),
+      offer_zone: row[13] || '',
+      actual_lead: row[14] === 'нет данных' ? 'нет данных' : parseNumber(row[14]),
+      actual_roi_percent: parseNumber(row[15]),
+      depth_selection: parseNumber(row[16]),
+      high_stock_high_mcpl: row[17] || '',
+      trend_10_days: row[18] || '',
+      trend_3_days: row[19] || '',
+      refusal_sales_percent: parseNumber(row[20]),
+      k_lead: parseNumber(row[21]),
+      no_pickup_percent: parseNumber(row[22]),
+      for_withdrawal: row[23] || '',
+      currently_unprofitable: row[24] || ''
     };
-
-    try {
-      return {
-        id: parseInt(row[0]) || null,
-        article: (row[1] || '').toString().trim(),
-        offer: (row[2] || '').toString().trim(),
-        total_batches: parseInt(row[3]) || null,
-        first_arrival_date: parseDate(row[4]),
-        next_calculated_arrival: parseDate(row[5]),
-        special_season_start: parseDate(row[6]),
-        special_season_end: parseDate(row[7]),
-        offer_price: parseNumber(row[8]),
-        red_zone_price: parseNumber(row[9]),
-        pink_zone_price: parseNumber(row[10]),
-        gold_zone_price: parseNumber(row[11]),
-        green_zone_price: parseNumber(row[12]),
-        offer_zone: (row[13] || '').toString().trim(),
-        actual_lead: row[14] === 'нет данных' ? 'нет данных' : parseNumber(row[14]),
-        actual_roi_percent: parseNumber(row[15]),
-        depth_selection: parseNumber(row[16]),
-        high_stock_high_mcpl: (row[17] || '').toString().trim(),
-        trend_10_days: (row[18] || '').toString().trim(),
-        trend_3_days: (row[19] || '').toString().trim(),
-        refusal_sales_percent: parseNumber(row[20]),
-        k_lead: parseNumber(row[21]),
-        no_pickup_percent: parseNumber(row[22]),
-        for_withdrawal: (row[23] || '').toString().trim(),
-        currently_unprofitable: (row[24] || '').toString().trim()
-      };
-    } catch (error) {
-      console.error('❌ Ошибка обработки строки:', error, row);
-      return null;
-    }
   };
 
   const readFileContent = (file) => {
@@ -353,44 +205,34 @@ function MetricsAnalytics({ user }) {
       return;
     }
 
-    try {
-      console.log('📤 Экспортируем', filteredMetrics.length, 'записей...');
-      
-      // Создаем CSV данные
-      const headers = columns.map(col => col.label);
-      const csvData = [
-        headers,
-        ...filteredMetrics.map(metric => columns.map(col => {
-          const value = metric[col.key];
-          if (value === null || value === undefined) return '';
-          if (col.type === 'date' && value) {
-            // Преобразуем дату обратно в DD.MM.YYYY формат
-            const date = new Date(value);
-            return date.toLocaleDateString('ru-RU');
-          }
-          return String(value);
-        }))
-      ];
+    // Создаем CSV данные
+    const headers = columns.map(col => col.label);
+    const csvData = [
+      headers,
+      ...filteredMetrics.map(metric => columns.map(col => {
+        const value = metric[col.key];
+        if (value === null || value === undefined) return '';
+        if (col.type === 'date' && value) {
+          // Преобразуем дату обратно в DD.MM.YYYY формат
+          const date = new Date(value);
+          return date.toLocaleDateString('ru-RU');
+        }
+        return String(value);
+      }))
+    ];
 
-      const csv = Papa.unparse(csvData, { delimiter: ';' });
-      
-      // Скачиваем файл
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `metrics_analytics_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      console.log('✅ Файл экспортирован');
-      setSuccess('Данные успешно экспортированы');
-    } catch (error) {
-      console.error('❌ Ошибка экспорта:', error);
-      setError('Ошибка экспорта: ' + error.message);
-    }
+    const csv = Papa.unparse(csvData, { delimiter: ';' });
+    
+    // Скачиваем файл
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `metrics_analytics_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatCellValue = (value, type) => {
@@ -526,27 +368,6 @@ function MetricsAnalytics({ user }) {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <label className="inline-flex items-center px-3 py-2 border border-yellow-300 text-sm font-medium rounded-md shadow-sm text-yellow-700 bg-yellow-50 hover:bg-yellow-100 cursor-pointer">
-              {diagnosing ? (
-                <>
-                  <Bug className="animate-bounce h-4 w-4 mr-2" />
-                  Диагностика...
-                </>
-              ) : (
-                <>
-                  <Bug className="h-4 w-4 mr-2" />
-                  Диагностика CSV
-                </>
-              )}
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(e) => handleFileDiagnosis(e.target.files)}
-                className="sr-only"
-                disabled={diagnosing || uploading}
-              />
-            </label>
-
             <button
               onClick={() => setShowColumnInfo(true)}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
@@ -561,7 +382,7 @@ function MetricsAnalytics({ user }) {
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
               <Download className="h-4 w-4 mr-2" />
-              Экспорт ({filteredMetrics.length})
+              Экспорт
             </button>
             
             <button
@@ -575,7 +396,7 @@ function MetricsAnalytics({ user }) {
             <label className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
               {uploading ? (
                 <>
-                  <Loader className="animate-spin h-4 w-4 mr-2" />
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Загрузка...
                 </>
               ) : (
@@ -596,26 +417,6 @@ function MetricsAnalytics({ user }) {
         </div>
       </div>
 
-      {/* Upload Progress */}
-      {uploading && uploadProgress.total > 0 && (
-        <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-900">
-              {uploadProgress.stage || 'Обработка данных'}: {uploadProgress.current} / {uploadProgress.total}
-            </span>
-            <span className="text-sm font-medium text-blue-900">
-              {uploadProgress.percentage}%
-            </span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress.percentage}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
       {/* Messages */}
       {error && (
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
@@ -634,7 +435,7 @@ function MetricsAnalytics({ user }) {
       {/* Stats */}
       {metrics.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -644,70 +445,10 @@ function MetricsAnalytics({ user }) {
                   <div className="ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        Всего записей
+                        Всего товаров
                       </dt>
                       <dd className="text-lg font-semibold text-gray-900">
-                        {metrics.length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Eye className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Отображается
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {filteredMetrics.length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С данными лидов
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.withActualLead}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний ROI
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.avgROI.toFixed(1)}%
+                        {stats.totalItems}
                       </dd>
                     </dl>
                   </div>
@@ -798,170 +539,7 @@ function MetricsAnalytics({ user }) {
         )}
       </div>
 
-      {/* Diagnostic Modal */}
-      {showDiagnosticModal && diagnosticReport && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white m-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                <Bug className="h-5 w-5 mr-2 text-yellow-600" />
-                Отчет диагностики CSV файла
-              </h3>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => metricsDebugger.exportReport(diagnosticReport)}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Экспорт
-                </button>
-                <button
-                  onClick={() => setShowDiagnosticModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {/* Общий статус */}
-              <div className={`p-4 rounded-lg border ${
-                diagnosticReport.summary.success 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <div className="flex items-center">
-                  {diagnosticReport.summary.success ? (
-                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-                  )}
-                  <span className={`font-medium ${
-                    diagnosticReport.summary.success ? 'text-green-800' : 'text-red-800'
-                  }`}>
-                    {diagnosticReport.summary.success ? 'Диагностика успешна' : 'Обнаружены проблемы'}
-                  </span>
-                </div>
-                <div className="mt-2 text-sm">
-                  <p>Ошибок: {diagnosticReport.summary.errorsCount}</p>
-                  <p>Время выполнения: {diagnosticReport.duration}ms</p>
-                </div>
-              </div>
-
-              {/* Анализ файла */}
-              {diagnosticReport.results.fileAnalysis && (
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">📁 Анализ CSV файла</h4>
-                  {diagnosticReport.results.fileAnalysis.isValid ? (
-                    <div className="text-sm text-gray-700">
-                      <p>✅ Файл корректный</p>
-                      <p>Всего строк: {diagnosticReport.results.fileAnalysis.totalRows}</p>
-                      <p>Строк данных: {diagnosticReport.results.fileAnalysis.dataRows}</p>
-                      <p>Колонок в заголовке: {diagnosticReport.results.fileAnalysis.headerRow?.length || 0}</p>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-red-700">
-                      <p>❌ Файл некорректный</p>
-                      <p>Ошибка: {diagnosticReport.results.fileAnalysis.error}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Статус БД */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">🔌 Подключение к базе данных</h4>
-                <div className="text-sm">
-                  {diagnosticReport.results.databaseConnection ? (
-                    <p className="text-green-700">✅ Подключение работает</p>
-                  ) : (
-                    <p className="text-red-700">❌ Проблемы с подключением</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Тест вставки */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">🧪 Тест вставки данных</h4>
-                <div className="text-sm">
-                  {diagnosticReport.results.testInsert ? (
-                    <p className="text-green-700">✅ Тест прошел успешно</p>
-                  ) : (
-                    <p className="text-red-700">❌ Ошибка при тестовой вставке</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Рекомендации */}
-              {diagnosticReport.recommendations && diagnosticReport.recommendations.length > 0 && (
-                <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-                  <h4 className="font-medium text-blue-900 mb-2">💡 Рекомендации</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    {diagnosticReport.recommendations.map((rec, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="mr-2">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Ошибки */}
-              {diagnosticReport.errors && diagnosticReport.errors.length > 0 && (
-                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-                  <h4 className="font-medium text-red-900 mb-2">❌ Ошибки</h4>
-                  <div className="text-sm text-red-800 space-y-2 max-h-32 overflow-y-auto">
-                    {diagnosticReport.errors.map((error, index) => (
-                      <div key={index} className="border-l-2 border-red-300 pl-2">
-                        <p className="font-medium">{error.message}</p>
-                        {error.error && (
-                          <p className="text-xs opacity-75">{error.error}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Детальные логи */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">📋 Детальные логи</h4>
-                <div className="text-xs text-gray-600 bg-gray-50 rounded p-2 max-h-32 overflow-y-auto font-mono">
-                  {diagnosticReport.logs.map((log, index) => (
-                    <div key={index} className="mb-1">
-                      <span className="text-gray-400">[{new Date(log.timestamp).toLocaleTimeString()}]</span> {log.message}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-600">
-                Диагностика завершена: {new Date(diagnosticReport.timestamp).toLocaleString()}
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => metricsDebugger.exportReport(diagnosticReport)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Экспорт отчета
-                </button>
-                <button
-                  onClick={() => setShowDiagnosticModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Info Modal - Справка по колонкам */}
+      {/* Info Modal */}
       {showColumnInfo && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white m-5">
@@ -1024,11 +602,8 @@ function MetricsAnalytics({ user }) {
                 <p className="mb-2">
                   <strong>Кодировка:</strong> UTF-8
                 </p>
-                <p className="mb-2">
-                  <strong>Даты:</strong> Формат ДД.ММ.ГГГГ (например: 27.06.2023)
-                </p>
                 <p>
-                  <strong>Важно:</strong> Файл должен содержать 4 служебные строки в начале, данные начинаются с 5-й строки
+                  <strong>Даты:</strong> Формат ДД.ММ.ГГГГ (например: 27.06.2023)
                 </p>
               </div>
             </div>
