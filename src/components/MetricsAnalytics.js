@@ -1,4 +1,4 @@
-// src/components/MetricsAnalytics.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// src/components/MetricsAnalytics.js - ПОЛНАЯ ВЕРСИЯ С ЦВЕТНЫМИ ЗОНАМИ
 import React, { useState, useEffect } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import Papa from 'papaparse';
@@ -39,7 +39,7 @@ function MetricsAnalytics({ user }) {
     databaseCount: 0
   });
 
-  // Определение колонок для отображения
+  // Определение колонок для отображения с цветными зонами
   const columns = [
     { key: 'id', label: '№', type: 'number', width: '60px' },
     { key: 'article', label: 'Артикул', type: 'text', width: '120px' },
@@ -47,23 +47,23 @@ function MetricsAnalytics({ user }) {
     { key: 'total_batches', label: 'Всего партий', type: 'number', width: '100px' },
     { key: 'first_arrival_date', label: 'Первый приход', type: 'date', width: '120px' },
     { key: 'next_calculated_arrival', label: 'Расчетный приход', type: 'date', width: '130px' },
-    { key: 'special_season_start', label: 'Спец сезон начало', type: 'date', width: '130px' },
-    { key: 'special_season_end', label: 'Спец сезон конец', type: 'date', width: '130px' },
-    { key: 'offer_price', label: 'Цена оффера', type: 'currency_uah', width: '110px' },
-    { key: 'red_zone_price', label: 'Красная зона', type: 'currency', width: '110px' },
-    { key: 'pink_zone_price', label: 'Розовая зона', type: 'currency', width: '110px' },
-    { key: 'gold_zone_price', label: 'Золотая зона', type: 'currency', width: '110px' },
-    { key: 'green_zone_price', label: 'Зеленая зона', type: 'currency', width: '110px' },
+    { key: 'special_season_start', label: 'Спец сезон начало', type: 'text', width: '130px' },
+    { key: 'special_season_end', label: 'Спец сезон конец', type: 'text', width: '130px' },
+    { key: 'offer_price', label: 'Цена оффера', type: 'currency_uah_plain', width: '110px' },
+    { key: 'red_zone_price', label: 'Красная зона', type: 'red_zone_currency', width: '110px', zoneType: 'red' },
+    { key: 'pink_zone_price', label: 'Розовая зона', type: 'pink_zone_currency', width: '110px', zoneType: 'pink' },
+    { key: 'gold_zone_price', label: 'Золотая зона', type: 'gold_zone_currency', width: '110px', zoneType: 'gold' },
+    { key: 'green_zone_price', label: 'Зеленая зона', type: 'green_zone_currency', width: '110px', zoneType: 'green' },
     { key: 'offer_zone', label: 'Зона оффера', type: 'zone', width: '120px' },
-    { key: 'actual_lead', label: 'Факт лид', type: 'currency_or_text', width: '100px' },
-    { key: 'actual_roi_percent', label: 'Факт ROI %', type: 'percentage', width: '100px' },
-    { key: 'depth_selection', label: 'Глубина', type: 'percentage', width: '90px' },
+    { key: 'actual_lead', label: 'Факт лид', type: 'zone_styled_currency', width: '100px' },
+    { key: 'actual_roi_percent', label: 'Факт ROI %', type: 'zone_styled_percentage', width: '100px' },
+    { key: 'depth_selection', label: 'Глубина', type: 'depth_percentage', width: '90px' },
     { key: 'high_stock_high_mcpl', label: 'Большой остаток', type: 'text', width: '120px' },
     { key: 'trend_10_days', label: 'Тренд 10 дней', type: 'text', width: '120px' },
     { key: 'trend_3_days', label: 'Тренд 3 дня', type: 'text', width: '120px' },
     { key: 'refusal_sales_percent', label: '% отказ/продажи', type: 'percentage', width: '120px' },
     { key: 'k_lead', label: 'К лид', type: 'number', width: '80px' },
-    { key: 'no_pickup_percent', label: '% невыкупа', type: 'percentage', width: '100px' },
+    { key: 'no_pickup_percent', label: '% невыкупа', type: 'percentage_black', width: '100px' },
     { key: 'for_withdrawal', label: 'На вывод', type: 'text', width: '100px' },
     { key: 'currently_unprofitable', label: 'Убыточные', type: 'text', width: '100px' }
   ];
@@ -259,8 +259,8 @@ function MetricsAnalytics({ user }) {
       total_batches: parseInt(row[3]) || null,
       first_arrival_date: parseDate(row[4]),
       next_calculated_arrival: parseDate(row[5]),
-      special_season_start: parseDate(row[6]),
-      special_season_end: parseDate(row[7]),
+      special_season_start: cleanText(row[6]), // Изменено на текст
+      special_season_end: cleanText(row[7]), // Изменено на текст
       offer_price: parseNumber(row[8]),
       red_zone_price: parseNumber(row[9]),
       pink_zone_price: parseNumber(row[10]),
@@ -326,7 +326,41 @@ function MetricsAnalytics({ user }) {
     document.body.removeChild(link);
   };
 
-  const formatCellValue = (value, type) => {
+  // Функция для получения цветов зон
+  const getZoneColors = (zoneName) => {
+    if (!zoneName) return null;
+    const name = zoneName.toLowerCase();
+    if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+    if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+    if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+    if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+    return null;
+  };
+
+  // Функция для получения цветов зон по типу
+  const getZoneColorsByType = (zoneType) => {
+    switch (zoneType) {
+      case 'red': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+      case 'pink': return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+      case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+      case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+      default: return null;
+    }
+  };
+
+  // Определение стиля зоны на основе значения
+  const getZoneStyleFromValue = (value) => {
+    if (!value || value <= 0 || isNaN(value)) return null;
+    
+    // Логика определения зоны на основе значения
+    // Это примерная логика, может потребоваться корректировка
+    if (value >= 100) return 'green';
+    if (value >= 75) return 'gold';
+    if (value >= 50) return 'pink';
+    return 'red';
+  };
+
+  const formatCellValue = (value, type, metric = null) => {
     if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400">—</span>;
     }
@@ -335,17 +369,67 @@ function MetricsAnalytics({ user }) {
       case 'currency':
         return <span className="font-mono text-green-600">${Number(value).toFixed(2)}</span>;
       
-      case 'currency_uah':
-        return <span className="font-mono text-green-600">{Number(value).toFixed(2)} ₴</span>;
+      case 'currency_uah_plain':
+        return <span className="font-mono text-gray-900">{Number(value).toFixed(2)} ₴</span>;
       
-      case 'currency_or_text':
+      case 'red_zone_currency':
+      case 'pink_zone_currency':
+      case 'gold_zone_currency':
+      case 'green_zone_currency':
+        const zoneType = type.replace('_zone_currency', '');
+        const zoneColors = getZoneColorsByType(zoneType);
+        return (
+          <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+            ${Number(value).toFixed(2)}
+          </span>
+        );
+      
+      case 'zone_styled_currency':
         if (value === 'нет данных') {
           return <span className="text-gray-500 italic">нет данных</span>;
         }
-        return <span className="font-mono text-green-600">${Number(value).toFixed(2)}</span>;
+        // Определяем стиль на основе зоны оффера из метрики
+        const offerZone = metric?.offer_zone;
+        const zoneColorsForCurrency = getZoneColors(offerZone);
+        if (zoneColorsForCurrency) {
+          return (
+            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColorsForCurrency.bg} ${zoneColorsForCurrency.text} ${zoneColorsForCurrency.border}`}>
+              ${Number(value).toFixed(2)}
+            </span>
+          );
+        }
+        return <span className="font-mono text-gray-900">${Number(value).toFixed(2)}</span>;
+      
+      case 'zone_styled_percentage':
+        // Определяем стиль на основе зоны оффера из метрики
+        const offerZoneForPercent = metric?.offer_zone;
+        const zoneColorsForPercent = getZoneColors(offerZoneForPercent);
+        if (zoneColorsForPercent) {
+          return (
+            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${zoneColorsForPercent.bg} ${zoneColorsForPercent.text} ${zoneColorsForPercent.border}`}>
+              {Number(value).toFixed(1)}%
+            </span>
+          );
+        }
+        return <span className="font-mono text-gray-900">{Number(value).toFixed(1)}%</span>;
+      
+      case 'depth_percentage':
+        const numValue = Number(value);
+        if (numValue === 0) {
+          const redColors = getZoneColorsByType('red');
+          return (
+            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${redColors.bg} ${redColors.text} ${redColors.border}`}>
+              {numValue.toFixed(1)}%
+            </span>
+          );
+        }
+        return <span className="font-mono text-gray-900">{numValue.toFixed(1)}%</span>;
       
       case 'percentage':
         return <span className="font-mono text-blue-600">{Number(value).toFixed(1)}%</span>;
+      
+      case 'percentage_black':
+        return <span className="font-mono text-gray-900">{Number(value).toFixed(1)}%</span>;
       
       case 'date':
         const date = new Date(value);
@@ -363,17 +447,13 @@ function MetricsAnalytics({ user }) {
   };
 
   const ZoneBadge = ({ zone }) => {
-    const getZoneColor = (zoneName) => {
-      const name = zoneName.toLowerCase();
-      if (name.includes('красн')) return 'bg-red-100 text-red-800 border-red-200';
-      if (name.includes('розов')) return 'bg-pink-100 text-pink-800 border-pink-200';
-      if (name.includes('золот')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      if (name.includes('зелен')) return 'bg-green-100 text-green-800 border-green-200';
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-    };
+    const colors = getZoneColors(zone);
+    if (!colors) {
+      return <span className="text-gray-600">{zone}</span>;
+    }
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getZoneColor(zone)}`}>
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
         {zone}
       </span>
     );
@@ -394,6 +474,15 @@ function MetricsAnalytics({ user }) {
     } catch (error) {
       return new Date(dateString).toLocaleDateString('ru-RU');
     }
+  };
+
+  // Функция для получения стиля заголовка зоны
+  const getZoneHeaderStyle = (column) => {
+    if (column.zoneType) {
+      const colors = getZoneColorsByType(column.zoneType);
+      return `${colors.bg} ${colors.text} ${colors.border} border`;
+    }
+    return '';
   };
 
   // Фильтрация и сортировка
@@ -641,17 +730,19 @@ function MetricsAnalytics({ user }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   {columns.map(column => (
                     <th
                       key={column.key}
                       onClick={() => handleSort(column.key)}
-                      className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className={`px-3 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${getZoneHeaderStyle(column)}`}
                       style={{ minWidth: column.width }}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>{column.label}</span>
+                        <span className={column.zoneType ? getZoneColorsByType(column.zoneType)?.text : 'text-gray-500'}>
+                          {column.label}
+                        </span>
                         {sortField === column.key && (
                           <span className="text-blue-500">
                             {sortDirection === 'asc' ? '↑' : '↓'}
@@ -671,7 +762,7 @@ function MetricsAnalytics({ user }) {
                         className="px-3 py-4 whitespace-nowrap text-sm"
                         style={{ minWidth: column.width }}
                       >
-                        {formatCellValue(metric[column.key], column.type)}
+                        {formatCellValue(metric[column.key], column.type, metric)}
                       </td>
                     ))}
                   </tr>
@@ -706,8 +797,8 @@ function MetricsAnalytics({ user }) {
                 { num: 4, name: 'Всего было партий', desc: 'Количество партий (число целое)' },
                 { num: 5, name: 'Дата первого прихода', desc: 'Дата в формате ДД.ММ.ГГГГ' },
                 { num: 6, name: 'Ближайший расчетный приход', desc: 'Дата в формате ДД.ММ.ГГГГ' },
-                { num: 7, name: 'СПЕЦ сезон начало', desc: 'Дата в формате ДД.ММ.ГГГГ' },
-                { num: 8, name: 'СПЕЦ сезон конец', desc: 'Дата в формате ДД.ММ.ГГГГ' },
+                { num: 7, name: 'СПЕЦ сезон начало', desc: 'Название месяца (май, авг, и т.д.)' },
+                { num: 8, name: 'СПЕЦ сезон конец', desc: 'Название месяца (май, авг, и т.д.)' },
                 { num: 9, name: 'Цена оффера', desc: 'Цена (число с плавающей точкой)' },
                 { num: 10, name: 'Красная зона цена лида', desc: 'Цена лида (число с плавающей точкой)' },
                 { num: 11, name: 'Розовая зона цена лида', desc: 'Цена лида (число с плавающей точкой)' },
@@ -747,6 +838,9 @@ function MetricsAnalytics({ user }) {
                 </p>
                 <p className="mb-2">
                   <strong>Даты:</strong> Формат ДД.ММ.ГГГГ (например: 27.06.2023)
+                </p>
+                <p className="mb-2">
+                  <strong>Месяцы:</strong> Текстовые значения (май, авг, сен и т.д.)
                 </p>
                 <p className="text-yellow-700 bg-yellow-50 p-2 rounded">
                   <strong>⚠️ Для больших файлов (3000+ записей):</strong> Загрузка может занять несколько минут. 
