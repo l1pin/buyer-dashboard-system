@@ -1523,8 +1523,8 @@ function CreativeAnalytics({ user }) {
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
-                  <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-                  Рейтинг байеров по зонам
+                  <Target className="h-5 w-5 mr-2 text-blue-500" />
+                  Рейтинг монтажеров по зонам
                 </h3>
                 
                 <div className="overflow-x-auto">
@@ -1609,26 +1609,38 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* Рейтинг байеров по COF */}
+            {/* Статистика монтажеров по эффективности */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
-                  <Award className="h-5 w-5 mr-2 text-green-500" />
-                  Рейтинг байеров по COF
+                  <BarChart3 className="h-5 w-5 mr-2 text-green-500" />
+                  Статистика монтажеров по эффективности
                 </h3>
                 
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                          Байер
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          Монтажер
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           COF
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          Ср.
+                          Лидов
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          CPL
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Расходы
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          CTR
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          CPC
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           💬
@@ -1636,44 +1648,96 @@ function CreativeAnalytics({ user }) {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {Object.entries(analytics.editorStats)
-                        .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
-                        .slice(0, 8)
-                        .map(([editorId, stats], index) => (
-                          <tr key={editorId} className={index < 3 ? 'bg-green-50' : 'hover:bg-gray-50'}>
-                            <td className="px-4 py-2 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
-                                {index < 3 && (
-                                  <div className="flex-shrink-0">
-                                    {index === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
-                                    {index === 1 && <Award className="h-4 w-4 text-gray-400" />}
-                                    {index === 2 && <Award className="h-4 w-4 text-orange-500" />}
-                                  </div>
-                                )}
+                      {(() => {
+                        // Собираем агрегированные метрики для каждого монтажера
+                        const editorsWithMetrics = Object.entries(analytics.editorStats).map(([editorId, stats]) => {
+                          const editorCreatives = analytics.creatives.filter(c => c.user_id === editorId);
+                          
+                          let totalLeads = 0;
+                          let totalCost = 0;
+                          let totalClicks = 0;
+                          let totalImpressions = 0;
+                          let creativesWithMetrics = 0;
+                          
+                          editorCreatives.forEach(creative => {
+                            const metrics = getAggregatedCreativeMetrics(creative);
+                            if (metrics?.found && metrics.data) {
+                              totalLeads += metrics.data.raw.leads || 0;
+                              totalCost += metrics.data.raw.cost || 0;
+                              totalClicks += metrics.data.raw.clicks || 0;
+                              totalImpressions += metrics.data.raw.impressions || 0;
+                              creativesWithMetrics++;
+                            }
+                          });
+                          
+                          const avgCPL = totalLeads > 0 ? totalCost / totalLeads : 0;
+                          const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+                          const avgCPC = totalClicks > 0 ? totalCost / totalClicks : 0;
+                          
+                          return {
+                            editorId,
+                            ...stats,
+                            metrics: {
+                              totalLeads,
+                              totalCost,
+                              avgCPL,
+                              avgCTR,
+                              avgCPC,
+                              creativesWithMetrics
+                            }
+                          };
+                        });
+                        
+                        return editorsWithMetrics
+                          .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
+                          .slice(0, 8)
+                          .map((stats, index) => (
+                            <tr key={stats.editorId} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900 truncate">
                                   {stats.name}
                                 </span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className={`text-sm font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
-                                {formatCOF(stats.totalCOF)}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-medium text-gray-600">
-                                {formatCOF(stats.avgCOF)}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className={`text-sm font-bold ${
-                                stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
-                              }`}>
-                                {stats.commentsCount}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
+                                  {formatCOF(stats.totalCOF)}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-purple-600">
+                                  {Math.round(stats.metrics.totalLeads)}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-green-600">
+                                  ${stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-red-600">
+                                  ${stats.metrics.totalCost.toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-blue-600">
+                                  {stats.metrics.avgCTR > 0 ? stats.metrics.avgCTR.toFixed(2) + '%' : '0.00%'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-orange-600">
+                                  ${stats.metrics.avgCPC > 0 ? stats.metrics.avgCPC.toFixed(2) : '0.00'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-sm font-bold ${
+                                  stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
+                                }`}>
+                                  {stats.commentsCount}
+                                </span>
+                              </td>
+                            </tr>
+                          ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
