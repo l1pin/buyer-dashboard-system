@@ -715,7 +715,7 @@ function MetricsAnalytics({ user }) {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
         {metrics.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -729,16 +729,16 @@ function MetricsAnalytics({ user }) {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="h-full overflow-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 z-50 shadow-sm" style={{ position: 'sticky', top: 0 }}>
+              <thead className="bg-gray-50" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
                 <tr>
                   {columns.map(column => (
                     <th
                       key={column.key}
                       onClick={() => handleSort(column.key)}
                       className={`px-3 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${getZoneHeaderStyle(column)}`}
-                      style={{ minWidth: column.width }}
+                      style={{ minWidth: column.width, position: 'sticky', top: 0, backgroundColor: column.zoneType ? undefined : '#f9fafb' }}
                     >
                       <div className="flex items-center space-x-1">
                         <span className={column.zoneType ? getZoneColorsByType(column.zoneType)?.text : 'text-gray-500'}>
