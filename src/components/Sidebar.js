@@ -10,7 +10,8 @@ import {
   Shield,
   Video,
   Monitor,
-  BarChart3
+  BarChart3,
+  Activity
 } from 'lucide-react';
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
@@ -25,7 +26,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     },
     {
       id: 'users',
-      label: 'Управление пользователями',
+      label: 'Пользователи',
       icon: Users,
       show: user?.role === 'teamlead'
     },
@@ -39,6 +40,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
+      show: user?.role === 'teamlead'
+    },
+    {
+      id: 'metrics-analytics',
+      label: 'Метрики аналитика',
+      icon: Activity,
       show: user?.role === 'teamlead'
     },
     {
