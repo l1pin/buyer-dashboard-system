@@ -1,4 +1,4 @@
-// Полностью обновленный supabaseClient.js с исправлениями для метрик аналитики
+// Полностью обновленный supabaseClient.js с добавленными функциями для работы с зонами
 // Замените полностью содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
@@ -927,6 +927,126 @@ export const metricsAnalyticsService = {
         withLeadData: 0
       };
     }
+  },
+
+  // НОВЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С ЗОНАМИ ПО АРТИКУЛАМ
+
+  // Получить зональные данные для одного артикула
+  async getZoneDataByArticle(article) {
+    try {
+      if (!article || !article.trim()) {
+        return null;
+      }
+
+      console.log(`🎯 Поиск зональных данных для артикула: ${article}`);
+
+      const { data, error } = await supabase
+        .from('metrics_analytics')
+        .select('article, red_zone_price, pink_zone_price, gold_zone_price, green_zone_price, offer_zone')
+        .eq('article', article.trim())
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Запись не найдена
+          console.log(`❌ Зональные данные не найдены для артикула: ${article}`);
+          return null;
+        }
+        throw error;
+      }
+
+      if (data) {
+        console.log(`✅ Найдены зональные данные для артикула ${article}:`, {
+          red: data.red_zone_price,
+          pink: data.pink_zone_price,
+          gold: data.gold_zone_price,
+          green: data.green_zone_price,
+          current_zone: data.offer_zone
+        });
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка получения зональных данных для артикула ${article}:`, error);
+      return null;
+    }
+  },
+
+  // Получить зональные данные для нескольких артикулов (батчевый запрос)
+  async getZoneDataByArticles(articles) {
+    try {
+      if (!articles || articles.length === 0) {
+        return new Map();
+      }
+
+      // Фильтруем пустые артикулы и очищаем от пробелов
+      const cleanArticles = articles
+        .filter(article => article && article.trim())
+        .map(article => article.trim());
+
+      if (cleanArticles.length === 0) {
+        return new Map();
+      }
+
+      console.log(`🎯 Батчевый поиск зональных данных для ${cleanArticles.length} артикулов`);
+
+      const { data, error } = await supabase
+        .from('metrics_analytics')
+        .select('article, red_zone_price, pink_zone_price, gold_zone_price, green_zone_price, offer_zone')
+        .in('article', cleanArticles);
+
+      if (error) {
+        console.error('❌ Ошибка батчевого запроса зональных данных:', error);
+        return new Map();
+      }
+
+      // Создаем Map для быстрого поиска
+      const zoneDataMap = new Map();
+      
+      if (data && data.length > 0) {
+        data.forEach(item => {
+          zoneDataMap.set(item.article, {
+            red_zone_price: item.red_zone_price,
+            pink_zone_price: item.pink_zone_price,
+            gold_zone_price: item.gold_zone_price,
+            green_zone_price: item.green_zone_price,
+            offer_zone: item.offer_zone
+          });
+        });
+
+        console.log(`✅ Найдены зональные данные для ${data.length} из ${cleanArticles.length} артикулов`);
+      } else {
+        console.log(`❌ Зональные данные не найдены ни для одного из ${cleanArticles.length} артикулов`);
+      }
+
+      return zoneDataMap;
+
+    } catch (error) {
+      console.error('❌ Ошибка батчевого получения зональных данных:', error);
+      return new Map();
+    }
+  },
+
+  // Форматировать зональные данные для отображения
+  formatZoneData(zoneData) {
+    if (!zoneData) {
+      return null;
+    }
+
+    const formatPrice = (price) => {
+      if (price === null || price === undefined) return '—';
+      return `$${Number(price).toFixed(2)}`;
+    };
+
+    return {
+      red: formatPrice(zoneData.red_zone_price),
+      pink: formatPrice(zoneData.pink_zone_price),
+      gold: formatPrice(zoneData.gold_zone_price),
+      green: formatPrice(zoneData.green_zone_price),
+      currentZone: zoneData.offer_zone || '—'
+    };
   },
 
   // Удалить все метрики
