@@ -35,7 +35,9 @@ import {
   ChevronUp,
   Star,
   Layers,
-  Bug
+  Bug,
+  Trophy,
+  Award
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
@@ -1486,38 +1488,166 @@ function CreativeAnalytics({ user }) {
             </div>
           </div>
 
-          {/* Статистика по типам работ */}
-          <div className="mt-6">
+          {/* Рейтинг байеров по зонам и COF */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* Рейтинг байеров по зонам */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Статистика по типам работ
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
+                  <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
+                  Рейтинг байеров по зонам
                 </h3>
                 
-                {Object.keys(analytics.workTypeStats).length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">Нет данных за выбранный период</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(analytics.workTypeStats)
-                      .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
-                      .map(([workType, stats]) => (
-                      <div key={workType} className="flex items-center justify-between border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center space-x-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getWorkTypeColor([workType])}`}>
-                            {getWorkTypeIcon([workType])}
-                            <span className="ml-1">{workType}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <span className="text-sm text-gray-600">{stats.count}x</span>
-                          <span className="text-sm font-medium text-green-600">
-                            {formatCOF(stats.totalCOF)} COF
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          Байер
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          <div className="w-3 h-3 bg-red-500 rounded-full mx-auto"></div>
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          <div className="w-3 h-3 bg-pink-500 rounded-full mx-auto"></div>
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full mx-auto"></div>
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          <div className="w-3 h-3 bg-green-500 rounded-full mx-auto"></div>
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Σ
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Object.entries(analytics.editorStats)
+                        .map(([editorId, stats]) => ({
+                          editorId,
+                          ...stats,
+                          zones: { red: 0, pink: 0, gold: 0, green: 0 } // Временно заполним нулями, потому что зоны пока не вычислены
+                        }))
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 8)
+                        .map((stats, index) => (
+                          <tr key={stats.editorId} className={index < 3 ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
+                                {index < 3 && (
+                                  <div className="flex-shrink-0">
+                                    {index === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
+                                    {index === 1 && <Award className="h-4 w-4 text-gray-400" />}
+                                    {index === 2 && <Award className="h-4 w-4 text-orange-500" />}
+                                  </div>
+                                )}
+                                <span className="text-sm font-medium text-gray-900 truncate">
+                                  {stats.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-bold text-red-600">
+                                {stats.zones.red}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-bold text-pink-600">
+                                {stats.zones.pink}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-bold text-yellow-600">
+                                {stats.zones.gold}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-bold text-green-600">
+                                {stats.zones.green}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-bold text-blue-600">
+                                {stats.count}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Рейтинг байеров по COF */}
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
+                  <Award className="h-5 w-5 mr-2 text-green-500" />
+                  Рейтинг байеров по COF
+                </h3>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          Байер
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          COF
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Ср.
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          💬
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Object.entries(analytics.editorStats)
+                        .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
+                        .slice(0, 8)
+                        .map(([editorId, stats], index) => (
+                          <tr key={editorId} className={index < 3 ? 'bg-green-50' : 'hover:bg-gray-50'}>
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
+                                {index < 3 && (
+                                  <div className="flex-shrink-0">
+                                    {index === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
+                                    {index === 1 && <Award className="h-4 w-4 text-gray-400" />}
+                                    {index === 2 && <Award className="h-4 w-4 text-orange-500" />}
+                                  </div>
+                                )}
+                                <span className="text-sm font-medium text-gray-900 truncate">
+                                  {stats.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`text-sm font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
+                                {formatCOF(stats.totalCOF)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className="text-sm font-medium text-gray-600">
+                                {formatCOF(stats.avgCOF)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`text-sm font-bold ${
+                                stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
+                              }`}>
+                                {stats.commentsCount}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
