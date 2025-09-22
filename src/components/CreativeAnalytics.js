@@ -1564,13 +1564,6 @@ function CreativeAnalytics({ user }) {
                           <tr key={stats.editorId} className={index < 3 ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
                             <td className="px-4 py-2 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
-                                {index < 3 && (
-                                  <div className="flex-shrink-0">
-                                    {index === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
-                                    {index === 1 && <Award className="h-4 w-4 text-gray-400" />}
-                                    {index === 2 && <Award className="h-4 w-4 text-orange-500" />}
-                                  </div>
-                                )}
                                 <span className="text-sm font-medium text-gray-900 truncate">
                                   {stats.name}
                                 </span>
