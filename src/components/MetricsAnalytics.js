@@ -1,4 +1,4 @@
-// src/components/MetricsAnalytics.js
+// src/components/MetricsAnalytics.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import React, { useState, useEffect } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import Papa from 'papaparse';
@@ -18,7 +18,8 @@ import {
   BarChart3,
   Info,
   X,
-  Eye
+  Eye,
+  Database
 } from 'lucide-react';
 
 function MetricsAnalytics({ user }) {
@@ -32,6 +33,11 @@ function MetricsAnalytics({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [loadingStats, setLoadingStats] = useState({
+    actualCount: 0,
+    totalRecords: 0,
+    databaseCount: 0
+  });
 
   // Определение колонок для отображения
   const columns = [
@@ -70,13 +76,41 @@ function MetricsAnalytics({ user }) {
     try {
       setLoading(true);
       setError('');
-      const data = await metricsAnalyticsService.getAllMetrics();
+      
+      console.log('🔄 Начинаем загрузку метрик...');
+      
+      // Используем новый метод для больших таблиц
+      const data = await metricsAnalyticsService.getAllMetricsLarge();
       setMetrics(data.metrics || []);
       setLastUpdated(data.lastUpdated);
+      
+      // Сохраняем статистику загрузки
+      setLoadingStats({
+        actualCount: data.actualCount,
+        totalRecords: data.totalRecords,
+        databaseCount: data.databaseCount || data.actualCount
+      });
+      
+      // Показываем информацию о загруженных записях
+      if (data.actualCount !== data.totalRecords && data.totalRecords > 0) {
+        setSuccess(`⚠️ Загружено ${data.actualCount.toLocaleString('ru-RU')} записей из ${data.totalRecords.toLocaleString('ru-RU')} в базе данных`);
+      } else if (data.actualCount > 0) {
+        setSuccess(`✅ Успешно загружено ${data.actualCount.toLocaleString('ru-RU')} записей метрик`);
+      }
+      
+      console.log('📊 Статистика загрузки метрик:', {
+        загружено: data.actualCount,
+        в_метаданных: data.totalRecords,
+        последнее_обновление: data.lastUpdated
+      });
+      
     } catch (error) {
+      console.error('❌ Ошибка загрузки метрик:', error);
       setError('Ошибка загрузки метрик: ' + error.message);
     } finally {
       setLoading(false);
+      // Очищаем success сообщение через 5 секунд
+      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -96,6 +130,8 @@ function MetricsAnalytics({ user }) {
       setUploading(true);
       setError('');
       setSuccess('');
+
+      console.log(`📁 Обработка файла: ${csvFile.name} (${(csvFile.size / 1024 / 1024).toFixed(2)} MB)`);
 
       // Читаем CSV файл
       const csvContent = await readFileContent(csvFile);
@@ -125,14 +161,22 @@ function MetricsAnalytics({ user }) {
       const dataRows = parsedData.data.slice(4); // Пропускаем первые 4 строки
       const processedMetrics = dataRows.map(row => processCSVRow(row));
 
+      console.log(`📤 Подготовлено к загрузке: ${processedMetrics.length.toLocaleString('ru-RU')} записей`);
+
       // Сохраняем в базу данных
-      await metricsAnalyticsService.uploadMetrics(processedMetrics);
+      const uploadResult = await metricsAnalyticsService.uploadMetrics(processedMetrics);
 
       // Обновляем список
       await loadMetrics();
       
-      setSuccess(`Успешно загружено ${processedMetrics.length} записей метрик`);
+      if (uploadResult.count === uploadResult.total) {
+        setSuccess(`✅ Успешно загружено ${uploadResult.count.toLocaleString('ru-RU')} записей метрик`);
+      } else {
+        setSuccess(`⚠️ Загружено ${uploadResult.count.toLocaleString('ru-RU')} из ${uploadResult.total.toLocaleString('ru-RU')} записей. Проверьте консоль для деталей.`);
+      }
+      
     } catch (error) {
+      console.error('❌ Ошибка загрузки CSV:', error);
       setError('Ошибка загрузки CSV: ' + error.message);
     } finally {
       setUploading(false);
@@ -349,6 +393,7 @@ function MetricsAnalytics({ user }) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Загрузка метрик аналитики...</p>
+          <p className="mt-2 text-sm text-gray-500">Это может занять некоторое время для больших таблиц</p>
         </div>
       </div>
     );
@@ -387,9 +432,10 @@ function MetricsAnalytics({ user }) {
             
             <button
               onClick={loadMetrics}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
+              disabled={loading}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Обновить
             </button>
             
@@ -435,7 +481,7 @@ function MetricsAnalytics({ user }) {
       {/* Stats */}
       {metrics.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -448,7 +494,52 @@ function MetricsAnalytics({ user }) {
                         Всего товаров
                       </dt>
                       <dd className="text-lg font-semibold text-gray-900">
-                        {stats.totalItems}
+                        {stats.totalItems.toLocaleString('ru-RU')}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Activity className="h-6 w-6 text-green-500" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        С данными по лидам
+                      </dt>
+                      <dd className="text-lg font-semibold text-gray-900">
+                        {stats.withActualLead.toLocaleString('ru-RU')}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Database className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        Загружено в память
+                      </dt>
+                      <dd className="text-lg font-semibold text-gray-900">
+                        {loadingStats.actualCount.toLocaleString('ru-RU')}
+                        {loadingStats.totalRecords > loadingStats.actualCount && (
+                          <span className="text-sm text-orange-600 ml-1">
+                            из {loadingStats.totalRecords.toLocaleString('ru-RU')}
+                          </span>
+                        )}
                       </dd>
                     </dl>
                   </div>
@@ -458,9 +549,14 @@ function MetricsAnalytics({ user }) {
           </div>
 
           {lastUpdated && (
-            <div className="flex items-center text-sm text-gray-600">
-              <Calendar className="h-4 w-4 mr-2" />
-              Последнее обновление: {formatKyivTime(lastUpdated)}
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-2" />
+                Последнее обновление: {formatKyivTime(lastUpdated)}
+              </div>
+              <div className="text-xs text-gray-500">
+                Отображено записей: {filteredMetrics.length.toLocaleString('ru-RU')}
+              </div>
             </div>
           )}
         </div>
@@ -602,8 +698,12 @@ function MetricsAnalytics({ user }) {
                 <p className="mb-2">
                   <strong>Кодировка:</strong> UTF-8
                 </p>
-                <p>
+                <p className="mb-2">
                   <strong>Даты:</strong> Формат ДД.ММ.ГГГГ (например: 27.06.2023)
+                </p>
+                <p className="text-yellow-700 bg-yellow-50 p-2 rounded">
+                  <strong>⚠️ Для больших файлов (3000+ записей):</strong> Загрузка может занять несколько минут. 
+                  Следите за прогрессом в консоли браузера (F12).
                 </p>
               </div>
             </div>
