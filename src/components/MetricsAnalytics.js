@@ -700,7 +700,7 @@ function MetricsAnalytics({ user }) {
       )}
 
       {/* Filters */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
+      <div className="bg-white border-b border-gray-200 px-6 py-3 sticky top-0 z-20">
         <div className="flex items-center space-x-4">
           <div className="flex-1">
             <input
@@ -715,7 +715,7 @@ function MetricsAnalytics({ user }) {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto relative">
+      <div className="flex-1 overflow-auto">
         {metrics.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -729,31 +729,30 @@ function MetricsAnalytics({ user }) {
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
-                <tr>
-                  {columns.map(column => (
-                    <th
-                      key={column.key}
-                      onClick={() => handleSort(column.key)}
-                      className={`px-3 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${getZoneHeaderStyle(column)}`}
-                      style={{ minWidth: column.width, position: 'sticky', top: 0, backgroundColor: column.zoneType ? undefined : '#f9fafb' }}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span className={column.zoneType ? getZoneColorsByType(column.zoneType)?.text : 'text-gray-500'}>
-                          {column.label}
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-[73px] z-10">
+              <tr>
+                {columns.map(column => (
+                  <th
+                    key={column.key}
+                    onClick={() => handleSort(column.key)}
+                    className={`px-3 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${getZoneHeaderStyle(column)}`}
+                    style={{ minWidth: column.width }}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span className={column.zoneType ? getZoneColorsByType(column.zoneType)?.text : 'text-gray-500'}>
+                        {column.label}
+                      </span>
+                      {sortField === column.key && (
+                        <span className="text-blue-500">
+                          {sortDirection === 'asc' ? '↑' : '↓'}
                         </span>
-                        {sortField === column.key && (
-                          <span className="text-blue-500">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMetrics.map((metric, index) => (
                   <tr key={index} className="hover:bg-gray-50">
