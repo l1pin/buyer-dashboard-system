@@ -330,6 +330,7 @@ function MetricsAnalytics({ user }) {
   const getZoneColors = (zoneName) => {
     if (!zoneName) return null;
     const name = zoneName.toLowerCase();
+    if (name.includes('sos')) return { bg: 'bg-black', text: 'text-yellow-400', border: 'border-black' };
     if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
     if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
     if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
