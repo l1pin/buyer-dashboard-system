@@ -705,7 +705,14 @@ export const metricsAnalyticsService = {
           .select('id');
 
         if (insertError) {
-          console.error(`❌ Ошибка вставки батча ${i + 1}-${i + batchSize}:`, insertError);
+          console.error(`❌ Ошибка вставки батча ${i + 1}-${i + batchSize}:`, {
+            error: insertError,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            code: insertError.code,
+            sampleData: batch[0] // Показываем первую запись из батча для отладки
+          });
           // Продолжаем загрузку следующих батчей
           continue;
         }
