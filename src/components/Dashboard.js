@@ -6,6 +6,7 @@ import AdminPanel from './AdminPanel';
 import UserManagement from './UserManagement';
 import CreativePanel from './CreativePanel';
 import CreativeAnalytics from './CreativeAnalytics';
+import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
@@ -45,6 +46,8 @@ function Dashboard({ user, session, updateUser }) {
         return user?.role === 'editor' ? <CreativePanel user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
+      case 'metrics-analytics':
+        return user?.role === 'teamlead' ? <MetricsAnalytics user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
