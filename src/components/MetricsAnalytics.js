@@ -252,33 +252,40 @@ function MetricsAnalytics({ user }) {
       throw new Error(`Первая колонка должна содержать номер записи, получено: "${row[0]}"`);
     }
 
-    return {
+    const result = {
       id: id,
-      article: cleanText(row[1]),
-      offer: cleanText(row[2]),
+      article: cleanText(row[1]) || null,
+      offer: cleanText(row[2]) || null,
       total_batches: parseInt(row[3]) || null,
       first_arrival_date: parseDate(row[4]),
       next_calculated_arrival: parseDate(row[5]),
-      special_season_start: cleanText(row[6]), // Изменено на текст
-      special_season_end: cleanText(row[7]), // Изменено на текст
+      special_season_start: cleanText(row[6]) || null,
+      special_season_end: cleanText(row[7]) || null,
       offer_price: parseNumber(row[8]),
       red_zone_price: parseNumber(row[9]),
       pink_zone_price: parseNumber(row[10]),
       gold_zone_price: parseNumber(row[11]),
       green_zone_price: parseNumber(row[12]),
-      offer_zone: cleanText(row[13]),
-      actual_lead: row[14] === 'нет данных' || row[14] === '—' ? 'нет данных' : parseNumber(row[14]),
+      offer_zone: cleanText(row[13]) || null,
+      actual_lead: row[14] === 'нет данных' || row[14] === '—' ? null : parseNumber(row[14]),
       actual_roi_percent: parseNumber(row[15]),
       depth_selection: parseNumber(row[16]),
-      high_stock_high_mcpl: cleanText(row[17]),
-      trend_10_days: cleanText(row[18]),
-      trend_3_days: cleanText(row[19]),
+      high_stock_high_mcpl: cleanText(row[17]) || null,
+      trend_10_days: cleanText(row[18]) || null,
+      trend_3_days: cleanText(row[19]) || null,
       refusal_sales_percent: parseNumber(row[20]),
       k_lead: parseNumber(row[21]),
       no_pickup_percent: parseNumber(row[22]),
-      for_withdrawal: cleanText(row[23]),
-      currently_unprofitable: cleanText(row[24])
+      for_withdrawal: cleanText(row[23]) || null,
+      currently_unprofitable: cleanText(row[24]) || null
     };
+
+    // Логируем первые несколько записей для отладки
+    if (id <= 3) {
+      console.log(`🔍 Обработанная запись ${id}:`, result);
+    }
+
+    return result;
   };
 
   const readFileContent = (file) => {
@@ -386,7 +393,7 @@ function MetricsAnalytics({ user }) {
         );
       
       case 'zone_styled_currency':
-        if (value === 'нет данных') {
+        if (value === 'нет данных' || value === null) {
           return <span className="text-gray-500 italic font-bold">нет данных</span>;
         }
         // Определяем стиль на основе зоны оффера из метрики
