@@ -556,6 +556,34 @@ function CreativeAnalytics({ user }) {
     return zoneCount;
   };
 
+  // Подсчет зон для каждого байера
+  const getEditorZoneStats = () => {
+    const editorZones = {};
+    
+    analytics.creatives.forEach(creative => {
+      const editorId = creative.user_id || 'unknown';
+      
+      if (!editorZones[editorId]) {
+        editorZones[editorId] = { red: 0, pink: 0, gold: 0, green: 0 };
+      }
+      
+      const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+      if (aggregatedMetrics?.found && aggregatedMetrics.data) {
+        const cplString = aggregatedMetrics.data.formatted.cpl;
+        const cplValue = parseFloat(cplString.replace('$', ''));
+        
+        if (!isNaN(cplValue)) {
+          const currentZone = getCurrentZoneByMetrics(creative.article, cplValue);
+          if (currentZone) {
+            editorZones[editorId][currentZone.zone]++;
+          }
+        }
+      }
+    });
+    
+    return editorZones;
+  };
+
   const getCurrentMonthYear = () => {
     const now = new Date();
     const months = [
@@ -878,6 +906,7 @@ function CreativeAnalytics({ user }) {
 
   const countryStats = getCountryStats();
   const zoneStats = getZoneStats();
+  const editorZoneStats = getEditorZoneStats();
 
   if (loading) {
     return (
@@ -1527,7 +1556,7 @@ function CreativeAnalytics({ user }) {
                         .map(([editorId, stats]) => ({
                           editorId,
                           ...stats,
-                          zones: { red: 0, pink: 0, gold: 0, green: 0 } // Временно заполним нулями, потому что зоны пока не вычислены
+                          zones: editorZoneStats[editorId] || { red: 0, pink: 0, gold: 0, green: 0 }
                         }))
                         .sort((a, b) => b.count - a.count)
                         .slice(0, 8)
