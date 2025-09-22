@@ -1531,8 +1531,11 @@ function CreativeAnalytics({ user }) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                          Байер
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          Монтажер
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          COF
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           <div className="w-3 h-3 bg-red-500 rounded-full mx-auto"></div>
@@ -1547,55 +1550,111 @@ function CreativeAnalytics({ user }) {
                           <div className="w-3 h-3 bg-green-500 rounded-full mx-auto"></div>
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          Σ
+                          CPL
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          CTR
+                        </th>
+                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          💬
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {Object.entries(analytics.editorStats)
-                        .map(([editorId, stats]) => ({
-                          editorId,
-                          ...stats,
-                          zones: editorZoneStats[editorId] || { red: 0, pink: 0, gold: 0, green: 0 }
-                        }))
-                        .sort((a, b) => b.count - a.count)
-                        .slice(0, 8)
-                        .map((stats, index) => (
-                          <tr key={stats.editorId} className={index < 3 ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
-                            <td className="px-4 py-2 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
+                      {(() => {
+                        // Собираем агрегированные метрики для каждого монтажера
+                        const editorsWithMetrics = Object.entries(analytics.editorStats).map(([editorId, stats]) => {
+                          const editorCreatives = analytics.creatives.filter(c => c.user_id === editorId);
+                          
+                          let totalLeads = 0;
+                          let totalCost = 0;
+                          let totalClicks = 0;
+                          let totalImpressions = 0;
+                          let creativesWithMetrics = 0;
+                          
+                          editorCreatives.forEach(creative => {
+                            const metrics = getAggregatedCreativeMetrics(creative);
+                            if (metrics?.found && metrics.data) {
+                              totalLeads += metrics.data.raw.leads || 0;
+                              totalCost += metrics.data.raw.cost || 0;
+                              totalClicks += metrics.data.raw.clicks || 0;
+                              totalImpressions += metrics.data.raw.impressions || 0;
+                              creativesWithMetrics++;
+                            }
+                          });
+                          
+                          const avgCPL = totalLeads > 0 ? totalCost / totalLeads : 0;
+                          const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+                          
+                          return {
+                            editorId,
+                            ...stats,
+                            zones: editorZoneStats[editorId] || { red: 0, pink: 0, gold: 0, green: 0 },
+                            metrics: {
+                              totalLeads,
+                              totalCost,
+                              avgCPL,
+                              avgCTR,
+                              creativesWithMetrics
+                            }
+                          };
+                        });
+                        
+                        return editorsWithMetrics
+                          .sort((a, b) => b.totalCOF - a.totalCOF)
+                          .slice(0, 8)
+                          .map((stats, index) => (
+                            <tr key={stats.editorId} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900 truncate">
                                   {stats.name}
                                 </span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-bold text-red-600">
-                                {stats.zones.red}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-bold text-pink-600">
-                                {stats.zones.pink}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-bold text-yellow-600">
-                                {stats.zones.gold}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-bold text-green-600">
-                                {stats.zones.green}
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className="text-sm font-bold text-blue-600">
-                                {stats.count}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
+                                  {formatCOF(stats.totalCOF)}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-red-600">
+                                  {stats.zones.red}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-pink-600">
+                                  {stats.zones.pink}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-yellow-600">
+                                  {stats.zones.gold}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-green-600">
+                                  {stats.zones.green}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-green-600">
+                                  ${stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-bold text-blue-600">
+                                  {stats.metrics.avgCTR > 0 ? stats.metrics.avgCTR.toFixed(2) + '%' : '0.00%'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-sm font-bold ${
+                                  stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
+                                }`}>
+                                  {stats.commentsCount}
+                                </span>
+                              </td>
+                            </tr>
+                          ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -1682,7 +1741,7 @@ function CreativeAnalytics({ user }) {
                         });
                         
                         return editorsWithMetrics
-                          .sort(([,a], [,b]) => b.totalCOF - a.totalCOF)
+                          .sort((a, b) => b.totalCOF - a.totalCOF)
                           .slice(0, 8)
                           .map((stats, index) => (
                             <tr key={stats.editorId} className="hover:bg-gray-50">
