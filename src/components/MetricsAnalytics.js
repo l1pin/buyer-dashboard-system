@@ -147,21 +147,50 @@ function MetricsAnalytics({ user }) {
         throw new Error('CSV файл должен содержать заголовки и данные');
       }
 
-      // Проверяем количество колонок (берем 4-ю строку как эталон)
-      if (parsedData.data.length < 4) {
-        throw new Error('CSV файл должен содержать минимум 4 строки');
-      }
-      
-      const headerRow = parsedData.data[3]; // 4-я строка как заголовки
-      if (headerRow.length < 25) {
-        throw new Error(`CSV файл должен содержать 25 колонок, найдено: ${headerRow.length}`);
+      console.log(`📋 Всего строк в CSV: ${parsedData.data.length}`);
+
+      // Ищем первую строку с реальными данными (где первая колонка - число)
+      let dataStartIndex = -1;
+      for (let i = 0; i < parsedData.data.length; i++) {
+        const firstCell = parsedData.data[i][0];
+        // Проверяем, содержит ли первая ячейка число (а не "—", "Артикул" и т.д.)
+        if (firstCell && !isNaN(parseInt(firstCell)) && parseInt(firstCell) > 0) {
+          dataStartIndex = i;
+          console.log(`✅ Найдена первая строка с данными: строка ${i + 1}, значение: "${firstCell}"`);
+          break;
+        } else {
+          console.log(`⏭️ Пропускаем строку ${i + 1}: "${firstCell}" (не является номером)`);
+        }
       }
 
-      // Преобразуем данные в объекты, начиная с 5-й строки (индекс 4)
-      const dataRows = parsedData.data.slice(4); // Пропускаем первые 4 строки
-      const processedMetrics = dataRows.map(row => processCSVRow(row));
+      if (dataStartIndex === -1) {
+        throw new Error('Не удалось найти строки с данными в CSV файле. Проверьте, что первая колонка содержит номера записей.');
+      }
+
+      // Проверяем количество колонок в строке с данными
+      const dataRow = parsedData.data[dataStartIndex];
+      if (dataRow.length < 25) {
+        throw new Error(`CSV файл должен содержать 25 колонок, найдено: ${dataRow.length} в строке с данными`);
+      }
+
+      // Преобразуем данные в объекты, начиная с найденной строки
+      const dataRows = parsedData.data.slice(dataStartIndex);
+      console.log(`📊 Обрабатываем ${dataRows.length} строк данных (пропущено ${dataStartIndex} строк заголовков)`);
+
+      const processedMetrics = dataRows.map((row, index) => {
+        try {
+          return processCSVRow(row);
+        } catch (error) {
+          console.warn(`⚠️ Ошибка обработки строки ${dataStartIndex + index + 1}:`, error.message);
+          return null;
+        }
+      }).filter(row => row !== null); // Убираем строки с ошибками
 
       console.log(`📤 Подготовлено к загрузке: ${processedMetrics.length.toLocaleString('ru-RU')} записей`);
+
+      if (processedMetrics.length === 0) {
+        throw new Error('Не удалось обработать ни одной строки данных');
+      }
 
       // Сохраняем в базу данных
       const uploadResult = await metricsAnalyticsService.uploadMetrics(processedMetrics);
@@ -185,7 +214,7 @@ function MetricsAnalytics({ user }) {
 
   const processCSVRow = (row) => {
     const parseDate = (dateStr) => {
-      if (!dateStr || dateStr.trim() === '') return null;
+      if (!dateStr || dateStr.trim() === '' || dateStr === '—') return null;
       
       // Парсим дату в формате DD.MM.YYYY
       const parts = dateStr.trim().split('.');
@@ -193,22 +222,40 @@ function MetricsAnalytics({ user }) {
         const day = parseInt(parts[0]);
         const month = parseInt(parts[1]) - 1; // Месяцы в JS начинаются с 0
         const year = parseInt(parts[2]);
-        const date = new Date(year, month, day);
-        return date.toISOString().split('T')[0]; // Возвращаем в формате YYYY-MM-DD
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year) && year > 1900) {
+          const date = new Date(year, month, day);
+          return date.toISOString().split('T')[0]; // Возвращаем в формате YYYY-MM-DD
+        }
       }
       return null;
     };
 
     const parseNumber = (str) => {
-      if (!str || str.trim() === '' || str.toLowerCase() === 'нет данных') return null;
+      if (!str || str.trim() === '' || str === '—' || str.toLowerCase() === 'нет данных') return null;
       const num = parseFloat(str.replace(',', '.').replace(/[^\d.-]/g, ''));
       return isNaN(num) ? null : num;
     };
 
+    const cleanText = (str) => {
+      if (!str || str === '—') return '';
+      return String(str).trim();
+    };
+
+    // Проверяем, что у нас достаточно колонок
+    if (!row || row.length < 25) {
+      throw new Error(`Недостаточно колонок в строке: ${row?.length || 0}, ожидается 25`);
+    }
+
+    // Проверяем, что первая колонка содержит число (ID)
+    const id = parseInt(row[0]);
+    if (isNaN(id) || id <= 0) {
+      throw new Error(`Первая колонка должна содержать номер записи, получено: "${row[0]}"`);
+    }
+
     return {
-      id: parseInt(row[0]) || null,
-      article: row[1] || '',
-      offer: row[2] || '',
+      id: id,
+      article: cleanText(row[1]),
+      offer: cleanText(row[2]),
       total_batches: parseInt(row[3]) || null,
       first_arrival_date: parseDate(row[4]),
       next_calculated_arrival: parseDate(row[5]),
@@ -219,18 +266,18 @@ function MetricsAnalytics({ user }) {
       pink_zone_price: parseNumber(row[10]),
       gold_zone_price: parseNumber(row[11]),
       green_zone_price: parseNumber(row[12]),
-      offer_zone: row[13] || '',
-      actual_lead: row[14] === 'нет данных' ? 'нет данных' : parseNumber(row[14]),
+      offer_zone: cleanText(row[13]),
+      actual_lead: row[14] === 'нет данных' || row[14] === '—' ? 'нет данных' : parseNumber(row[14]),
       actual_roi_percent: parseNumber(row[15]),
       depth_selection: parseNumber(row[16]),
-      high_stock_high_mcpl: row[17] || '',
-      trend_10_days: row[18] || '',
-      trend_3_days: row[19] || '',
+      high_stock_high_mcpl: cleanText(row[17]),
+      trend_10_days: cleanText(row[18]),
+      trend_3_days: cleanText(row[19]),
       refusal_sales_percent: parseNumber(row[20]),
       k_lead: parseNumber(row[21]),
       no_pickup_percent: parseNumber(row[22]),
-      for_withdrawal: row[23] || '',
-      currently_unprofitable: row[24] || ''
+      for_withdrawal: cleanText(row[23]),
+      currently_unprofitable: cleanText(row[24])
     };
   };
 
