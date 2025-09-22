@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с зональными данными
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с упрощенными зональными данными
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -173,7 +173,7 @@ function CreativePanel({ user }) {
     </div>
   );
 
-  // НОВАЯ ФУНКЦИЯ: Компонент отображения зональных данных
+  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Компонент отображения зональных данных - только цены
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -198,30 +198,26 @@ function CreativePanel({ user }) {
           </div>
         )}
         
-        {/* Цены зон в компактном виде */}
+        {/* Цены зон - ТОЛЬКО ЗНАЧЕНИЯ без названий */}
         <div className="grid grid-cols-2 gap-1 text-xs">
           {zoneData.red !== '—' && (
-            <div className="bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
-              <div className="font-medium">Красная</div>
-              <div className="text-xs">{zoneData.red}</div>
+            <div className="bg-red-50 text-red-700 px-2 py-1.5 rounded border border-red-200 text-center">
+              <div className="text-sm font-bold">{zoneData.red}</div>
             </div>
           )}
           {zoneData.pink !== '—' && (
-            <div className="bg-pink-50 text-pink-700 px-2 py-1 rounded border border-pink-200">
-              <div className="font-medium">Розовая</div>
-              <div className="text-xs">{zoneData.pink}</div>
+            <div className="bg-pink-50 text-pink-700 px-2 py-1.5 rounded border border-pink-200 text-center">
+              <div className="text-sm font-bold">{zoneData.pink}</div>
             </div>
           )}
           {zoneData.gold !== '—' && (
-            <div className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-200">
-              <div className="font-medium">Золотая</div>
-              <div className="text-xs">{zoneData.gold}</div>
+            <div className="bg-yellow-50 text-yellow-700 px-2 py-1.5 rounded border border-yellow-200 text-center">
+              <div className="text-sm font-bold">{zoneData.gold}</div>
             </div>
           )}
           {zoneData.green !== '—' && (
-            <div className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200">
-              <div className="font-medium">Зеленая</div>
-              <div className="text-xs">{zoneData.green}</div>
+            <div className="bg-green-50 text-green-700 px-2 py-1.5 rounded border border-green-200 text-center">
+              <div className="text-sm font-bold">{zoneData.green}</div>
             </div>
           )}
         </div>
