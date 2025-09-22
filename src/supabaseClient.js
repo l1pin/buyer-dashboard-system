@@ -1,5 +1,5 @@
-// Обновленный supabaseClient.js с поддержкой комментариев к креативам и метрик аналитики
-// Замените содержимое src/supabaseClient.js
+// Полностью обновленный supabaseClient.js с исправлениями для метрик аналитики
+// Замените полностью содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
@@ -674,7 +674,7 @@ export const creativeService = {
   }
 };
 
-// Функции для работы с метриками аналитики
+// ИСПРАВЛЕННЫЕ функции для работы с метриками аналитики
 export const metricsAnalyticsService = {
   // Загрузить метрики из CSV
   async uploadMetrics(metricsData) {
@@ -691,18 +691,27 @@ export const metricsAnalyticsService = {
         console.error('Ошибка очистки старых метрик:', deleteError);
       }
 
-      // Добавляем новые данные батчами
-      const batchSize = 100;
+      // Добавляем новые данные батчами с лучшей обработкой ошибок
+      const batchSize = 50; // Уменьшили размер батча для надежности
+      let successfullyInserted = 0;
+      
       for (let i = 0; i < metricsData.length; i += batchSize) {
         const batch = metricsData.slice(i, i + batchSize);
-        const { error: insertError } = await supabase
+        console.log(`📤 Загрузка батча ${Math.floor(i/batchSize) + 1}/${Math.ceil(metricsData.length/batchSize)} (записи ${i + 1}-${Math.min(i + batchSize, metricsData.length)})`);
+        
+        const { data, error: insertError } = await supabase
           .from('metrics_analytics')
-          .insert(batch);
+          .insert(batch)
+          .select('id');
 
         if (insertError) {
-          console.error('Ошибка вставки метрик:', insertError);
-          throw insertError;
+          console.error(`❌ Ошибка вставки батча ${i + 1}-${i + batchSize}:`, insertError);
+          // Продолжаем загрузку следующих батчей
+          continue;
         }
+        
+        successfullyInserted += data?.length || batch.length;
+        console.log(`✅ Батч успешно загружен, всего записей: ${successfullyInserted}`);
       }
 
       // Обновляем время последнего обновления
@@ -712,7 +721,7 @@ export const metricsAnalyticsService = {
           {
             id: 1,
             last_updated: new Date().toISOString(),
-            total_records: metricsData.length
+            total_records: successfullyInserted
           }
         ], {
           onConflict: 'id'
@@ -722,8 +731,8 @@ export const metricsAnalyticsService = {
         console.error('Ошибка обновления метаданных:', updateError);
       }
 
-      console.log('✅ Метрики аналитики успешно загружены');
-      return { success: true, count: metricsData.length };
+      console.log(`✅ Метрики аналитики успешно загружены: ${successfullyInserted} из ${metricsData.length} записей`);
+      return { success: true, count: successfullyInserted, total: metricsData.length };
 
     } catch (error) {
       console.error('❌ Ошибка загрузки метрик аналитики:', error);
@@ -731,16 +740,28 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить все метрики
+  // Получить все метрики с поддержкой большого количества записей
   async getAllMetrics() {
     try {
       console.log('📡 Запрос метрик аналитики...');
 
-      // Получаем метрики
+      // Сначала получаем общее количество записей
+      const { count, error: countError } = await supabase
+        .from('metrics_analytics')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('Ошибка подсчета записей:', countError);
+      }
+
+      console.log(`📊 Всего записей в базе: ${count}`);
+
+      // Получаем все метрики с увеличенным лимитом
       const { data: metrics, error: metricsError } = await supabase
         .from('metrics_analytics')
         .select('*')
-        .order('id', { ascending: true });
+        .order('id', { ascending: true })
+        .limit(10000); // Увеличили лимит до 10000
 
       if (metricsError) {
         console.error('Ошибка получения метрик:', metricsError);
@@ -758,12 +779,20 @@ export const metricsAnalyticsService = {
         console.error('Ошибка получения метаданных:', metaError);
       }
 
-      console.log('✅ Получены метрики аналитики:', metrics?.length || 0, 'записей');
+      const actualCount = metrics?.length || 0;
+      console.log(`✅ Получены метрики аналитики: ${actualCount} записей`);
+      
+      // Предупреждение если получили меньше записей чем ожидали
+      if (count && actualCount < count) {
+        console.warn(`⚠️ Получено ${actualCount} записей из ${count} в базе. Возможно, нужна пагинация.`);
+      }
 
       return {
         metrics: metrics || [],
         lastUpdated: meta?.last_updated,
-        totalRecords: meta?.total_records || 0
+        totalRecords: meta?.total_records || actualCount,
+        actualCount: actualCount,
+        databaseCount: count
       };
 
     } catch (error) {
@@ -771,7 +800,93 @@ export const metricsAnalyticsService = {
       return {
         metrics: [],
         lastUpdated: null,
-        totalRecords: 0
+        totalRecords: 0,
+        actualCount: 0,
+        databaseCount: 0
+      };
+    }
+  },
+
+  // Получить метрики с пагинацией (новый метод для очень больших таблиц)
+  async getMetricsWithPagination(page = 0, pageSize = 1000) {
+    try {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
+      console.log(`📡 Запрос метрик: страница ${page + 1}, записи ${from + 1}-${to + 1}`);
+
+      const { data: metrics, error: metricsError, count } = await supabase
+        .from('metrics_analytics')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: true })
+        .range(from, to);
+
+      if (metricsError) {
+        throw metricsError;
+      }
+
+      return {
+        metrics: metrics || [],
+        totalCount: count,
+        page: page,
+        pageSize: pageSize,
+        hasMore: count ? (to + 1) < count : false
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка получения метрик с пагинацией:', error);
+      throw error;
+    }
+  },
+
+  // Получить все метрики для больших таблиц (с автоматической пагинацией)
+  async getAllMetricsLarge() {
+    try {
+      console.log('📡 Запрос всех метрик (режим больших таблиц)...');
+      
+      let allMetrics = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const result = await this.getMetricsWithPagination(page, pageSize);
+        allMetrics = [...allMetrics, ...result.metrics];
+        hasMore = result.hasMore;
+        page++;
+        
+        console.log(`📄 Загружена страница ${page}, всего записей: ${allMetrics.length}`);
+        
+        // Защита от бесконечного цикла
+        if (page > 50) {
+          console.warn('⚠️ Достигнут лимит страниц (50), прерываем загрузку');
+          break;
+        }
+      }
+
+      // Получаем метаданные
+      const { data: meta, error: metaError } = await supabase
+        .from('metrics_analytics_meta')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      console.log(`✅ Загружены все метрики: ${allMetrics.length} записей`);
+
+      return {
+        metrics: allMetrics,
+        lastUpdated: meta?.last_updated,
+        totalRecords: meta?.total_records || allMetrics.length,
+        actualCount: allMetrics.length
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка получения всех метрик:', error);
+      return {
+        metrics: [],
+        lastUpdated: null,
+        totalRecords: 0,
+        actualCount: 0
       };
     }
   },
@@ -782,7 +897,8 @@ export const metricsAnalyticsService = {
       const { data, error } = await supabase
         .from('metrics_analytics')
         .select('offer_zone, actual_roi_percent, actual_lead')
-        .not('actual_lead', 'eq', 'нет данных');
+        .not('actual_lead', 'eq', 'нет данных')
+        .limit(10000); // Увеличили лимит
 
       if (error) throw error;
 
