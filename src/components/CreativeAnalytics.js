@@ -1531,11 +1531,8 @@ function CreativeAnalytics({ user }) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           Монтажер
-                        </th>
-                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          COF
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           <div className="w-3 h-3 bg-red-500 rounded-full mx-auto"></div>
@@ -1548,15 +1545,6 @@ function CreativeAnalytics({ user }) {
                         </th>
                         <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                           <div className="w-3 h-3 bg-green-500 rounded-full mx-auto"></div>
-                        </th>
-                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          CPL
-                        </th>
-                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          CTR
-                        </th>
-                        <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          💬
                         </th>
                       </tr>
                     </thead>
@@ -1605,14 +1593,9 @@ function CreativeAnalytics({ user }) {
                           .slice(0, 8)
                           .map((stats, index) => (
                             <tr key={stats.editorId} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 whitespace-nowrap">
+                              <td className="px-4 py-2 whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900 truncate">
                                   {stats.name}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
-                                  {formatCOF(stats.totalCOF)}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -1633,23 +1616,6 @@ function CreativeAnalytics({ user }) {
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-green-600">
                                   {stats.zones.green}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-green-600">
-                                  ${stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-blue-600">
-                                  {stats.metrics.avgCTR > 0 ? stats.metrics.avgCTR.toFixed(2) + '%' : '0.00%'}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className={`text-sm font-bold ${
-                                  stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
-                                }`}>
-                                  {stats.commentsCount}
                                 </span>
                               </td>
                             </tr>
