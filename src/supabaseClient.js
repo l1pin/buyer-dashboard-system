@@ -1,4 +1,4 @@
-// Обновленный supabaseClient.js с поддержкой комментариев к креативам (без Facebook параметра)
+// Обновленный supabaseClient.js с поддержкой комментариев к креативам и метрик аналитики
 // Замените содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
@@ -670,6 +670,168 @@ export const creativeService = {
     } catch (error) {
       console.error('💥 Ошибка получения креативов с метриками:', error);
       return [];
+    }
+  }
+};
+
+// Функции для работы с метриками аналитики
+export const metricsAnalyticsService = {
+  // Загрузить метрики из CSV
+  async uploadMetrics(metricsData) {
+    try {
+      console.log('📊 Загружаем метрики аналитики:', metricsData.length, 'записей');
+
+      // Очищаем старые данные
+      const { error: deleteError } = await supabase
+        .from('metrics_analytics')
+        .delete()
+        .neq('id', 0); // Удаляем все записи
+
+      if (deleteError) {
+        console.error('Ошибка очистки старых метрик:', deleteError);
+      }
+
+      // Добавляем новые данные батчами
+      const batchSize = 100;
+      for (let i = 0; i < metricsData.length; i += batchSize) {
+        const batch = metricsData.slice(i, i + batchSize);
+        const { error: insertError } = await supabase
+          .from('metrics_analytics')
+          .insert(batch);
+
+        if (insertError) {
+          console.error('Ошибка вставки метрик:', insertError);
+          throw insertError;
+        }
+      }
+
+      // Обновляем время последнего обновления
+      const { error: updateError } = await supabase
+        .from('metrics_analytics_meta')
+        .upsert([
+          {
+            id: 1,
+            last_updated: new Date().toISOString(),
+            total_records: metricsData.length
+          }
+        ], {
+          onConflict: 'id'
+        });
+
+      if (updateError) {
+        console.error('Ошибка обновления метаданных:', updateError);
+      }
+
+      console.log('✅ Метрики аналитики успешно загружены');
+      return { success: true, count: metricsData.length };
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки метрик аналитики:', error);
+      throw error;
+    }
+  },
+
+  // Получить все метрики
+  async getAllMetrics() {
+    try {
+      console.log('📡 Запрос метрик аналитики...');
+
+      // Получаем метрики
+      const { data: metrics, error: metricsError } = await supabase
+        .from('metrics_analytics')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (metricsError) {
+        console.error('Ошибка получения метрик:', metricsError);
+        throw metricsError;
+      }
+
+      // Получаем метаданные
+      const { data: meta, error: metaError } = await supabase
+        .from('metrics_analytics_meta')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (metaError && metaError.code !== 'PGRST116') {
+        console.error('Ошибка получения метаданных:', metaError);
+      }
+
+      console.log('✅ Получены метрики аналитики:', metrics?.length || 0, 'записей');
+
+      return {
+        metrics: metrics || [],
+        lastUpdated: meta?.last_updated,
+        totalRecords: meta?.total_records || 0
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка получения метрик аналитики:', error);
+      return {
+        metrics: [],
+        lastUpdated: null,
+        totalRecords: 0
+      };
+    }
+  },
+
+  // Получить статистику по метрикам
+  async getMetricsStats() {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_analytics')
+        .select('offer_zone, actual_roi_percent, actual_lead')
+        .not('actual_lead', 'eq', 'нет данных');
+
+      if (error) throw error;
+
+      const stats = {
+        totalItems: data.length,
+        zones: [...new Set(data.map(item => item.offer_zone).filter(Boolean))],
+        avgROI: data.reduce((sum, item) => sum + (item.actual_roi_percent || 0), 0) / data.length || 0,
+        withLeadData: data.filter(item => item.actual_lead !== null).length
+      };
+
+      return stats;
+
+    } catch (error) {
+      console.error('Ошибка получения статистики метрик:', error);
+      return {
+        totalItems: 0,
+        zones: [],
+        avgROI: 0,
+        withLeadData: 0
+      };
+    }
+  },
+
+  // Удалить все метрики
+  async clearAllMetrics() {
+    try {
+      const { error: deleteError } = await supabase
+        .from('metrics_analytics')
+        .delete()
+        .neq('id', 0);
+
+      if (deleteError) throw deleteError;
+
+      // Очищаем метаданные
+      const { error: metaError } = await supabase
+        .from('metrics_analytics_meta')
+        .delete()
+        .eq('id', 1);
+
+      if (metaError && metaError.code !== 'PGRST116') {
+        console.error('Ошибка очистки метаданных:', metaError);
+      }
+
+      console.log('✅ Все метрики аналитики удалены');
+      return { success: true };
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления метрик аналитики:', error);
+      throw error;
     }
   }
 };
