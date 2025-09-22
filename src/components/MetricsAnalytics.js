@@ -30,7 +30,6 @@ function MetricsAnalytics({ user }) {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showColumnInfo, setShowColumnInfo] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterZone, setFilterZone] = useState('all');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
 
@@ -44,7 +43,7 @@ function MetricsAnalytics({ user }) {
     { key: 'next_calculated_arrival', label: 'Расчетный приход', type: 'date', width: '130px' },
     { key: 'special_season_start', label: 'Спец сезон начало', type: 'date', width: '130px' },
     { key: 'special_season_end', label: 'Спец сезон конец', type: 'date', width: '130px' },
-    { key: 'offer_price', label: 'Цена оффера', type: 'currency', width: '110px' },
+    { key: 'offer_price', label: 'Цена оффера', type: 'currency_uah', width: '110px' },
     { key: 'red_zone_price', label: 'Красная зона', type: 'currency', width: '110px' },
     { key: 'pink_zone_price', label: 'Розовая зона', type: 'currency', width: '110px' },
     { key: 'gold_zone_price', label: 'Золотая зона', type: 'currency', width: '110px' },
@@ -52,7 +51,7 @@ function MetricsAnalytics({ user }) {
     { key: 'offer_zone', label: 'Зона оффера', type: 'zone', width: '120px' },
     { key: 'actual_lead', label: 'Факт лид', type: 'currency_or_text', width: '100px' },
     { key: 'actual_roi_percent', label: 'Факт ROI %', type: 'percentage', width: '100px' },
-    { key: 'depth_selection', label: 'Глубина', type: 'number', width: '90px' },
+    { key: 'depth_selection', label: 'Глубина', type: 'percentage', width: '90px' },
     { key: 'high_stock_high_mcpl', label: 'Большой остаток', type: 'text', width: '120px' },
     { key: 'trend_10_days', label: 'Тренд 10 дней', type: 'text', width: '120px' },
     { key: 'trend_3_days', label: 'Тренд 3 дня', type: 'text', width: '120px' },
@@ -112,14 +111,18 @@ function MetricsAnalytics({ user }) {
         throw new Error('CSV файл должен содержать заголовки и данные');
       }
 
-      // Проверяем количество колонок
-      const headerRow = parsedData.data[0];
+      // Проверяем количество колонок (берем 4-ю строку как эталон)
+      if (parsedData.data.length < 4) {
+        throw new Error('CSV файл должен содержать минимум 4 строки');
+      }
+      
+      const headerRow = parsedData.data[3]; // 4-я строка как заголовки
       if (headerRow.length < 25) {
         throw new Error(`CSV файл должен содержать 25 колонок, найдено: ${headerRow.length}`);
       }
 
-      // Преобразуем данные в объекты
-      const dataRows = parsedData.data.slice(1); // Пропускаем заголовки
+      // Преобразуем данные в объекты, начиная с 5-й строки (индекс 4)
+      const dataRows = parsedData.data.slice(4); // Пропускаем первые 4 строки
       const processedMetrics = dataRows.map(row => processCSVRow(row));
 
       // Сохраняем в базу данных
@@ -241,6 +244,9 @@ function MetricsAnalytics({ user }) {
       case 'currency':
         return <span className="font-mono text-green-600">${Number(value).toFixed(2)}</span>;
       
+      case 'currency_uah':
+        return <span className="font-mono text-green-600">{Number(value).toFixed(2)} ₴</span>;
+      
       case 'currency_or_text':
         if (value === 'нет данных') {
           return <span className="text-gray-500 italic">нет данных</span>;
@@ -305,10 +311,7 @@ function MetricsAnalytics({ user }) {
       metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesZone = filterZone === 'all' || 
-      metric.offer_zone?.toLowerCase().includes(filterZone);
-    
-    return matchesSearch && matchesZone;
+    return matchesSearch;
   }).sort((a, b) => {
     const aValue = a[sortField];
     const bValue = b[sortField];
@@ -432,7 +435,7 @@ function MetricsAnalytics({ user }) {
       {/* Stats */}
       {metrics.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -446,66 +449,6 @@ function MetricsAnalytics({ user }) {
                       </dt>
                       <dd className="text-lg font-semibold text-gray-900">
                         {stats.totalItems}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С данными лидов
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.withActualLead}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний ROI
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.avgROI.toFixed(1)}%
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Activity className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Зон
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.zones.length}
                       </dd>
                     </dl>
                   </div>
@@ -535,18 +478,6 @@ function MetricsAnalytics({ user }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          
-          <select
-            value={filterZone}
-            onChange={(e) => setFilterZone(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Все зоны</option>
-            <option value="красн">Красная зона</option>
-            <option value="розов">Розовая зона</option>
-            <option value="золот">Золотая зона</option>
-            <option value="зелен">Зеленая зона</option>
-          </select>
         </div>
       </div>
 
