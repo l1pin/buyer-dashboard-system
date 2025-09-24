@@ -264,7 +264,7 @@ function CreativePanel({ user }) {
     if (!creativeMetrics || creativeMetrics.length === 0) {
       return (
         <tr className="bg-gray-50">
-          <td colSpan="12" className="px-6 py-4 text-center text-gray-500 text-sm">
+          <td colSpan="17" className="px-6 py-4 text-center text-gray-500 text-sm">
             Нет данных для детализации
           </td>
         </tr>
@@ -273,7 +273,7 @@ function CreativePanel({ user }) {
 
     return (
       <tr className="bg-blue-50 border-t border-blue-200">
-        <td colSpan="12" className="px-6 py-4">
+        <td colSpan="17" className="px-6 py-4">
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -1567,10 +1567,28 @@ function CreativePanel({ user }) {
                         CPL
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Расх
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Клики
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CPC
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <div className="flex items-center space-x-1">
                           <span>CTR</span>
                           <BarChart3 className="h-3 w-3 text-gray-400" title="Кликните для детализации" />
                         </div>
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CPM
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Показы
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Дней
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trello
@@ -1760,6 +1778,72 @@ function CreativePanel({ user }) {
                               </td>
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.cost}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.clicks}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.cpc}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="flex items-center space-x-2">
                                   {metricsLoading ? (
                                     <div className="flex items-center">
@@ -1795,6 +1879,72 @@ function CreativePanel({ user }) {
                                     <span className="text-gray-400">—</span>
                                   )}
                                 </div>
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.cpm}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.impressions}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                              
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {metricsLoading ? (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-black font-bold text-base">
+                                      {aggregatedMetrics.data.formatted.days}
+                                    </span>
+                                    {aggregatedMetrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                        {aggregatedMetrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
                               </td>
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
