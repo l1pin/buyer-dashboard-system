@@ -1,4 +1,4 @@
-// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЕ хуки для метрик - МГНОВЕННАЯ клиентская фильтрация
+// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЕ хуки для метрик - ДИНАМИЧЕСКАЯ загрузка по очереди
 // Замените содержимое src/hooks/useMetrics.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -85,7 +85,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
 }
 
 /**
- * ПЕРЕПИСАННЫЙ хук для батчевой загрузки метрик - МГНОВЕННАЯ фильтрация
+ * ПЕРЕПИСАННЫЙ хук для батчевой загрузки метрик - ДИНАМИЧЕСКАЯ загрузка по очереди
  */
 export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   // Сырые данные за все время (загружаются один раз)
@@ -94,30 +94,47 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   // Отфильтрованные данные (пересчитываются мгновенно)
   const [filteredBatchMetrics, setFilteredBatchMetrics] = useState(new Map());
   
-  const [loading, setLoading] = useState(false);
+  // НОВОЕ: Состояние для отслеживания какие креативы сейчас загружаются
+  const [loadingCreatives, setLoadingCreatives] = useState(new Set());
+  const [globalLoading, setGlobalLoading] = useState(false);
+  
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
+
+  // Ссылка для отмены загрузки
+  const loadingCancelRef = useRef(false);
 
   const loadRawBatchMetrics = useCallback(async () => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
+      setLoadingCreatives(new Set());
       setStats({ total: 0, found: 0, notFound: 0 });
       return;
     }
 
-    setLoading(true);
+    setGlobalLoading(true);
     setError('');
+    loadingCancelRef.current = false;
 
     try {
-      console.log('🚀 Батчевая загрузка СЫРЫХ данных за ВСЕ время...');
+      console.log('🚀 ДИНАМИЧЕСКАЯ батчевая загрузка данных...');
       
-      // Собираем все названия видео из всех креативов
+      // Сортируем креативы по дате создания (НОВЫЕ ПЕРВЫЕ!)
+      const sortedCreatives = [...creatives].sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+
+      console.log(`📅 Креативы отсортированы по дате: свежие первые (${sortedCreatives.length} креативов)`);
+
+      // Собираем все названия видео из всех креативов с привязкой к креативам
       const videoToCreativeMap = new Map();
+      const creativeVideoMap = new Map(); // Для отслеживания видео по креативам
       let totalVideos = 0;
 
-      creatives.forEach(creative => {
+      sortedCreatives.forEach(creative => {
+        const creativeVideos = [];
         if (creative.link_titles && creative.link_titles.length > 0) {
           creative.link_titles.forEach((videoTitle, videoIndex) => {
             if (videoTitle && !videoTitle.startsWith('Видео ')) {
@@ -128,8 +145,12 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
                 videoIndex: videoIndex,
                 videoKey: videoKey
               });
+              creativeVideos.push({ videoTitle, videoKey, videoIndex });
             }
           });
+        }
+        if (creativeVideos.length > 0) {
+          creativeVideoMap.set(creative.id, creativeVideos);
         }
       });
 
@@ -137,46 +158,109 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
         setError('Нет доступных названий видео для поиска метрик');
         setRawBatchMetrics(new Map());
         setFilteredBatchMetrics(new Map());
+        setLoadingCreatives(new Set());
         setStats({ total: 0, found: 0, notFound: 0 });
         return;
       }
 
-      const videoNames = Array.from(videoToCreativeMap.keys());
-      
-      // КЛЮЧЕВОЕ: загружаем сырые данные за ВСЕ время
-      const results = await MetricsService.getBatchVideoMetricsRaw(videoNames);
-      
       const rawMetricsMap = new Map();
+      let processedCount = 0;
+      let successCount = 0;
 
-      results.forEach(result => {
-        const videoMapping = videoToCreativeMap.get(result.videoName);
-        if (videoMapping) {
-          const { videoKey, creativeId, videoIndex } = videoMapping;
-          
-          // Сохраняем сырые данные со всеми днями
-          rawMetricsMap.set(videoKey, {
-            found: result.found,
-            data: result.data,
-            error: result.error,
-            videoName: result.videoName,
-            creativeId: creativeId,
-            videoIndex: videoIndex
-          });
+      // ДИНАМИЧЕСКАЯ загрузка по креативам (от новых к старым)
+      for (const creative of sortedCreatives) {
+        if (loadingCancelRef.current) {
+          console.log('⏹️ Загрузка отменена пользователем');
+          break;
         }
-      });
 
-      // Сохраняем сырые данные за все время
-      setRawBatchMetrics(rawMetricsMap);
+        const creativeVideos = creativeVideoMap.get(creative.id);
+        if (!creativeVideos || creativeVideos.length === 0) {
+          continue;
+        }
+
+        console.log(`🔄 Загружаем метрики для креатива: ${creative.article} (${creativeVideos.length} видео)`);
+        
+        // Помечаем креатив как загружающийся
+        setLoadingCreatives(prev => new Set([...prev, creative.id]));
+
+        // Загружаем все видео этого креатива параллельно
+        const creativePromises = creativeVideos.map(async ({ videoTitle, videoKey, videoIndex }) => {
+          try {
+            // Небольшая задержка для визуального эффекта
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            const result = await MetricsService.getVideoMetricsRaw(videoTitle);
+            
+            return {
+              videoKey,
+              result: {
+                found: result.found,
+                data: result.data,
+                error: result.error,
+                videoName: result.videoName || videoTitle,
+                creativeId: creative.id,
+                videoIndex: videoIndex
+              }
+            };
+          } catch (err) {
+            return {
+              videoKey,
+              result: {
+                found: false,
+                data: null,
+                error: err.message,
+                videoName: videoTitle,
+                creativeId: creative.id,
+                videoIndex: videoIndex
+              }
+            };
+          }
+        });
+
+        // Ждем загрузки всех видео креатива
+        const creativeResults = await Promise.all(creativePromises);
+        
+        // Обновляем результаты для этого креатива
+        let creativeSuccessCount = 0;
+        creativeResults.forEach(({ videoKey, result }) => {
+          rawMetricsMap.set(videoKey, result);
+          processedCount++;
+          if (result.found) {
+            successCount++;
+            creativeSuccessCount++;
+          }
+        });
+
+        // Обновляем состояние после обработки креатива
+        setRawBatchMetrics(new Map(rawMetricsMap));
+        
+        // Убираем креатив из списка загружающихся
+        setLoadingCreatives(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(creative.id);
+          return newSet;
+        });
+
+        console.log(`✅ Креатив "${creative.article}" обработан: ${creativeSuccessCount}/${creativeResults.length} видео с метриками`);
+
+        // Небольшая пауза между креативами для плавности
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       setLastUpdated(new Date());
       
-      console.log('✅ Загружены сырые данные за ВСЕ время');
+      console.log(`🎉 ДИНАМИЧЕСКАЯ загрузка завершена: ${successCount}/${processedCount} метрик найдено`);
 
     } catch (err) {
+      console.error('❌ Ошибка динамической загрузки:', err);
       setError('Ошибка загрузки: ' + err.message);
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
+      setLoadingCreatives(new Set());
+      loadingCancelRef.current = false;
     }
   }, [creatives]);
 
@@ -262,6 +346,11 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     if (autoLoad && creatives) {
       loadRawBatchMetrics();
     }
+    
+    // Отмена загрузки при размонтировании или смене креативов
+    return () => {
+      loadingCancelRef.current = true;
+    };
   }, [creatives, autoLoad, loadRawBatchMetrics]); // period убран из зависимостей!
 
   // Применяем фильтр при изменении периода или сырых данных - МГНОВЕННО
@@ -309,20 +398,29 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     return metrics && metrics.found;
   }, [getVideoMetrics]);
 
+  // НОВАЯ функция: проверка загружается ли конкретный креатив
+  const isCreativeLoading = useCallback((creativeId) => {
+    return loadingCreatives.has(creativeId);
+  }, [loadingCreatives]);
+
   const getSuccessRate = useCallback(() => {
     if (stats.total === 0) return 0;
     return Math.round((stats.found / stats.total) * 100);
   }, [stats]);
 
   const refresh = useCallback(async () => {
-    console.log('🔄 Принудительное обновление сырых метрик...');
+    console.log('🔄 Принудительное обновление с динамической загрузкой...');
+    loadingCancelRef.current = true; // Отменяем текущую загрузку
+    await new Promise(resolve => setTimeout(resolve, 100)); // Ждем отмены
     await loadRawBatchMetrics();
   }, [loadRawBatchMetrics]);
 
   return {
     batchMetrics: filteredBatchMetrics, // Возвращаем отфильтрованные данные
     rawBatchMetrics, // Для отладки
-    loading,
+    loading: globalLoading, // Общий статус загрузки
+    loadingCreatives, // Какие креативы сейчас загружаются
+    isCreativeLoading, // Функция проверки загрузки конкретного креатива
     error,
     stats,
     lastUpdated,
