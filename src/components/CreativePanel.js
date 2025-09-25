@@ -265,21 +265,12 @@ function CreativePanel({ user }) {
       return null;
     }
 
-    // Создаем копию данных и убираем "дн." из дней для режима individual
-    const modifiedData = {
-      ...metric.data,
-      formatted: {
-        ...metric.data.formatted,
-        days: metric.data.raw.days_count ? String(metric.data.raw.days_count) : '0'
-      }
-    };
-
     return {
       found: true,
       videoTitle: creative.link_titles?.[videoIndex] || `Видео ${videoIndex + 1}`,
       videoIndex: videoIndex + 1,
       totalVideos: creativeMetrics.length,
-      data: modifiedData
+      data: metric.data
     };
   };
 
@@ -354,13 +345,7 @@ function CreativePanel({ user }) {
       videoIndex: index,
       videoTitle: creative.link_titles?.[index] || `Видео ${index + 1}`,
       found: metric.found,
-      data: metric.found ? {
-        ...metric.data,
-        formatted: {
-          ...metric.data.formatted,
-          days: metric.data.raw.days_count ? String(metric.data.raw.days_count) : '0'
-        }
-      } : null
+      data: metric.found ? metric.data : null
     }));
   };
 
@@ -1650,14 +1635,13 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 text-sm text-gray-900 align-top">
+                            <td className="px-3 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
                                   creative.link_titles.map((title, index) => (
-                                    <div key={index} className="flex items-center h-7">
+                                    <div key={index} className="flex items-center">
                                       <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
-                                      
-                                      
+                                      <a
                                         href={creative.links[index]}
                                         target="_blank"
                                         rel="noopener noreferrer"
@@ -1712,7 +1696,7 @@ function CreativePanel({ user }) {
                             </td>
                             
                             {/* ОБНОВЛЕННЫЕ колонки метрик */}
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1736,7 +1720,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.leads}
@@ -1753,7 +1737,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1770,7 +1754,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpl}
@@ -1787,7 +1771,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1804,7 +1788,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cost}
@@ -1821,7 +1805,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1838,7 +1822,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.clicks}
@@ -1855,7 +1839,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1872,7 +1856,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpc}
@@ -1889,7 +1873,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1906,7 +1890,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.ctr}
@@ -1923,7 +1907,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1940,7 +1924,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpm}
@@ -1957,7 +1941,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -1974,7 +1958,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.impressions}
@@ -1991,7 +1975,7 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -2008,7 +1992,7 @@ function CreativePanel({ user }) {
                                 allVideoMetrics.length > 0 ? (
                                   <div className="space-y-1">
                                     {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center h-7 flex items-center justify-center">
+                                      <div key={index} className="text-center">
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.days}
