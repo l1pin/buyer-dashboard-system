@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с новыми карточками статистики
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с нейтральными COF и новым порядком колонок
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -264,7 +264,7 @@ function CreativePanel({ user }) {
     if (!creativeMetrics || creativeMetrics.length === 0) {
       return (
         <tr className="bg-gray-50">
-          <td colSpan="12" className="px-6 py-4 text-center text-gray-500 text-sm">
+          <td colSpan="10" className="px-6 py-4 text-center text-gray-500 text-sm">
             Нет данных для детализации
           </td>
         </tr>
@@ -273,7 +273,7 @@ function CreativePanel({ user }) {
 
     return (
       <tr className="bg-blue-50 border-t border-blue-200">
-        <td colSpan="12" className="px-6 py-4">
+        <td colSpan="10" className="px-6 py-4">
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -540,12 +540,9 @@ function CreativePanel({ user }) {
     return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
   };
 
+  // ИЗМЕНЕН: COF теперь нейтральные цвета
   const getCOFBadgeColor = (cof) => {
-    if (cof >= 4) return 'bg-red-600 text-white border-red-600';
-    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300';
-    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300';
-    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200';
-    return 'bg-green-500 text-white border-green-500';
+    return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getCOFStats = () => {
@@ -1124,7 +1121,7 @@ function CreativePanel({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-6 w-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <div className="h-6 w-6 bg-gray-400 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">COF</span>
                     </div>
                   </div>
@@ -1147,7 +1144,7 @@ function CreativePanel({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-orange-500" />
+                    <Target className="h-6 w-6 text-gray-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1533,50 +1530,35 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Дата
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Артикул
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Видео
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Типы работ
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Зона
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Лиды
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CPL
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CTR
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Зоны
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center justify-center">
-                          <Layers className="h-4 w-4 mr-1" />
-                          Зоны
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center justify-center">
-                          <Target className="h-4 w-4 mr-1" />
-                          Текущая
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Лиды
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        CPL
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center space-x-1">
-                          <span>CTR</span>
-                          <BarChart3 className="h-3 w-3 text-gray-400" title="Кликните для детализации" />
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trello
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                        
                       </th>
                     </tr>
                   </thead>
@@ -1597,15 +1579,15 @@ function CreativePanel({ user }) {
                         return (
                           <React.Fragment key={creative.id}>
                             <tr className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="text-center">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                <div>
                                   <div className="font-medium">{formattedDateTime.date}</div>
                                   <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                                 </div>
                               </td>
                               
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center space-x-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
+                                <div className="flex items-center justify-center space-x-2">
                                   <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                     {creative.comment && (
                                       <button
@@ -1635,7 +1617,7 @@ function CreativePanel({ user }) {
                                 </div>
                               </td>
                               
-                              <td className="px-6 py-4 text-sm text-gray-900">
+                              <td className="px-6 py-4 text-sm text-gray-900 text-center">
                                 <div className="space-y-1">
                                   {creative.link_titles && creative.link_titles.length > 0 ? (
                                     creative.link_titles.map((title, index) => (
@@ -1657,65 +1639,22 @@ function CreativePanel({ user }) {
                                   )}
                                 </div>
                               </td>
-                              
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                {creative.work_types && creative.work_types.length > 0 ? (
-                                  <div>
-                                    <button
-                                      onClick={() => toggleWorkTypes(creative.id)}
-                                      className="flex items-center text-blue-600 hover:text-blue-800 focus:outline-none"
-                                    >
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)}`}>
-                                        {getWorkTypeIcon(creative.work_types)}
-                                        <span className="ml-1">
-                                          {isWorkTypesExpanded 
-                                            ? `Скрыть (${creative.work_types.length})` 
-                                            : `${creative.work_types[0]} ${creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}`
-                                          }
-                                        </span>
-                                      </span>
-                                    </button>
-                                    {isWorkTypesExpanded && (
-                                      <div className="mt-2 space-y-1">
-                                        {creative.work_types.map((workType, index) => (
-                                          <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
-                                            {workType}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
 
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
-                                  <span className="text-xs font-bold mr-1">COF</span>
-                                  {formatCOF(cof)}
-                                </span>
-                              </td>
-                              
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                <ZoneDataDisplay article={creative.article} />
-                              </td>
-
-                              <td className="px-6 py-4 text-sm text-gray-900">
+                              <td className="px-6 py-4 text-sm text-gray-900 text-center">
                                 <CurrentZoneDisplay 
                                   article={creative.article} 
                                   aggregatedMetrics={aggregatedMetrics}
                                 />
                               </td>
                               
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 {metricsLoading ? (
-                                  <div className="flex items-center">
+                                  <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
                                     <span className="text-gray-500 text-xs">Загрузка...</span>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
+                                  <div className="flex items-center justify-center space-x-1">
                                     <span className="text-black font-bold text-base">
                                       {aggregatedMetrics.data.formatted.leads}
                                     </span>
@@ -1737,14 +1676,14 @@ function CreativePanel({ user }) {
                                 )}
                               </td>
                               
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 {metricsLoading ? (
-                                  <div className="flex items-center">
+                                  <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
                                     <span className="text-gray-500 text-xs">Загрузка...</span>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
+                                  <div className="flex items-center justify-center space-x-1">
                                     <span className="text-black font-bold text-base">
                                       {aggregatedMetrics.data.formatted.cpl}
                                     </span>
@@ -1759,8 +1698,8 @@ function CreativePanel({ user }) {
                                 )}
                               </td>
                               
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="flex items-center space-x-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                <div className="flex items-center justify-center space-x-2">
                                   {metricsLoading ? (
                                     <div className="flex items-center">
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
@@ -1796,59 +1735,62 @@ function CreativePanel({ user }) {
                                   )}
                                 </div>
                               </td>
-                              
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                —
+
+                              <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                                <ZoneDataDisplay article={creative.article} />
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
+                                {creative.work_types && creative.work_types.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {/* Первая строка: COF рейтинг */}
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                                      <span className="text-xs font-bold mr-1">COF</span>
+                                      {formatCOF(cof)}
+                                    </span>
+                                    
+                                    {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
+                                    <div>
+                                      <button
+                                        onClick={() => toggleWorkTypes(creative.id)}
+                                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
+                                      >
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        <span>
+                                          {isWorkTypesExpanded 
+                                            ? `Скрыть работы` 
+                                            : `Работы (${creative.work_types.length})`
+                                          }
+                                        </span>
+                                        {isWorkTypesExpanded ? (
+                                          <ChevronUp className="h-3 w-3 ml-1" />
+                                        ) : (
+                                          <ChevronDown className="h-3 w-3 ml-1" />
+                                        )}
+                                      </button>
+                                    </div>
+                                    
+                                    {/* Расширенный список работ */}
+                                    {isWorkTypesExpanded && (
+                                      <div className="mt-2 space-y-1 max-w-xs">
+                                        {creative.work_types.map((workType, index) => (
+                                          <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
+                                            <span className="truncate">{workType}</span>
+                                            <span className="text-gray-500 ml-1 flex-shrink-0">
+                                              {formatCOF(workTypeValues[workType] || 0)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
                               </td>
                               
-                              <td className="px-6 py-4 whitespace-nowrap text-center">
-                                <div className="relative">
-                                  <button
-                                    onClick={() => toggleDropdown(creative.id)}
-                                    className="dropdown-trigger text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </button>
-                                  
-                                  {isDropdownOpen && (
-                                    <div className="dropdown-menu absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                                      <div className="py-1">
-                                        <button
-                                          onClick={() => {
-                                            console.log('Редактировать креатив:', creative.id);
-                                            toggleDropdown(creative.id);
-                                          }}
-                                          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-                                        >
-                                          <Edit className="h-4 w-4 mr-2" />
-                                          Редактировать
-                                        </button>
-                                        {debugMode && (
-                                          <button
-                                            onClick={() => {
-                                              debugCreativeMetrics(creative);
-                                              toggleDropdown(creative.id);
-                                            }}
-                                            className="flex items-center w-full px-3 py-2 text-sm text-yellow-700 hover:bg-yellow-50 transition-colors duration-200"
-                                          >
-                                            <Bug className="h-4 w-4 mr-2" />
-                                            Отладить
-                                          </button>
-                                        )}
-                                        <button
-                                          onClick={() => {
-                                            handleDeleteCreative(creative.id, creative.article);
-                                            toggleDropdown(creative.id);
-                                          }}
-                                          className="flex items-center w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors duration-200"
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-2" />
-                                          Удалить
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
+                                —
                               </td>
                             </tr>
                             
@@ -2025,12 +1967,12 @@ function CreativePanel({ user }) {
                 {newCreative.work_types.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {newCreative.work_types.map((type, index) => (
-                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
                         {type} ({formatCOF(workTypeValues[type] || 0)})
                         <button
                           type="button"
                           onClick={() => handleWorkTypeChange(type, false)}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
+                          className="ml-1 text-gray-600 hover:text-gray-800"
                         >
                           <X className="h-3 w-3" />
                         </button>
