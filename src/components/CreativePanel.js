@@ -64,8 +64,7 @@ function CreativePanel({ user }) {
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
-  const [expandedMetrics, setExpandedMetrics] = useState(new Set());
-  const [detailMode, setDetailMode] = useState(new Map()); // 'summary' или 'detailed'
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // Индекс текущего видео для каждого креатива (-1 = общая статистика)
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -247,154 +246,66 @@ function CreativePanel({ user }) {
     };
   };
 
-  // НОВАЯ ФУНКЦИЯ: Переключение детализации метрик
-  const toggleMetricsDetail = (creativeId) => {
-    const newExpanded = new Set(expandedMetrics);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
-    } else {
-      newExpanded.add(creativeId);
-    }
-    setExpandedMetrics(newExpanded);
-  };
+  // НОВАЯ ФУНКЦИЯ: Переключение между общей статистикой и отдельными видео
+  const toggleVideoMetrics = (creativeId) => {
+    const creative = creatives.find(c => c.id === creativeId);
+    if (!creative || !creative.link_titles) return;
 
-  // НОВЫЙ КОМПОНЕНТ: Строки детализации метрик прямо в таблице
-  const MetricsDetailRows = ({ creative }) => {
-    const creativeMetrics = getCreativeMetrics(creative.id);
+    const videoCount = creative.link_titles.length;
+    const currentIndex = currentVideoIndex.get(creativeId) || -1;
     
-    if (!creativeMetrics || creativeMetrics.length === 0) {
-      return null;
+    let nextIndex;
+    if (currentIndex === -1) {
+      // Переходим к первому видео
+      nextIndex = 0;
+    } else if (currentIndex < videoCount - 1) {
+      // Переходим к следующему видео
+      nextIndex = currentIndex + 1;
+    } else {
+      // Возвращаемся к общей статистике
+      nextIndex = -1;
     }
 
-    return creativeMetrics.map((metric, index) => {
-      const videoTitle = creative.link_titles[index] || `Видео ${index + 1}`;
-      const videoLink = creative.links[index];
-      
-      return (
-        <tr key={`${creative.id}-video-${index}`} className="bg-blue-50 border-b border-blue-100">
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-center">
-            <div className="text-xs">Видео {index + 1}</div>
-          </td>
-          
-          <td className="px-3 py-3 text-sm text-gray-900">
-            <div className="flex items-center">
-              <Video className="h-3 w-3 text-blue-600 mr-2 flex-shrink-0" />
-              <span className="block text-left flex-1 mr-2 cursor-text select-text text-xs">{videoTitle}</span>
-              {videoLink && (
-                <a
-                  href={videoLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                  title="Открыть в Google Drive"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </td>
-
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зона */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Кнопка статистики */}
-
-          {/* Метрики */}
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-blue-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.leads}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-green-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpl}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-purple-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cost}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-orange-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.clicks}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpc}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-pink-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.ctr}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-indigo-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpm}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-teal-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.impressions}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.days}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зоны */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* COF */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Trello */}
-        </tr>
-      );
-    });
+    const newMap = new Map(currentVideoIndex);
+    newMap.set(creativeId, nextIndex);
+    setCurrentVideoIndex(newMap);
   };
+
+  // НОВАЯ ФУНКЦИЯ: Получить метрики для отображения (общие или конкретного видео)
+  const getDisplayMetrics = (creative) => {
+    const currentIndex = currentVideoIndex.get(creative.id) || -1;
+    
+    if (currentIndex === -1) {
+      // Показываем общую статистику
+      return getAggregatedCreativeMetrics(creative);
+    } else {
+      // Показываем статистику конкретного видео
+      const creativeMetrics = getCreativeMetrics(creative.id);
+      if (creativeMetrics && creativeMetrics[currentIndex]) {
+        const videoMetric = creativeMetrics[currentIndex];
+        return {
+          ...videoMetric,
+          videoIndex: currentIndex,
+          videoTitle: creative.link_titles[currentIndex] || `Видео ${currentIndex + 1}`
+        };
+      }
+    }
+    return null;
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Получить текст для кнопки
+  const getButtonText = (creative) => {
+    const currentIndex = currentVideoIndex.get(creative.id) || -1;
+    const videoCount = creative.link_titles ? creative.link_titles.length : 0;
+    
+    if (currentIndex === -1) {
+      return `Общая (${videoCount} видео)`;
+    } else {
+      return `Видео ${currentIndex + 1}`;
+    }
+  };
+
+
 
   // Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
@@ -1627,9 +1538,9 @@ function CreativePanel({ user }) {
                           : calculateCOF(creative.work_types || []);
                         
                         const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+                        const displayMetrics = getDisplayMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
-                        const isMetricsExpanded = expandedMetrics.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
@@ -1686,34 +1597,72 @@ function CreativePanel({ user }) {
                               </td>
                               
                               <td className="px-3 py-4 text-sm text-gray-900">
-                                <div className="space-y-1">
-                                  {creative.link_titles && creative.link_titles.length > 0 ? (
-                                    creative.link_titles.map((title, index) => (
-                                      <div key={index} className="flex items-center">
-                                        <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
-                                        <a
-                                          href={creative.links[index]}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                          title="Открыть в Google Drive"
-                                        >
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
+                                {(() => {
+                                  const currentIndex = currentVideoIndex.get(creative.id) || -1;
+                                  
+                                  if (currentIndex === -1) {
+                                    // Показываем все видео как обычно
+                                    return (
+                                      <div className="space-y-1">
+                                        {creative.link_titles && creative.link_titles.length > 0 ? (
+                                          creative.link_titles.map((title, index) => (
+                                            <div key={index} className="flex items-center">
+                                              <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
+                                              <a
+                                                href={creative.links[index]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                                title="Открыть в Google Drive"
+                                              >
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="text-center">
+                                            <span className="text-gray-400 cursor-text select-text">Нет видео</span>
+                                          </div>
+                                        )}
                                       </div>
-                                    ))
-                                  ) : (
-                                    <div className="text-center">
-                                      <span className="text-gray-400 cursor-text select-text">Нет видео</span>
-                                    </div>
-                                  )}
-                                </div>
+                                    );
+                                  } else {
+                                    // Показываем только выбранное видео с выделением
+                                    const selectedTitle = creative.link_titles[currentIndex] || `Видео ${currentIndex + 1}`;
+                                    const selectedLink = creative.links[currentIndex];
+                                    
+                                    return (
+                                      <div className="bg-orange-50 border border-orange-200 rounded-md p-2">
+                                        <div className="flex items-center">
+                                          <div className="flex items-center space-x-2 flex-1">
+                                            <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
+                                            <span className="block text-left cursor-text select-text font-medium text-orange-900">{selectedTitle}</span>
+                                          </div>
+                                          {selectedLink && (
+                                            <a
+                                              href={selectedLink}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-orange-600 hover:text-orange-800 flex-shrink-0"
+                                              title="Открыть в Google Drive"
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-orange-600 mt-1">
+                                          Видео {currentIndex + 1} из {creative.link_titles.length}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                })()}
                               </td>
 
                               <td className="px-3 py-4 text-sm text-gray-900 text-center">
                                 <CurrentZoneDisplay 
                                   article={creative.article} 
-                                  aggregatedMetrics={aggregatedMetrics}
+                                  aggregatedMetrics={displayMetrics}
                                 />
                               </td>
 
@@ -1722,14 +1671,21 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   {aggregatedMetrics?.found && creative.link_titles && creative.link_titles.length > 1 ? (
                                     <button
-                                      onClick={() => toggleMetricsDetail(creative.id)}
-                                      className="text-blue-600 hover:text-blue-800 cursor-pointer p-2 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                      title={isMetricsExpanded ? "Скрыть детальную статистику" : "Показать детальную статистику по каждому видео"}
+                                      onClick={() => toggleVideoMetrics(creative.id)}
+                                      className={`cursor-pointer px-2 py-1 rounded-md transition-colors duration-200 text-xs font-medium border ${
+                                        currentVideoIndex.get(creative.id) === -1 || !currentVideoIndex.has(creative.id)
+                                          ? 'text-blue-600 hover:text-blue-800 hover:bg-blue-100 border-blue-300 bg-blue-50'
+                                          : 'text-orange-600 hover:text-orange-800 hover:bg-orange-100 border-orange-300 bg-orange-50'
+                                      }`}
+                                      title="Переключить между общей статистикой и отдельными видео"
                                     >
-                                      <BarChart3 className="h-4 w-4" />
+                                      <div className="flex items-center space-x-1">
+                                        <BarChart3 className="h-3 w-3" />
+                                        <span>{getButtonText(creative)}</span>
+                                      </div>
                                     </button>
                                   ) : (
-                                    <div className="w-8 h-8"></div> // Пустое место для выравнивания
+                                    <div className="w-24 h-6"></div> // Пустое место для выравнивания
                                   )}
                                 </div>
                               </td>
