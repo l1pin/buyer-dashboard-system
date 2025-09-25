@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с расширенной таблицей метрик
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -46,7 +46,9 @@ import {
   ChevronUp,
   TrendingDown,
   Globe,
-  Star
+  Star,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -64,8 +66,10 @@ function CreativePanel({ user }) {
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
-  const [expandedMetrics, setExpandedMetrics] = useState(new Set());
-  const [detailMode, setDetailMode] = useState(new Map()); // 'summary' или 'detailed'
+  
+  // НОВЫЕ состояния для переключения метрик в той же строке
+  const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -181,7 +185,7 @@ function CreativePanel({ user }) {
     </div>
   );
 
-  // НОВАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
+  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
   const getAggregatedCreativeMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
@@ -247,153 +251,86 @@ function CreativePanel({ user }) {
     };
   };
 
-  // НОВАЯ ФУНКЦИЯ: Переключение детализации метрик
-  const toggleMetricsDetail = (creativeId) => {
-    const newExpanded = new Set(expandedMetrics);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
-    } else {
-      newExpanded.add(creativeId);
-    }
-    setExpandedMetrics(newExpanded);
-  };
-
-  // НОВЫЙ КОМПОНЕНТ: Строки детализации метрик прямо в таблице
-  const MetricsDetailRows = ({ creative }) => {
+  // НОВАЯ ФУНКЦИЯ: Получение метрик для конкретного видео
+  const getIndividualVideoMetrics = (creative, videoIndex) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
-    if (!creativeMetrics || creativeMetrics.length === 0) {
+    if (!creativeMetrics || creativeMetrics.length === 0 || videoIndex >= creativeMetrics.length) {
       return null;
     }
 
-    return creativeMetrics.map((metric, index) => {
-      const videoTitle = creative.link_titles[index] || `Видео ${index + 1}`;
-      const videoLink = creative.links[index];
-      
-      return (
-        <tr key={`${creative.id}-video-${index}`} className="bg-blue-50 border-b border-blue-100">
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-center">
-            <div className="text-xs">Видео {index + 1}</div>
-          </td>
-          
-          <td className="px-3 py-3 text-sm text-gray-900">
-            <div className="flex items-center">
-              <Video className="h-3 w-3 text-blue-600 mr-2 flex-shrink-0" />
-              <span className="block text-left flex-1 mr-2 cursor-text select-text text-xs">{videoTitle}</span>
-              {videoLink && (
-                <a
-                  href={videoLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                  title="Открыть в Google Drive"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </td>
+    const metric = creativeMetrics[videoIndex];
+    
+    if (!metric.found || !metric.data) {
+      return null;
+    }
 
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зона */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Кнопка статистики */}
+    return {
+      found: true,
+      videoTitle: creative.link_titles?.[videoIndex] || `Видео ${videoIndex + 1}`,
+      videoIndex: videoIndex + 1,
+      totalVideos: creativeMetrics.length,
+      data: metric.data
+    };
+  };
 
-          {/* Метрики */}
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-blue-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.leads}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
+  // НОВАЯ ФУНКЦИЯ: Переключение режима отображения метрик
+  const toggleDetailMode = (creativeId) => {
+    const newDetailMode = new Map(detailMode);
+    const currentMode = newDetailMode.get(creativeId) || 'aggregated';
+    
+    if (currentMode === 'aggregated') {
+      newDetailMode.set(creativeId, 'individual');
+      // Устанавливаем начальный индекс видео на 0
+      const newCurrentVideoIndex = new Map(currentVideoIndex);
+      newCurrentVideoIndex.set(creativeId, 0);
+      setCurrentVideoIndex(newCurrentVideoIndex);
+    } else {
+      newDetailMode.set(creativeId, 'aggregated');
+    }
+    
+    setDetailMode(newDetailMode);
+  };
 
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-green-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpl}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
+  // НОВАЯ ФУНКЦИЯ: Переключение на предыдущее видео
+  const previousVideo = (creativeId, creative) => {
+    const newCurrentVideoIndex = new Map(currentVideoIndex);
+    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
+    const maxIndex = (creative.link_titles?.length || 1) - 1;
+    
+    const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex;
+    newCurrentVideoIndex.set(creativeId, newIndex);
+    setCurrentVideoIndex(newCurrentVideoIndex);
+  };
 
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-purple-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cost}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
+  // НОВАЯ ФУНКЦИЯ: Переключение на следующее видео
+  const nextVideo = (creativeId, creative) => {
+    const newCurrentVideoIndex = new Map(currentVideoIndex);
+    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
+    const maxIndex = (creative.link_titles?.length || 1) - 1;
+    
+    const newIndex = currentIndex < maxIndex ? currentIndex + 1 : 0;
+    newCurrentVideoIndex.set(creativeId, newIndex);
+    setCurrentVideoIndex(newCurrentVideoIndex);
+  };
 
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-orange-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.clicks}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpc}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-pink-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.ctr}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-indigo-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.cpm}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-teal-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.impressions}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-            {metric.found && metric.data ? (
-              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
-                {metric.data.formatted.days}
-              </span>
-            ) : (
-              <span className="text-gray-400 text-xs">—</span>
-            )}
-          </td>
-
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зоны */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* COF */}
-          <td className="px-3 py-3 text-sm text-center">—</td> {/* Trello */}
-        </tr>
-      );
-    });
+  // НОВАЯ ФУНКЦИЯ: Получение текущих метрик для отображения
+  const getCurrentMetricsForDisplay = (creative) => {
+    const currentMode = detailMode.get(creative.id) || 'aggregated';
+    
+    if (currentMode === 'aggregated') {
+      return {
+        type: 'aggregated',
+        metrics: getAggregatedCreativeMetrics(creative)
+      };
+    } else {
+      const videoIndex = currentVideoIndex.get(creative.id) || 0;
+      return {
+        type: 'individual',
+        metrics: getIndividualVideoMetrics(creative, videoIndex),
+        videoIndex: videoIndex
+      };
+    }
   };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
@@ -488,8 +425,8 @@ function CreativePanel({ user }) {
   };
 
   // Отображение текущей зоны
-  const CurrentZoneDisplay = ({ article, aggregatedMetrics }) => {
-    if (!aggregatedMetrics?.found || !aggregatedMetrics.data) {
+  const CurrentZoneDisplay = ({ article, metricsData }) => {
+    if (!metricsData?.found || !metricsData.data) {
       return (
         <div className="text-center">
           <span className="text-gray-400 text-xs">—</span>
@@ -497,7 +434,7 @@ function CreativePanel({ user }) {
       );
     }
 
-    const cplString = aggregatedMetrics.data.formatted.cpl;
+    const cplString = metricsData.data.formatted.cpl;
     const cplValue = parseFloat(cplString.replace('$', ''));
 
     if (isNaN(cplValue)) {
@@ -1626,312 +1563,358 @@ function CreativePanel({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+                        const currentDisplayData = getCurrentMetricsForDisplay(creative);
+                        const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
-                        const isMetricsExpanded = expandedMetrics.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
-                          <React.Fragment key={creative.id}>
-                            <tr 
-                              className={`transition-colors duration-200 ${
-                                isMetricsExpanded 
-                                  ? 'bg-blue-50' 
-                                  : 'hover:bg-gray-50'
-                              }`}
-                            >
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                <div className="cursor-text select-text">
-                                  <div className="font-medium">{formattedDateTime.date}</div>
-                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                                </div>
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                    {creative.comment && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          showComment(creative);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                        title="Показать комментарий"
-                                      >
-                                        <MessageCircle className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                  
-                                  {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                                  
-                                  <div className="text-sm font-medium text-gray-900 cursor-text select-text">
-                                    {creative.article}
-                                    {debugMode && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          debugCreativeMetrics(creative);
-                                        }}
-                                        className="ml-2 text-yellow-600 hover:text-yellow-800"
-                                        title="Отладить метрики для этого креатива"
-                                      >
-                                        🐛
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              
-                              <td className="px-3 py-4 text-sm text-gray-900">
-                                <div className="space-y-1">
-                                  {creative.link_titles && creative.link_titles.length > 0 ? (
-                                    creative.link_titles.map((title, index) => (
-                                      <div key={index} className="flex items-center">
-                                        <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
-                                        <a
-                                          href={creative.links[index]}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                          title="Открыть в Google Drive"
-                                        >
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="text-center">
-                                      <span className="text-gray-400 cursor-text select-text">Нет видео</span>
-                                    </div>
+                          <tr 
+                            key={creative.id}
+                            className="transition-colors duration-200 hover:bg-gray-50"
+                          >
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="cursor-text select-text">
+                                <div className="font-medium">{formattedDateTime.date}</div>
+                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center space-x-2">
+                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  {creative.comment && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showComment(creative);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title="Показать комментарий"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </button>
                                   )}
                                 </div>
-                              </td>
-
-                              <td className="px-3 py-4 text-sm text-gray-900 text-center">
-                                <CurrentZoneDisplay 
-                                  article={creative.article} 
-                                  aggregatedMetrics={aggregatedMetrics}
-                                />
-                              </td>
-
-                              {/* Новая колонка с кнопкой статистики */}
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                <div className="flex items-center justify-center">
-                                  {aggregatedMetrics?.found && creative.link_titles && creative.link_titles.length > 1 ? (
+                                
+                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                
+                                <div className="text-sm font-medium text-gray-900 cursor-text select-text">
+                                  {creative.article}
+                                  {debugMode && (
                                     <button
-                                      onClick={() => toggleMetricsDetail(creative.id)}
-                                      className="text-blue-600 hover:text-blue-800 cursor-pointer p-2 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                      title={isMetricsExpanded ? "Скрыть детальную статистику" : "Показать детальную статистику по каждому видео"}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        debugCreativeMetrics(creative);
+                                      }}
+                                      className="ml-2 text-yellow-600 hover:text-yellow-800"
+                                      title="Отладить метрики для этого креатива"
+                                    >
+                                      🐛
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-3 py-4 text-sm text-gray-900">
+                              <div className="space-y-1">
+                                {creative.link_titles && creative.link_titles.length > 0 ? (
+                                  creative.link_titles.map((title, index) => (
+                                    <div key={index} className="flex items-center">
+                                      <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
+                                      <a
+                                        href={creative.links[index]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                        title="Открыть в Google Drive"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center">
+                                    <span className="text-gray-400 cursor-text select-text">Нет видео</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
+                              <CurrentZoneDisplay 
+                                article={creative.article} 
+                                metricsData={currentDisplayData.metrics}
+                              />
+                            </td>
+
+                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="flex items-center justify-center">
+                                {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
+                                  <div className="flex items-center space-x-2">
+                                    {currentMode === 'individual' && (
+                                      <button
+                                        onClick={() => previousVideo(creative.id, creative)}
+                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                                        title="Предыдущее видео"
+                                      >
+                                        <ChevronLeft className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                    
+                                    <button
+                                      onClick={() => toggleDetailMode(creative.id)}
+                                      className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
+                                        currentMode === 'individual' 
+                                          ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200' 
+                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
+                                      }`}
+                                      title={currentMode === 'individual' 
+                                        ? "Показать общую статистику" 
+                                        : "Показать статистику по каждому видео"
+                                      }
                                     >
                                       <BarChart3 className="h-4 w-4" />
                                     </button>
-                                  ) : (
-                                    <div className="w-8 h-8"></div> // Пустое место для выравнивания
+                                    
+                                    {currentMode === 'individual' && (
+                                      <button
+                                        onClick={() => nextVideo(creative.id, creative)}
+                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                                        title="Следующее видео"
+                                      >
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8"></div>
+                                )}
+                              </div>
+
+                              {/* Дополнительная информация в режиме individual */}
+                              {currentMode === 'individual' && currentDisplayData.metrics && (
+                                <div className="mt-1 text-xs text-orange-600 font-medium">
+                                  {currentDisplayData.metrics.videoIndex}/{currentDisplayData.metrics.totalVideos}
+                                </div>
+                              )}
+                            </td>
+                            
+                            {/* ОБНОВЛЕННЫЕ колонки метрик */}
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <div className="flex items-center justify-center space-x-1">
+                                  <span className={`font-bold text-sm cursor-text select-text ${
+                                    currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                  }`}>
+                                    {currentDisplayData.metrics.data.formatted.leads}
+                                  </span>
+                                  {currentMode === 'aggregated' && currentDisplayData.metrics.videoCount > 1 && (
+                                    <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
+                                      {currentDisplayData.metrics.videoCount}
+                                    </span>
                                   )}
                                 </div>
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center justify-center space-x-1">
-                                    <span className="text-black font-bold text-sm cursor-text select-text">
-                                      {aggregatedMetrics.data.formatted.leads}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpl}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cost}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.clicks}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpc}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.ctr}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpm}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.impressions}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.days}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-4 text-sm text-gray-900 text-center">
-                                <ZoneDataDisplay article={creative.article} />
-                              </td>
-
-                              <td className="px-3 py-4 whitespace-nowrap text-center">
-                                {creative.work_types && creative.work_types.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {/* Первая строка: COF рейтинг */}
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`}>
-                                      <span className="text-xs font-bold mr-1">COF</span>
-                                      {formatCOF(cof)}
-                                    </span>
-                                    
-                                    {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
-                                    <div>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleWorkTypes(creative.id);
-                                        }}
-                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
-                                      >
-                                        <Eye className="h-3 w-3 mr-1" />
-                                        <span>
-                                          {isWorkTypesExpanded 
-                                            ? `Скрыть работы` 
-                                            : `Работы (${creative.work_types.length})`
-                                          }
-                                        </span>
-                                        {isWorkTypesExpanded ? (
-                                          <ChevronUp className="h-3 w-3 ml-1" />
-                                        ) : (
-                                          <ChevronDown className="h-3 w-3 ml-1" />
-                                        )}
-                                      </button>
-                                    </div>
-                                    
-                                    {/* Расширенный список работ */}
-                                    {isWorkTypesExpanded && (
-                                      <div className="mt-2 space-y-1 max-w-xs">
-                                        {creative.work_types.map((workType, index) => (
-                                          <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
-                                            <span className="truncate cursor-text select-text">{workType}</span>
-                                            <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
-                                              {formatCOF(workTypeValues[workType] || 0)}
-                                            </span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
-                                <span className="cursor-text select-text">—</span>
-                              </td>
-                            </tr>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
                             
-                            {isMetricsExpanded && (
-                              <MetricsDetailRows creative={creative} />
-                            )}
-                          </React.Fragment>
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.cpl}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.cost}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.clicks}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.cpc}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.ctr}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.cpm}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.impressions}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentDisplayData.metrics?.found ? (
+                                <span className={`font-bold text-sm cursor-text select-text ${
+                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
+                                }`}>
+                                  {currentDisplayData.metrics.data.formatted.days}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
+                              <ZoneDataDisplay article={creative.article} />
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {creative.work_types && creative.work_types.length > 0 ? (
+                                <div className="space-y-1">
+                                  {/* Первая строка: COF рейтинг */}
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`}>
+                                    <span className="text-xs font-bold mr-1">COF</span>
+                                    {formatCOF(cof)}
+                                  </span>
+                                  
+                                  {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
+                                  <div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleWorkTypes(creative.id);
+                                      }}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
+                                    >
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      <span>
+                                        {isWorkTypesExpanded 
+                                          ? `Скрыть работы` 
+                                          : `Работы (${creative.work_types.length})`
+                                        }
+                                      </span>
+                                      {isWorkTypesExpanded ? (
+                                        <ChevronUp className="h-3 w-3 ml-1" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3 ml-1" />
+                                      )}
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Расширенный список работ */}
+                                  {isWorkTypesExpanded && (
+                                    <div className="mt-2 space-y-1 max-w-xs">
+                                      {creative.work_types.map((workType, index) => (
+                                        <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
+                                          <span className="truncate cursor-text select-text">{workType}</span>
+                                          <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
+                                            {formatCOF(workTypeValues[workType] || 0)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
+                              <span className="cursor-text select-text">—</span>
+                            </td>
+                          </tr>
                         );
                       })}
                   </tbody>
