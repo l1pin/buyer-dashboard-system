@@ -1617,17 +1617,17 @@ function CreativePanel({ user }) {
                                 </div>
                               </td>
                               
-                              <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                              <td className="px-6 py-4 text-sm text-gray-900">
                                 <div className="space-y-1">
                                   {creative.link_titles && creative.link_titles.length > 0 ? (
                                     creative.link_titles.map((title, index) => (
-                                      <div key={index} className="flex items-center justify-between">
-                                        <span className="block">{title}</span>
+                                      <div key={index} className="flex items-center">
+                                        <span className="block text-left flex-1 mr-2">{title}</span>
                                         <a
                                           href={creative.links[index]}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                          className="text-blue-600 hover:text-blue-800 flex-shrink-0"
                                           title="Открыть в Google Drive"
                                         >
                                           <ExternalLink className="h-3 w-3" />
@@ -1635,7 +1635,9 @@ function CreativePanel({ user }) {
                                       </div>
                                     ))
                                   ) : (
-                                    <span className="text-gray-400">Нет видео</span>
+                                    <div className="text-center">
+                                      <span className="text-gray-400">Нет видео</span>
+                                    </div>
                                   )}
                                 </div>
                               </td>
