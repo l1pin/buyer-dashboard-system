@@ -1122,7 +1122,7 @@ function CreativePanel({ user }) {
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">COF</span>
+                      <span className="text-white font-bold" style={{fontSize: '10px'}}>COF</span>
                     </div>
                   </div>
                   <div className="ml-3 w-0 flex-1">
