@@ -1613,13 +1613,11 @@ function CreativePanel({ user }) {
                         return (
                           <React.Fragment key={creative.id}>
                             <tr 
-                              className={`cursor-pointer transition-colors duration-200 ${
+                              className={`transition-colors duration-200 ${
                                 isMetricsExpanded 
-                                  ? 'bg-blue-50 hover:bg-blue-100' 
+                                  ? 'bg-blue-50' 
                                   : 'hover:bg-gray-50'
                               }`}
-                              onClick={() => toggleMetricsDetail(creative.id)}
-                              title="Нажмите для просмотра детальной статистики по видео"
                             >
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 <div className="flex items-center justify-center space-x-2">
@@ -1650,6 +1648,7 @@ function CreativePanel({ user }) {
                                         }}
                                         className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                         title="Показать комментарий"
+                                        style={{pointerEvents: 'auto'}}
                                       >
                                         <MessageCircle className="h-4 w-4" />
                                       </button>
@@ -1658,7 +1657,7 @@ function CreativePanel({ user }) {
                                   
                                   {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                   
-                                  <div className="text-sm font-medium text-gray-900">
+                                  <div className="text-sm font-medium text-gray-900 cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {creative.article}
                                     {debugMode && (
                                       <button
@@ -1668,6 +1667,7 @@ function CreativePanel({ user }) {
                                         }}
                                         className="ml-2 text-yellow-600 hover:text-yellow-800"
                                         title="Отладить метрики для этого креатива"
+                                        style={{pointerEvents: 'auto'}}
                                       >
                                         🐛
                                       </button>
@@ -1681,7 +1681,7 @@ function CreativePanel({ user }) {
                                   {creative.link_titles && creative.link_titles.length > 0 ? (
                                     creative.link_titles.map((title, index) => (
                                       <div key={index} className="flex items-center">
-                                        <span className="block text-left flex-1 mr-2">{title}</span>
+                                        <span className="block text-left flex-1 mr-2 cursor-text select-text" style={{pointerEvents: 'none'}}>{title}</span>
                                         <a
                                           href={creative.links[index]}
                                           target="_blank"
@@ -1689,6 +1689,7 @@ function CreativePanel({ user }) {
                                           onClick={(e) => e.stopPropagation()}
                                           className="text-blue-600 hover:text-blue-800 flex-shrink-0"
                                           title="Открыть в Google Drive"
+                                          style={{pointerEvents: 'auto'}}
                                         >
                                           <ExternalLink className="h-3 w-3" />
                                         </a>
@@ -1696,7 +1697,7 @@ function CreativePanel({ user }) {
                                     ))
                                   ) : (
                                     <div className="text-center">
-                                      <span className="text-gray-400">Нет видео</span>
+                                      <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>Нет видео</span>
                                     </div>
                                   )}
                                 </div>
@@ -1716,17 +1717,17 @@ function CreativePanel({ user }) {
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
                                   <div className="flex items-center justify-center space-x-1">
-                                    <span className="text-black font-bold text-sm">
+                                    <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                       {aggregatedMetrics.data.formatted.leads}
                                     </span>
                                     {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text" style={{pointerEvents: 'none'}}>
                                         {aggregatedMetrics.videoCount}
                                       </span>
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
                               
@@ -1736,11 +1737,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.cpl}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1750,11 +1751,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.cost}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1764,11 +1765,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.clicks}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1778,11 +1779,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.cpc}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
                               
@@ -1792,11 +1793,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.ctr}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1806,11 +1807,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.cpm}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1820,11 +1821,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.impressions}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1834,11 +1835,11 @@ function CreativePanel({ user }) {
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
-                                  <span className="text-black font-bold text-sm">
+                                  <span className="text-black font-bold text-sm cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     {aggregatedMetrics.data.formatted.days}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
 
@@ -1850,7 +1851,7 @@ function CreativePanel({ user }) {
                                 {creative.work_types && creative.work_types.length > 0 ? (
                                   <div className="space-y-1">
                                     {/* Первая строка: COF рейтинг */}
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`} style={{pointerEvents: 'none'}}>
                                       <span className="text-xs font-bold mr-1">COF</span>
                                       {formatCOF(cof)}
                                     </span>
@@ -1863,6 +1864,7 @@ function CreativePanel({ user }) {
                                           toggleWorkTypes(creative.id);
                                         }}
                                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
+                                        style={{pointerEvents: 'auto'}}
                                       >
                                         <Eye className="h-3 w-3 mr-1" />
                                         <span>
@@ -1884,8 +1886,8 @@ function CreativePanel({ user }) {
                                       <div className="mt-2 space-y-1 max-w-xs">
                                         {creative.work_types.map((workType, index) => (
                                           <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
-                                            <span className="truncate">{workType}</span>
-                                            <span className="text-gray-500 ml-1 flex-shrink-0">
+                                            <span className="truncate cursor-text select-text" style={{pointerEvents: 'none'}}>{workType}</span>
+                                            <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text" style={{pointerEvents: 'none'}}>
                                               {formatCOF(workTypeValues[workType] || 0)}
                                             </span>
                                           </div>
@@ -1894,12 +1896,12 @@ function CreativePanel({ user }) {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400 cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                                 )}
                               </td>
                               
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
-                                —
+                                <span className="cursor-text select-text" style={{pointerEvents: 'none'}}>—</span>
                               </td>
                             </tr>
                             
