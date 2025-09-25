@@ -1,4 +1,4 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с нейтральными COF и новым порядком колонок
+// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с новыми карточками статистики
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
@@ -1049,7 +1049,7 @@ function CreativePanel({ user }) {
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
-            {/* Креативы */}
+            {/* Креативов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1075,7 +1075,7 @@ function CreativePanel({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <MessageCircle className="h-6 w-6 text-indigo-500" />
+                    <MessageCircle className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1091,12 +1091,12 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            {/* По странам */}
+            {/* UA/PL */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Globe className="h-6 w-6 text-emerald-500" />
+                    <Globe className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1121,7 +1121,7 @@ function CreativePanel({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-6 w-6 bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">COF</span>
                     </div>
                   </div>
@@ -1144,7 +1144,7 @@ function CreativePanel({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-gray-500" />
+                    <Target className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1253,7 +1253,7 @@ function CreativePanel({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Users className="h-6 w-6 text-purple-500" />
+                      <Users className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1274,12 +1274,14 @@ function CreativePanel({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Target className="h-6 w-6 text-green-500" />
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">CPL</span>
+                      </div>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. CPL
+                          CPL
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           ${creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
@@ -1297,7 +1299,7 @@ function CreativePanel({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <DollarSign className="h-6 w-6 text-green-500" />
+                      <DollarSign className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1313,77 +1315,14 @@ function CreativePanel({ user }) {
                 </div>
               </div>
 
-              {/* CTR */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-pink-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CTR
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {formatStats().avgCTR}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPC */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. CPC
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          ${aggregatedMetricsStats.totalClicks > 0 ? 
-                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) : 
-                            '0.00'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Показы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Eye className="h-6 w-6 text-indigo-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Показы
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Клики */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-orange-500" />
+                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                      </svg>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1399,12 +1338,110 @@ function CreativePanel({ user }) {
                 </div>
               </div>
 
+              {/* CPC */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">CPC</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CPC
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          ${aggregatedMetricsStats.totalClicks > 0 ? 
+                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) : 
+                            '0.00'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTR */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">CTR</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CTR
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {formatStats().avgCTR}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CPM */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">CPM</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CPM
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          ${aggregatedMetricsStats.totalImpressions > 0 ? 
+                            ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) : 
+                            '0.00'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Показы */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Eye className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Показы
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Ср. лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <polyline points="17 11 19 13 23 9" />
+                      </svg>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1413,27 +1450,6 @@ function CreativePanel({ user }) {
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ср. расходы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <BarChart3 className="h-6 w-6 text-red-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. расходы
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          ${creatives.length > 0 ? (aggregatedMetricsStats.totalCost / creatives.length).toFixed(2) : '0.00'}
                         </dd>
                       </dl>
                     </div>
