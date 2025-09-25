@@ -81,6 +81,8 @@ function CreativePanel({ user }) {
   const { 
     batchMetrics, 
     loading: metricsLoading, 
+    loadingCreatives,
+    isCreativeLoading,
     error: metricsError,
     stats: metricsStats,
     getVideoMetrics,
@@ -1448,7 +1450,8 @@ function CreativePanel({ user }) {
               <div className="flex items-center space-x-2">
                 <Activity className="h-4 w-4 text-blue-500" />
                 <span className="text-blue-600">
-                  {metricsLoading ? 'Загрузка метрик...' : 
+                  {metricsLoading ? 
+                    `Загрузка метрик... (${loadingCreatives.size} креативов в обработке)` : 
                    metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
                    `Метрики (${getPeriodButtonText()}) включены`}
                 </span>
@@ -1650,10 +1653,9 @@ function CreativePanel({ user }) {
                               </td>
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
+                                {isCreativeLoading(creative.id) ? (
                                   <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
                                   <div className="flex items-center justify-center space-x-1">
@@ -1679,10 +1681,9 @@ function CreativePanel({ user }) {
                               </td>
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
+                                {isCreativeLoading(creative.id) ? (
                                   <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                   </div>
                                 ) : aggregatedMetrics?.found ? (
                                   <div className="flex items-center justify-center space-x-1">
@@ -1702,11 +1703,8 @@ function CreativePanel({ user }) {
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 <div className="flex items-center justify-center space-x-2">
-                                  {metricsLoading ? (
-                                    <div className="flex items-center">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                      <span className="text-gray-500 text-xs">Загрузка...</span>
-                                    </div>
+                                  {isCreativeLoading(creative.id) ? (
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                   ) : aggregatedMetrics?.found ? (
                                     <>
                                       <div className="flex items-center space-x-1">
