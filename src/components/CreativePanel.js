@@ -180,6 +180,65 @@ function CreativePanel({ user }) {
     </div>
   );
 
+  // НОВАЯ ФУНКЦИЯ: Переключение между общей статистикой и отдельными видео
+  const toggleVideoMetrics = (creativeId) => {
+    const creative = creatives.find(c => c.id === creativeId);
+    if (!creative || !creative.link_titles) return;
+
+    const videoCount = creative.link_titles.length;
+    const currentIndex = currentVideoIndex.get(creativeId) || -1;
+    
+    let nextIndex;
+    if (currentIndex === -1) {
+      // Переходим к первому видео
+      nextIndex = 0;
+    } else if (currentIndex < videoCount - 1) {
+      // Переходим к следующему видео
+      nextIndex = currentIndex + 1;
+    } else {
+      // Возвращаемся к общей статистике
+      nextIndex = -1;
+    }
+
+    const newMap = new Map(currentVideoIndex);
+    newMap.set(creativeId, nextIndex);
+    setCurrentVideoIndex(newMap);
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Получить метрики для отображения (общие или конкретного видео)
+  const getDisplayMetrics = (creative) => {
+    const currentIndex = currentVideoIndex.get(creative.id) || -1;
+    
+    if (currentIndex === -1) {
+      // Показываем общую статистику
+      return getAggregatedCreativeMetrics(creative);
+    } else {
+      // Показываем статистику конкретного видео
+      const creativeMetrics = getCreativeMetrics(creative.id);
+      if (creativeMetrics && creativeMetrics[currentIndex]) {
+        const videoMetric = creativeMetrics[currentIndex];
+        return {
+          ...videoMetric,
+          videoIndex: currentIndex,
+          videoTitle: creative.link_titles[currentIndex] || `Видео ${currentIndex + 1}`
+        };
+      }
+    }
+    return null;
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Получить текст для кнопки
+  const getButtonText = (creative) => {
+    const currentIndex = currentVideoIndex.get(creative.id) || -1;
+    const videoCount = creative.link_titles ? creative.link_titles.length : 0;
+    
+    if (currentIndex === -1) {
+      return `Общая (${videoCount} видео)`;
+    } else {
+      return `Видео ${currentIndex + 1}`;
+    }
+  };
+
   // НОВАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
   const getAggregatedCreativeMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
@@ -245,67 +304,6 @@ function CreativePanel({ user }) {
       }
     };
   };
-
-  // НОВАЯ ФУНКЦИЯ: Переключение между общей статистикой и отдельными видео
-  const toggleVideoMetrics = (creativeId) => {
-    const creative = creatives.find(c => c.id === creativeId);
-    if (!creative || !creative.link_titles) return;
-
-    const videoCount = creative.link_titles.length;
-    const currentIndex = currentVideoIndex.get(creativeId) || -1;
-    
-    let nextIndex;
-    if (currentIndex === -1) {
-      // Переходим к первому видео
-      nextIndex = 0;
-    } else if (currentIndex < videoCount - 1) {
-      // Переходим к следующему видео
-      nextIndex = currentIndex + 1;
-    } else {
-      // Возвращаемся к общей статистике
-      nextIndex = -1;
-    }
-
-    const newMap = new Map(currentVideoIndex);
-    newMap.set(creativeId, nextIndex);
-    setCurrentVideoIndex(newMap);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получить метрики для отображения (общие или конкретного видео)
-  const getDisplayMetrics = (creative) => {
-    const currentIndex = currentVideoIndex.get(creative.id) || -1;
-    
-    if (currentIndex === -1) {
-      // Показываем общую статистику
-      return getAggregatedCreativeMetrics(creative);
-    } else {
-      // Показываем статистику конкретного видео
-      const creativeMetrics = getCreativeMetrics(creative.id);
-      if (creativeMetrics && creativeMetrics[currentIndex]) {
-        const videoMetric = creativeMetrics[currentIndex];
-        return {
-          ...videoMetric,
-          videoIndex: currentIndex,
-          videoTitle: creative.link_titles[currentIndex] || `Видео ${currentIndex + 1}`
-        };
-      }
-    }
-    return null;
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получить текст для кнопки
-  const getButtonText = (creative) => {
-    const currentIndex = currentVideoIndex.get(creative.id) || -1;
-    const videoCount = creative.link_titles ? creative.link_titles.length : 0;
-    
-    if (currentIndex === -1) {
-      return `Общая (${videoCount} видео)`;
-    } else {
-      return `Видео ${currentIndex + 1}`;
-    }
-  };
-
-
 
   // Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
@@ -1545,9 +1543,7 @@ function CreativePanel({ user }) {
                         
                         return (
                           <React.Fragment key={creative.id}>
-                            <tr 
-                              className="transition-colors duration-200 hover:bg-gray-50"
-                            >
+                            <tr className="transition-colors duration-200 hover:bg-gray-50">
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 <div className="cursor-text select-text">
                                   <div className="font-medium">{formattedDateTime.date}</div>
@@ -1681,7 +1677,7 @@ function CreativePanel({ user }) {
                                       </div>
                                     </button>
                                   ) : (
-                                    <div className="w-24 h-6"></div> // Пустое место для выравнивания
+                                    <div className="w-24 h-6"></div>
                                   )}
                                 </div>
                               </td>
@@ -1691,30 +1687,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center justify-center space-x-1">
-                                    <span className="text-black font-bold text-sm cursor-text select-text">
-                                      {aggregatedMetrics.data.formatted.leads}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                {metricsLoading ? (
-                                  <div className="flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpl}
+                                    {displayMetrics.data.formatted.leads}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1726,9 +1701,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cost}
+                                    {displayMetrics.data.formatted.cpl}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1740,9 +1715,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.clicks}
+                                    {displayMetrics.data.formatted.cost}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1754,9 +1729,23 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpc}
+                                    {displayMetrics.data.formatted.clicks}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )}
+                              </td>
+
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                {metricsLoading ? (
+                                  <div className="flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                  </div>
+                                ) : displayMetrics?.found ? (
+                                  <span className="text-black font-bold text-sm cursor-text select-text">
+                                    {displayMetrics.data.formatted.cpc}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1768,9 +1757,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.ctr}
+                                    {displayMetrics.data.formatted.ctr}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1782,9 +1771,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.cpm}
+                                    {displayMetrics.data.formatted.cpm}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1796,9 +1785,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.impressions}
+                                    {displayMetrics.data.formatted.impressions}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1810,9 +1799,9 @@ function CreativePanel({ user }) {
                                   <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   </div>
-                                ) : aggregatedMetrics?.found ? (
+                                ) : displayMetrics?.found ? (
                                   <span className="text-black font-bold text-sm cursor-text select-text">
-                                    {aggregatedMetrics.data.formatted.days}
+                                    {displayMetrics.data.formatted.days}
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -1879,10 +1868,6 @@ function CreativePanel({ user }) {
                                 <span className="cursor-text select-text">—</span>
                               </td>
                             </tr>
-                            
-                            {isMetricsExpanded && (
-                              <MetricsDetailRows creative={creative} />
-                            )}
                           </React.Fragment>
                         );
                       })}
