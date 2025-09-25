@@ -1546,11 +1546,7 @@ function CreativePanel({ user }) {
                         return (
                           <React.Fragment key={creative.id}>
                             <tr 
-                              className={`transition-colors duration-200 ${
-                                isMetricsExpanded 
-                                  ? 'bg-blue-50' 
-                                  : 'hover:bg-gray-50'
-                              }`}
+                              className="transition-colors duration-200 hover:bg-gray-50"
                             >
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 <div className="cursor-text select-text">
