@@ -67,9 +67,7 @@ function CreativePanel({ user }) {
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
   
-  // НОВЫЕ состояния для переключения метрик в той же строке
-  const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
+  // Убрано: состояния для переключения метрик - теперь показываем все видео сразу
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -274,63 +272,20 @@ function CreativePanel({ user }) {
     };
   };
 
-  // НОВАЯ ФУНКЦИЯ: Переключение режима отображения метрик
-  const toggleDetailMode = (creativeId) => {
-    const newDetailMode = new Map(detailMode);
-    const currentMode = newDetailMode.get(creativeId) || 'aggregated';
+  // НОВАЯ ФУНКЦИЯ: Получение всех метрик видео для отображения
+  const getAllVideoMetrics = (creative) => {
+    const creativeMetrics = getCreativeMetrics(creative.id);
     
-    if (currentMode === 'aggregated') {
-      newDetailMode.set(creativeId, 'individual');
-      // Устанавливаем начальный индекс видео на 0
-      const newCurrentVideoIndex = new Map(currentVideoIndex);
-      newCurrentVideoIndex.set(creativeId, 0);
-      setCurrentVideoIndex(newCurrentVideoIndex);
-    } else {
-      newDetailMode.set(creativeId, 'aggregated');
+    if (!creativeMetrics || creativeMetrics.length === 0) {
+      return [];
     }
-    
-    setDetailMode(newDetailMode);
-  };
 
-  // НОВАЯ ФУНКЦИЯ: Переключение на предыдущее видео
-  const previousVideo = (creativeId, creative) => {
-    const newCurrentVideoIndex = new Map(currentVideoIndex);
-    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
-    const maxIndex = (creative.link_titles?.length || 1) - 1;
-    
-    const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex;
-    newCurrentVideoIndex.set(creativeId, newIndex);
-    setCurrentVideoIndex(newCurrentVideoIndex);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Переключение на следующее видео
-  const nextVideo = (creativeId, creative) => {
-    const newCurrentVideoIndex = new Map(currentVideoIndex);
-    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
-    const maxIndex = (creative.link_titles?.length || 1) - 1;
-    
-    const newIndex = currentIndex < maxIndex ? currentIndex + 1 : 0;
-    newCurrentVideoIndex.set(creativeId, newIndex);
-    setCurrentVideoIndex(newCurrentVideoIndex);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получение текущих метрик для отображения
-  const getCurrentMetricsForDisplay = (creative) => {
-    const currentMode = detailMode.get(creative.id) || 'aggregated';
-    
-    if (currentMode === 'aggregated') {
-      return {
-        type: 'aggregated',
-        metrics: getAggregatedCreativeMetrics(creative)
-      };
-    } else {
-      const videoIndex = currentVideoIndex.get(creative.id) || 0;
-      return {
-        type: 'individual',
-        metrics: getIndividualVideoMetrics(creative, videoIndex),
-        videoIndex: videoIndex
-      };
-    }
+    return creativeMetrics.map((metric, index) => ({
+      videoIndex: index,
+      videoTitle: creative.link_titles?.[index] || `Видео ${index + 1}`,
+      found: metric.found,
+      data: metric.found ? metric.data : null
+    }));
   };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
@@ -1515,7 +1470,7 @@ function CreativePanel({ user }) {
                         Зона
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <BarChart3 className="h-4 w-4 mx-auto" />
+                        Количество
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Лиды
@@ -1563,8 +1518,7 @@ function CreativePanel({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        const currentDisplayData = getCurrentMetricsForDisplay(creative);
-                        const currentMode = detailMode.get(creative.id) || 'aggregated';
+                        const allVideoMetrics = getAllVideoMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
@@ -1646,210 +1600,240 @@ function CreativePanel({ user }) {
                             <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               <CurrentZoneDisplay 
                                 article={creative.article} 
-                                metricsData={currentDisplayData.metrics}
+                                metricsData={getAggregatedCreativeMetrics(creative)}
                               />
                             </td>
 
-                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
+                            {/* Количество видео */}
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="flex items-center justify-center">
-                                {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
-                                  <div className="flex items-center space-x-2">
-                                    {currentMode === 'individual' && (
-                                      <button
-                                        onClick={() => previousVideo(creative.id, creative)}
-                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                                        title="Предыдущее видео"
-                                      >
-                                        <ChevronLeft className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                    
-                                    <button
-                                      onClick={() => toggleDetailMode(creative.id)}
-                                      className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
-                                        currentMode === 'individual' 
-                                          ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200' 
-                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
-                                      }`}
-                                      title={currentMode === 'individual' 
-                                        ? "Показать общую статистику" 
-                                        : "Показать статистику по каждому видео"
-                                      }
-                                    >
-                                      <BarChart3 className="h-4 w-4" />
-                                    </button>
-                                    
-                                    {currentMode === 'individual' && (
-                                      <button
-                                        onClick={() => nextVideo(creative.id, creative)}
-                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                                        title="Следующее видео"
-                                      >
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="w-8 h-8"></div>
-                                )}
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300">
+                                  <Video className="h-3 w-3 mr-1" />
+                                  {creative.link_titles?.length || 0}
+                                </span>
                               </div>
-
-                              {/* Дополнительная информация в режиме individual */}
-                              {currentMode === 'individual' && currentDisplayData.metrics && (
-                                <div className="mt-1 text-xs text-orange-600 font-medium">
-                                  {currentDisplayData.metrics.videoIndex}/{currentDisplayData.metrics.totalVideos}
-                                </div>
-                              )}
                             </td>
                             
-                            {/* ОБНОВЛЕННЫЕ колонки метрик */}
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* Лиды */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <div className="flex items-center justify-center space-x-1">
-                                  <span className={`font-bold text-sm cursor-text select-text ${
-                                    currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                  }`}>
-                                    {currentDisplayData.metrics.data.formatted.leads}
-                                  </span>
-                                  {currentMode === 'aggregated' && currentDisplayData.metrics.videoCount > 1 && (
-                                    <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                      {currentDisplayData.metrics.videoCount}
-                                    </span>
-                                  )}
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.leads}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* CPL */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.cpl}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.cpl}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* Расходы */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.cost}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.cost}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* Клики */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.clicks}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.clicks}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* CPC */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.cpc}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.cpc}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* CTR */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.ctr}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.ctr}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* CPM */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.cpm}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.cpm}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* Показы */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.impressions}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.impressions}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            {/* Дни */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentDisplayData.metrics?.found ? (
-                                <span className={`font-bold text-sm cursor-text select-text ${
-                                  currentMode === 'individual' ? 'text-orange-700' : 'text-black'
-                                }`}>
-                                  {currentDisplayData.metrics.data.formatted.days}
-                                </span>
+                              ) : allVideoMetrics.length > 0 ? (
+                                <div className="space-y-1">
+                                  {allVideoMetrics.map((videoMetric, index) => (
+                                    <div key={index} className="text-center">
+                                      {videoMetric.found ? (
+                                        <span className="font-bold text-sm cursor-text select-text text-black">
+                                          {videoMetric.data.formatted.days}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
