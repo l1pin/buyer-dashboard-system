@@ -1612,11 +1612,30 @@ function CreativePanel({ user }) {
                         
                         return (
                           <React.Fragment key={creative.id}>
-                            <tr className="hover:bg-gray-50">
+                            <tr 
+                              className={`cursor-pointer transition-colors duration-200 ${
+                                isMetricsExpanded 
+                                  ? 'bg-blue-50 hover:bg-blue-100' 
+                                  : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => toggleMetricsDetail(creative.id)}
+                              title="Нажмите для просмотра детальной статистики по видео"
+                            >
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                <div>
-                                  <div className="font-medium">{formattedDateTime.date}</div>
-                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div>
+                                    <div className="font-medium">{formattedDateTime.date}</div>
+                                    <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                  </div>
+                                  {aggregatedMetrics?.found && (
+                                    <div className="text-blue-500">
+                                      {isMetricsExpanded ? (
+                                        <ChevronUp className="h-3 w-3" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3" />
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                               
@@ -1625,7 +1644,10 @@ function CreativePanel({ user }) {
                                   <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                     {creative.comment && (
                                       <button
-                                        onClick={() => showComment(creative)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          showComment(creative);
+                                        }}
                                         className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                         title="Показать комментарий"
                                       >
@@ -1640,7 +1662,10 @@ function CreativePanel({ user }) {
                                     {creative.article}
                                     {debugMode && (
                                       <button
-                                        onClick={() => debugCreativeMetrics(creative)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          debugCreativeMetrics(creative);
+                                        }}
                                         className="ml-2 text-yellow-600 hover:text-yellow-800"
                                         title="Отладить метрики для этого креатива"
                                       >
@@ -1661,6 +1686,7 @@ function CreativePanel({ user }) {
                                           href={creative.links[index]}
                                           target="_blank"
                                           rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
                                           className="text-blue-600 hover:text-blue-800 flex-shrink-0"
                                           title="Открыть в Google Drive"
                                         >
@@ -1761,31 +1787,17 @@ function CreativePanel({ user }) {
                               </td>
                               
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  {metricsLoading ? (
+                                {metricsLoading ? (
+                                  <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  ) : aggregatedMetrics?.found ? (
-                                    <>
-                                      <span className="text-black font-bold text-sm">
-                                        {aggregatedMetrics.data.formatted.ctr}
-                                      </span>
-                                      
-                                      <button
-                                        onClick={() => toggleMetricsDetail(creative.id)}
-                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors duration-200"
-                                        title="Показать детальную статистику по каждому видео"
-                                      >
-                                        {isMetricsExpanded ? (
-                                          <ChevronUp className="h-3 w-3" />
-                                        ) : (
-                                          <ChevronDown className="h-3 w-3" />
-                                        )}
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <span className="text-gray-400">—</span>
-                                  )}
-                                </div>
+                                  </div>
+                                ) : aggregatedMetrics?.found ? (
+                                  <span className="text-black font-bold text-sm">
+                                    {aggregatedMetrics.data.formatted.ctr}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
                               </td>
 
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
@@ -1846,7 +1858,10 @@ function CreativePanel({ user }) {
                                     {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
                                     <div>
                                       <button
-                                        onClick={() => toggleWorkTypes(creative.id)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleWorkTypes(creative.id);
+                                        }}
                                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
                                       >
                                         <Eye className="h-3 w-3 mr-1" />
