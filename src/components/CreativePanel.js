@@ -1623,7 +1623,7 @@ function CreativePanel({ user }) {
                             >
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                 <div className="flex items-center justify-center space-x-2">
-                                  <div>
+                                  <div className="cursor-text select-text" style={{pointerEvents: 'none'}}>
                                     <div className="font-medium">{formattedDateTime.date}</div>
                                     <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                                   </div>
