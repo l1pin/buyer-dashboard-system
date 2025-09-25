@@ -1672,16 +1672,6 @@ function CreativePanel({ user }) {
                               <div className="flex items-center justify-center">
                                 {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
                                   <div className="flex items-center space-x-2">
-                                    {currentMode === 'individual' && (
-                                      <button
-                                        onClick={() => previousVideo(creative.id, creative)}
-                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                                        title="Предыдущее видео"
-                                      >
-                                        <ChevronLeft className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                    
                                     <button
                                       onClick={() => toggleDetailMode(creative.id)}
                                       className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
@@ -1689,35 +1679,20 @@ function CreativePanel({ user }) {
                                           ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200' 
                                           : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
                                       }`}
-                                      title={currentMode === 'individual' 
-                                        ? "Показать общую статистику" 
-                                        : "Показать статистику по каждому видео"
+                                      title={currentMode === 'aggregated' 
+                                        ? "Показать статистику по каждому видео" 
+                                        : "Показать общую статистику"
                                       }
                                     >
                                       <BarChart3 className="h-4 w-4" />
                                     </button>
-                                    
-                                    {currentMode === 'individual' && (
-                                      <button
-                                        onClick={() => nextVideo(creative.id, creative)}
-                                        className="text-gray-600 hover:text-gray-800 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                                        title="Следующее видео"
-                                      >
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                    )}
                                   </div>
                                 ) : (
                                   <div className="w-8 h-8"></div>
                                 )}
                               </div>
 
-                              {/* Дополнительная информация в режиме individual */}
-                              {currentMode === 'individual' && currentDisplayData.metrics && (
-                                <div className="mt-1 text-xs text-orange-600 font-medium">
-                                  {currentDisplayData.metrics.videoIndex}/{currentDisplayData.metrics.totalVideos}
-                                </div>
-                              )}
+                              
                             </td>
                             
                             {/* ОБНОВЛЕННЫЕ колонки метрик */}
@@ -1726,11 +1701,18 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
-                                    {currentDisplayData.metrics.data.formatted.leads}
-                                  </span>
+                                  <div className="flex items-center justify-center space-x-1">
+                                    <span className="font-bold text-sm cursor-text select-text text-black">
+                                      {currentDisplayData.metrics.data.formatted.leads}
+                                    </span>
+                                    {currentDisplayData.metrics.videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
+                                        {currentDisplayData.metrics.videoCount}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
                                 )
@@ -1740,7 +1722,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.leads}
                                           </span>
                                         ) : (
@@ -1760,9 +1742,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.cpl}
                                   </span>
                                 ) : (
@@ -1774,7 +1756,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpl}
                                           </span>
                                         ) : (
@@ -1794,9 +1776,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.cost}
                                   </span>
                                 ) : (
@@ -1808,7 +1790,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cost}
                                           </span>
                                         ) : (
@@ -1828,9 +1810,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.clicks}
                                   </span>
                                 ) : (
@@ -1842,7 +1824,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.clicks}
                                           </span>
                                         ) : (
@@ -1862,9 +1844,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.cpc}
                                   </span>
                                 ) : (
@@ -1876,7 +1858,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpc}
                                           </span>
                                         ) : (
@@ -1896,9 +1878,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.ctr}
                                   </span>
                                 ) : (
@@ -1910,7 +1892,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.ctr}
                                           </span>
                                         ) : (
@@ -1930,9 +1912,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.cpm}
                                   </span>
                                 ) : (
@@ -1944,7 +1926,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.cpm}
                                           </span>
                                         ) : (
@@ -1964,9 +1946,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.impressions}
                                   </span>
                                 ) : (
@@ -1978,7 +1960,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.impressions}
                                           </span>
                                         ) : (
@@ -1998,9 +1980,9 @@ function CreativePanel({ user }) {
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
-                              ) : currentMode === 'individual' ? (
+                              ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
                                     {currentDisplayData.metrics.data.formatted.days}
                                   </span>
                                 ) : (
@@ -2012,7 +1994,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
                                             {videoMetric.data.formatted.days}
                                           </span>
                                         ) : (
