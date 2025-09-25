@@ -1657,6 +1657,7 @@ function CreativePanel({ user }) {
                                     <div key={index} className="flex items-center h-7">
                                       <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
                                       
+                                      
                                         href={creative.links[index]}
                                         target="_blank"
                                         rel="noopener noreferrer"
