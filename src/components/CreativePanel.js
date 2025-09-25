@@ -50,41 +50,6 @@ import {
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
-  // Стили для горизонтального скролла и адаптивности
-  const scrollbarStyles = `
-    .table-scroll {
-      scrollbar-width: thin;
-      scrollbar-color: #c1c1c1 #f1f1f1;
-    }
-    .table-scroll::-webkit-scrollbar {
-      height: 6px;
-    }
-    .table-scroll::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-    .table-scroll::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 4px;
-    }
-    .table-scroll::-webkit-scrollbar-thumb:hover {
-      background: #a8a8a8;
-    }
-    @media (max-width: 640px) {
-      .table-scroll::-webkit-scrollbar {
-        height: 4px;
-      }
-    }
-    .table-auto-width {
-      table-layout: auto;
-      width: 100%;
-    }
-    @media (min-width: 1536px) {
-      .table-auto-width {
-        table-layout: fixed;
-      }
-    }
-  `;
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -299,7 +264,7 @@ function CreativePanel({ user }) {
     if (!creativeMetrics || creativeMetrics.length === 0) {
       return (
         <tr className="bg-gray-50">
-          <td colSpan="17" className="px-6 py-4 text-center text-gray-500 text-sm">
+          <td colSpan="12" className="px-6 py-4 text-center text-gray-500 text-sm">
             Нет данных для детализации
           </td>
         </tr>
@@ -308,7 +273,7 @@ function CreativePanel({ user }) {
 
     return (
       <tr className="bg-blue-50 border-t border-blue-200">
-        <td colSpan="17" className="px-6 py-4">
+        <td colSpan="12" className="px-6 py-4">
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -1564,79 +1529,53 @@ function CreativePanel({ user }) {
                 {getCurrentMonthYear()}
               </h3>
               
-              <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
-              <div className="overflow-x-auto table-scroll">
-                <table className="table-auto-width divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
+              <div className="overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-20 lg:w-24">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Дата
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-24 lg:w-32">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Артикул
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-32 lg:w-48 xl:w-64">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Видео
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-28 lg:w-36 xl:w-44">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Типы работ
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         COF
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-24 lg:w-32">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <div className="flex items-center justify-center">
-                          <Layers className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
-                          <span className="hidden sm:inline">Зоны</span>
-                          <span className="sm:hidden">З</span>
+                          <Layers className="h-4 w-4 mr-1" />
+                          Зоны
                         </div>
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-20 lg:w-28">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <div className="flex items-center justify-center">
-                          <Target className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
-                          <span className="hidden sm:inline">Текущая</span>
-                          <span className="sm:hidden">Т</span>
+                          <Target className="h-4 w-4 mr-1" />
+                          Текущая
                         </div>
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Лиды
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         CPL
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        <span className="hidden sm:inline">Расх</span>
-                        <span className="sm:hidden">$</span>
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        <span className="hidden sm:inline">Клики</span>
-                        <span className="sm:hidden">Кл</span>
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        CPC
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-20 lg:w-24">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <div className="flex items-center space-x-1">
                           <span>CTR</span>
                           <BarChart3 className="h-3 w-3 text-gray-400" title="Кликните для детализации" />
                         </div>
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        CPM
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trello
                       </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-18 lg:w-24">
-                        <span className="hidden sm:inline">Показы</span>
-                        <span className="sm:hidden">Пок</span>
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        <span className="hidden sm:inline">Дней</span>
-                        <span className="sm:hidden">Д</span>
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-16 lg:w-20">
-                        <span className="hidden lg:inline">Trello</span>
-                        <span className="lg:hidden">Т</span>
-                      </th>
-                      <th className="px-2 lg:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-12 lg:w-16">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                         
                       </th>
                     </tr>
@@ -1658,7 +1597,7 @@ function CreativePanel({ user }) {
                         return (
                           <React.Fragment key={creative.id}>
                             <tr className="hover:bg-gray-50">
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="text-center">
                                   <div className="font-medium">{formattedDateTime.date}</div>
                                   <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
@@ -1696,27 +1635,17 @@ function CreativePanel({ user }) {
                                 </div>
                               </td>
                               
-                              <td className="px-2 lg:px-4 py-4 text-sm text-gray-900">
+                              <td className="px-6 py-4 text-sm text-gray-900">
                                 <div className="space-y-1">
                                   {creative.link_titles && creative.link_titles.length > 0 ? (
                                     creative.link_titles.map((title, index) => (
-                                      <div key={index} className="flex items-center justify-between min-w-0">
-                                        <span className="block truncate flex-1 pr-2 max-w-0" title={title}>
-                                          <span className="lg:hidden">
-                                            {title.length > 25 ? title.substring(0, 25) + '...' : title}
-                                          </span>
-                                          <span className="hidden lg:inline xl:hidden">
-                                            {title.length > 35 ? title.substring(0, 35) + '...' : title}
-                                          </span>
-                                          <span className="hidden xl:inline">
-                                            {title.length > 50 ? title.substring(0, 50) + '...' : title}
-                                          </span>
-                                        </span>
-                                        
+                                      <div key={index} className="flex items-center justify-between">
+                                        <span className="block">{title}</span>
+                                        <a
                                           href={creative.links[index]}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="ml-1 text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                          className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
                                           title="Открыть в Google Drive"
                                         >
                                           <ExternalLink className="h-3 w-3" />
@@ -1779,7 +1708,7 @@ function CreativePanel({ user }) {
                                 />
                               </td>
                               
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {metricsLoading ? (
                                   <div className="flex items-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
@@ -1808,7 +1737,7 @@ function CreativePanel({ user }) {
                                 )}
                               </td>
                               
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {metricsLoading ? (
                                   <div className="flex items-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
@@ -1830,73 +1759,7 @@ function CreativePanel({ user }) {
                                 )}
                               </td>
                               
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.cost}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.clicks}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.cpc}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="flex items-center space-x-2">
                                   {metricsLoading ? (
                                     <div className="flex items-center">
@@ -1932,72 +1795,6 @@ function CreativePanel({ user }) {
                                     <span className="text-gray-400">—</span>
                                   )}
                                 </div>
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.cpm}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.impressions}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-2 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.days}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
                               </td>
                               
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
