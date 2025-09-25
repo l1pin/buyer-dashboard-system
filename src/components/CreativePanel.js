@@ -65,6 +65,7 @@ function CreativePanel({ user }) {
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
   const [expandedMetrics, setExpandedMetrics] = useState(new Set());
+  const [detailMode, setDetailMode] = useState(new Map()); // 'summary' или 'detailed'
   
   const [newCreative, setNewCreative] = useState({
     article: '',
@@ -257,124 +258,142 @@ function CreativePanel({ user }) {
     setExpandedMetrics(newExpanded);
   };
 
-  // НОВЫЙ КОМПОНЕНТ: Детальная информация по видео
-  const MetricsDetailRow = ({ creative }) => {
+  // НОВЫЙ КОМПОНЕНТ: Строки детализации метрик прямо в таблице
+  const MetricsDetailRows = ({ creative }) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
     if (!creativeMetrics || creativeMetrics.length === 0) {
-      return (
-        <tr className="bg-gray-50">
-          <td colSpan="16" className="px-6 py-4 text-center text-gray-500 text-sm">
-            Нет данных для детализации
-          </td>
-        </tr>
-      );
+      return null;
     }
 
-    return (
-      <tr className="bg-blue-50 border-t border-blue-200">
-        <td colSpan="16" className="px-6 py-4">
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Детальная информация по видео ({creativeMetrics.length} видео)
-            </h4>
-            
-            <div className="grid gap-3">
-              {creativeMetrics.map((metric, index) => {
-                const videoTitle = creative.link_titles[index] || `Видео ${index + 1}`;
-                const videoLink = creative.links[index];
-                
-                return (
-                  <div key={index} className="bg-white rounded-lg border border-blue-200 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Video className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-gray-900 text-sm">{videoTitle}</span>
-                        {videoLink && (
-                          <a
-                            href={videoLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Открыть в Google Drive"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        {metric.found ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Данные найдены
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Нет данных
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {metric.found && metric.data ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-blue-600">{metric.data.formatted.leads}</div>
-                          <div className="text-xs text-gray-500">Лиды</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-green-600">{metric.data.formatted.cpl}</div>
-                          <div className="text-xs text-gray-500">CPL</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-purple-600">{metric.data.formatted.cost}</div>
-                          <div className="text-xs text-gray-500">Расходы</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-pink-600">{metric.data.formatted.ctr}</div>
-                          <div className="text-xs text-gray-500">CTR</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-orange-600">{metric.data.formatted.clicks}</div>
-                          <div className="text-xs text-gray-500">Клики</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-indigo-600">{metric.data.formatted.impressions}</div>
-                          <div className="text-xs text-gray-500">Показы</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-gray-600">{metric.data.formatted.cpc}</div>
-                          <div className="text-xs text-gray-500">CPC</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-gray-600">{metric.data.formatted.days}</div>
-                          <div className="text-xs text-gray-500">Дней</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-500 text-sm">
-                          {metric.error || 'Метрики для этого видео не найдены'}
-                        </p>
-                        {metricsPeriod === '4days' && (
-                          <p className="text-xs text-orange-600 mt-1">
-                            Возможно, нет данных за первые 4 дня
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+    return creativeMetrics.map((metric, index) => {
+      const videoTitle = creative.link_titles[index] || `Видео ${index + 1}`;
+      const videoLink = creative.links[index];
+      
+      return (
+        <tr key={`${creative.id}-video-${index}`} className="bg-blue-50 border-b border-blue-100">
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-center">
+            <div className="text-xs">Видео {index + 1}</div>
+          </td>
+          
+          <td className="px-3 py-3 text-sm text-gray-900">
+            <div className="flex items-center">
+              <Video className="h-3 w-3 text-blue-600 mr-2 flex-shrink-0" />
+              <span className="block text-left flex-1 mr-2 cursor-text select-text text-xs">{videoTitle}</span>
+              {videoLink && (
+                <a
+                  href={videoLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                  title="Открыть в Google Drive"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
             </div>
-          </div>
-        </td>
-      </tr>
-    );
+          </td>
+
+          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зона */}
+          <td className="px-3 py-3 text-sm text-center">—</td> {/* Кнопка статистики */}
+
+          {/* Метрики */}
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-blue-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.leads}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-green-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.cpl}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-purple-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.cost}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-orange-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.clicks}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.cpc}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-pink-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.ctr}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-indigo-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.cpm}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-teal-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.impressions}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+            {metric.found && metric.data ? (
+              <span className="text-gray-700 font-semibold text-xs cursor-text select-text">
+                {metric.data.formatted.days}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
+          </td>
+
+          <td className="px-3 py-3 text-sm text-center">—</td> {/* Зоны */}
+          <td className="px-3 py-3 text-sm text-center">—</td> {/* COF */}
+          <td className="px-3 py-3 text-sm text-center">—</td> {/* Trello */}
+        </tr>
+      );
+    });
   };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
@@ -1559,6 +1578,9 @@ function CreativePanel({ user }) {
                         Зона
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <BarChart3 className="h-4 w-4 mx-auto" />
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Лиды
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1620,24 +1642,9 @@ function CreativePanel({ user }) {
                               }`}
                             >
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <div className="cursor-text select-text">
-                                    <div className="font-medium">{formattedDateTime.date}</div>
-                                    <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                                  </div>
-                                  {aggregatedMetrics?.found && (
-                                    <button
-                                      onClick={() => toggleMetricsDetail(creative.id)}
-                                      className="text-blue-500 hover:text-blue-700 cursor-pointer p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                      title="Нажмите для просмотра детальной статистики по видео"
-                                    >
-                                      {isMetricsExpanded ? (
-                                        <ChevronUp className="h-3 w-3" />
-                                      ) : (
-                                        <ChevronDown className="h-3 w-3" />
-                                      )}
-                                    </button>
-                                  )}
+                                <div className="cursor-text select-text">
+                                  <div className="font-medium">{formattedDateTime.date}</div>
+                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                                 </div>
                               </td>
                               
@@ -1708,6 +1715,23 @@ function CreativePanel({ user }) {
                                   article={creative.article} 
                                   aggregatedMetrics={aggregatedMetrics}
                                 />
+                              </td>
+
+                              {/* Новая колонка с кнопкой статистики */}
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                <div className="flex items-center justify-center">
+                                  {aggregatedMetrics?.found && creative.link_titles && creative.link_titles.length > 1 ? (
+                                    <button
+                                      onClick={() => toggleMetricsDetail(creative.id)}
+                                      className="text-blue-600 hover:text-blue-800 cursor-pointer p-2 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title={isMetricsExpanded ? "Скрыть детальную статистику" : "Показать детальную статистику по каждому видео"}
+                                    >
+                                      <BarChart3 className="h-4 w-4" />
+                                    </button>
+                                  ) : (
+                                    <div className="w-8 h-8"></div> // Пустое место для выравнивания
+                                  )}
+                                </div>
                               </td>
                               
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
@@ -1905,7 +1929,7 @@ function CreativePanel({ user }) {
                             </tr>
                             
                             {isMetricsExpanded && (
-                              <MetricsDetailRow creative={creative} />
+                              <MetricsDetailRows creative={creative} />
                             )}
                           </React.Fragment>
                         );
