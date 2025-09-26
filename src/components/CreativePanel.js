@@ -48,7 +48,8 @@ import {
   Globe,
   Star,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
@@ -77,7 +78,10 @@ function CreativePanel({ user }) {
     work_types: [],
     link_titles: [],
     comment: '',
-    is_poland: false
+    is_poland: false,
+    trello_link: '',
+    buyer: '',
+    searcher: ''
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
@@ -627,6 +631,26 @@ function CreativePanel({ user }) {
       return;
     }
 
+    if (!newCreative.trello_link.trim()) {
+      setError('Карточка Trello обязательна для заполнения');
+      return;
+    }
+
+    if (!newCreative.trello_link.startsWith('https://trello.com/')) {
+      setError('Ссылка на Trello должна начинаться с https://trello.com/');
+      return;
+    }
+
+    if (!newCreative.buyer.trim()) {
+      setError('Байер обязателен для заполнения');
+      return;
+    }
+
+    if (!newCreative.searcher.trim()) {
+      setError('Серчер обязателен для заполнения');
+      return;
+    }
+
     try {
       setCreating(true);
       setError('');
@@ -664,7 +688,10 @@ function CreativePanel({ user }) {
         work_types: newCreative.work_types,
         cof_rating: cofRating,
         comment: newCreative.comment.trim() || null,
-        is_poland: newCreative.is_poland
+        is_poland: newCreative.is_poland,
+        trello_link: newCreative.trello_link.trim(),
+        buyer: newCreative.buyer.trim(),
+        searcher: newCreative.searcher.trim()
       });
 
       setNewCreative({
@@ -673,7 +700,10 @@ function CreativePanel({ user }) {
         work_types: [],
         link_titles: [],
         comment: '',
-        is_poland: false
+        is_poland: false,
+        trello_link: '',
+        buyer: '',
+        searcher: ''
       });
       setShowCreateModal(false);
 
@@ -2071,9 +2101,44 @@ function CreativePanel({ user }) {
                               )}
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
-                              <span className="cursor-text select-text">—</span>
-                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+  {creative.trello_link ? (
+    <div className="space-y-2">
+      <div>
+        <a
+          href={creative.trello_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <ExternalLink className="h-3 w-3 mr-1" />
+          Карточка
+        </a>
+      </div>
+      <div className="space-y-1">
+        {creative.searcher && (
+          <div className="flex items-center justify-center space-x-1">
+            <Search className="h-3 w-3 text-blue-600" />
+            <span className="text-xs text-gray-700 cursor-text select-text">
+              {creative.searcher}
+            </span>
+          </div>
+        )}
+        {creative.buyer && (
+          <div className="flex items-center justify-center space-x-1">
+            <User className="h-3 w-3 text-blue-600" />
+            <span className="text-xs text-gray-700 cursor-text select-text">
+              {creative.buyer}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : (
+    <span className="text-gray-400 cursor-text select-text">—</span>
+  )}
+</td>
+
                           </tr>
                         );
                       })}
@@ -2102,7 +2167,10 @@ function CreativePanel({ user }) {
                     work_types: [],
                     link_titles: [],
                     comment: '',
-                    is_poland: false
+                    is_poland: false,
+                    trello_link: '',
+                    buyer: '',
+                    searcher: ''
                   });
                   setExtractingTitles(false);
                   clearMessages();
@@ -2189,6 +2257,60 @@ function CreativePanel({ user }) {
                   <AlertCircle className="h-3 w-3 mr-1" />
                   Используйте только ссылки на Google Drive файлы
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Карточка Trello *
+                </label>
+                <input
+                  type="url"
+                  value={newCreative.trello_link}
+                  onChange={(e) => {
+                    setNewCreative({ ...newCreative, trello_link: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="https://trello.com/c/..."
+                />
+                <p className="mt-1 text-xs text-yellow-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Укажите ссылку на карточку Trello
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Байер *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCreative.buyer}
+                    onChange={(e) => {
+                      setNewCreative({ ...newCreative, buyer: e.target.value });
+                      clearMessages();
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Имя байера"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Серчер *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCreative.searcher}
+                    onChange={(e) => {
+                      setNewCreative({ ...newCreative, searcher: e.target.value });
+                      clearMessages();
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Имя серчера"
+                  />
+                </div>
               </div>
 
               <div>
