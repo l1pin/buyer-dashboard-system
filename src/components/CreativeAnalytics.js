@@ -1436,27 +1436,6 @@ function CreativeAnalytics({ user }) {
             </div>
           )}
 
-          <div className="flex items-center justify-between text-sm mt-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Activity className="h-4 w-4 text-blue-500" />
-                <span className="text-blue-600">
-                  {metricsLoading ? 'Загрузка метрик...' : 
-                   metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
-                   `Метрики (${getPeriodButtonText()}) включены`}
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Layers className="h-4 w-4 text-emerald-500" />
-                <span className="text-emerald-600">
-                  {zoneDataLoading ? 'Загрузка зон...' : 
-                   `Зоны: ${zoneDataStats.found}/${zoneDataStats.total}`}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Рейтинг байеров по зонам и COF */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             {/* Рейтинг байеров по зонам */}
