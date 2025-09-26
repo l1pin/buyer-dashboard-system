@@ -819,7 +819,10 @@ export const creativeService = {
       workTypesCount: creativeData.work_types?.length || 0,
       hasComment: !!creativeData.comment,
       cof_rating: creativeData.cof_rating,
-      is_poland: creativeData.is_poland
+      is_poland: creativeData.is_poland,
+      trello_link: creativeData.trello_link,
+      buyer: creativeData.buyer,
+      searcher: creativeData.searcher
     });
 
     const { data, error } = await supabase
@@ -834,7 +837,10 @@ export const creativeService = {
           work_types: creativeData.work_types,
           cof_rating: creativeData.cof_rating,
           comment: creativeData.comment || null,
-          is_poland: creativeData.is_poland || false
+          is_poland: creativeData.is_poland || false,
+          trello_link: creativeData.trello_link || null,
+          buyer: creativeData.buyer || null,
+          searcher: creativeData.searcher || null
         }
       ])
       .select();
