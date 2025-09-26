@@ -1714,6 +1714,11 @@ function CreativePanel({ user }) {
                                     >
                                       <BarChart3 className="h-4 w-4" />
                                     </button>
+                                    {currentMode === 'aggregated' && getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
+                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
+                                        {getAggregatedCreativeMetrics(creative).videoCount}
+                                      </span>
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="w-8 h-8"></div>
@@ -1731,16 +1736,9 @@ function CreativePanel({ user }) {
                                 </div>
                               ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <div className="flex items-center justify-center space-x-1">
-                                    <span className="font-bold text-sm cursor-text select-text text-black">
-                                      {currentDisplayData.metrics.data.formatted.leads}
-                                    </span>
-                                    {currentDisplayData.metrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                        {currentDisplayData.metrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.leads}
+                                  </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
                                 )
