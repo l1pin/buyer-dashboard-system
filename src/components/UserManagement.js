@@ -13,17 +13,22 @@ import {
   Eye,
   EyeOff,
   Monitor,
-  Video
+  Video,
+  Settings,
+  Info
 } from 'lucide-react';
 
 function UserManagement({ user }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfigInfo, setShowConfigInfo] = useState(false);
+  const [supabaseConfig, setSupabaseConfig] = useState(null);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -34,6 +39,7 @@ function UserManagement({ user }) {
 
   useEffect(() => {
     loadUsers();
+    checkSupabaseConfiguration();
   }, []);
 
   const loadUsers = async () => {
@@ -50,22 +56,71 @@ function UserManagement({ user }) {
     }
   };
 
-  const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      setError('Все поля обязательны для заполнения');
-      return;
+  const checkSupabaseConfiguration = async () => {
+    try {
+      const config = await userService.checkSupabaseConfig();
+      setSupabaseConfig(config);
+      console.log('🔧 Конфигурация Supabase:', config);
+    } catch (error) {
+      console.error('Ошибка проверки конфигурации:', error);
+    }
+  };
+
+  const validateUserData = () => {
+    if (!newUser.name?.trim()) {
+      setError('Имя пользователя обязательно для заполнения');
+      return false;
     }
 
-    if (newUser.password.length < 6) {
+    if (!newUser.email?.trim()) {
+      setError('Email адрес обязателен для заполнения');
+      return false;
+    }
+
+    // Проверка формата email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUser.email.trim())) {
+      setError('Введите корректный email адрес (например: user@example.com)');
+      return false;
+    }
+
+    if (!newUser.password || newUser.password.length < 6) {
       setError('Пароль должен содержать минимум 6 символов');
+      return false;
+    }
+
+    // Проверка на существующий email
+    const existingUser = users.find(u => u.email.toLowerCase() === newUser.email.trim().toLowerCase());
+    if (existingUser) {
+      setError('Пользователь с таким email уже существует');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleCreateUser = async () => {
+    if (!validateUserData()) {
       return;
     }
 
     try {
       setCreating(true);
       setError('');
+      setSuccess('');
 
-      await userService.createUser(newUser);
+      console.log('🚀 Попытка создания пользователя:', {
+        name: newUser.name.trim(),
+        email: newUser.email.trim(),
+        role: newUser.role
+      });
+
+      await userService.createUser({
+        name: newUser.name.trim(),
+        email: newUser.email.trim(),
+        password: newUser.password,
+        role: newUser.role
+      });
 
       // Очищаем форму и закрываем модал
       setNewUser({
@@ -78,22 +133,48 @@ function UserManagement({ user }) {
 
       // Обновляем список пользователей
       await loadUsers();
+      
+      setSuccess(`Пользователь "${newUser.name.trim()}" успешно создан`);
+
     } catch (error) {
-      setError('Ошибка создания пользователя: ' + error.message);
+      console.error('❌ Ошибка создания пользователя:', error);
+      
+      // Улучшенная обработка различных типов ошибок
+      let errorMessage = 'Неизвестная ошибка создания пользователя';
+      
+      if (error.message) {
+        if (error.message.includes('Email address') && error.message.includes('invalid')) {
+          errorMessage = `Неверный формат email адреса "${newUser.email}". Проверьте правильность введенного email.`;
+        } else if (error.message.includes('signup is disabled')) {
+          errorMessage = 'Регистрация новых пользователей отключена в настройках Supabase. Обратитесь к системному администратору.';
+        } else if (error.message.includes('email confirmation')) {
+          errorMessage = 'В Supabase включено обязательное подтверждение email. Необходимо настроить систему или использовать админ API.';
+        } else if (error.message.includes('User already registered')) {
+          errorMessage = `Пользователь с email "${newUser.email}" уже зарегистрирован в системе.`;
+        } else if (error.message.includes('password')) {
+          errorMessage = 'Ошибка с паролем. Убедитесь, что пароль содержит минимум 6 символов.';
+        } else {
+          errorMessage = `Ошибка создания пользователя: ${error.message}`;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setCreating(false);
     }
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?`)) {
+    if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
       return;
     }
 
     try {
       setDeleting(userId);
+      setError('');
       await userService.deleteUser(userId);
       await loadUsers();
+      setSuccess(`Пользователь "${userName}" успешно удален`);
     } catch (error) {
       setError('Ошибка удаления пользователя: ' + error.message);
     } finally {
@@ -167,6 +248,11 @@ function UserManagement({ user }) {
     return { buyersCount, editorsCount };
   };
 
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
   const { buyersCount, editorsCount } = getUserStats();
 
   if (loading) {
@@ -195,14 +281,27 @@ function UserManagement({ user }) {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={loadUsers}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={() => setShowConfigInfo(true)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <Settings className="h-4 w-4 mr-2" />
+              Настройки
+            </button>
+            
+            <button
+              onClick={loadUsers}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Обновить
             </button>
+            
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setShowCreateModal(true);
+                clearMessages();
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -212,10 +311,35 @@ function UserManagement({ user }) {
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error/Success Messages */}
       {error && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-          {error}
+        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+          <div>{error}</div>
+        </div>
+      )}
+
+      {success && (
+        <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
+          <Check className="h-4 w-4 mr-2 flex-shrink-0" />
+          {success}
+        </div>
+      )}
+
+      {/* Config Warning */}
+      {supabaseConfig && !supabaseConfig.signUpEnabled && (
+        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md text-sm flex items-start">
+          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Внимание:</strong> Регистрация новых пользователей отключена в настройках Supabase. 
+            Для создания пользователей необходимо настроить аутентификацию в панели Supabase или добавить Service Role Key.
+            <button 
+              onClick={() => setShowConfigInfo(true)}
+              className="ml-2 underline hover:no-underline"
+            >
+              Подробнее
+            </button>
+          </div>
         </div>
       )}
 
@@ -293,10 +417,10 @@ function UserManagement({ user }) {
             {users.length === 0 ? (
               <div className="text-center py-8">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Пользователи не найдены</p>
+                <p className="text-gray-500 mb-4">Пользователи не найдены</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Создать первого пользователя
@@ -369,7 +493,8 @@ function UserManagement({ user }) {
                           <button
                             onClick={() => handleDeleteUser(currentUser.id, currentUser.name)}
                             disabled={deleting === currentUser.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50 p-2"
+                            title="Удалить пользователя"
                           >
                             {deleting === currentUser.id ? (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
@@ -397,7 +522,10 @@ function UserManagement({ user }) {
                 Создать нового пользователя
               </h3>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  clearMessages();
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-6 w-6" />
@@ -407,41 +535,56 @@ function UserManagement({ user }) {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Имя пользователя
+                  Имя пользователя *
                 </label>
                 <input
                   type="text"
                   value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, name: e.target.value });
+                    clearMessages();
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Введите имя"
+                  maxLength={100}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                  Email *
                 </label>
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, email: e.target.value });
+                    clearMessages();
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="user@example.com"
+                  maxLength={200}
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Используйте корректный email адрес
+                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Пароль
+                  Пароль *
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, password: e.target.value });
+                      clearMessages();
+                    }}
                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Минимум 6 символов"
+                    minLength={6}
                   />
                   <button
                     type="button"
@@ -455,6 +598,9 @@ function UserManagement({ user }) {
                     )}
                   </button>
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Пароль должен содержать минимум 6 символов
+                </p>
               </div>
 
               <div>
@@ -463,7 +609,10 @@ function UserManagement({ user }) {
                 </label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, role: e.target.value });
+                    clearMessages();
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="buyer">Байер</option>
@@ -480,7 +629,10 @@ function UserManagement({ user }) {
 
             <div className="flex justify-end space-x-3 mt-6">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  clearMessages();
+                }}
                 disabled={creating}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
@@ -488,7 +640,7 @@ function UserManagement({ user }) {
               </button>
               <button
                 onClick={handleCreateUser}
-                disabled={creating}
+                disabled={creating || !newUser.name?.trim() || !newUser.email?.trim() || !newUser.password}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {creating ? (
@@ -502,6 +654,109 @@ function UserManagement({ user }) {
                     Создать
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Configuration Info Modal */}
+      {showConfigInfo && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white m-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Настройки Supabase Auth
+              </h3>
+              <button
+                onClick={() => setShowConfigInfo(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {supabaseConfig && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <h4 className="font-medium text-gray-900 mb-3">Текущая конфигурация:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Регистрация пользователей:</span>
+                      <span className={supabaseConfig.signUpEnabled ? 'text-green-600' : 'text-red-600'}>
+                        {supabaseConfig.signUpEnabled ? '✅ Включена' : '❌ Отключена'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Подтверждение email:</span>
+                      <span className={supabaseConfig.emailConfirmationRequired ? 'text-yellow-600' : 'text-green-600'}>
+                        {supabaseConfig.emailConfirmationRequired ? '⚠️ Требуется' : '✅ Не требуется'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Admin API:</span>
+                      <span className={supabaseConfig.adminApiAvailable ? 'text-green-600' : 'text-red-600'}>
+                        {supabaseConfig.adminApiAvailable ? '✅ Доступен' : '❌ Недоступен'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-blue-50 p-4 rounded-md">
+                <h4 className="font-medium text-blue-900 mb-3">💡 Как исправить проблемы:</h4>
+                <div className="text-sm text-blue-800 space-y-3">
+                  <div>
+                    <strong>1. Если регистрация отключена:</strong>
+                    <ul className="list-disc ml-5 mt-1 space-y-1">
+                      <li>Перейдите в панель Supabase → Authentication → Settings</li>
+                      <li>Включите "Enable email confirmations" (если нужно)</li>
+                      <li>В разделе "User signup" выберите "Allow new signups"</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <strong>2. Если требуется подтверждение email:</strong>
+                    <ul className="list-disc ml-5 mt-1 space-y-1">
+                      <li>Отключите "Enable email confirmations" в настройках Authentication</li>
+                      <li>Или настройте SMTP для отправки писем подтверждения</li>
+                      <li>Или добавьте Service Role Key в переменные окружения</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <strong>3. Для использования Admin API:</strong>
+                    <ul className="list-disc ml-5 mt-1 space-y-1">
+                      <li>Получите Service Role Key из настроек проекта Supabase</li>
+                      <li>Добавьте его в .env как REACT_APP_SUPABASE_SERVICE_ROLE_KEY</li>
+                      <li>Перезапустите приложение</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-md">
+                <h4 className="font-medium text-yellow-900 mb-2">⚠️ Важно:</h4>
+                <p className="text-sm text-yellow-800">
+                  Service Role Key дает полный доступ к базе данных. Используйте его только в безопасном окружении 
+                  и никогда не коммитьте в публичные репозитории.
+                </p>
+              </div>
+
+              {supabaseConfig?.error && (
+                <div className="bg-red-50 p-4 rounded-md">
+                  <h4 className="font-medium text-red-900 mb-2">❌ Последняя ошибка:</h4>
+                  <p className="text-sm text-red-800 font-mono">{supabaseConfig.error}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowConfigInfo(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Закрыть
               </button>
             </div>
           </div>
