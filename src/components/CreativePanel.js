@@ -1580,16 +1580,16 @@ function CreativePanel({ user }) {
                           : calculateCOF(creative.work_types || []);
                         
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
-                        const currentMode = detailMode.get(creative.id) || 'aggregated';
-                        const allVideoMetrics = getAllVideoMetrics(creative);
-                        const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
-                        const isDropdownOpen = openDropdowns.has(creative.id);
-                        const formattedDateTime = formatKyivTime(creative.created_at);
+const currentMode = detailMode.get(creative.id) || 'aggregated';
+const allVideoMetrics = getAllVideoMetrics(creative);
+const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
+const isDropdownOpen = openDropdowns.has(creative.id);
+const formattedDateTime = formatKyivTime(creative.created_at);
 
-                        // ДОБАВЛЕНО: единая база для счетчика и устойчивого позиционирования
-                        const aggMetrics = getAggregatedCreativeMetrics(creative);
-                        const videoCount = (aggMetrics?.videoCount ?? (creative.link_titles?.length ?? 0)) || 0;
-                        // счетчик показываем только если данных >1, но место под него резервируем всегда
+// Для показа иконки/счётчика только при >= 2 видео и наличия агрегированных метрик
+const aggMetrics = getAggregatedCreativeMetrics(creative);
+const videoCount = (aggMetrics?.videoCount ?? (creative.link_titles?.length ?? 0)) || 0;
+const showToggle = Boolean(aggMetrics?.found && videoCount > 1);
                         const showCounter = Boolean(aggMetrics?.found && videoCount > 1);
 
                         
@@ -1702,49 +1702,44 @@ function CreativePanel({ user }) {
                               )}
                             </td>
 
-                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики (фиксация уровня иконок и постоянный бейдж) */}
+                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики (иконка только при >=2 видео; счётчик не исчезает при переключении) */}
 <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
   <div className="flex items-center justify-center">
-    <div className="inline-flex items-center space-x-2">
-      <button
-        onClick={() => {
-          // Разрешаем клик всегда — режимы переключаются даже при 1 видео,
-          // но иконка/бейдж не "прыгают"
-          toggleDetailMode(creative.id);
-        }}
-        className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
-          currentMode === 'individual'
-            ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200'
-            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
-        }`}
-        title={currentMode === 'aggregated'
-          ? 'Показать статистику по каждому видео'
-          : 'Показать общую статистику'}
-      >
-        {/* ЗАМЕНА ИКОНКИ НА ВАШУ СИНЮЮ SVG (используем currentColor) */}
-        <svg
-          className="h-4 w-4"
-          xmlns="http://www.w3.org/2000/svg"
-          width="24" height="24" fill="none"
-          viewBox="0 0 24 24" stroke="currentColor"
+    {showToggle ? (
+      <div className="inline-flex items-center space-x-2">
+        <button
+          onClick={() => toggleDetailMode(creative.id)}
+          className={
+            // Всегда синий основной цвет, как просили
+            'cursor-pointer p-2 rounded-full transition-colors duration-200 text-blue-600 hover:text-blue-800 hover:bg-blue-100'
+          }
+          title={currentMode === 'aggregated'
+            ? 'Показать статистику по каждому видео'
+            : 'Показать общую статистику'}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-            d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-        </svg>
-      </button>
+          {/* ЗАМЕНА: ваша синяя SVG-иконка (stroke=currentColor) */}
+          <svg
+            className="h-4 w-4"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24" height="24" fill="none"
+            viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+              d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+          </svg>
+        </button>
 
-      {/* Бейдж СЧЕТЧИКА: всегда занимает место; становится невидимым при отсутствии данных */}
-      <span
-        className={
-          `text-xs px-1 rounded cursor-text select-text min-w-[1.25rem] text-center ` +
-          (showCounter ? 'bg-blue-100 text-blue-600' : 'invisible')
-        }
-      >
-        {videoCount}
-      </span>
-    </div>
+        {/* Счётчик: остаётся видимым как в aggregated, так и в individual */}
+        <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text min-w-[1.25rem] text-center">
+          {videoCount}
+        </span>
+      </div>
+    ) : (
+      <div className="h-8" />
+    )}
   </div>
 </td>
+
 
                             
                             {/* ОБНОВЛЕННЫЕ колонки метрик */}
