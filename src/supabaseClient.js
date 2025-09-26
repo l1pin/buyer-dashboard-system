@@ -1,4 +1,4 @@
-// Полностью обновленный supabaseClient.js с добавленными функциями для работы с зонами
+// Полностью обновленный supabaseClient.js с исправленным созданием пользователей
 // Замените полностью содержимое src/supabaseClient.js
 
 import { createClient } from '@supabase/supabase-js';
@@ -6,6 +6,7 @@ import Papa from 'papaparse';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -19,6 +20,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 });
+
+// Административный клиент для создания пользователей (если доступен service role key)
+let adminClient = null;
+if (supabaseServiceRoleKey) {
+  adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
 
 // Функции для работы с пользователями
 export const userService = {
@@ -34,22 +46,103 @@ export const userService = {
     return data;
   },
 
-  // Создать нового пользователя (только для тим лидов)
+  // ИСПРАВЛЕННАЯ функция создания нового пользователя
   async createUser(userData) {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: userData.email,
-      password: userData.password,
-      options: {
-        data: {
-          name: userData.name,
-          role: userData.role
+    console.log('📝 Создание пользователя:', { email: userData.email, role: userData.role });
+
+    try {
+      // Метод 1: Попробуем через административный клиент (если доступен)
+      if (adminClient) {
+        console.log('🔧 Используем административный клиент...');
+        
+        const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+          email: userData.email,
+          password: userData.password,
+          email_confirm: true, // Автоматически подтверждаем email
+          user_metadata: {
+            name: userData.name,
+            role: userData.role
+          }
+        });
+
+        if (authError) {
+          console.error('❌ Ошибка админ API:', authError);
+          throw authError;
         }
+
+        // Создаем запись в таблице users
+        if (authData.user) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert([
+              {
+                id: authData.user.id,
+                email: userData.email,
+                name: userData.name,
+                role: userData.role,
+                created_at: new Date().toISOString()
+              }
+            ]);
+
+          if (profileError) {
+            console.error('❌ Ошибка создания профиля:', profileError);
+            throw profileError;
+          }
+        }
+
+        console.log('✅ Пользователь создан через админ API');
+        return authData;
       }
-    });
 
-    if (authError) throw authError;
+      // Метод 2: Обычная регистрация с дополнительными опциями
+      console.log('🔧 Используем обычный клиент с расширенными опциями...');
+      
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            name: userData.name,
+            role: userData.role
+          },
+          emailRedirectTo: undefined // Отключаем редирект
+        }
+      });
 
-    if (authData.user) {
+      if (authError) {
+        console.error('❌ Детали ошибки signUp:', {
+          message: authError.message,
+          status: authError.status,
+          error_code: authError.error_code || authError.code,
+          details: authError
+        });
+
+        // Улучшенная обработка ошибок
+        if (authError.message?.includes('Email address') && authError.message?.includes('invalid')) {
+          throw new Error('Неверный формат email адреса. Проверьте правильность введенного email.');
+        }
+        
+        if (authError.message?.includes('signup is disabled')) {
+          throw new Error('Регистрация новых пользователей отключена. Обратитесь к администратору системы.');
+        }
+        
+        if (authError.message?.includes('email confirmation')) {
+          throw new Error('Требуется подтверждение email. Проверьте настройки Supabase Auth.');
+        }
+
+        if (authError.status === 400) {
+          throw new Error(`Ошибка валидации данных: ${authError.message}. Проверьте настройки Supabase Auth в панели администратора.`);
+        }
+
+        throw new Error(`Ошибка создания аккаунта: ${authError.message}`);
+      }
+
+      // Проверяем, был ли создан пользователь
+      if (!authData.user) {
+        throw new Error('Пользователь не был создан. Возможно, требуется подтверждение email.');
+      }
+
+      // Создаем запись в таблице users
       const { error: profileError } = await supabase
         .from('users')
         .insert([
@@ -62,23 +155,95 @@ export const userService = {
           }
         ]);
 
-      if (profileError) throw profileError;
-    }
+      if (profileError) {
+        console.error('❌ Ошибка создания профиля:', profileError);
+        // Если профиль не создался, пытаемся удалить auth пользователя
+        try {
+          if (adminClient) {
+            await adminClient.auth.admin.deleteUser(authData.user.id);
+          }
+        } catch (cleanupError) {
+          console.error('⚠️ Ошибка очистки после неудачного создания профиля:', cleanupError);
+        }
+        throw new Error(`Ошибка создания профиля пользователя: ${profileError.message}`);
+      }
 
-    return authData;
+      console.log('✅ Пользователь создан успешно');
+      return authData;
+
+    } catch (error) {
+      console.error('💥 Критическая ошибка создания пользователя:', error);
+      throw error;
+    }
+  },
+
+  // Метод для проверки настроек Supabase
+  async checkSupabaseConfig() {
+    try {
+      console.log('🔍 Проверка конфигурации Supabase...');
+      
+      // Пробуем получить настройки аутентификации
+      const testEmail = 'test@example.com';
+      const { error } = await supabase.auth.signUp({
+        email: testEmail,
+        password: 'testpassword123',
+        options: { data: { test: true } }
+      });
+
+      return {
+        signUpEnabled: !error?.message?.includes('signup is disabled'),
+        emailConfirmationRequired: error?.message?.includes('confirmation'),
+        adminApiAvailable: !!adminClient,
+        error: error?.message
+      };
+
+    } catch (error) {
+      return {
+        signUpEnabled: false,
+        emailConfirmationRequired: false,
+        adminApiAvailable: !!adminClient,
+        error: error.message
+      };
+    }
   },
 
   // Удалить пользователя
   async deleteUser(userId) {
-    await supabase.from('tables').delete().eq('user_id', userId);
-    await supabase.from('creatives').delete().eq('user_id', userId);
-    
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
-    
-    if (error) throw error;
+    try {
+      console.log('🗑️ Удаление пользователя:', userId);
+
+      // Удаляем связанные данные
+      await supabase.from('tables').delete().eq('user_id', userId);
+      await supabase.from('creatives').delete().eq('user_id', userId);
+      
+      // Удаляем профиль
+      const { error: profileError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+      
+      if (profileError) {
+        console.error('❌ Ошибка удаления профиля:', profileError);
+      }
+
+      // Попытка удалить auth пользователя через админ API
+      if (adminClient) {
+        try {
+          const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+          if (authError) {
+            console.error('⚠️ Ошибка удаления auth записи:', authError);
+          }
+        } catch (authDeleteError) {
+          console.error('⚠️ Не удалось удалить auth запись:', authDeleteError);
+        }
+      }
+
+      console.log('✅ Пользователь удален');
+      
+    } catch (error) {
+      console.error('❌ Ошибка удаления пользователя:', error);
+      throw error;
+    }
   },
 
   // Обновить профиль пользователя
@@ -176,9 +341,9 @@ export const userService = {
   }
 };
 
-// Функции для работы с таблицами
+// Остальные сервисы остаются без изменений
 export const tableService = {
-  // Получить таблицу пользователя
+  // ... (существующий код без изменений)
   async getUserTable(userId) {
     const { data, error } = await supabase
       .from('tables')
@@ -190,10 +355,8 @@ export const tableService = {
     return data;
   },
 
-  // Создать таблицу из CSV
   async createTableFromCSV(userId, csvContent) {
     try {
-      // Парсим CSV
       const parsedData = Papa.parse(csvContent, {
         header: false,
         skipEmptyLines: true,
@@ -204,7 +367,6 @@ export const tableService = {
         throw new Error('CSV файл пуст или содержит ошибки');
       }
 
-      // Создаем или обновляем запись таблицы
       const { data: tableData, error: tableError } = await supabase
         .from('tables')
         .upsert([
@@ -222,7 +384,6 @@ export const tableService = {
 
       if (tableError) throw tableError;
 
-      // Полностью удаляем старые ячейки
       const { error: deleteError } = await supabase
         .from('cells')
         .delete()
@@ -230,7 +391,6 @@ export const tableService = {
 
       if (deleteError) throw deleteError;
 
-      // Создаем новые ячейки из CSV данных
       const cellsToInsert = [];
       
       parsedData.data.forEach((row, rowIndex) => {
@@ -248,7 +408,6 @@ export const tableService = {
         });
       });
 
-      // Вставляем ячейки батчами
       if (cellsToInsert.length > 0) {
         const batchSize = 1000;
         for (let i = 0; i < cellsToInsert.length; i += batchSize) {
@@ -271,7 +430,6 @@ export const tableService = {
     }
   },
 
-  // Получить все таблицы
   async getAllTables() {
     const { data, error } = await supabase
       .from('tables')
@@ -286,9 +444,8 @@ export const tableService = {
   }
 };
 
-// Функции для работы с ячейками
 export const cellService = {
-  // Получить все ячейки таблицы
+  // ... (существующий код остается без изменений)
   async getTableCells(tableId) {
     const { data, error } = await supabase
       .from('cells')
@@ -301,7 +458,6 @@ export const cellService = {
     return data;
   },
 
-  // Получить данные для AG Grid
   async getTableDataForGrid(tableId) {
     const cells = await this.getTableCells(tableId);
     
@@ -309,19 +465,15 @@ export const cellService = {
       return { columnDefs: [], rowData: [] };
     }
 
-    // Определяем размеры таблицы
     const maxRow = Math.max(...cells.map(cell => cell.row_index));
     const maxCol = Math.max(...cells.map(cell => cell.column_index));
 
-    // Создаем двумерный массив
     const grid = Array(maxRow + 1).fill(null).map(() => Array(maxCol + 1).fill(''));
 
-    // Заполняем сетку данными
     cells.forEach(cell => {
       grid[cell.row_index][cell.column_index] = cell.value;
     });
 
-    // Создаем определения колонок из первой строки
     const columnDefs = [];
     if (grid.length > 0) {
       grid[0].forEach((header, index) => {
@@ -339,7 +491,6 @@ export const cellService = {
       });
     }
 
-    // Создаем данные строк (пропускаем заголовки)
     const rowData = [];
     for (let i = 1; i < grid.length; i++) {
       const rowObj = {};
@@ -355,10 +506,8 @@ export const cellService = {
     return { columnDefs, rowData };
   },
 
-  // Обновить ячейку
   async updateCell(tableId, rowIndex, columnIndex, value) {
     try {
-      // Сначала пытаемся обновить существующую ячейку
       const { data: existingCell, error: selectError } = await supabase
         .from('cells')
         .select('id')
@@ -368,7 +517,6 @@ export const cellService = {
         .single();
 
       if (existingCell) {
-        // Ячейка существует - обновляем
         const { data, error } = await supabase
           .from('cells')
           .update({
@@ -381,7 +529,6 @@ export const cellService = {
         if (error) throw error;
         return data;
       } else {
-        // Ячейка не существует - создаем новую
         const { data, error } = await supabase
           .from('cells')
           .insert([
@@ -405,13 +552,11 @@ export const cellService = {
     }
   },
 
-  // Обновить ячейку по полю AG Grid
   async updateCellByField(tableId, rowIndex, field, value) {
     const columnIndex = parseInt(field.replace('col_', ''));
     return this.updateCell(tableId, rowIndex, columnIndex, value);
   },
 
-  // Подписаться на изменения ячеек
   subscribeToTableChanges(tableId, callback) {
     return supabase
       .channel(`table_${tableId}`)
@@ -428,7 +573,6 @@ export const cellService = {
       .subscribe();
   },
 
-  // Экспортировать данные в CSV
   async exportTableToCSV(tableId) {
     const cells = await this.getTableCells(tableId);
     
@@ -436,19 +580,15 @@ export const cellService = {
       return '';
     }
 
-    // Определяем размеры таблицы
     const maxRow = Math.max(...cells.map(cell => cell.row_index));
     const maxCol = Math.max(...cells.map(cell => cell.column_index));
 
-    // Создаем двумерный массив
     const grid = Array(maxRow + 1).fill(null).map(() => Array(maxCol + 1).fill(''));
 
-    // Заполняем сетку данными
     cells.forEach(cell => {
       grid[cell.row_index][cell.column_index] = cell.value;
     });
 
-    // Конвертируем в CSV
     return Papa.unparse(grid, {
       delimiter: ';',
       skipEmptyLines: false
@@ -456,9 +596,8 @@ export const cellService = {
   }
 };
 
-// Функции для работы с креативами - ОБНОВЛЕНО с поддержкой комментариев
+// Остальные сервисы (creativeService, metricsAnalyticsService) остаются без изменений
 export const creativeService = {
-  // Создать новый креатив
   async createCreative(creativeData) {
     console.log('📝 Создание креатива с данными:', {
       article: creativeData.article,
@@ -480,9 +619,8 @@ export const creativeService = {
           link_titles: creativeData.link_titles || [],
           work_types: creativeData.work_types,
           cof_rating: creativeData.cof_rating,
-          comment: creativeData.comment || null, // Добавляем поддержку комментария
-          is_poland: creativeData.is_poland || false // Добавляем поддержку флага страны
-          // created_at и updated_at установятся автоматически через DEFAULT NOW()
+          comment: creativeData.comment || null,
+          is_poland: creativeData.is_poland || false
         }
       ])
       .select();
@@ -496,7 +634,6 @@ export const creativeService = {
     return data[0];
   },
 
-  // Получить креативы пользователя
   async getUserCreatives(userId) {
     try {
       console.log('📡 Запрос креативов пользователя:', userId);
@@ -515,7 +652,6 @@ export const creativeService = {
       const result = data || [];
       console.log('✅ getUserCreatives завершен, получено креативов:', result.length);
       
-      // Показываем статистику комментариев
       const withComments = result.filter(c => c.comment && c.comment.trim());
       console.log('💬 Креативов с комментариями:', withComments.length);
       
@@ -527,7 +663,6 @@ export const creativeService = {
     }
   },
 
-  // Получить все креативы (для админов)
   async getAllCreatives() {
     try {
       console.log('📡 Запрос к таблице creatives...');
@@ -554,7 +689,6 @@ export const creativeService = {
       const result = data || [];
       console.log('✅ getAllCreatives завершен успешно, получено записей:', result.length);
       
-      // Выводим пример первой записи для отладки
       if (result.length > 0) {
         console.log('📋 Пример записи креатива:', {
           id: result[0].id,
@@ -567,7 +701,6 @@ export const creativeService = {
         });
       }
       
-      // Показываем статистику комментариев
       const withComments = result.filter(c => c.comment && c.comment.trim());
       console.log('💬 Креативов с комментариями:', withComments.length);
       
@@ -575,21 +708,16 @@ export const creativeService = {
       
     } catch (error) {
       console.error('💥 Критическая ошибка в getAllCreatives:', error);
-      // Возвращаем пустой массив вместо null для предотвращения ошибок
       return [];
     }
   },
 
-  // Обновить креатив
   async updateCreative(creativeId, updates) {
     console.log('📝 Обновление креатива:', creativeId, updates);
 
     const { data, error } = await supabase
       .from('creatives')
-      .update({
-        ...updates
-        // updated_at обновится автоматически через триггер
-      })
+      .update(updates)
       .eq('id', creativeId)
       .select();
 
@@ -602,14 +730,12 @@ export const creativeService = {
     return data[0];
   },
 
-  // Обновить комментарий к креативу
   async updateCreativeComment(creativeId, comment) {
     return this.updateCreative(creativeId, { 
       comment: comment && comment.trim() ? comment.trim() : null 
     });
   },
 
-  // Удалить креатив
   async deleteCreative(creativeId) {
     console.log('🗑️ Удаление креатива:', creativeId);
 
@@ -626,7 +752,6 @@ export const creativeService = {
     console.log('✅ Креатив удален');
   },
 
-  // Подписаться на изменения креативов пользователя
   subscribeToUserCreatives(userId, callback) {
     return supabase
       .channel(`user_creatives_${userId}`)
@@ -643,7 +768,6 @@ export const creativeService = {
       .subscribe();
   },
 
-  // Получить креативы с метриками рекламы (новый метод)
   async getCreativesWithMetrics(userId = null) {
     try {
       let query = supabase
@@ -674,25 +798,21 @@ export const creativeService = {
   }
 };
 
-// ИСПРАВЛЕННЫЕ функции для работы с метриками аналитики
 export const metricsAnalyticsService = {
-  // Загрузить метрики из CSV
   async uploadMetrics(metricsData) {
     try {
       console.log('📊 Загружаем метрики аналитики:', metricsData.length, 'записей');
 
-      // Очищаем старые данные
       const { error: deleteError } = await supabase
         .from('metrics_analytics')
         .delete()
-        .neq('id', 0); // Удаляем все записи
+        .neq('id', 0);
 
       if (deleteError) {
         console.error('Ошибка очистки старых метрик:', deleteError);
       }
 
-      // Добавляем новые данные батчами с лучшей обработкой ошибок
-      const batchSize = 50; // Уменьшили размер батча для надежности
+      const batchSize = 50;
       let successfullyInserted = 0;
       
       for (let i = 0; i < metricsData.length; i += batchSize) {
@@ -711,9 +831,8 @@ export const metricsAnalyticsService = {
             details: insertError.details,
             hint: insertError.hint,
             code: insertError.code,
-            sampleData: batch[0] // Показываем первую запись из батча для отладки
+            sampleData: batch[0]
           });
-          // Продолжаем загрузку следующих батчей
           continue;
         }
         
@@ -721,7 +840,6 @@ export const metricsAnalyticsService = {
         console.log(`✅ Батч успешно загружен, всего записей: ${successfullyInserted}`);
       }
 
-      // Обновляем время последнего обновления
       const { error: updateError } = await supabase
         .from('metrics_analytics_meta')
         .upsert([
@@ -747,12 +865,10 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить все метрики с поддержкой большого количества записей
   async getAllMetrics() {
     try {
       console.log('📡 Запрос метрик аналитики...');
 
-      // Сначала получаем общее количество записей
       const { count, error: countError } = await supabase
         .from('metrics_analytics')
         .select('*', { count: 'exact', head: true });
@@ -763,19 +879,17 @@ export const metricsAnalyticsService = {
 
       console.log(`📊 Всего записей в базе: ${count}`);
 
-      // Получаем все метрики с увеличенным лимитом
       const { data: metrics, error: metricsError } = await supabase
         .from('metrics_analytics')
         .select('*')
         .order('id', { ascending: true })
-        .limit(10000); // Увеличили лимит до 10000
+        .limit(10000);
 
       if (metricsError) {
         console.error('Ошибка получения метрик:', metricsError);
         throw metricsError;
       }
 
-      // Получаем метаданные
       const { data: meta, error: metaError } = await supabase
         .from('metrics_analytics_meta')
         .select('*')
@@ -789,7 +903,6 @@ export const metricsAnalyticsService = {
       const actualCount = metrics?.length || 0;
       console.log(`✅ Получены метрики аналитики: ${actualCount} записей`);
       
-      // Предупреждение если получили меньше записей чем ожидали
       if (count && actualCount < count) {
         console.warn(`⚠️ Получено ${actualCount} записей из ${count} в базе. Возможно, нужна пагинация.`);
       }
@@ -814,7 +927,6 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить метрики с пагинацией (новый метод для очень больших таблиц)
   async getMetricsWithPagination(page = 0, pageSize = 1000) {
     try {
       const from = page * pageSize;
@@ -846,7 +958,6 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить все метрики для больших таблиц (с автоматической пагинацией)
   async getAllMetricsLarge() {
     try {
       console.log('📡 Запрос всех метрик (режим больших таблиц)...');
@@ -864,14 +975,12 @@ export const metricsAnalyticsService = {
         
         console.log(`📄 Загружена страница ${page}, всего записей: ${allMetrics.length}`);
         
-        // Защита от бесконечного цикла
         if (page > 50) {
           console.warn('⚠️ Достигнут лимит страниц (50), прерываем загрузку');
           break;
         }
       }
 
-      // Получаем метаданные
       const { data: meta, error: metaError } = await supabase
         .from('metrics_analytics_meta')
         .select('*')
@@ -898,14 +1007,13 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить статистику по метрикам
   async getMetricsStats() {
     try {
       const { data, error } = await supabase
         .from('metrics_analytics')
         .select('offer_zone, actual_roi_percent, actual_lead')
         .not('actual_lead', 'eq', 'нет данных')
-        .limit(10000); // Увеличили лимит
+        .limit(10000);
 
       if (error) throw error;
 
@@ -929,9 +1037,6 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // НОВЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С ЗОНАМИ ПО АРТИКУЛАМ
-
-  // Получить зональные данные для одного артикула
   async getZoneDataByArticle(article) {
     try {
       if (!article || !article.trim()) {
@@ -949,7 +1054,6 @@ export const metricsAnalyticsService = {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // Запись не найдена
           console.log(`❌ Зональные данные не найдены для артикула: ${article}`);
           return null;
         }
@@ -974,14 +1078,12 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Получить зональные данные для нескольких артикулов (батчевый запрос)
   async getZoneDataByArticles(articles) {
     try {
       if (!articles || articles.length === 0) {
         return new Map();
       }
 
-      // Фильтруем пустые артикулы и очищаем от пробелов
       const cleanArticles = articles
         .filter(article => article && article.trim())
         .map(article => article.trim());
@@ -1002,7 +1104,6 @@ export const metricsAnalyticsService = {
         return new Map();
       }
 
-      // Создаем Map для быстрого поиска
       const zoneDataMap = new Map();
       
       if (data && data.length > 0) {
@@ -1029,7 +1130,6 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Форматировать зональные данные для отображения
   formatZoneData(zoneData) {
     if (!zoneData) {
       return null;
@@ -1049,7 +1149,6 @@ export const metricsAnalyticsService = {
     };
   },
 
-  // Удалить все метрики
   async clearAllMetrics() {
     try {
       const { error: deleteError } = await supabase
@@ -1059,7 +1158,6 @@ export const metricsAnalyticsService = {
 
       if (deleteError) throw deleteError;
 
-      // Очищаем метаданные
       const { error: metaError } = await supabase
         .from('metrics_analytics_meta')
         .delete()
