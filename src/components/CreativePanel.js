@@ -1661,10 +1661,38 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 text-sm text-gray-900 text-center">
-                              <CurrentZoneDisplay 
-                                article={creative.article} 
-                                metricsData={getAggregatedCreativeMetrics(creative)}
-                              />
+                              {currentMode === 'aggregated' ? (
+                                <CurrentZoneDisplay 
+                                  article={creative.article} 
+                                  metricsData={getAggregatedCreativeMetrics(creative)}
+                                />
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <CurrentZoneDisplay 
+                                            article={creative.article} 
+                                            metricsData={{
+                                              found: true,
+                                              data: videoMetric.data
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="text-center">
+                                            <span className="text-gray-400 text-xs">—</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    <span className="text-gray-400 text-xs">—</span>
+                                  </div>
+                                )
+                              )}
                             </td>
 
                             {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
