@@ -1699,7 +1699,7 @@ function CreativePanel({ user }) {
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="flex items-center justify-center">
                                 {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center justify-center space-x-2">
                                     <button
                                       onClick={() => toggleDetailMode(creative.id)}
                                       className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
@@ -1712,13 +1712,17 @@ function CreativePanel({ user }) {
                                         : "Показать общую статистику"
                                       }
                                     >
-                                      <BarChart3 className="h-4 w-4" />
+                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                                      </svg>
                                     </button>
-                                    {currentMode === 'aggregated' && getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                        {getAggregatedCreativeMetrics(creative).videoCount}
-                                      </span>
-                                    )}
+                                    <div className="min-w-[24px] flex justify-center">
+                                      {getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
+                                        <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
+                                          {getAggregatedCreativeMetrics(creative).videoCount}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="w-8 h-8"></div>
