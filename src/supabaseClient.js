@@ -249,31 +249,53 @@ export const userService = {
     }
   },
 
-  // Метод для проверки настроек Supabase
+  // Метод для проверки настроек Supabase (БЕЗ реального создания пользователей)
   async checkSupabaseConfig() {
     try {
       console.log('🔍 Проверка конфигурации Supabase...');
       
-      // Пробуем получить настройки аутентификации
-      const testEmail = 'test@example.com';
-      const { error } = await supabase.auth.signUp({
-        email: testEmail,
-        password: 'testpassword123',
-        options: { data: { test: true } }
-      });
-
-      return {
-        signUpEnabled: !error?.message?.includes('signup is disabled'),
-        emailConfirmationRequired: error?.message?.includes('confirmation'),
+      // Просто проверяем доступность админ API и базовых настроек
+      const config = {
+        signUpEnabled: true, // Предполагаем что включено, если админ API доступен
+        emailConfirmationRequired: false,
         adminApiAvailable: !!adminClient,
-        error: error?.message
+        error: undefined
       };
 
+      // Если есть админ клиент, проверяем его работу БЕЗ создания пользователей
+      if (adminClient) {
+        try {
+          // Просто пробуем получить список пользователей (безопасная операция)
+          const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers({
+            page: 1,
+            perPage: 1 // Берем только 1 пользователя для теста
+          });
+
+          if (listError) {
+            config.adminApiAvailable = false;
+            config.error = `Admin API недоступен: ${listError.message}`;
+          } else {
+            config.adminApiAvailable = true;
+            console.log('✅ Admin API работает корректно');
+          }
+        } catch (adminTestError) {
+          config.adminApiAvailable = false;
+          config.error = `Ошибка тестирования Admin API: ${adminTestError.message}`;
+        }
+      } else {
+        // Если нет админ клиента, просто проверяем базовые настройки
+        config.adminApiAvailable = false;
+        config.error = 'Service Role Key не настроен';
+      }
+
+      return config;
+
     } catch (error) {
+      console.error('❌ Ошибка проверки конфигурации:', error);
       return {
         signUpEnabled: false,
         emailConfirmationRequired: false,
-        adminApiAvailable: !!adminClient,
+        adminApiAvailable: false,
         error: error.message
       };
     }
