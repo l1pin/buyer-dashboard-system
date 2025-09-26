@@ -15,7 +15,9 @@ import {
   Monitor,
   Video,
   Settings,
-  Info
+  Info,
+  Edit,
+  Save
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -24,13 +26,24 @@ function UserManagement({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfigInfo, setShowConfigInfo] = useState(false);
   const [supabaseConfig, setSupabaseConfig] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
 
   const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'buyer'
+  });
+
+  const [editUserData, setEditUserData] = useState({
+    id: '',
     name: '',
     email: '',
     password: '',
@@ -54,6 +67,22 @@ function UserManagement({ user }) {
       setError('Ошибка загрузки пользователей: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
+      return;
+    }
+
+    try {
+      setDeleting(userId);
+      setError('');
+      await userService.deleteUser(userId);
+      await loadUsers();
+      setSuccess(`Пользователь "${userName}" успешно удален`);
+    } catch (error) {
+      setError('Ошибка удаления пользователя: ' + error.message);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -211,7 +240,119 @@ function UserManagement({ user }) {
     }
   };
 
-  const handleDeleteUser = async (userId, userName) => {
+  const handleEditUser = (userToEdit) => {
+    setEditingUser(userToEdit);
+    setEditUserData({
+      id: userToEdit.id,
+      name: userToEdit.name || '',
+      email: userToEdit.email || '',
+      password: '', // Пароль всегда пустой для безопасности
+      role: userToEdit.role || 'buyer'
+    });
+    setShowEditModal(true);
+    setShowPassword(false); // Скрываем пароль при открытии
+    clearMessages();
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editUserData.name?.trim()) {
+      setError('Имя пользователя обязательно для заполнения');
+      return;
+    }
+
+    if (!editUserData.email?.trim()) {
+      setError('Email адрес обязателен для заполнения');
+      return;
+    }
+
+    // Проверка формата email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editUserData.email.trim())) {
+      setError('Введите корректный email адрес (например: user@example.com)');
+      return;
+    }
+
+    // Если пароль указан, проверяем его длину
+    if (editUserData.password && editUserData.password.length < 6) {
+      setError('Пароль должен содержать минимум 6 символов');
+      return;
+    }
+
+    // Проверка на существующий email (если email изменился)
+    if (editUserData.email.trim().toLowerCase() !== editingUser.email.toLowerCase()) {
+      const existingUser = users.find(u => 
+        u.id !== editUserData.id && 
+        u.email.toLowerCase() === editUserData.email.trim().toLowerCase()
+      );
+      if (existingUser) {
+        setError('Пользователь с таким email уже существует');
+        return;
+      }
+    }
+
+    try {
+      setUpdating(true);
+      setError('');
+      setSuccess('');
+
+      console.log('📝 Обновление пользователя:', {
+        id: editUserData.id,
+        name: editUserData.name.trim(),
+        email: editUserData.email.trim(),
+        role: editUserData.role,
+        hasPassword: !!editUserData.password
+      });
+
+      const result = await userService.updateUser({
+        id: editUserData.id,
+        name: editUserData.name.trim(),
+        email: editUserData.email.trim(),
+        password: editUserData.password || undefined, // Только если пароль указан
+        role: editUserData.role
+      });
+
+      console.log('✅ Результат обновления пользователя:', result);
+
+      // Очищаем форму и закрываем модал
+      const updatedUserName = editUserData.name.trim();
+      setEditUserData({
+        id: '',
+        name: '',
+        email: '',
+        password: '',
+        role: 'buyer'
+      });
+      setEditingUser(null);
+      setShowEditModal(false);
+      setShowPassword(false);
+
+      // Обновляем список пользователей
+      await loadUsers();
+      
+      setSuccess(`Данные пользователя "${updatedUserName}" успешно обновлены`);
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления пользователя:', error);
+      
+      let errorMessage = 'Неизвестная ошибка обновления пользователя';
+      
+      if (error.message) {
+        if (error.message.includes('уже существует') || 
+            error.message.includes('already exists') ||
+            error.message.includes('duplicate')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('invalid')) {
+          errorMessage = `Неверный формат email адреса "${editUserData.email}". Проверьте правильность введенного email.`;
+        } else {
+          errorMessage = `Ошибка обновления пользователя: ${error.message}`;
+        }
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setUpdating(false);
+    }
+  };
     if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
       return;
     }
@@ -298,6 +439,7 @@ function UserManagement({ user }) {
   const clearMessages = () => {
     setError('');
     setSuccess('');
+    setShowPassword(false);
   };
 
   const { buyersCount, editorsCount } = getUserStats();
@@ -539,18 +681,208 @@ function UserManagement({ user }) {
                           {formatKyivTime(currentUser.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleDeleteUser(currentUser.id, currentUser.name)}
-                            disabled={deleting === currentUser.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 p-2"
-                            title="Удалить пользователя"
-                          >
-                            {deleting === currentUser.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => handleEditUser(currentUser)}
+                              className="text-blue-600 hover:text-blue-900 p-2"
+                              title="Редактировать пользователя"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(currentUser.id, currentUser.name)}
+                              disabled={deleting === currentUser.id}
+                              className="text-red-600 hover:text-red-900 disabled:opacity-50 p-2"
+                              title="Удалить пользователя"
+                            >
+                              {deleting === currentUser.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Редактировать пользователя
+              </h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                  setEditUserData({
+                    id: '',
+                    name: '',
+                    email: '',
+                    password: '',
+                    role: 'buyer'
+                  });
+                  clearMessages();
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Имя пользователя *
+                </label>
+                <input
+                  type="text"
+                  value={editUserData.name}
+                  onChange={(e) => {
+                    setEditUserData({ ...editUserData, name: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Введите имя"
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => {
+                    setEditUserData({ ...editUserData, email: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="user@example.com"
+                  maxLength={200}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Используйте корректный email адрес
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Новый пароль
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={editUserData.password}
+                    onChange={(e) => {
+                      setEditUserData({ ...editUserData, password: e.target.value });
+                      clearMessages();
+                    }}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Оставьте пустым, чтобы не менять"
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {editUserData.password ? 'Новый пароль должен содержать минимум 6 символов' : 'Оставьте пустым, если не хотите менять пароль'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Роль
+                </label>
+                <select
+                  value={editUserData.role}
+                  onChange={(e) => {
+                    setEditUserData({ ...editUserData, role: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="buyer">Байер</option>
+                  <option value="editor">Монтажер</option>
+                  <option value="teamlead">Тим лид</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
+                  {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
+                  {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                </p>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-md">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Info className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Текущие данные:
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p><strong>Email:</strong> {editingUser.email}</p>
+                      <p><strong>Роль:</strong> {getRoleDisplayName(editingUser.role)}</p>
+                      <p><strong>Создан:</strong> {formatKyivTime(editingUser.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                  setEditUserData({
+                    id: '',
+                    name: '',
+                    email: '',
+                    password: '',
+                    role: 'buyer'
+                  });
+                  clearMessages();
+                }}
+                disabled={updating}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleUpdateUser}
+                disabled={updating || !editUserData.name?.trim() || !editUserData.email?.trim()}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                {updating ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Сохранение...
+                  </div>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Сохранить
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
