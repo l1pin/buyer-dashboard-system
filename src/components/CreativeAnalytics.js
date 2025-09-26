@@ -1447,7 +1447,7 @@ function CreativeAnalytics({ user }) {
                 </h3>
                 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 relative">
+                  <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
@@ -1563,7 +1563,7 @@ function CreativeAnalytics({ user }) {
                 </h3>
                 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 relative">
+                  <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
@@ -1711,62 +1711,59 @@ function CreativeAnalytics({ user }) {
                 {getCurrentMonthYear()} - Полная аналитика креативов
               </h3>
               
-              <div 
-                className="overflow-x-auto relative border border-gray-200 rounded-lg" 
-                style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}
-              >
-                <table className="min-w-full divide-y divide-gray-200 relative">
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
+                <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Монтажер
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Видео
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Зона
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <BarChart3 className="h-4 w-4 mx-auto" />
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Лиды
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         CPL
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Расходы
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Клики
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         CPC
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         CTR
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         CPM
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Показы
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дней
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Зоны
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         COF
                       </th>
                     </tr>
