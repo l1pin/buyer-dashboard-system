@@ -119,27 +119,10 @@ export const userService = {
 
         console.log('✅ Auth пользователь создан, создаем профиль...');
 
-        // Проверяем, нет ли уже записи с таким ID (дополнительная защита)
-        const { data: existingProfile } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (existingProfile) {
-          console.log('⚠️ Профиль с таким ID уже существует, удаляем auth пользователя');
-          try {
-            await adminClient.auth.admin.deleteUser(authData.user.id);
-          } catch (cleanupError) {
-            console.error('⚠️ Ошибка очистки auth пользователя:', cleanupError);
-          }
-          throw new Error('Пользователь с таким ID уже существует. Попробуйте создать пользователя еще раз.');
-        }
-
-        // Создаем запись в таблице users
+        // Создаем запись в таблице users (или проверяем, что она уже создана триггером)
         const { data: profileData, error: profileError } = await supabase
           .from('users')
-          .insert([
+          .upsert([
             {
               id: authData.user.id,
               email: emailToCheck,
@@ -147,23 +130,43 @@ export const userService = {
               role: userData.role,
               created_at: new Date().toISOString()
             }
-          ])
+          ], {
+            onConflict: 'id', // При конфликте по ID - обновляем данные
+            ignoreDuplicates: false
+          })
           .select()
           .single();
 
         if (profileError) {
-          console.error('❌ Ошибка создания профиля:', profileError);
+          console.error('❌ Ошибка создания/обновления профиля:', profileError);
           
-          // Очищаем auth пользователя при ошибке
+          // Проверяем, может профиль уже существует и нужно просто его получить
+          const { data: existingProfile, error: getProfileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (!getProfileError && existingProfile) {
+            console.log('✅ Профиль уже существует, используем существующий');
+            
+            // КРИТИЧЕСКИ ВАЖНО: Восстанавливаем сессию тим лида
+            if (currentSession) {
+              console.log('🔄 Восстанавливаем сессию тим лида...');
+              await supabase.auth.setSession(currentSession);
+              console.log('✅ Сессия тим лида восстановлена');
+            }
+
+            console.log('✅ Пользователь успешно создан (профиль был создан автоматически)');
+            return { user: authData.user, profile: existingProfile };
+          }
+          
+          // Если всё равно не удалось, очищаем auth пользователя
           try {
             await adminClient.auth.admin.deleteUser(authData.user.id);
             console.log('🧹 Auth пользователь удален после ошибки профиля');
           } catch (cleanupError) {
             console.error('⚠️ Ошибка очистки auth пользователя:', cleanupError);
-          }
-          
-          if (profileError.code === '23505') {
-            throw new Error(`Конфликт данных при создании профиля. Попробуйте создать пользователя еще раз.`);
           }
           
           throw new Error(`Ошибка создания профиля: ${profileError.message}`);
@@ -213,10 +216,10 @@ export const userService = {
         throw new Error('Пользователь не был создан. Возможно, требуется подтверждение email.');
       }
 
-      // Создаем запись в таблице users
+      // Создаем запись в таблице users (или проверяем, что она уже создана триггером)
       const { data: profileData, error: profileError } = await supabase
         .from('users')
-        .insert([
+        .upsert([
           {
             id: authData.user.id,
             email: emailToCheck,
@@ -224,12 +227,37 @@ export const userService = {
             role: userData.role,
             created_at: new Date().toISOString()
           }
-        ])
+        ], {
+          onConflict: 'id', // При конфликте по ID - обновляем данные
+          ignoreDuplicates: false
+        })
         .select()
         .single();
 
       if (profileError) {
-        console.error('❌ Ошибка создания профиля:', profileError);
+        console.error('❌ Ошибка создания/обновления профиля:', profileError);
+        
+        // Проверяем, может профиль уже существует и нужно просто его получить
+        const { data: existingProfile, error: getProfileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (!getProfileError && existingProfile) {
+          console.log('✅ Профиль уже существует, используем существующий');
+          
+          // КРИТИЧЕСКИ ВАЖНО: Восстанавливаем сессию тим лида
+          if (currentSession) {
+            console.log('🔄 Восстанавливаем сессию тим лида...');
+            await supabase.auth.setSession(currentSession);
+            console.log('✅ Сессия тим лида восстановлена');
+          }
+
+          console.log('✅ Пользователь создан через обычный клиент (профиль был создан автоматически)');
+          return { user: authData.user, profile: existingProfile };
+        }
+        
         throw new Error(`Ошибка создания профиля пользователя: ${profileError.message}`);
       }
 
