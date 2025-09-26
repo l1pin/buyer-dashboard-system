@@ -35,6 +35,9 @@ function Settings({ user, updateUser }) {
     confirmPassword: ''
   });
 
+  // Проверяем, является ли пользователь монтажером
+  const isEditor = user?.role === 'editor';
+
   const handleProfileUpdate = async () => {
     if (!profileData.name) {
       setError('Имя пользователя обязательно для заполнения');
@@ -209,7 +212,7 @@ function Settings({ user, updateUser }) {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Настройки</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Управление профилем и настройками аккаунта
+            {isEditor ? 'Управление фото профиля' : 'Управление профилем и настройками аккаунта'}
           </p>
         </div>
 
@@ -294,213 +297,293 @@ function Settings({ user, updateUser }) {
             </div>
           </div>
 
-          {/* Profile Settings */}
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Информация профиля
-              </h3>
-              
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <User className="h-4 w-4 inline mr-1" />
-                    Имя пользователя
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.name}
-                    onChange={(e) => {
-                      setProfileData({ ...profileData, name: e.target.value });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Введите ваше имя"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Mail className="h-4 w-4 inline mr-1" />
-                    Email адрес
-                  </label>
-                  <input
-                    type="email"
-                    value={profileData.email}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Email адрес нельзя изменить. Обратитесь к администратору.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Shield className="h-4 w-4 inline mr-1" />
-                    Роль
-                  </label>
-                  <input
-                    type="text"
-                    value={user?.role === 'teamlead' ? 'Тим лид' : user?.role === 'editor' ? 'Монтажер' : 'Байер'}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  onClick={handleProfileUpdate}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Сохранить профиль
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Password Change */}
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Изменение пароля
-              </h3>
-              
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Текущий пароль
-                  </label>
-                  <div className="relative">
+          {/* Profile Settings - только для не-монтажеров */}
+          {!isEditor && (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Информация профиля
+                </h3>
+                
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Имя пользователя
+                    </label>
                     <input
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
+                      type="text"
+                      value={profileData.name}
                       onChange={(e) => {
-                        setPasswordData({ ...passwordData, currentPassword: e.target.value });
+                        setProfileData({ ...profileData, name: e.target.value });
                         clearMessages();
                       }}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Введите текущий пароль"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Введите ваше имя"
                     />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      {showCurrentPassword ? (
-                        <EyeOff className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <Eye className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Mail className="h-4 w-4 inline mr-1" />
+                      Email адрес
+                    </label>
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Email адрес нельзя изменить. Обратитесь к администратору.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Shield className="h-4 w-4 inline mr-1" />
+                      Роль
+                    </label>
+                    <input
+                      type="text"
+                      value={user?.role === 'teamlead' ? 'Тим лид' : user?.role === 'editor' ? 'Монтажер' : 'Байер'}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Новый пароль
-                  </label>
-                  <div className="relative">
+                <div className="mt-6">
+                  <button
+                    onClick={handleProfileUpdate}
+                    disabled={loading}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Сохранить профиль
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Profile Info for Editors - только чтение */}
+          {isEditor && (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Информация профиля
+                </h3>
+                
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Имя пользователя
+                    </label>
                     <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) => {
-                        setPasswordData({ ...passwordData, newPassword: e.target.value });
-                        clearMessages();
-                      }}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Минимум 6 символов"
+                      type="text"
+                      value={profileData.name}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? (
-                        <EyeOff className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <Eye className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Имя пользователя может изменить только администратор.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Mail className="h-4 w-4 inline mr-1" />
+                      Email адрес
+                    </label>
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Shield className="h-4 w-4 inline mr-1" />
+                      Роль
+                    </label>
+                    <input
+                      type="text"
+                      value="Монтажер"
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Подтверждение нового пароля
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => {
-                      setPasswordData({ ...passwordData, confirmPassword: e.target.value });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Повторите новый пароль"
-                  />
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Ограниченные права доступа
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          Как монтажер, вы можете изменить только фото профиля. 
+                          Для изменения других данных обратитесь к тим лиду.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="mt-6">
-                <button
-                  onClick={handlePasswordChange}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <Key className="h-4 w-4 mr-2" />
-                  )}
-                  Изменить пароль
-                </button>
+          {/* Password Change - только для не-монтажеров */}
+          {!isEditor && (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Изменение пароля
+                </h3>
+                
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Текущий пароль
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => {
+                          setPasswordData({ ...passwordData, currentPassword: e.target.value });
+                          clearMessages();
+                        }}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Введите текущий пароль"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Новый пароль
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={passwordData.newPassword}
+                        onChange={(e) => {
+                          setPasswordData({ ...passwordData, newPassword: e.target.value });
+                          clearMessages();
+                        }}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Минимум 6 символов"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Подтверждение нового пароля
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => {
+                        setPasswordData({ ...passwordData, confirmPassword: e.target.value });
+                        clearMessages();
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Повторите новый пароль"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    onClick={handlePasswordChange}
+                    disabled={loading}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <Key className="h-4 w-4 mr-2" />
+                    )}
+                    Изменить пароль
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Account Info */}
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Информация об аккаунте
-              </h3>
-              
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">ID пользователя</dt>
-                  <dd className="mt-1 text-sm text-gray-900 font-mono">{user?.id}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Дата создания</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {user?.created_at ? formatKyivTime(user.created_at) : 'Не указана'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Статус аккаунта</dt>
-                  <dd className="mt-1">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Активный
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Последнее обновление</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {user?.updated_at ? formatKyivTime(user.updated_at) : 'Не указана'}
-                  </dd>
-                </div>
-              </dl>
+          {/* Account Info - только для не-монтажеров */}
+          {!isEditor && (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Информация об аккаунте
+                </h3>
+                
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">ID пользователя</dt>
+                    <dd className="mt-1 text-sm text-gray-900 font-mono">{user?.id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Дата создания</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {user?.created_at ? formatKyivTime(user.created_at) : 'Не указана'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Статус аккаунта</dt>
+                    <dd className="mt-1">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Активный
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Последнее обновление</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {user?.updated_at ? formatKyivTime(user.updated_at) : 'Не указана'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
