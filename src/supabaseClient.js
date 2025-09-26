@@ -368,7 +368,99 @@ export const userService = {
     }
   },
 
-  // Обновить профиль пользователя
+  // Обновить пользователя
+  async updateUser(userData) {
+    try {
+      console.log('📝 Обновление пользователя:', userData);
+
+      const { id, password, ...profileUpdates } = userData;
+
+      if (!id) {
+        throw new Error('ID пользователя обязателен для обновления');
+      }
+
+      // Обновляем пароль в auth если он указан
+      if (password && password.trim()) {
+        if (adminClient) {
+          console.log('🔧 Обновление пароля через админ API...');
+          
+          const { error: passwordError } = await adminClient.auth.admin.updateUserById(id, {
+            password: password.trim()
+          });
+
+          if (passwordError) {
+            console.error('❌ Ошибка обновления пароля:', passwordError);
+            throw new Error(`Ошибка обновления пароля: ${passwordError.message}`);
+          }
+          
+          console.log('✅ Пароль успешно обновлен');
+        } else {
+          console.warn('⚠️ Admin API недоступен, пароль не может быть обновлен');
+          throw new Error('Для обновления пароля требуется Service Role Key');
+        }
+      }
+
+      // Обновляем email в auth если он изменился
+      if (profileUpdates.email) {
+        const emailToUpdate = profileUpdates.email.trim().toLowerCase();
+        
+        if (adminClient) {
+          console.log('📧 Обновление email через админ API...');
+          
+          const { error: emailError } = await adminClient.auth.admin.updateUserById(id, {
+            email: emailToUpdate,
+            email_confirm: true // Автоматически подтверждаем новый email
+          });
+
+          if (emailError) {
+            console.error('❌ Ошибка обновления email:', emailError);
+            
+            if (emailError.message?.includes('already registered') || 
+                emailError.message?.includes('already exists')) {
+              throw new Error(`Email "${profileUpdates.email}" уже используется другим пользователем`);
+            }
+            
+            throw new Error(`Ошибка обновления email: ${emailError.message}`);
+          }
+          
+          console.log('✅ Email успешно обновлен в auth');
+        }
+        
+        // Обновляем email в профиле
+        profileUpdates.email = emailToUpdate;
+      }
+
+      // Обновляем профиль в таблице users
+      console.log('👤 Обновление профиля пользователя...');
+      
+      const { data: updatedProfile, error: profileError } = await supabase
+        .from('users')
+        .update({
+          ...profileUpdates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('❌ Ошибка обновления профиля:', profileError);
+        
+        if (profileError.code === '23505') {
+          throw new Error(`Пользователь с такими данными уже существует`);
+        }
+        
+        throw new Error(`Ошибка обновления профиля: ${profileError.message}`);
+      }
+
+      console.log('✅ Пользователь успешно обновлен:', updatedProfile);
+      return updatedProfile;
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления пользователя:', error);
+      throw error;
+    }
+  },
   async updateUserProfile(userId, updates) {
     const { data, error } = await supabase
       .from('users')
