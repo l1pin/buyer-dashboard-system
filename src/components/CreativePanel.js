@@ -1431,34 +1431,10 @@ function CreativePanel({ user }) {
             </div>
           )}
 
-          <div className="flex items-center justify-between text-sm mt-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Activity className="h-4 w-4 text-blue-500" />
-                <span className="text-blue-600">
-                  {metricsLoading ? 'Загрузка метрик...' : 
-                   metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
-                   `Метрики (${getPeriodButtonText()}) включены`}
-                </span>
-                {metricsPeriod === '4days' && metricsStats?.found === 0 && metricsStats?.total > 0 && (
-                  <span className="text-red-600 text-xs font-medium">
-                    (Возможно, нет данных за последние 4 дня)
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Layers className="h-4 w-4 text-emerald-500" />
-                <span className="text-emerald-600">
-                  {zoneDataLoading ? 'Загрузка зон...' : 
-                   `Зоны: ${zoneDataStats.found}/${zoneDataStats.total}`}
-                </span>
-              </div>
-            </div>
-          </div>
+          
         </div>
       )}
-
+      
       {/* Messages */}
       {success && (
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
