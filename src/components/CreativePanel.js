@@ -238,11 +238,11 @@ function CreativePanel({ user }) {
         },
         formatted: {
           leads: String(Math.round(aggregated.leads)),
-          cpl: aggregated.leads > 0 ? `$${cpl.toFixed(2)}` : '$0.00',
-          cost: `$${aggregated.cost.toFixed(2)}`,
+          cpl: aggregated.leads > 0 ? `${cpl.toFixed(2)}$` : '0.00$',
+          cost: `${aggregated.cost.toFixed(2)}$`,
           ctr: `${ctr.toFixed(2)}%`,
-          cpc: `$${cpc.toFixed(2)}`,
-          cpm: `$${cpm.toFixed(2)}`,
+          cpc: `${cpc.toFixed(2)}$`,
+          cpm: `${cpm.toFixed(2)}$`,
           clicks: String(Math.round(aggregated.clicks)),
           impressions: String(Math.round(aggregated.impressions)),
           days: String(aggregated.days_count)
@@ -1256,9 +1256,9 @@ function CreativePanel({ user }) {
                           CPL
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          ${creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
-                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) : 
-                            '0.00'}
+                          {creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
+                          '0.00$'}
                         </dd>
                       </dl>
                     </div>
@@ -1325,9 +1325,9 @@ function CreativePanel({ user }) {
                           CPC
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          ${aggregatedMetricsStats.totalClicks > 0 ? 
-                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) : 
-                            '0.00'}
+                          {aggregatedMetricsStats.totalClicks > 0 ? 
+                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
+                          '0.00$'}
                         </dd>
                       </dl>
                     </div>
@@ -1373,9 +1373,9 @@ function CreativePanel({ user }) {
                           CPM
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          ${aggregatedMetricsStats.totalImpressions > 0 ? 
-                            ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) : 
-                            '0.00'}
+                          {aggregatedMetricsStats.totalImpressions > 0 ? 
+                          ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
+                          '0.00$'}
                         </dd>
                       </dl>
                     </div>
