@@ -52,8 +52,6 @@ function UserManagement({ user }) {
 
   useEffect(() => {
     loadUsers();
-    // Убираем автоматическую проверку конфигурации при загрузке
-    // checkSupabaseConfiguration();
   }, []);
 
   const loadUsers = async () => {
@@ -67,22 +65,6 @@ function UserManagement({ user }) {
       setError('Ошибка загрузки пользователей: ' + error.message);
     } finally {
       setLoading(false);
-    }
-  const handleDeleteUser = async (userId, userName) => {
-    if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
-      return;
-    }
-
-    try {
-      setDeleting(userId);
-      setError('');
-      await userService.deleteUser(userId);
-      await loadUsers();
-      setSuccess(`Пользователь "${userName}" успешно удален`);
-    } catch (error) {
-      setError('Ошибка удаления пользователя: ' + error.message);
-    } finally {
-      setDeleting(null);
     }
   };
 
@@ -102,31 +84,46 @@ function UserManagement({ user }) {
     }
   };
 
-  const validateUserData = () => {
-    if (!newUser.name?.trim()) {
+  const validateUserData = (userData, isEdit = false) => {
+    if (!userData.name?.trim()) {
       setError('Имя пользователя обязательно для заполнения');
       return false;
     }
 
-    if (!newUser.email?.trim()) {
+    if (!userData.email?.trim()) {
       setError('Email адрес обязателен для заполнения');
       return false;
     }
 
     // Проверка формата email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUser.email.trim())) {
+    if (!emailRegex.test(userData.email.trim())) {
       setError('Введите корректный email адрес (например: user@example.com)');
       return false;
     }
 
-    if (!newUser.password || newUser.password.length < 6) {
+    // Для создания пароль обязателен, для редактирования - нет
+    if (!isEdit && (!userData.password || userData.password.length < 6)) {
+      setError('Пароль должен содержать минимум 6 символов');
+      return false;
+    }
+
+    // Для редактирования проверяем пароль только если он указан
+    if (isEdit && userData.password && userData.password.length < 6) {
       setError('Пароль должен содержать минимум 6 символов');
       return false;
     }
 
     // Проверка на существующий email
-    const existingUser = users.find(u => u.email.toLowerCase() === newUser.email.trim().toLowerCase());
+    const emailToCheck = userData.email.trim().toLowerCase();
+    const existingUser = users.find(u => {
+      if (isEdit) {
+        return u.id !== userData.id && u.email.toLowerCase() === emailToCheck;
+      } else {
+        return u.email.toLowerCase() === emailToCheck;
+      }
+    });
+    
     if (existingUser) {
       setError('Пользователь с таким email уже существует');
       return false;
@@ -136,7 +133,7 @@ function UserManagement({ user }) {
   };
 
   const handleCreateUser = async () => {
-    if (!validateUserData()) {
+    if (!validateUserData(newUser, false)) {
       return;
     }
 
@@ -255,39 +252,8 @@ function UserManagement({ user }) {
   };
 
   const handleUpdateUser = async () => {
-    if (!editUserData.name?.trim()) {
-      setError('Имя пользователя обязательно для заполнения');
+    if (!validateUserData(editUserData, true)) {
       return;
-    }
-
-    if (!editUserData.email?.trim()) {
-      setError('Email адрес обязателен для заполнения');
-      return;
-    }
-
-    // Проверка формата email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(editUserData.email.trim())) {
-      setError('Введите корректный email адрес (например: user@example.com)');
-      return;
-    }
-
-    // Если пароль указан, проверяем его длину
-    if (editUserData.password && editUserData.password.length < 6) {
-      setError('Пароль должен содержать минимум 6 символов');
-      return;
-    }
-
-    // Проверка на существующий email (если email изменился)
-    if (editUserData.email.trim().toLowerCase() !== editingUser.email.toLowerCase()) {
-      const existingUser = users.find(u => 
-        u.id !== editUserData.id && 
-        u.email.toLowerCase() === editUserData.email.trim().toLowerCase()
-      );
-      if (existingUser) {
-        setError('Пользователь с таким email уже существует');
-        return;
-      }
     }
 
     try {
@@ -353,6 +319,8 @@ function UserManagement({ user }) {
       setUpdating(false);
     }
   };
+
+  const handleDeleteUser = async (userId, userName) => {
     if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
       return;
     }
@@ -700,6 +668,165 @@ function UserManagement({ user }) {
                               ) : (
                                 <Trash2 className="h-4 w-4" />
                               )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Создать нового пользователя
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  clearMessages();
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Имя пользователя *
+                </label>
+                <input
+                  type="text"
+                  value={newUser.name}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, name: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Введите имя"
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, email: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="user@example.com"
+                  maxLength={200}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Используйте корректный email адрес
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Пароль *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newUser.password}
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, password: e.target.value });
+                      clearMessages();
+                    }}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Минимум 6 символов"
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Пароль должен содержать минимум 6 символов
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Роль
+                </label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => {
+                    setNewUser({ ...newUser, role: e.target.value });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="buyer">Байер</option>
+                  <option value="editor">Монтажер</option>
+                  <option value="teamlead">Тим лид</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
+                  {newUser.role === 'editor' && 'Доступ к управлению креативами'}
+                  {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  clearMessages();
+                }}
+                disabled={creating}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={creating || !newUser.name?.trim() || !newUser.email?.trim() || !newUser.password}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {creating ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Создание...
+                  </div>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Создать
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
@@ -874,165 +1001,6 @@ function UserManagement({ user }) {
                   <>
                     <Save className="h-4 w-4 mr-2" />
                     Сохранить
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                Создать нового пользователя
-              </h3>
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  clearMessages();
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Имя пользователя *
-                </label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => {
-                    setNewUser({ ...newUser, name: e.target.value });
-                    clearMessages();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Введите имя"
-                  maxLength={100}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => {
-                    setNewUser({ ...newUser, email: e.target.value });
-                    clearMessages();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="user@example.com"
-                  maxLength={200}
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Используйте корректный email адрес
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Пароль *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={newUser.password}
-                    onChange={(e) => {
-                      setNewUser({ ...newUser, password: e.target.value });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Минимум 6 символов"
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Пароль должен содержать минимум 6 символов
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Роль
-                </label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => {
-                    setNewUser({ ...newUser, role: e.target.value });
-                    clearMessages();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="buyer">Байер</option>
-                  <option value="editor">Монтажер</option>
-                  <option value="teamlead">Тим лид</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
-                  {newUser.role === 'editor' && 'Доступ к управлению креативами'}
-                  {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  clearMessages();
-                }}
-                disabled={creating}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCreateUser}
-                disabled={creating || !newUser.name?.trim() || !newUser.email?.trim() || !newUser.password}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {creating ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Создание...
-                  </div>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Создать
                   </>
                 )}
               </button>
