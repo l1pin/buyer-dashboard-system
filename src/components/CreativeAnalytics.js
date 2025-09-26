@@ -1649,27 +1649,27 @@ function CreativeAnalytics({ user }) {
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-purple-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   {Math.round(stats.metrics.totalLeads)}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-green-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   ${stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-red-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   ${stats.metrics.totalCost.toFixed(2)}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-blue-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   {stats.metrics.avgCTR > 0 ? stats.metrics.avgCTR.toFixed(2) + '%' : '0.00%'}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-orange-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   ${stats.metrics.avgCPC > 0 ? stats.metrics.avgCPC.toFixed(2) : '0.00'}
                                 </span>
                               </td>
