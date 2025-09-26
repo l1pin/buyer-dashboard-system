@@ -1655,12 +1655,12 @@ function CreativeAnalytics({ user }) {
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-gray-900">
-                                  ${stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}
+                                  {stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}$
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-gray-900">
-                                  ${stats.metrics.totalCost.toFixed(2)}
+                                  {stats.metrics.totalCost.toFixed(2)}$
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -1670,7 +1670,7 @@ function CreativeAnalytics({ user }) {
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-gray-900">
-                                  ${stats.metrics.avgCPC > 0 ? stats.metrics.avgCPC.toFixed(2) : '0.00'}
+                                  {stats.metrics.avgCPC > 0 ? stats.metrics.avgCPC.toFixed(2) : '0.00'}$
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
