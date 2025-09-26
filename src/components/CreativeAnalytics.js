@@ -1,10 +1,11 @@
-// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ CreativeAnalytics.js с ПОЛНЫМ функционалом как в CreativePanel
+// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ CreativeAnalytics.js с интерфейсом как в CreativePanel
 // Замените полностью содержимое src/components/CreativeAnalytics.js
 
 import React, { useState, useEffect } from 'react';
 import { creativeService, userService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
+import { MetricsService } from '../services/metricsService';
 import { 
   BarChart3,
   Users,
@@ -35,7 +36,6 @@ import {
   ChevronUp,
   Star,
   Layers,
-  Bug,
   Trophy,
   Award
 } from 'lucide-react';
@@ -69,9 +69,11 @@ function CreativeAnalytics({ user }) {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
-  const [expandedMetrics, setExpandedMetrics] = useState(new Set());
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
-  const [debugMode, setDebugMode] = useState(false);
+  
+  // НОВЫЕ состояния для переключения метрик в той же строке
+  const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
 
   // Хуки для метрик - с поддержкой периодов
   const { 
@@ -154,7 +156,7 @@ function CreativeAnalytics({ user }) {
     </div>
   );
 
-  // Агрегация метрик по всем видео креатива
+  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
   const getAggregatedCreativeMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
@@ -162,12 +164,14 @@ function CreativeAnalytics({ user }) {
       return null;
     }
 
+    // Фильтруем только найденные метрики
     const validMetrics = creativeMetrics.filter(metric => metric.found && metric.data);
     
     if (validMetrics.length === 0) {
       return null;
     }
 
+    // Агрегируем все метрики
     const aggregated = validMetrics.reduce((acc, metric) => {
       const data = metric.data.raw;
       return {
@@ -185,6 +189,7 @@ function CreativeAnalytics({ user }) {
       days_count: 0
     });
 
+    // Вычисляем производные метрики
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
     const ctr = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
     const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
@@ -204,159 +209,93 @@ function CreativeAnalytics({ user }) {
         },
         formatted: {
           leads: String(Math.round(aggregated.leads)),
-          cpl: aggregated.leads > 0 ? `$${cpl.toFixed(2)}` : '$0.00',
-          cost: `$${aggregated.cost.toFixed(2)}`,
+          cpl: aggregated.leads > 0 ? `${cpl.toFixed(2)}$` : '0.00$',
+          cost: `${aggregated.cost.toFixed(2)}$`,
           ctr: `${ctr.toFixed(2)}%`,
-          cpc: `$${cpc.toFixed(2)}`,
-          cpm: `$${cpm.toFixed(2)}`,
+          cpc: `${cpc.toFixed(2)}$`,
+          cpm: `${cpm.toFixed(2)}$`,
           clicks: String(Math.round(aggregated.clicks)),
           impressions: String(Math.round(aggregated.impressions)),
-          days: `${aggregated.days_count} дн.`
+          days: String(aggregated.days_count)
         }
       }
     };
   };
 
-  // Переключение детализации метрик
-  const toggleMetricsDetail = (creativeId) => {
-    const newExpanded = new Set(expandedMetrics);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
-    } else {
-      newExpanded.add(creativeId);
+  // НОВАЯ ФУНКЦИЯ: Получение метрик для конкретного видео
+  const getIndividualVideoMetrics = (creative, videoIndex) => {
+    const creativeMetrics = getCreativeMetrics(creative.id);
+    
+    if (!creativeMetrics || creativeMetrics.length === 0 || videoIndex >= creativeMetrics.length) {
+      return null;
     }
-    setExpandedMetrics(newExpanded);
+
+    const metric = creativeMetrics[videoIndex];
+    
+    if (!metric.found || !metric.data) {
+      return null;
+    }
+
+    return {
+      found: true,
+      videoTitle: creative.link_titles?.[videoIndex] || `Видео ${videoIndex + 1}`,
+      videoIndex: videoIndex + 1,
+      totalVideos: creativeMetrics.length,
+      data: metric.data
+    };
   };
 
-  // Переключение детализации типов работ
-  const toggleWorkTypesDetail = (creativeId) => {
-    const newExpanded = new Set(expandedWorkTypes);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
+  // НОВАЯ ФУНКЦИЯ: Переключение режима отображения метрик
+  const toggleDetailMode = (creativeId) => {
+    const newDetailMode = new Map(detailMode);
+    const currentMode = newDetailMode.get(creativeId) || 'aggregated';
+    
+    if (currentMode === 'aggregated') {
+      newDetailMode.set(creativeId, 'individual');
+      // Устанавливаем начальный индекс видео на 0
+      const newCurrentVideoIndex = new Map(currentVideoIndex);
+      newCurrentVideoIndex.set(creativeId, 0);
+      setCurrentVideoIndex(newCurrentVideoIndex);
     } else {
-      newExpanded.add(creativeId);
+      newDetailMode.set(creativeId, 'aggregated');
     }
-    setExpandedWorkTypes(newExpanded);
+    
+    setDetailMode(newDetailMode);
   };
 
-  // Детальная информация по видео
-  const MetricsDetailRow = ({ creative }) => {
+  // НОВАЯ ФУНКЦИЯ: Получение текущих метрик для отображения
+  const getCurrentMetricsForDisplay = (creative) => {
+    const currentMode = detailMode.get(creative.id) || 'aggregated';
+    
+    if (currentMode === 'aggregated') {
+      return {
+        type: 'aggregated',
+        metrics: getAggregatedCreativeMetrics(creative)
+      };
+    } else {
+      const videoIndex = currentVideoIndex.get(creative.id) || 0;
+      return {
+        type: 'individual',
+        metrics: getIndividualVideoMetrics(creative, videoIndex),
+        videoIndex: videoIndex
+      };
+    }
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Получение всех метрик видео для отображения
+  const getAllVideoMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
     if (!creativeMetrics || creativeMetrics.length === 0) {
-      return (
-        <tr className="bg-gray-50">
-          <td colSpan="12" className="px-6 py-4 text-center text-gray-500 text-sm">
-            Нет данных для детализации
-          </td>
-        </tr>
-      );
+      return [];
     }
 
-    return (
-      <tr className="bg-blue-50 border-t border-blue-200">
-        <td colSpan="12" className="px-6 py-4">
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Детальная информация по видео ({creativeMetrics.length} видео)
-            </h4>
-            
-            <div className="grid gap-3">
-              {creativeMetrics.map((metric, index) => {
-                const videoTitle = creative.link_titles[index] || `Видео ${index + 1}`;
-                const videoLink = creative.links[index];
-                
-                return (
-                  <div key={index} className="bg-white rounded-lg border border-blue-200 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Video className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-gray-900 text-sm">{videoTitle}</span>
-                        {videoLink && (
-                          <a
-                            href={videoLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Открыть в Google Drive"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        {metric.found ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Данные найдены
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Нет данных
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {metric.found && metric.data ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-blue-600">{metric.data.formatted.leads}</div>
-                          <div className="text-xs text-gray-500">Лиды</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-green-600">{metric.data.formatted.cpl}</div>
-                          <div className="text-xs text-gray-500">CPL</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-purple-600">{metric.data.formatted.cost}</div>
-                          <div className="text-xs text-gray-500">Расходы</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-pink-600">{metric.data.formatted.ctr}</div>
-                          <div className="text-xs text-gray-500">CTR</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-orange-600">{metric.data.formatted.clicks}</div>
-                          <div className="text-xs text-gray-500">Клики</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-indigo-600">{metric.data.formatted.impressions}</div>
-                          <div className="text-xs text-gray-500">Показы</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-gray-600">{metric.data.formatted.cpc}</div>
-                          <div className="text-xs text-gray-500">CPC</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-bold text-gray-600">{metric.data.formatted.days}</div>
-                          <div className="text-xs text-gray-500">Дней</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-500 text-sm">
-                          {metric.error || 'Метрики для этого видео не найдены'}
-                        </p>
-                        {metricsPeriod === '4days' && (
-                          <p className="text-xs text-orange-600 mt-1">
-                            Возможно, нет данных за первые 4 дня
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </td>
-      </tr>
-    );
+    return creativeMetrics.map((metric, index) => ({
+      videoIndex: index,
+      videoTitle: creative.link_titles?.[index] || `Видео ${index + 1}`,
+      found: metric.found,
+      data: metric.found ? metric.data : null
+    }));
   };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
@@ -451,8 +390,8 @@ function CreativeAnalytics({ user }) {
   };
 
   // Отображение текущей зоны
-  const CurrentZoneDisplay = ({ article, aggregatedMetrics }) => {
-    if (!aggregatedMetrics?.found || !aggregatedMetrics.data) {
+  const CurrentZoneDisplay = ({ article, metricsData }) => {
+    if (!metricsData?.found || !metricsData.data) {
       return (
         <div className="text-center">
           <span className="text-gray-400 text-xs">—</span>
@@ -460,7 +399,7 @@ function CreativeAnalytics({ user }) {
       );
     }
 
-    const cplString = aggregatedMetrics.data.formatted.cpl;
+    const cplString = metricsData.data.formatted.cpl;
     const cplValue = parseFloat(cplString.replace('$', ''));
 
     if (isNaN(cplValue)) {
@@ -529,18 +468,12 @@ function CreativeAnalytics({ user }) {
     return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
   };
 
-  /**
-   * Получение цвета для COF бейджа
-   */
+  // ИЗМЕНЕН: COF теперь нейтральные цвета
   const getCOFBadgeColor = (cof) => {
-    if (cof >= 4) return 'bg-red-600 text-white border-red-600';
-    if (cof >= 3) return 'bg-red-300 text-red-800 border-red-300';
-    if (cof >= 2) return 'bg-yellow-300 text-yellow-800 border-yellow-300';
-    if (cof >= 1.01) return 'bg-green-200 text-green-800 border-green-200';
-    return 'bg-green-500 text-white border-green-500';
+    return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
-  // Подсчет по странам и зонам
+  // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
   const getCountryStats = () => {
     const ukraineCount = analytics.creatives.filter(c => !c.is_poland).length;
     const polandCount = analytics.creatives.filter(c => c.is_poland).length;
@@ -616,6 +549,17 @@ function CreativeAnalytics({ user }) {
       editorName: creative.editor_name
     });
     setShowCommentModal(true);
+  };
+
+  // Переключение детализации типов работ
+  const toggleWorkTypes = (creativeId) => {
+    const newExpanded = new Set(expandedWorkTypes);
+    if (newExpanded.has(creativeId)) {
+      newExpanded.delete(creativeId);
+    } else {
+      newExpanded.add(creativeId);
+    }
+    setExpandedWorkTypes(newExpanded);
   };
 
   const loadAnalytics = async () => {
@@ -815,6 +759,19 @@ function CreativeAnalytics({ user }) {
     loadAnalytics();
   }, [selectedPeriod, selectedEditor]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
+        setShowPeriodDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -838,31 +795,6 @@ function CreativeAnalytics({ user }) {
       });
       return { date: fallback, time: '00:00' };
     }
-  };
-
-  const getWorkTypeIcon = (workTypes) => {
-    const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
-    if (workType && (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж'))) {
-      return <Video className="h-4 w-4" />;
-    }
-    if (workType && workType.toLowerCase().includes('статика')) {
-      return <ImageIcon className="h-4 w-4" />;
-    }
-    return <Eye className="h-4 w-4" />;
-  };
-
-  const getWorkTypeColor = (workTypes) => {
-    const workType = Array.isArray(workTypes) ? workTypes[0] : workTypes;
-    if (workType && (workType.toLowerCase().includes('video') || workType.toLowerCase().includes('монтаж'))) {
-      return 'bg-blue-100 text-blue-800';
-    }
-    if (workType && workType.toLowerCase().includes('статика')) {
-      return 'bg-green-100 text-green-800';
-    }
-    if (workType && workType.toLowerCase().includes('доп')) {
-      return 'bg-purple-100 text-purple-800';
-    }
-    return 'bg-gray-100 text-gray-800';
   };
 
   const exportReport = () => {
@@ -983,21 +915,6 @@ function CreativeAnalytics({ user }) {
                 </div>
               )}
             </div>
-
-            {metricsPeriod === '4days' && (
-              <button
-                onClick={() => setDebugMode(!debugMode)}
-                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                  debugMode 
-                    ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' 
-                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                }`}
-                title="Включить режим отладки метрик"
-              >
-                <Bug className="h-4 w-4 mr-2" />
-                {debugMode ? 'Отладка ВКЛ' : 'Отладка'}
-              </button>
-            )}
             
             <button
               onClick={handleRefreshAll}
@@ -1104,12 +1021,12 @@ function CreativeAnalytics({ user }) {
         </div>
       )}
 
-      {/* Stats Cards */}
+      {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {analytics.creatives.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
-            {/* Креативы */}
+            {/* Креативов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1135,7 +1052,7 @@ function CreativeAnalytics({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <MessageCircle className="h-6 w-6 text-indigo-500" />
+                    <MessageCircle className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1151,12 +1068,12 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* По странам */}
+            {/* UA/PL */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Globe className="h-6 w-6 text-emerald-500" />
+                    <Globe className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1181,8 +1098,8 @@ function CreativeAnalytics({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-6 w-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">COF</span>
+                    <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold" style={{fontSize: '10px'}}>COF</span>
                     </div>
                   </div>
                   <div className="ml-3 w-0 flex-1">
@@ -1204,7 +1121,7 @@ function CreativeAnalytics({ user }) {
               <div className="p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-orange-500" />
+                    <Target className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
@@ -1313,7 +1230,7 @@ function CreativeAnalytics({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Users className="h-6 w-6 text-purple-500" />
+                      <Users className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1334,17 +1251,19 @@ function CreativeAnalytics({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Target className="h-6 w-6 text-green-500" />
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPL</span>
+                      </div>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. CPL
+                          CPL
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          ${analytics.creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
-                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) : 
-                            '0.00'}
+                          {analytics.creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
+                          '0.00$'}
                         </dd>
                       </dl>
                     </div>
@@ -1357,7 +1276,7 @@ function CreativeAnalytics({ user }) {
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <DollarSign className="h-6 w-6 text-green-500" />
+                      <DollarSign className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1373,77 +1292,14 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* CTR */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-pink-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CTR
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {formatStats().avgCTR}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPC */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. CPC
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          ${aggregatedMetricsStats.totalClicks > 0 ? 
-                            (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) : 
-                            '0.00'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Показы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Eye className="h-6 w-6 text-indigo-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Показы
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Клики */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <MousePointer className="h-6 w-6 text-orange-500" />
+                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                      </svg>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1459,12 +1315,110 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
+              {/* CPC */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPC</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CPC
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {aggregatedMetricsStats.totalClicks > 0 ? 
+                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
+                          '0.00$'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTR */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CTR</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CTR
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {formatStats().avgCTR}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CPM */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPM</span>
+                      </div>
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          CPM
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {aggregatedMetricsStats.totalImpressions > 0 ? 
+                          ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
+                          '0.00$'}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Показы */}
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Eye className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <div className="ml-3 w-0 flex-1">
+                      <dl>
+                        <dt className="text-xs font-medium text-gray-500 truncate">
+                          Показы
+                        </dt>
+                        <dd className="text-lg font-semibold text-gray-900">
+                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Ср. лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <polyline points="17 11 19 13 23 9" />
+                      </svg>
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
@@ -1473,27 +1427,6 @@ function CreativeAnalytics({ user }) {
                         </dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {analytics.creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / analytics.creatives.length) : 0}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ср. расходы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <BarChart3 className="h-6 w-6 text-red-500" />
-                    </div>
-                    <div className="ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. расходы
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          ${analytics.creatives.length > 0 ? (aggregatedMetricsStats.totalCost / analytics.creatives.length).toFixed(2) : '0.00'}
                         </dd>
                       </dl>
                     </div>
@@ -1512,11 +1445,6 @@ function CreativeAnalytics({ user }) {
                    metricsStats ? `Метрики (${getPeriodButtonText()}): ${metricsStats.found}/${metricsStats.total}` : 
                    `Метрики (${getPeriodButtonText()}) включены`}
                 </span>
-                {metricsPeriod === '4days' && metricsStats?.found === 0 && metricsStats?.total > 0 && (
-                  <span className="text-red-600 text-xs font-medium">
-                    (Возможно, нет данных за последние 4 дня)
-                  </span>
-                )}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -1804,51 +1732,60 @@ function CreativeAnalytics({ user }) {
                 {getCurrentMonthYear()} - Полная аналитика креативов
               </h3>
               
-              <div className="overflow-hidden">
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Монтажер
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Видео
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Типы работ
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Зона
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        COF
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <BarChart3 className="h-4 w-4 mx-auto" />
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center justify-center">
-                          <Layers className="h-4 w-4 mr-1" />
-                          Зоны
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center justify-center">
-                          <Target className="h-4 w-4 mr-1" />
-                          Текущая
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Лиды
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         CPL
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center space-x-1">
-                          <span>CTR</span>
-                          <BarChart3 className="h-3 w-3 text-gray-400" title="Кликните для детализации" />
-                        </div>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Расходы
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Клики
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        CPC
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        CTR
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        CPM
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Показы
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Дней
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Зоны
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        COF
                       </th>
                     </tr>
                   </thead>
@@ -1860,229 +1797,513 @@ function CreativeAnalytics({ user }) {
                           ? creative.cof_rating 
                           : calculateCOF(creative.work_types || []);
                         
-                        const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
-                        const isMetricsExpanded = expandedMetrics.has(creative.id);
+                        const currentDisplayData = getCurrentMetricsForDisplay(creative);
+                        const currentMode = detailMode.get(creative.id) || 'aggregated';
+                        const allVideoMetrics = getAllVideoMetrics(creative);
+                        const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
-                          <React.Fragment key={creative.id}>
-                            <tr className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="text-center">
-                                  <div className="font-medium">{formattedDateTime.date}</div>
-                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                                </div>
-                              </td>
-                              
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                    {creative.comment && (
-                                      <button
-                                        onClick={() => showComment(creative)}
-                                        className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                        title="Показать комментарий"
-                                      >
-                                        <MessageCircle className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                  
-                                  {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                                  
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {creative.article}
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center space-x-2">
-                                  <User className="h-4 w-4 text-gray-500" />
-                                  <span className="text-sm text-gray-900">
-                                    {creative.editor_name || creative.users?.name || 'Неизвестен'}
-                                  </span>
-                                </div>
-                              </td>
-                              
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                <div className="space-y-1">
-                                  {creative.link_titles && creative.link_titles.length > 0 ? (
-                                    creative.link_titles.map((title, index) => (
-                                      <div key={index} className="flex items-center justify-between">
-                                        <span className="block">{title}</span>
-                                        <a
-                                          href={creative.links[index]}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="ml-2 text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                          title="Открыть в Google Drive"
-                                        >
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <span className="text-gray-400">Нет видео</span>
+                          <tr 
+                            key={creative.id}
+                            className="transition-colors duration-200 hover:bg-gray-50"
+                          >
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="cursor-text select-text">
+                                <div className="font-medium">{formattedDateTime.date}</div>
+                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center space-x-2">
+                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  {creative.comment && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showComment(creative);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title="Показать комментарий"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </button>
                                   )}
                                 </div>
-                              </td>
-                              
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                {creative.work_types && creative.work_types.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {expandedWorkTypes.has(creative.id) ? (
-                                      // Показываем все типы работ
-                                      <div className="space-y-1">
-                                        {creative.work_types.map((workType, index) => (
-                                          <div key={index} className="flex items-center">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor([workType])}`}>
-                                              {getWorkTypeIcon([workType])}
-                                              <span className="ml-1">{workType}</span>
-                                            </span>
-                                          </div>
-                                        ))}
-                                        <button
-                                          onClick={() => toggleWorkTypesDetail(creative.id)}
-                                          className="text-blue-600 hover:text-blue-800 text-xs mt-1 flex items-center"
-                                        >
-                                          <ChevronUp className="h-3 w-3 mr-1" />
-                                          Свернуть
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      // Показываем сокращенную версию - кликабельный бейдж
-                                      <button
-                                        onClick={() => creative.work_types.length > 1 ? toggleWorkTypesDetail(creative.id) : null}
-                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getWorkTypeColor(creative.work_types)} ${
-                                          creative.work_types.length > 1 ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'
-                                        }`}
-                                        disabled={creative.work_types.length <= 1}
+                                
+                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                
+                                <div className="text-sm font-medium text-gray-900 cursor-text select-text">
+                                  {creative.article}
+                                </div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <span className="text-sm text-gray-900 cursor-text select-text">
+                                {creative.editor_name || creative.users?.name || 'Неизвестен'}
+                              </span>
+                            </td>
+                            
+                            <td className="px-3 py-4 text-sm text-gray-900">
+                              <div className="space-y-1">
+                                {creative.link_titles && creative.link_titles.length > 0 ? (
+                                  creative.link_titles.map((title, index) => (
+                                    <div key={index} className="flex items-center min-h-[24px]">
+                                      <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
+                                      <a
+                                        href={creative.links[index]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                        title="Открыть в Google Drive"
                                       >
-                                        {getWorkTypeIcon(creative.work_types)}
-                                        <span className="ml-1">
-                                          {creative.work_types[0]} {creative.work_types.length > 1 ? `+${creative.work_types.length - 1}` : ''}
-                                        </span>
-                                      </button>
-                                    )}
-                                  </div>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    </div>
+                                  ))
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <div className="text-center">
+                                    <span className="text-gray-400 cursor-text select-text">Нет видео</span>
+                                  </div>
                                 )}
-                              </td>
+                              </div>
+                            </td>
 
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)}`}>
-                                  <span className="text-xs font-bold mr-1">COF</span>
-                                  {formatCOF(cof)}
-                                </span>
-                              </td>
-                              
-                              <td className="px-6 py-4 text-sm text-gray-900">
-                                <ZoneDataDisplay article={creative.article} />
-                              </td>
-
-                              <td className="px-6 py-4 text-sm text-gray-900">
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
+                              {currentMode === 'aggregated' ? (
                                 <CurrentZoneDisplay 
                                   article={creative.article} 
-                                  aggregatedMetrics={aggregatedMetrics}
+                                  metricsData={getAggregatedCreativeMetrics(creative)}
                                 />
-                              </td>
-                              
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.leads}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">
-                                    —
-                                    {metricsPeriod === '4days' && debugMode && (
-                                      <span className="text-xs text-red-500 block">
-                                        (нет за 4 дня)
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                              </td>
-                              
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {metricsLoading ? (
-                                  <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                                    <span className="text-gray-500 text-xs">Загрузка...</span>
-                                  </div>
-                                ) : aggregatedMetrics?.found ? (
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-black font-bold text-base">
-                                      {aggregatedMetrics.data.formatted.cpl}
-                                    </span>
-                                    {aggregatedMetrics.videoCount > 1 && (
-                                      <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                        {aggregatedMetrics.videoCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                              
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="flex items-center space-x-2">
-                                  {metricsLoading ? (
-                                    <div className="flex items-center">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                      <span className="text-gray-500 text-xs">Загрузка...</span>
-                                    </div>
-                                  ) : aggregatedMetrics?.found ? (
-                                    <>
-                                      <div className="flex items-center space-x-1">
-                                        <span className="text-black font-bold text-base">
-                                          {aggregatedMetrics.data.formatted.ctr}
-                                        </span>
-                                        {aggregatedMetrics.videoCount > 1 && (
-                                          <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                            {aggregatedMetrics.videoCount}
-                                          </span>
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <CurrentZoneDisplay 
+                                            article={creative.article} 
+                                            metricsData={{
+                                              found: true,
+                                              data: videoMetric.data
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="text-center">
+                                            <span className="text-gray-400 text-xs">—</span>
+                                          </div>
                                         )}
                                       </div>
-                                      
-                                      <button
-                                        onClick={() => toggleMetricsDetail(creative.id)}
-                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors duration-200"
-                                        title="Показать детальную статистику по каждому видео"
-                                      >
-                                        {isMetricsExpanded ? (
-                                          <ChevronUp className="h-4 w-4" />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    <span className="text-gray-400 text-xs">—</span>
+                                  </div>
+                                )
+                              )}
+                            </td>
+
+                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="flex items-center justify-center">
+                                {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <button
+                                      onClick={() => toggleDetailMode(creative.id)}
+                                      className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
+                                        currentMode === 'individual' 
+                                          ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200' 
+                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
+                                      }`}
+                                      title={currentMode === 'aggregated' 
+                                        ? "Показать статистику по каждому видео" 
+                                        : "Показать общую статистику"
+                                      }
+                                    >
+                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                                      </svg>
+                                    </button>
+                                    <div className="min-w-[24px] flex justify-center">
+                                      {getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
+                                        <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
+                                          {getAggregatedCreativeMetrics(creative).videoCount}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8"></div>
+                                )}
+                              </div>
+                            </td>
+                            
+                            {/* ОБНОВЛЕННЫЕ колонки метрик */}
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.leads}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.leads}
+                                          </span>
                                         ) : (
-                                          <ChevronDown className="h-4 w-4" />
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
                                         )}
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <span className="text-gray-400">—</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.cpl}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.cpl}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.cost}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.cost}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.clicks}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.clicks}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.cpc}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.cpc}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.ctr}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.ctr}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.cpm}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.cpm}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.impressions}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.impressions}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.days}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                            {videoMetric.data.formatted.days.replace(/\s*дн\./g, '')}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
+                              <ZoneDataDisplay article={creative.article} />
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {creative.work_types && creative.work_types.length > 0 ? (
+                                <div className="space-y-1">
+                                  {/* Первая строка: COF рейтинг */}
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`}>
+                                    <span className="text-xs font-bold mr-1">COF</span>
+                                    {formatCOF(cof)}
+                                  </span>
+                                  
+                                  {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
+                                  <div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleWorkTypes(creative.id);
+                                      }}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
+                                    >
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      <span>
+                                        {isWorkTypesExpanded 
+                                          ? `Скрыть работы` 
+                                          : `Работы (${creative.work_types.length})`
+                                        }
+                                      </span>
+                                      {isWorkTypesExpanded ? (
+                                        <ChevronUp className="h-3 w-3 ml-1" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3 ml-1" />
+                                      )}
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Расширенный список работ */}
+                                  {isWorkTypesExpanded && (
+                                    <div className="mt-2 space-y-1 max-w-xs">
+                                      {creative.work_types.map((workType, index) => (
+                                        <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
+                                          <span className="truncate cursor-text select-text">{workType}</span>
+                                          <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
+                                            {formatCOF(workTypeValues[workType] || 0)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
                                   )}
                                 </div>
-                              </td>
-                            </tr>
-                            
-                            {isMetricsExpanded && (
-                              <MetricsDetailRow creative={creative} />
-                            )}
-                          </React.Fragment>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+                          </tr>
                         );
                       })}
                   </tbody>
