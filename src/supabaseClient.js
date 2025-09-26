@@ -51,51 +51,118 @@ export const userService = {
     console.log('📝 Создание пользователя:', { email: userData.email, role: userData.role });
 
     try {
+      // Сначала проверяем, существует ли уже пользователь с таким email
+      const { data: existingUsers, error: checkError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', userData.email.trim().toLowerCase());
+
+      if (checkError) {
+        console.error('❌ Ошибка проверки существующих пользователей:', checkError);
+      }
+
+      if (existingUsers && existingUsers.length > 0) {
+        throw new Error(`Пользователь с email "${userData.email}" уже существует в системе.`);
+      }
+
       // Метод 1: Попробуем через административный клиент (если доступен)
       if (adminClient) {
         console.log('🔧 Используем административный клиент...');
         
-        const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-          email: userData.email,
-          password: userData.password,
-          email_confirm: true, // Автоматически подтверждаем email
-          user_metadata: {
-            name: userData.name,
-            role: userData.role
-          }
-        });
+        try {
+          const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+            email: userData.email,
+            password: userData.password,
+            email_confirm: true, // Автоматически подтверждаем email
+            user_metadata: {
+              name: userData.name,
+              role: userData.role
+            }
+          });
 
-        if (authError) {
-          console.error('❌ Ошибка админ API:', authError);
-          throw authError;
-        }
-
-        // Создаем запись в таблице users
-        if (authData.user) {
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert([
-              {
-                id: authData.user.id,
-                email: userData.email,
-                name: userData.name,
-                role: userData.role,
-                created_at: new Date().toISOString()
+          if (authError) {
+            // Если пользователь уже существует в auth, попробуем найти его
+            if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
+              console.log('⚠️ Пользователь уже существует в auth, пытаемся получить его данные');
+              
+              // Получаем список всех пользователей и ищем по email
+              const { data: { users: allAuthUsers }, error: listError } = await adminClient.auth.admin.listUsers();
+              
+              if (listError) {
+                throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе аутентификации.`);
               }
-            ]);
-
-          if (profileError) {
-            console.error('❌ Ошибка создания профиля:', profileError);
-            throw profileError;
+              
+              const existingAuthUser = allAuthUsers?.find(u => u.email === userData.email);
+              
+              if (existingAuthUser) {
+                throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе.`);
+              }
+            }
+            
+            console.error('❌ Ошибка админ API:', authError);
+            throw authError;
           }
-        }
 
-        console.log('✅ Пользователь создан через админ API');
-        return authData;
+          // Создаем запись в таблице users
+          if (authData.user) {
+            console.log('✅ Auth пользователь создан, создаем профиль...');
+            
+            const { data: profileData, error: profileError } = await supabase
+              .from('users')
+              .insert([
+                {
+                  id: authData.user.id,
+                  email: userData.email.trim().toLowerCase(),
+                  name: userData.name.trim(),
+                  role: userData.role,
+                  created_at: new Date().toISOString()
+                }
+              ])
+              .select()
+              .single();
+
+            if (profileError) {
+              console.error('❌ Ошибка создания профиля:', profileError);
+              
+              // Если профиль не создался, пытаемся удалить auth пользователя для очистки
+              try {
+                await adminClient.auth.admin.deleteUser(authData.user.id);
+                console.log('🧹 Auth пользователь удален после ошибки профиля');
+              } catch (cleanupError) {
+                console.error('⚠️ Ошибка очистки auth пользователя:', cleanupError);
+              }
+              
+              // Проверяем тип ошибки
+              if (profileError.code === '23505') {
+                throw new Error(`Пользователь с таким ID уже существует. Попробуйте еще раз.`);
+              }
+              
+              throw new Error(`Ошибка создания профиля: ${profileError.message}`);
+            }
+
+            console.log('✅ Пользователь создан через админ API:', profileData);
+            return { user: authData.user, profile: profileData };
+          }
+
+          throw new Error('Не удалось создать пользователя в системе аутентификации');
+
+        } catch (adminError) {
+          console.error('❌ Ошибка при использовании админ API:', adminError);
+          
+          // Если это ошибка о существующем пользователе, передаем ее дальше
+          if (adminError.message?.includes('уже существует') || 
+              adminError.message?.includes('already registered') ||
+              adminError.message?.includes('already exists')) {
+            throw adminError;
+          }
+          
+          // Для других ошибок админ API пробуем обычный метод
+          console.log('🔄 Пробуем обычный метод регистрации...');
+        }
       }
 
       // Метод 2: Обычная регистрация с дополнительными опциями
-      console.log('🔧 Используем обычный клиент с расширенными опциями...');
+      console.log('🔧 Используем обычный клиент...');
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
@@ -110,14 +177,13 @@ export const userService = {
       });
 
       if (authError) {
-        console.error('❌ Детали ошибки signUp:', {
-          message: authError.message,
-          status: authError.status,
-          error_code: authError.error_code || authError.code,
-          details: authError
-        });
+        console.error('❌ Детали ошибки signUp:', authError);
 
         // Улучшенная обработка ошибок
+        if (authError.message?.includes('User already registered')) {
+          throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе.`);
+        }
+        
         if (authError.message?.includes('Email address') && authError.message?.includes('invalid')) {
           throw new Error('Неверный формат email адреса. Проверьте правильность введенного email.');
         }
@@ -130,10 +196,6 @@ export const userService = {
           throw new Error('Требуется подтверждение email. Проверьте настройки Supabase Auth.');
         }
 
-        if (authError.status === 400) {
-          throw new Error(`Ошибка валидации данных: ${authError.message}. Проверьте настройки Supabase Auth в панели администратора.`);
-        }
-
         throw new Error(`Ошибка создания аккаунта: ${authError.message}`);
       }
 
@@ -143,33 +205,44 @@ export const userService = {
       }
 
       // Создаем запись в таблице users
-      const { error: profileError } = await supabase
+      console.log('✅ Auth пользователь создан, создаем профиль...');
+      
+      const { data: profileData, error: profileError } = await supabase
         .from('users')
         .insert([
           {
             id: authData.user.id,
-            email: userData.email,
-            name: userData.name,
+            email: userData.email.trim().toLowerCase(),
+            name: userData.name.trim(),
             role: userData.role,
             created_at: new Date().toISOString()
           }
-        ]);
+        ])
+        .select()
+        .single();
 
       if (profileError) {
         console.error('❌ Ошибка создания профиля:', profileError);
+        
         // Если профиль не создался, пытаемся удалить auth пользователя
-        try {
-          if (adminClient) {
+        if (adminClient) {
+          try {
             await adminClient.auth.admin.deleteUser(authData.user.id);
+            console.log('🧹 Auth пользователь удален после ошибки профиля');
+          } catch (cleanupError) {
+            console.error('⚠️ Ошибка очистки:', cleanupError);
           }
-        } catch (cleanupError) {
-          console.error('⚠️ Ошибка очистки после неудачного создания профиля:', cleanupError);
         }
+        
+        if (profileError.code === '23505') {
+          throw new Error(`Пользователь с таким ID уже существует. Попробуйте еще раз.`);
+        }
+        
         throw new Error(`Ошибка создания профиля пользователя: ${profileError.message}`);
       }
 
-      console.log('✅ Пользователь создан успешно');
-      return authData;
+      console.log('✅ Пользователь создан успешно:', profileData);
+      return { user: authData.user, profile: profileData };
 
     } catch (error) {
       console.error('💥 Критическая ошибка создания пользователя:', error);
