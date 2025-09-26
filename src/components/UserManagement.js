@@ -122,14 +122,17 @@ function UserManagement({ user }) {
         role: newUser.role
       });
 
-      await userService.createUser({
+      const result = await userService.createUser({
         name: newUser.name.trim(),
         email: newUser.email.trim(),
         password: newUser.password,
         role: newUser.role
       });
 
+      console.log('✅ Результат создания пользователя:', result);
+
       // Очищаем форму и закрываем модал
+      const createdUserName = newUser.name.trim();
       setNewUser({
         name: '',
         email: '',
@@ -141,25 +144,62 @@ function UserManagement({ user }) {
       // Обновляем список пользователей
       await loadUsers();
       
-      setSuccess(`Пользователь "${newUser.name.trim()}" успешно создан`);
+      setSuccess(`Пользователь "${createdUserName}" успешно создан`);
 
     } catch (error) {
       console.error('❌ Ошибка создания пользователя:', error);
       
-      // Улучшенная обработка различных типов ошибок
+      // Проверяем, может быть пользователь всё же был создан
+      const createdUserName = newUser.name.trim();
+      const createdUserEmail = newUser.email.trim();
+      
+      // Ждем немного и проверяем, появился ли пользователь в списке
+      setTimeout(async () => {
+        try {
+          // Получаем свежий список пользователей
+          const freshUsersData = await userService.getAllUsers();
+          const freshFilteredUsers = freshUsersData.filter(u => u.role !== 'teamlead');
+          
+          // Проверяем, есть ли созданный пользователь в обновленном списке
+          const wasUserCreated = freshFilteredUsers.some(u => 
+            u.email.toLowerCase() === createdUserEmail.toLowerCase()
+          );
+          
+          if (wasUserCreated) {
+            console.log('✅ Пользователь был создан успешно, несмотря на ошибку');
+            
+            // Обновляем состояние списка пользователей
+            setUsers(freshFilteredUsers);
+            
+            // Очищаем форму и закрываем модал
+            setNewUser({
+              name: '',
+              email: '',
+              password: '',
+              role: 'buyer'
+            });
+            setShowCreateModal(false);
+            setError(''); // Очищаем ошибку
+            setSuccess(`Пользователь "${createdUserName}" успешно создан`);
+            return;
+          }
+        } catch (checkError) {
+          console.error('Ошибка проверки созданного пользователя:', checkError);
+        }
+      }, 1000);
+      
+      // Показываем ошибку только если это реальная проблема
       let errorMessage = 'Неизвестная ошибка создания пользователя';
       
       if (error.message) {
-        if (error.message.includes('Email address') && error.message.includes('invalid')) {
-          errorMessage = `Неверный формат email адреса "${newUser.email}". Проверьте правильность введенного email.`;
+        if (error.message.includes('уже существует') || 
+            error.message.includes('already registered') ||
+            error.message.includes('already exists')) {
+          errorMessage = error.message;
         } else if (error.message.includes('signup is disabled')) {
           errorMessage = 'Регистрация новых пользователей отключена в настройках Supabase. Обратитесь к системному администратору.';
-        } else if (error.message.includes('email confirmation')) {
-          errorMessage = 'В Supabase включено обязательное подтверждение email. Необходимо настроить систему или использовать админ API.';
-        } else if (error.message.includes('User already registered')) {
-          errorMessage = `Пользователь с email "${newUser.email}" уже зарегистрирован в системе.`;
-        } else if (error.message.includes('password')) {
-          errorMessage = 'Ошибка с паролем. Убедитесь, что пароль содержит минимум 6 символов.';
+        } else if (error.message.includes('invalid')) {
+          errorMessage = `Неверный формат email адреса "${newUser.email}". Проверьте правильность введенного email.`;
         } else {
           errorMessage = `Ошибка создания пользователя: ${error.message}`;
         }
