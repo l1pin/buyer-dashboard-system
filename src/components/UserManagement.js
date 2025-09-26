@@ -39,7 +39,8 @@ function UserManagement({ user }) {
 
   useEffect(() => {
     loadUsers();
-    checkSupabaseConfiguration();
+    // Убираем автоматическую проверку конфигурации при загрузке
+    // checkSupabaseConfiguration();
   }, []);
 
   const loadUsers = async () => {
@@ -63,6 +64,12 @@ function UserManagement({ user }) {
       console.log('🔧 Конфигурация Supabase:', config);
     } catch (error) {
       console.error('Ошибка проверки конфигурации:', error);
+      setSupabaseConfig({
+        signUpEnabled: false,
+        emailConfirmationRequired: false,
+        adminApiAvailable: false,
+        error: error.message
+      });
     }
   };
 
@@ -281,11 +288,14 @@ function UserManagement({ user }) {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={() => setShowConfigInfo(true)}
+              onClick={() => {
+                checkSupabaseConfiguration();
+                setShowConfigInfo(true);
+              }}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Settings className="h-4 w-4 mr-2" />
-              Настройки
+              Проверить настройки
             </button>
             
             <button
@@ -326,13 +336,12 @@ function UserManagement({ user }) {
         </div>
       )}
 
-      {/* Config Warning */}
-      {supabaseConfig && !supabaseConfig.signUpEnabled && (
+      {/* Config Warning - показываем только если была проверка */}
+      {supabaseConfig && supabaseConfig.error && (
         <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md text-sm flex items-start">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
           <div>
-            <strong>Внимание:</strong> Регистрация новых пользователей отключена в настройках Supabase. 
-            Для создания пользователей необходимо настроить аутентификацию в панели Supabase или добавить Service Role Key.
+            <strong>Внимание:</strong> {supabaseConfig.error}
             <button 
               onClick={() => setShowConfigInfo(true)}
               className="ml-2 underline hover:no-underline"
