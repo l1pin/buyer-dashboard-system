@@ -130,7 +130,7 @@ export const userService = {
               role: userData.role,
               created_by_id: userData.created_by_id,
               created_by_name: userData.created_by_name,
-              is_protected: false,
+              is_protected: userData.role === 'teamlead' ? true : false,
               created_at: new Date().toISOString()
             }
           ], {
@@ -230,7 +230,7 @@ export const userService = {
             role: userData.role,
             created_by_id: userData.created_by_id,
             created_by_name: userData.created_by_name,
-            is_protected: false,
+            is_protected: userData.role === 'teamlead' ? true : false,
             created_at: new Date().toISOString()
           }
         ], {
@@ -388,7 +388,7 @@ export const userService = {
       // Проверяем, не защищен ли пользователь
       const { data: currentUser, error: checkError } = await supabase
         .from('users')
-        .select('is_protected, role')
+        .select('is_protected')
         .eq('id', id)
         .single();
 
@@ -396,7 +396,7 @@ export const userService = {
         throw new Error(`Ошибка проверки пользователя: ${checkError.message}`);
       }
 
-      if (currentUser.is_protected && currentUser.role !== 'teamlead') {
+      if (currentUser.is_protected) {
         throw new Error('Данный пользователь защищен от изменений');
       }
 
