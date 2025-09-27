@@ -46,7 +46,8 @@ function UserManagement({ user }) {
     name: '',
     email: '',
     password: '',
-    role: 'buyer'
+    role: 'buyer',
+    is_protected: false
   });
 
   useEffect(() => {
@@ -135,7 +136,9 @@ function UserManagement({ user }) {
         name: newUser.name.trim(),
         email: newUser.email.trim(),
         password: newUser.password,
-        role: newUser.role
+        role: newUser.role,
+        created_by_id: user.id,
+        created_by_name: user.name || user.email
       });
 
       console.log('✅ Результат создания пользователя:', result);
@@ -221,9 +224,14 @@ function UserManagement({ user }) {
   };
 
   const handleEditUser = (userToEdit) => {
-    // Запрещаем редактирование Team Lead'ов
+    // Запрещаем редактирование Team Lead'ов и защищенных пользователей
     if (userToEdit.role === 'teamlead') {
       setError('Редактирование Team Lead запрещено');
+      return;
+    }
+    
+    if (userToEdit.is_protected) {
+      setError('Редактирование защищенного пользователя запрещено');
       return;
     }
     
@@ -233,7 +241,8 @@ function UserManagement({ user }) {
       name: userToEdit.name || '',
       email: userToEdit.email || '',
       password: '', // Пароль всегда пустой для безопасности
-      role: userToEdit.role || 'buyer'
+      role: userToEdit.role || 'buyer',
+      is_protected: userToEdit.is_protected || false
     });
     setShowEditModal(true);
     setShowPassword(false); // Скрываем пароль при открытии
@@ -263,7 +272,8 @@ function UserManagement({ user }) {
         name: editUserData.name.trim(),
         email: editUserData.email.trim(),
         password: editUserData.password || undefined, // Только если пароль указан
-        role: editUserData.role
+        role: editUserData.role,
+        is_protected: editUserData.is_protected
       });
 
       console.log('✅ Результат обновления пользователя:', result);
@@ -309,10 +319,15 @@ function UserManagement({ user }) {
     }
   };
 
-  const handleDeleteUser = async (userId, userName, userRole) => {
-    // Запрещаем удаление Team Lead'ов
+  const handleDeleteUser = async (userId, userName, userRole, isProtected) => {
+    // Запрещаем удаление Team Lead'ов и защищенных пользователей
     if (userRole === 'teamlead') {
       setError('Удаление Team Lead запрещено');
+      return;
+    }
+    
+    if (isProtected) {
+      setError('Удаление защищенного пользователя запрещено');
       return;
     }
     
@@ -683,7 +698,7 @@ function UserManagement({ user }) {
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
                                   {currentUser.name}
-                                  {isTeamLead && (
+                                  {(isTeamLead || currentUser.is_protected) && (
                                     <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                       Защищен
                                     </span>
@@ -719,23 +734,23 @@ function UserManagement({ user }) {
                             <div className="flex items-center justify-end space-x-2">
                               <button
                                 onClick={() => handleEditUser(currentUser)}
-                                disabled={isTeamLead}
-                                className={`p-2 ${isTeamLead 
+                                disabled={isTeamLead || currentUser.is_protected}
+                                className={`p-2 ${(isTeamLead || currentUser.is_protected)
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-blue-600 hover:text-blue-900'
                                 }`}
-                                title={isTeamLead ? "Team Lead не может быть отредактирован" : "Редактировать пользователя"}
+                                title={(isTeamLead || currentUser.is_protected) ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role)}
-                                disabled={deleting === currentUser.id || isTeamLead}
-                                className={`p-2 ${isTeamLead 
+                                onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
+                                disabled={deleting === currentUser.id || isTeamLead || currentUser.is_protected}
+                                className={`p-2 ${(isTeamLead || currentUser.is_protected)
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-red-600 hover:text-red-900'
                                 } disabled:opacity-50`}
-                                title={isTeamLead ? "Team Lead не может быть удален" : "Удалить пользователя"}
+                                title={(isTeamLead || currentUser.is_protected) ? "Пользователь защищен от удаления" : "Удалить пользователя"}
                               >
                                 {deleting === currentUser.id ? (
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
@@ -1071,6 +1086,26 @@ function UserManagement({ user }) {
                   {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editUserData.is_protected}
+                    onChange={(e) => {
+                      setEditUserData({ ...editUserData, is_protected: e.target.checked });
+                      clearMessages();
+                    }}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm font-medium text-gray-700">
+                    Защитить от удаления и редактирования
+                  </span>
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Защищенные пользователи не могут быть отредактированы или удалены другими администраторами
                 </p>
               </div>
 
