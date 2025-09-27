@@ -212,7 +212,7 @@ function Settings({ user, updateUser }) {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Настройки</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {isEditor ? 'Управление фото профиля' : 'Управление профилем и настройками аккаунта'}
+            {isLimitedUser ? 'Управление фото профиля' : 'Управление профилем и настройками аккаунта'}
           </p>
         </div>
 
