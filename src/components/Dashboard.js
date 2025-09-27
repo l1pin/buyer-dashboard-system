@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Sidebar from './Sidebar';
 import WorkTable from './WorkTable';
@@ -10,8 +11,30 @@ import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
+
+  // Маппинг URL путей к внутренним секциям
+  const urlToSection = {
+    '/admin/tables': 'table',
+    '/admin/users': 'users', 
+    '/workspace/creatives': 'creatives',
+    '/analytics/creatives': 'analytics',
+    '/analytics/metrics': 'metrics-analytics',
+    '/settings': 'settings'
+  };
+
+  // Маппинг внутренних секций к URL путям
+  const sectionToUrl = {
+    'table': '/admin/tables',
+    'users': '/admin/users',
+    'creatives': '/workspace/creatives', 
+    'analytics': '/analytics/creatives',
+    'metrics-analytics': '/analytics/metrics',
+    'settings': '/settings'
+  };
 
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
@@ -41,32 +64,51 @@ function Dashboard({ user, session, updateUser }) {
     }
   };
 
-  // Устанавливаем правильную секцию при загрузке пользователя
+  // Определяем секцию из URL при загрузке
   React.useEffect(() => {
     if (user?.role && user?.id) {
-      // Проверяем, есть ли сохраненный раздел в localStorage
-      const savedSection = localStorage.getItem(`activeSection_${user.id}`);
+      const currentPath = location.pathname;
+      const sectionFromUrl = urlToSection[currentPath];
       
-      // Если есть сохраненный раздел И он доступен для текущей роли - используем его
-      if (savedSection && isSectionAvailableForRole(savedSection, user.role)) {
-        setActiveSection(savedSection);
-      } else {
-        // Иначе используем дефолтный для роли
+      // Если секция из URL доступна для роли пользователя - используем её
+      if (sectionFromUrl && isSectionAvailableForRole(sectionFromUrl, user.role)) {
+        setActiveSection(sectionFromUrl);
+        localStorage.setItem(`activeSection_${user.id}`, sectionFromUrl);
+      } else if (sectionFromUrl && !isSectionAvailableForRole(sectionFromUrl, user.role)) {
+        // Если секция из URL недоступна - перенаправляем на дефолтную
         const defaultSection = getDefaultSectionForRole(user.role);
         setActiveSection(defaultSection);
+        navigate(sectionToUrl[defaultSection], { replace: true });
         localStorage.setItem(`activeSection_${user.id}`, defaultSection);
+      } else {
+        // Если URL не соответствует ни одной секции - проверяем localStorage или используем дефолтную
+        const savedSection = localStorage.getItem(`activeSection_${user.id}`);
+        
+        if (savedSection && isSectionAvailableForRole(savedSection, user.role)) {
+          setActiveSection(savedSection);
+          navigate(sectionToUrl[savedSection], { replace: true });
+        } else {
+          const defaultSection = getDefaultSectionForRole(user.role);
+          setActiveSection(defaultSection);
+          navigate(sectionToUrl[defaultSection], { replace: true });
+          localStorage.setItem(`activeSection_${user.id}`, defaultSection);
+        }
       }
       
       setIsUserLoaded(true);
     }
-  }, [user?.role, user?.id]);
+  }, [user?.role, user?.id, location.pathname, navigate]);
 
-  // Сохраняем activeSection в localStorage при каждом изменении
+  // Сохраняем activeSection в localStorage и обновляем URL при изменении секции
   React.useEffect(() => {
     if (user?.id && activeSection && isUserLoaded) {
       localStorage.setItem(`activeSection_${user.id}`, activeSection);
+      const targetUrl = sectionToUrl[activeSection];
+      if (targetUrl && location.pathname !== targetUrl) {
+        navigate(targetUrl, { replace: true });
+      }
     }
-  }, [activeSection, user?.id, isUserLoaded]);
+  }, [activeSection, user?.id, isUserLoaded, navigate, location.pathname]);
 
   // Показываем лоадер пока пользователь не загрузился
   if (!isUserLoaded || !user?.role) {
