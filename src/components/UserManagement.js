@@ -14,7 +14,6 @@ import {
   EyeOff,
   Monitor,
   Video,
-  Settings,
   Info,
   Edit,
   Save,
@@ -33,8 +32,6 @@ function UserManagement({ user }) {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfigInfo, setShowConfigInfo] = useState(false);
-  const [supabaseConfig, setSupabaseConfig] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
 
   const [newUser, setNewUser] = useState({
@@ -70,21 +67,6 @@ function UserManagement({ user }) {
     }
   };
 
-  const checkSupabaseConfiguration = async () => {
-    try {
-      const config = await userService.checkSupabaseConfig();
-      setSupabaseConfig(config);
-      console.log('🔧 Конфигурация Supabase:', config);
-    } catch (error) {
-      console.error('Ошибка проверки конфигурации:', error);
-      setSupabaseConfig({
-        signUpEnabled: false,
-        emailConfirmationRequired: false,
-        adminApiAvailable: false,
-        error: error.message
-      });
-    }
-  };
 
   const validateUserData = (userData, isEdit = false) => {
     if (!userData.name?.trim()) {
@@ -454,17 +436,6 @@ function UserManagement({ user }) {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={() => {
-                checkSupabaseConfiguration();
-                setShowConfigInfo(true);
-              }}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Проверить настройки
-            </button>
-            
-            <button
               onClick={loadUsers}
               disabled={loading}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
@@ -502,21 +473,7 @@ function UserManagement({ user }) {
         </div>
       )}
 
-      {/* Config Warning - показываем только если была проверка */}
-      {supabaseConfig && supabaseConfig.error && (
-        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md text-sm flex items-start">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <strong>Внимание:</strong> {supabaseConfig.error}
-            <button 
-              onClick={() => setShowConfigInfo(true)}
-              className="ml-2 underline hover:no-underline"
-            >
-              Подробнее
-            </button>
-          </div>
-        </div>
-      )}
+      
 
       {/* Stats */}
       <div className="p-6">
@@ -1073,108 +1030,6 @@ function UserManagement({ user }) {
         </div>
       )}
 
-      {/* Configuration Info Modal */}
-      {showConfigInfo && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white m-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                Настройки Supabase Auth
-              </h3>
-              <button
-                onClick={() => setShowConfigInfo(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {supabaseConfig && (
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-medium text-gray-900 mb-3">Текущая конфигурация:</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Регистрация пользователей:</span>
-                      <span className={supabaseConfig.signUpEnabled ? 'text-green-600' : 'text-red-600'}>
-                        {supabaseConfig.signUpEnabled ? '✅ Включена' : '❌ Отключена'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Подтверждение email:</span>
-                      <span className={supabaseConfig.emailConfirmationRequired ? 'text-yellow-600' : 'text-green-600'}>
-                        {supabaseConfig.emailConfirmationRequired ? '⚠️ Требуется' : '✅ Не требуется'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Admin API:</span>
-                      <span className={supabaseConfig.adminApiAvailable ? 'text-green-600' : 'text-red-600'}>
-                        {supabaseConfig.adminApiAvailable ? '✅ Доступен' : '❌ Недоступен'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-blue-50 p-4 rounded-md">
-                <h4 className="font-medium text-blue-900 mb-3">💡 Как исправить проблемы:</h4>
-                <div className="text-sm text-blue-800 space-y-3">
-                  <div>
-                    <strong>1. Если регистрация отключена:</strong>
-                    <ul className="list-disc ml-5 mt-1 space-y-1">
-                      <li>Перейдите в панель Supabase → Authentication → Settings</li>
-                      <li>Включите "Enable email confirmations" (если нужно)</li>
-                      <li>В разделе "User signup" выберите "Allow new signups"</li>
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <strong>2. Если требуется подтверждение email:</strong>
-                    <ul className="list-disc ml-5 mt-1 space-y-1">
-                      <li>Отключите "Enable email confirmations" в настройках Authentication</li>
-                      <li>Или настройте SMTP для отправки писем подтверждения</li>
-                      <li>Или добавьте Service Role Key в переменные окружения</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <strong>3. Для использования Admin API:</strong>
-                    <ul className="list-disc ml-5 mt-1 space-y-1">
-                      <li>Получите Service Role Key из настроек проекта Supabase</li>
-                      <li>Добавьте его в .env как REACT_APP_SUPABASE_SERVICE_ROLE_KEY</li>
-                      <li>Перезапустите приложение</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-md">
-                <h4 className="font-medium text-yellow-900 mb-2">⚠️ Важно:</h4>
-                <p className="text-sm text-yellow-800">
-                  Service Role Key дает полный доступ к базе данных. Используйте его только в безопасном окружении 
-                  и никогда не коммитьте в публичные репозитории.
-                </p>
-              </div>
-
-              {supabaseConfig?.error && (
-                <div className="bg-red-50 p-4 rounded-md">
-                  <h4 className="font-medium text-red-900 mb-2">❌ Последняя ошибка:</h4>
-                  <p className="text-sm text-red-800 font-mono">{supabaseConfig.error}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowConfigInfo(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Закрыть
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
