@@ -224,12 +224,7 @@ function UserManagement({ user }) {
   };
 
   const handleEditUser = (userToEdit) => {
-    // Запрещаем редактирование Team Lead'ов и защищенных пользователей
-    if (userToEdit.role === 'teamlead') {
-      setError('Редактирование Team Lead запрещено');
-      return;
-    }
-    
+    // Запрещаем редактирование защищенных пользователей
     if (userToEdit.is_protected) {
       setError('Редактирование защищенного пользователя запрещено');
       return;
@@ -320,12 +315,7 @@ function UserManagement({ user }) {
   };
 
   const handleDeleteUser = async (userId, userName, userRole, isProtected) => {
-    // Запрещаем удаление Team Lead'ов и защищенных пользователей
-    if (userRole === 'teamlead') {
-      setError('Удаление Team Lead запрещено');
-      return;
-    }
-    
+    // Запрещаем удаление защищенных пользователей
     if (isProtected) {
       setError('Удаление защищенного пользователя запрещено');
       return;
@@ -698,7 +688,7 @@ function UserManagement({ user }) {
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">
                                   {currentUser.name}
-                                  {(isTeamLead || currentUser.is_protected) && (
+                                  {currentUser.is_protected && (
                                     <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                       Защищен
                                     </span>
@@ -734,23 +724,23 @@ function UserManagement({ user }) {
                             <div className="flex items-center justify-end space-x-2">
                               <button
                                 onClick={() => handleEditUser(currentUser)}
-                                disabled={isTeamLead || currentUser.is_protected}
-                                className={`p-2 ${(isTeamLead || currentUser.is_protected)
+                                disabled={currentUser.is_protected}
+                                className={`p-2 ${currentUser.is_protected
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-blue-600 hover:text-blue-900'
                                 }`}
-                                title={(isTeamLead || currentUser.is_protected) ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
+                                title={currentUser.is_protected ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
-                                disabled={deleting === currentUser.id || isTeamLead || currentUser.is_protected}
-                                className={`p-2 ${(isTeamLead || currentUser.is_protected)
+                                disabled={deleting === currentUser.id || currentUser.is_protected}
+                                className={`p-2 ${currentUser.is_protected
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-red-600 hover:text-red-900'
                                 } disabled:opacity-50`}
-                                title={(isTeamLead || currentUser.is_protected) ? "Пользователь защищен от удаления" : "Удалить пользователя"}
+                                title={currentUser.is_protected ? "Пользователь защищен от удаления" : "Удалить пользователя"}
                               >
                                 {deleting === currentUser.id ? (
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
