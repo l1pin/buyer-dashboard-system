@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from './Sidebar';
 import WorkTable from './WorkTable';
@@ -10,18 +10,20 @@ import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
-  const [activeSection, setActiveSection] = useState(() => {
-    // Устанавливаем начальную секцию в зависимости от роли пользователя
-    if (user?.role === 'editor') {
-      return 'creatives';
-    } else if (user?.role === 'teamlead') {
-      return 'analytics';
-    } else if (user?.role === 'buyer' || user?.role === 'search_manager' || user?.role === 'content_manager') {
-      return 'settings';
-    } else {
-      return 'settings';
+  const [activeSection, setActiveSection] = useState('settings'); // Изначально настройки как fallback
+
+  // Устанавливаем правильную секцию при загрузке пользователя
+  React.useEffect(() => {
+    if (user?.role) {
+      if (user.role === 'editor') {
+        setActiveSection('creatives');
+      } else if (user.role === 'teamlead') {
+        setActiveSection('analytics');
+      } else if (user.role === 'buyer' || user.role === 'search_manager' || user.role === 'content_manager') {
+        setActiveSection('settings');
+      }
     }
-  });
+  }, [user?.role]);
 
   const handleLogout = async () => {
     try {
