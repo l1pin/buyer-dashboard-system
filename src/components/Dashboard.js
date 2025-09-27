@@ -12,7 +12,6 @@ import Settings from './Settings';
 function Dashboard({ user, session, updateUser }) {
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
@@ -22,34 +21,45 @@ function Dashboard({ user, session, updateUser }) {
     return 'settings';
   };
 
+  // Функция для проверки доступности раздела для роли
+  const isSectionAvailableForRole = (section, role) => {
+    switch (section) {
+      case 'table':
+        return role === 'teamlead';
+      case 'users':
+        return role === 'teamlead';
+      case 'creatives':
+        return role === 'editor';
+      case 'analytics':
+        return role === 'teamlead';
+      case 'metrics-analytics':
+        return role === 'teamlead';
+      case 'settings':
+        return true; // Настройки доступны всем
+      default:
+        return false;
+    }
+  };
+
   // Устанавливаем правильную секцию при загрузке пользователя
   React.useEffect(() => {
-    if (user?.role) {
+    if (user?.role && user?.id) {
       // Проверяем, есть ли сохраненный раздел в localStorage
       const savedSection = localStorage.getItem(`activeSection_${user.id}`);
       
-      if (savedSection && !isInitialLoad) {
-        // Если есть сохраненный раздел и это не первая загрузка - используем его
+      // Если есть сохраненный раздел И он доступен для текущей роли - используем его
+      if (savedSection && isSectionAvailableForRole(savedSection, user.role)) {
         setActiveSection(savedSection);
       } else {
-        // Если нет сохраненного раздела или это первая загрузка - используем дефолтный для роли
+        // Иначе используем дефолтный для роли
         const defaultSection = getDefaultSectionForRole(user.role);
         setActiveSection(defaultSection);
         localStorage.setItem(`activeSection_${user.id}`, defaultSection);
       }
       
       setIsUserLoaded(true);
-      setIsInitialLoad(false);
     }
   }, [user?.role, user?.id]);
-
-  // Функция для смены раздела с сохранением в localStorage
-  const handleSectionChange = (newSection) => {
-    setActiveSection(newSection);
-    if (user?.id) {
-      localStorage.setItem(`activeSection_${user.id}`, newSection);
-    }
-  };
 
   // Показываем лоадер пока пользователь не загрузился
   if (!isUserLoaded || !user?.role) {
@@ -65,10 +75,6 @@ function Dashboard({ user, session, updateUser }) {
 
   const handleLogout = async () => {
     try {
-      // Очищаем сохраненный раздел при выходе
-      if (user?.id) {
-        localStorage.removeItem(`activeSection_${user.id}`);
-      }
       await supabase.auth.signOut();
       localStorage.removeItem('rememberMe');
     } catch (error) {
@@ -107,7 +113,7 @@ function Dashboard({ user, session, updateUser }) {
       <Sidebar
         user={user}
         activeSection={activeSection}
-        onSectionChange={handleSectionChange}
+        onSectionChange={setActiveSection}
         onLogout={handleLogout}
       />
 
