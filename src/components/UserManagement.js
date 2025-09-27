@@ -17,7 +17,9 @@ import {
   Settings,
   Info,
   Edit,
-  Save
+  Save,
+  Search,
+  FileText
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -362,11 +364,15 @@ function UserManagement({ user }) {
   const getRoleDisplayName = (role) => {
     switch (role) {
       case 'buyer':
-        return 'Байер';
+        return 'Media Buyer';
       case 'editor':
-        return 'Монтажер';
+        return 'Video Designer';
       case 'teamlead':
-        return 'Тим лид';
+        return 'Team Lead';
+      case 'search_manager':
+        return 'Search Manager';
+      case 'content_manager':
+        return 'Content Manager';
       default:
         return 'Пользователь';
     }
@@ -380,6 +386,10 @@ function UserManagement({ user }) {
         return <Monitor className="h-6 w-6 text-purple-600" />;
       case 'teamlead':
         return <Shield className="h-6 w-6 text-green-600" />;
+      case 'search_manager':
+        return <Search className="h-6 w-6 text-orange-600" />;
+      case 'content_manager':
+        return <FileText className="h-6 w-6 text-indigo-600" />;
       default:
         return <User className="h-6 w-6 text-gray-600" />;
     }
@@ -393,6 +403,10 @@ function UserManagement({ user }) {
         return 'bg-purple-100 text-purple-800';
       case 'teamlead':
         return 'bg-green-100 text-green-800';
+      case 'search_manager':
+        return 'bg-orange-100 text-orange-800';
+      case 'content_manager':
+        return 'bg-indigo-100 text-indigo-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -401,7 +415,9 @@ function UserManagement({ user }) {
   const getUserStats = () => {
     const buyersCount = users.filter(u => u.role === 'buyer').length;
     const editorsCount = users.filter(u => u.role === 'editor').length;
-    return { buyersCount, editorsCount };
+    const searchManagersCount = users.filter(u => u.role === 'search_manager').length;
+    const contentManagersCount = users.filter(u => u.role === 'content_manager').length;
+    return { buyersCount, editorsCount, searchManagersCount, contentManagersCount };
   };
 
   const clearMessages = () => {
@@ -410,7 +426,7 @@ function UserManagement({ user }) {
     setShowPassword(false);
   };
 
-  const { buyersCount, editorsCount } = getUserStats();
+  const { buyersCount, editorsCount, searchManagersCount, contentManagersCount } = getUserStats();
 
   if (loading) {
     return (
@@ -504,7 +520,7 @@ function UserManagement({ user }) {
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-6">
           <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
             <div className="p-5">
               <div className="flex items-center">
@@ -514,7 +530,7 @@ function UserManagement({ user }) {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Байеров
+                      Media Buyers
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {buyersCount}
@@ -534,10 +550,50 @@ function UserManagement({ user }) {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Монтажеров
+                      Video Designers
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {editorsCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Search className="h-8 w-8 text-orange-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Search Managers
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {searchManagersCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FileText className="h-8 w-8 text-indigo-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Content Managers
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {contentManagersCount}
                     </dd>
                   </dl>
                 </div>
@@ -783,13 +839,17 @@ function UserManagement({ user }) {
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="buyer">Байер</option>
-                  <option value="editor">Монтажер</option>
-                  <option value="teamlead">Тим лид</option>
+                  <option value="buyer">Media Buyer</option>
+                  <option value="editor">Video Designer</option>
+                  <option value="search_manager">Search Manager</option>
+                  <option value="content_manager">Content Manager</option>
+                  <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
                   {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {newUser.role === 'editor' && 'Доступ к управлению креативами'}
+                  {newUser.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
+                  {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
@@ -938,13 +998,17 @@ function UserManagement({ user }) {
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="buyer">Байер</option>
-                  <option value="editor">Монтажер</option>
-                  <option value="teamlead">Тим лид</option>
+                  <option value="buyer">Media Buyer</option>
+                  <option value="editor">Video Designer</option>
+                  <option value="search_manager">Search Manager</option>
+                  <option value="content_manager">Content Manager</option>
+                  <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
                   {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
+                  {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
+                  {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
