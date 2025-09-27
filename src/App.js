@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -111,10 +112,29 @@ function App() {
   }
 
   if (!session) {
-    return <Login />;
+    return (
+      <Router>
+        <Routes>
+          <Route path="*" element={<Login />} />
+        </Routes>
+      </Router>
+    );
   }
 
-  return <Dashboard user={user} session={session} updateUser={updateUser} />;
+  return (
+    <Router>
+      <Routes>
+        <Route path="/admin/tables" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/admin/users" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/workspace/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/" element={<Navigate to="/settings" replace />} />
+        <Route path="*" element={<Navigate to="/settings" replace />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
