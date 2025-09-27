@@ -24,7 +24,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'table',
       label: user?.role === 'teamlead' ? 'Управление таблицами' : 'Рабочая таблица',
       icon: user?.role === 'teamlead' ? Database : Table,
-      show: user?.role === 'buyer' || user?.role === 'teamlead'
+      show: user?.role === 'teamlead'
     },
     {
       id: 'users',
@@ -36,19 +36,19 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor' || user?.role === 'content_manager'
+      show: user?.role === 'editor'
     },
     {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
-      show: user?.role === 'teamlead' || user?.role === 'search_manager'
+      show: user?.role === 'teamlead'
     },
     {
       id: 'metrics-analytics',
       label: 'Метрики аналитика',
       icon: Activity,
-      show: user?.role === 'teamlead' || user?.role === 'search_manager'
+      show: user?.role === 'teamlead'
     },
     {
       id: 'settings',
