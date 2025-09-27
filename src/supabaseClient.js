@@ -507,12 +507,36 @@ export const userService = {
     }
   },
 
-  // Получить всех байеров
+  // Получить всех медиа байеров
   async getAllBuyers() {
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('role', 'buyer')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Получить пользователей по роли
+  async getUsersByRole(role) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', role)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Получить всех пользователей определенных ролей
+  async getUsersByRoles(roles) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .in('role', roles)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
