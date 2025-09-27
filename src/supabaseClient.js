@@ -128,6 +128,9 @@ export const userService = {
               email: emailToCheck,
               name: userData.name.trim(),
               role: userData.role,
+              created_by_id: userData.created_by_id,
+              created_by_name: userData.created_by_name,
+              is_protected: false,
               created_at: new Date().toISOString()
             }
           ], {
@@ -225,6 +228,9 @@ export const userService = {
             email: emailToCheck,
             name: userData.name.trim(),
             role: userData.role,
+            created_by_id: userData.created_by_id,
+            created_by_name: userData.created_by_name,
+            is_protected: false,
             created_at: new Date().toISOString()
           }
         ], {
@@ -377,6 +383,21 @@ export const userService = {
 
       if (!id) {
         throw new Error('ID пользователя обязателен для обновления');
+      }
+
+      // Проверяем, не защищен ли пользователь
+      const { data: currentUser, error: checkError } = await supabase
+        .from('users')
+        .select('is_protected, role')
+        .eq('id', id)
+        .single();
+
+      if (checkError) {
+        throw new Error(`Ошибка проверки пользователя: ${checkError.message}`);
+      }
+
+      if (currentUser.is_protected && currentUser.role !== 'teamlead') {
+        throw new Error('Данный пользователь защищен от изменений');
       }
 
       // Обновляем пароль в auth если он указан
