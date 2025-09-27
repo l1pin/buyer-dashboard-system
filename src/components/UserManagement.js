@@ -57,9 +57,8 @@ function UserManagement({ user }) {
     try {
       setLoading(true);
       const usersData = await userService.getAllUsers();
-      // Исключаем тимлидов из списка для отображения
-      const filteredUsers = usersData.filter(u => u.role !== 'teamlead');
-      setUsers(filteredUsers);
+      // Показываем всех пользователей, включая тимлидов
+      setUsers(usersData);
     } catch (error) {
       setError('Ошибка загрузки пользователей: ' + error.message);
     } finally {
@@ -399,7 +398,8 @@ function UserManagement({ user }) {
     const editorsCount = users.filter(u => u.role === 'editor').length;
     const searchManagersCount = users.filter(u => u.role === 'search_manager').length;
     const contentManagersCount = users.filter(u => u.role === 'content_manager').length;
-    return { buyersCount, editorsCount, searchManagersCount, contentManagersCount };
+    const teamleadCount = users.filter(u => u.role === 'teamlead').length;
+    return { buyersCount, editorsCount, searchManagersCount, contentManagersCount, teamleadCount };
   };
 
   const clearMessages = () => {
@@ -408,7 +408,7 @@ function UserManagement({ user }) {
     setShowPassword(false);
   };
 
-  const { buyersCount, editorsCount, searchManagersCount, contentManagersCount } = getUserStats();
+  const { buyersCount, editorsCount, searchManagersCount, contentManagersCount, teamleadCount } = getUserStats();
 
   if (loading) {
     return (
@@ -477,7 +477,7 @@ function UserManagement({ user }) {
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-6">
           <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
             <div className="p-5">
               <div className="flex items-center">
@@ -563,6 +563,26 @@ function UserManagement({ user }) {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <Shield className="h-8 w-8 text-green-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Team Leads
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {teamleadCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Shield className="h-8 w-8 text-gray-500" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
