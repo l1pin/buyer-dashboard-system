@@ -15,7 +15,7 @@ function Dashboard({ user, session, updateUser }) {
     if (user?.role === 'editor') {
       return 'creatives';
     } else if (user?.role === 'teamlead') {
-      return 'table';
+      return 'analytics';
     } else if (user?.role === 'buyer' || user?.role === 'search_manager' || user?.role === 'content_manager') {
       return 'settings';
     } else {
@@ -51,7 +51,7 @@ function Dashboard({ user, session, updateUser }) {
         if (user?.role === 'editor') {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'teamlead') {
-          return <AdminPanel user={user} />;
+          return <CreativeAnalytics user={user} />;
         } else {
           return <Settings user={user} updateUser={updateUser} />;
         }
