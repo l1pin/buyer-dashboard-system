@@ -61,6 +61,13 @@ function Dashboard({ user, session, updateUser }) {
     }
   }, [user?.role, user?.id]);
 
+  // Сохраняем activeSection в localStorage при каждом изменении
+  React.useEffect(() => {
+    if (user?.id && activeSection && isUserLoaded) {
+      localStorage.setItem(`activeSection_${user.id}`, activeSection);
+    }
+  }, [activeSection, user?.id, isUserLoaded]);
+
   // Показываем лоадер пока пользователь не загрузился
   if (!isUserLoaded || !user?.role) {
     return (
