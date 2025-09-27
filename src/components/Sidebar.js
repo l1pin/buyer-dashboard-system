@@ -11,7 +11,9 @@ import {
   Video,
   Monitor,
   BarChart3,
-  Activity
+  Activity,
+  Search,
+  FileText
 } from 'lucide-react';
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
@@ -34,19 +36,19 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor'
+      show: user?.role === 'editor' || user?.role === 'content_manager'
     },
     {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
-      show: user?.role === 'teamlead'
+      show: user?.role === 'teamlead' || user?.role === 'search_manager'
     },
     {
       id: 'metrics-analytics',
       label: 'Метрики аналитика',
       icon: Activity,
-      show: user?.role === 'teamlead'
+      show: user?.role === 'teamlead' || user?.role === 'search_manager'
     },
     {
       id: 'settings',
@@ -63,11 +65,15 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const getRoleDisplayName = (role) => {
     switch (role) {
       case 'teamlead':
-        return 'Тим лид';
+        return 'Team Lead';
       case 'buyer':
-        return 'Байер';
+        return 'Media Buyer';
       case 'editor':
-        return 'Монтажер';
+        return 'Video Designer';
+      case 'search_manager':
+        return 'Search Manager';
+      case 'content_manager':
+        return 'Content Manager';
       default:
         return 'Пользователь';
     }
@@ -81,6 +87,10 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return <Users className="h-5 w-5 text-gray-600" />;
       case 'editor':
         return <Monitor className="h-5 w-5 text-gray-600" />;
+      case 'search_manager':
+        return <Search className="h-5 w-5 text-gray-600" />;
+      case 'content_manager':
+        return <FileText className="h-5 w-5 text-gray-600" />;
       default:
         return <Users className="h-5 w-5 text-gray-600" />;
     }
