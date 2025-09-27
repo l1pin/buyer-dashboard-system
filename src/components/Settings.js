@@ -35,8 +35,8 @@ function Settings({ user, updateUser }) {
     confirmPassword: ''
   });
 
-  // Проверяем, является ли пользователь монтажером
-  const isEditor = user?.role === 'editor';
+  // Проверяем, является ли пользователь с ограниченными правами
+  const isLimitedUser = user?.role === 'editor' || user?.role === 'buyer' || user?.role === 'search_manager' || user?.role === 'content_manager';
 
   const handleProfileUpdate = async () => {
     if (!profileData.name) {
@@ -297,8 +297,8 @@ function Settings({ user, updateUser }) {
             </div>
           </div>
 
-          {/* Profile Settings - только для не-монтажеров */}
-          {!isEditor && (
+          {/* Profile Settings - только для тим лидов */}
+          {!isLimitedUser && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
@@ -371,8 +371,8 @@ function Settings({ user, updateUser }) {
             </div>
           )}
 
-          {/* Profile Info for Editors - только чтение */}
-          {isEditor && (
+          {/* Profile Info for Limited Users - только чтение */}
+          {isLimitedUser && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
@@ -392,7 +392,7 @@ function Settings({ user, updateUser }) {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Имя пользователя может изменить только администратор.
+                      Имя пользователя может изменить только Team Lead.
                     </p>
                   </div>
 
@@ -434,8 +434,8 @@ function Settings({ user, updateUser }) {
                       </h3>
                       <div className="mt-2 text-sm text-blue-700">
                         <p>
-                          Как Video Designer, вы можете изменить только фото профиля. 
-                          Для изменения других данных обратитесь к тим лиду.
+                          Вы можете изменить только фото профиля. 
+                          Для изменения других данных обратитесь к Team Lead.
                         </p>
                       </div>
                     </div>
@@ -445,8 +445,8 @@ function Settings({ user, updateUser }) {
             </div>
           )}
 
-          {/* Password Change - только для не-монтажеров */}
-          {!isEditor && (
+          {/* Password Change - только для тим лидов */}
+          {!isLimitedUser && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
@@ -547,8 +547,8 @@ function Settings({ user, updateUser }) {
             </div>
           )}
 
-          {/* Account Info - только для не-монтажеров */}
-          {!isEditor && (
+          {/* Account Info - только для тим лидов */}
+          {!isLimitedUser && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
