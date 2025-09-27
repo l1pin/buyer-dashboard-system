@@ -75,7 +75,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'content_manager':
         return 'Content Manager';
       default:
-        return 'Пользователь';
+        return 'Unknown';
     }
   };
 
