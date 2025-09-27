@@ -705,6 +705,12 @@ function UserManagement({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setNewUser({
+                    name: '',
+                    email: '',
+                    password: '',
+                    role: 'buyer'
+                  });
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -712,6 +718,21 @@ function UserManagement({ user }) {
                 <X className="h-6 w-6" />
               </button>
             </div>
+
+            {/* Messages inside modal */}
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                <div>{error}</div>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
+                <Check className="h-4 w-4 mr-2 flex-shrink-0" />
+                {success}
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -816,23 +837,29 @@ function UserManagement({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setNewUser({
+                    name: '',
+                    email: '',
+                    password: '',
+                    role: 'buyer'
+                  });
                   clearMessages();
                 }}
                 disabled={creating}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateUser}
                 disabled={creating || !newUser.name?.trim() || !newUser.email?.trim() || !newUser.password}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {creating ? (
-                  <div className="flex items-center">
+                  <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Создание...
-                  </div>
+                  </>
                 ) : (
                   <>
                     <Check className="h-4 w-4 mr-2" />
@@ -871,6 +898,21 @@ function UserManagement({ user }) {
                 <X className="h-6 w-6" />
               </button>
             </div>
+
+            {/* Messages inside modal */}
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                <div>{error}</div>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
+                <Check className="h-4 w-4 mr-2 flex-shrink-0" />
+                {success}
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -1004,20 +1046,20 @@ function UserManagement({ user }) {
                   clearMessages();
                 }}
                 disabled={updating}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
               >
                 Отмена
               </button>
               <button
                 onClick={handleUpdateUser}
                 disabled={updating || !editUserData.name?.trim() || !editUserData.email?.trim()}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
                 {updating ? (
-                  <div className="flex items-center">
+                  <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Сохранение...
-                  </div>
+                  </>
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
