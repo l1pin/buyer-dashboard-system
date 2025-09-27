@@ -16,6 +16,10 @@ function Dashboard({ user, session, updateUser }) {
       return 'creatives';
     } else if (user?.role === 'teamlead') {
       return 'table';
+    } else if (user?.role === 'search_manager') {
+      return 'analytics';
+    } else if (user?.role === 'content_manager') {
+      return 'creatives';
     } else {
       return 'table';
     }
@@ -38,26 +42,28 @@ function Dashboard({ user, session, updateUser }) {
         } else if (user?.role === 'buyer') {
           return <WorkTable user={user} />;
         } else {
-          return null; // Монтажеры не имеют доступа к таблицам
+          return null; // Video Designers, Search Managers, Content Managers не имеют доступа к таблицам
         }
       case 'users':
         return user?.role === 'teamlead' ? <UserManagement user={user} /> : null;
       case 'creatives':
-        return user?.role === 'editor' ? <CreativePanel user={user} /> : null;
+        return (user?.role === 'editor' || user?.role === 'content_manager') ? <CreativePanel user={user} /> : null;
       case 'analytics':
-        return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
+        return (user?.role === 'teamlead' || user?.role === 'search_manager') ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
-        return user?.role === 'teamlead' ? <MetricsAnalytics user={user} /> : null;
+        return (user?.role === 'teamlead' || user?.role === 'search_manager') ? <MetricsAnalytics user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
         // Определяем дефолтную секцию по роли
-        if (user?.role === 'editor') {
+        if (user?.role === 'editor' || user?.role === 'content_manager') {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'teamlead') {
           return <AdminPanel user={user} />;
         } else if (user?.role === 'buyer') {
           return <WorkTable user={user} />;
+        } else if (user?.role === 'search_manager') {
+          return <CreativeAnalytics user={user} />;
         } else {
           return <Settings user={user} updateUser={updateUser} />;
         }
