@@ -374,7 +374,7 @@ function UserManagement({ user }) {
       case 'content_manager':
         return 'Content Manager';
       default:
-        return 'Пользователь';
+        return 'Unknown';
     }
   };
 
