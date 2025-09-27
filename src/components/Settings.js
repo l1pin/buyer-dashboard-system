@@ -357,7 +357,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : 'Пользователь'}
+                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : 'Content Manager'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -427,7 +427,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : 'Пользователь'}
+                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : 'Content Manager'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
