@@ -12,20 +12,44 @@ import Settings from './Settings';
 function Dashboard({ user, session, updateUser }) {
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Функция для получения дефолтного раздела по роли
+  const getDefaultSectionForRole = (role) => {
+    if (role === 'editor') return 'creatives';
+    if (role === 'teamlead') return 'analytics';
+    if (role === 'buyer' || role === 'search_manager' || role === 'content_manager') return 'settings';
+    return 'settings';
+  };
 
   // Устанавливаем правильную секцию при загрузке пользователя
   React.useEffect(() => {
     if (user?.role) {
-      if (user.role === 'editor') {
-        setActiveSection('creatives');
-      } else if (user.role === 'teamlead') {
-        setActiveSection('analytics');
-      } else if (user.role === 'buyer' || user.role === 'search_manager' || user.role === 'content_manager') {
-        setActiveSection('settings');
+      // Проверяем, есть ли сохраненный раздел в localStorage
+      const savedSection = localStorage.getItem(`activeSection_${user.id}`);
+      
+      if (savedSection && !isInitialLoad) {
+        // Если есть сохраненный раздел и это не первая загрузка - используем его
+        setActiveSection(savedSection);
+      } else {
+        // Если нет сохраненного раздела или это первая загрузка - используем дефолтный для роли
+        const defaultSection = getDefaultSectionForRole(user.role);
+        setActiveSection(defaultSection);
+        localStorage.setItem(`activeSection_${user.id}`, defaultSection);
       }
+      
       setIsUserLoaded(true);
+      setIsInitialLoad(false);
     }
-  }, [user?.role]);
+  }, [user?.role, user?.id]);
+
+  // Функция для смены раздела с сохранением в localStorage
+  const handleSectionChange = (newSection) => {
+    setActiveSection(newSection);
+    if (user?.id) {
+      localStorage.setItem(`activeSection_${user.id}`, newSection);
+    }
+  };
 
   // Показываем лоадер пока пользователь не загрузился
   if (!isUserLoaded || !user?.role) {
@@ -41,6 +65,10 @@ function Dashboard({ user, session, updateUser }) {
 
   const handleLogout = async () => {
     try {
+      // Очищаем сохраненный раздел при выходе
+      if (user?.id) {
+        localStorage.removeItem(`activeSection_${user.id}`);
+      }
       await supabase.auth.signOut();
       localStorage.removeItem('rememberMe');
     } catch (error) {
@@ -79,7 +107,7 @@ function Dashboard({ user, session, updateUser }) {
       <Sidebar
         user={user}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         onLogout={handleLogout}
       />
 
