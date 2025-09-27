@@ -221,6 +221,12 @@ function UserManagement({ user }) {
   };
 
   const handleEditUser = (userToEdit) => {
+    // Запрещаем редактирование Team Lead'ов
+    if (userToEdit.role === 'teamlead') {
+      setError('Редактирование Team Lead запрещено');
+      return;
+    }
+    
     setEditingUser(userToEdit);
     setEditUserData({
       id: userToEdit.id,
@@ -303,7 +309,13 @@ function UserManagement({ user }) {
     }
   };
 
-  const handleDeleteUser = async (userId, userName) => {
+  const handleDeleteUser = async (userId, userName, userRole) => {
+    // Запрещаем удаление Team Lead'ов
+    if (userRole === 'teamlead') {
+      setError('Удаление Team Lead запрещено');
+      return;
+    }
+    
     if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
       return;
     }
@@ -635,77 +647,107 @@ function UserManagement({ user }) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Создан
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Создатель
+                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Действия
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((currentUser) => (
-                      <tr key={currentUser.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
-                                {currentUser.avatar_url ? (
-                                  <img
-                                    src={currentUser.avatar_url}
-                                    alt="Avatar"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
-                                  {getRoleIcon(currentUser.role)}
+                    {users.map((currentUser) => {
+                      const isTeamLead = currentUser.role === 'teamlead';
+                      return (
+                        <tr key={currentUser.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
+                                  {currentUser.avatar_url ? (
+                                    <img
+                                      src={currentUser.avatar_url}
+                                      alt="Avatar"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
+                                    {getRoleIcon(currentUser.role)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {currentUser.name}
+                                  {isTeamLead && (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      Защищен
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {currentUser.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{currentUser.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
+                              {getRoleDisplayName(currentUser.role)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatKyivTime(currentUser.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-6 w-6">
+                                <Shield className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <div className="ml-2">
+                                <div className="text-sm text-gray-900">
+                                  {currentUser.created_by_name || 'Система'}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{currentUser.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
-                            {getRoleDisplayName(currentUser.role)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatKyivTime(currentUser.created_at)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => handleEditUser(currentUser)}
-                              className="text-blue-600 hover:text-blue-900 p-2"
-                              title="Редактировать пользователя"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(currentUser.id, currentUser.name)}
-                              disabled={deleting === currentUser.id}
-                              className="text-red-600 hover:text-red-900 disabled:opacity-50 p-2"
-                              title="Удалить пользователя"
-                            >
-                              {deleting === currentUser.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => handleEditUser(currentUser)}
+                                disabled={isTeamLead}
+                                className={`p-2 ${isTeamLead 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-blue-600 hover:text-blue-900'
+                                }`}
+                                title={isTeamLead ? "Team Lead не может быть отредактирован" : "Редактировать пользователя"}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role)}
+                                disabled={deleting === currentUser.id || isTeamLead}
+                                className={`p-2 ${isTeamLead 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-red-600 hover:text-red-900'
+                                } disabled:opacity-50`}
+                                title={isTeamLead ? "Team Lead не может быть удален" : "Удалить пользователя"}
+                              >
+                                {deleting === currentUser.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
