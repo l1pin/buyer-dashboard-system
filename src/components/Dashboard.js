@@ -10,7 +10,8 @@ import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
-  const [activeSection, setActiveSection] = useState('settings'); // Изначально настройки как fallback
+  const [activeSection, setActiveSection] = useState('settings');
+  const [isUserLoaded, setIsUserLoaded] = useState(false);
 
   // Устанавливаем правильную секцию при загрузке пользователя
   React.useEffect(() => {
@@ -22,8 +23,21 @@ function Dashboard({ user, session, updateUser }) {
       } else if (user.role === 'buyer' || user.role === 'search_manager' || user.role === 'content_manager') {
         setActiveSection('settings');
       }
+      setIsUserLoaded(true);
     }
   }, [user?.role]);
+
+  // Показываем лоадер пока пользователь не загрузился
+  if (!isUserLoaded || !user?.role) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Загрузка профиля...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     try {
