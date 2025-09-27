@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase, userService } from '../supabaseClient';
 import { 
   Save, 
@@ -28,6 +28,17 @@ function Settings({ user, updateUser }) {
     email: user?.email || '',
     avatar_url: user?.avatar_url || ''
   });
+
+  // Обновляем profileData когда user изменяется
+  React.useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        avatar_url: user.avatar_url || ''
+      });
+    }
+  }, [user]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -330,7 +341,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="email"
-                      value={profileData.email}
+                      value={user?.email || ''}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -387,7 +398,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={profileData.name}
+                      value={user?.name || ''}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -403,7 +414,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="email"
-                      value={profileData.email}
+                      value={user?.email || ''}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -416,7 +427,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value="Video Designer"
+                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : 'Пользователь'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
