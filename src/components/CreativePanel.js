@@ -966,7 +966,7 @@ function CreativePanel({ user }) {
       
       const [buyersData, searchersData] = await Promise.all([
         userService.getUsersByRole('buyer'),
-        userService.getUsersByRole('searcher')
+        userService.getUsersByRole('search_manager')
       ]);
       
       setBuyers(buyersData || []);
