@@ -785,6 +785,7 @@ function CreativePanel({ user }) {
       ...newCreative,
       links: newLinks
     });
+    clearFieldError('links');
   };
 
   const handleWorkTypeChange = (workType, isChecked) => {
@@ -799,6 +800,7 @@ function CreativePanel({ user }) {
       ...newCreative,
       work_types: updatedWorkTypes
     });
+    clearFieldError('work_types');
   };
 
   const showComment = (creative) => {
@@ -951,6 +953,36 @@ function CreativePanel({ user }) {
     setError('');
     setSuccess('');
     setFieldErrors({});
+  };
+
+  const clearFieldError = (fieldName) => {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+    
+    // Проверяем, если все поля теперь валидны, очищаем общую ошибку
+    const newFieldErrors = { ...fieldErrors };
+    delete newFieldErrors[fieldName];
+    
+    if (Object.keys(newFieldErrors).length === 0 && isAllFieldsValid()) {
+      setError('');
+    }
+  };
+
+  const isAllFieldsValid = () => {
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    
+    return (
+      newCreative.article.trim() &&
+      validLinks.length > 0 &&
+      invalidLinks.length === 0 &&
+      newCreative.work_types.length > 0 &&
+      newCreative.trello_link.trim() &&
+      (newCreative.trello_link.trim().startsWith('https://trello.com/c/') || 
+       newCreative.trello_link.trim().startsWith('trello.com/c/'))
+    );
   };
 
   const validateFields = () => {
@@ -2325,7 +2357,7 @@ function CreativePanel({ user }) {
                       value={newCreative.article}
                       onChange={(e) => {
                         setNewCreative({ ...newCreative, article: e.target.value });
-                        clearMessages();
+                        clearFieldError('article');
                       }}
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                         fieldErrors.article 
@@ -2340,7 +2372,6 @@ function CreativePanel({ user }) {
                     type="button"
                     onClick={() => {
                       setNewCreative({ ...newCreative, is_poland: !newCreative.is_poland });
-                      clearMessages();
                     }}
                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
                       newCreative.is_poland
@@ -2408,7 +2439,7 @@ function CreativePanel({ user }) {
                   value={newCreative.trello_link}
                   onChange={(e) => {
                     setNewCreative({ ...newCreative, trello_link: e.target.value });
-                    clearMessages();
+                    clearFieldError('trello_link');
                   }}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                     fieldErrors.trello_link 
@@ -2472,7 +2503,6 @@ function CreativePanel({ user }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               setNewCreative({ ...newCreative, buyer_id: null });
-                              clearMessages();
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2493,7 +2523,6 @@ function CreativePanel({ user }) {
                             onClick={() => {
                               setNewCreative({ ...newCreative, buyer_id: buyer.id });
                               setShowBuyerDropdown(false);
-                              clearMessages();
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -2572,7 +2601,6 @@ function CreativePanel({ user }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               setNewCreative({ ...newCreative, searcher_id: null });
-                              clearMessages();
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2593,7 +2621,6 @@ function CreativePanel({ user }) {
                             onClick={() => {
                               setNewCreative({ ...newCreative, searcher_id: searcher.id });
                               setShowSearcherDropdown(false);
-                              clearMessages();
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -2633,7 +2660,6 @@ function CreativePanel({ user }) {
                   value={newCreative.comment}
                   onChange={(e) => {
                     setNewCreative({ ...newCreative, comment: e.target.value });
-                    clearMessages();
                   }}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
