@@ -639,43 +639,11 @@ function CreativePanel({ user }) {
 
   const handleCreateCreative = async () => {
     if (!validateFields()) {
-      setError('Пожалуйста, заполните все обязательные поля');
-      return;
-    }
-
-    if (!newCreative.article.trim()) {
-      setError('Артикул обязателен для заполнения');
       return;
     }
 
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
-    
-    if (validLinks.length === 0) {
-      setError('Необходимо добавить хотя бы одну ссылку на Google Drive');
-      return;
-    }
-
-    if (invalidLinks.length > 0) {
-      setError('Проверьте правильность ссылки на Google Drive');
-      return;
-    }
-
-    if (newCreative.work_types.length === 0) {
-      setError('Необходимо выбрать хотя бы один тип работы');
-      return;
-    }
-
-    if (!newCreative.trello_link.trim()) {
-      setError('Карточка Trello обязательна для заполнения');
-      return;
-    }
-
     const trimmedTrelloLink = newCreative.trello_link.trim();
-    if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
-        !trimmedTrelloLink.startsWith('trello.com/c/')) {
-      setError('Проверьте правильность ссылки на Trello');
-      return;
-    }
 
     try {
       setCreating(true);
@@ -785,6 +753,7 @@ function CreativePanel({ user }) {
       ...newCreative,
       links: newLinks
     });
+    clearFieldError('links');
   };
 
   const handleWorkTypeChange = (workType, isChecked) => {
@@ -799,6 +768,7 @@ function CreativePanel({ user }) {
       ...newCreative,
       work_types: updatedWorkTypes
     });
+    clearFieldError('work_types');
   };
 
   const showComment = (creative) => {
@@ -953,36 +923,124 @@ function CreativePanel({ user }) {
     setFieldErrors({});
   };
 
-  const validateFields = () => {
-    const errors = {};
+  const clearFieldError = (fieldName) => {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+    
+    // Обновляем сообщение об ошибке в зависимости от оставшихся проблем
+    setTimeout(() => {
+      const newFieldErrors = { ...fieldErrors };
+      delete newFieldErrors[fieldName];
+      
+      if (Object.keys(newFieldErrors).length === 0 && isAllFieldsValid()) {
+        setError('');
+      } else {
+        const specificError = getSpecificErrorMessage();
+        if (specificError) {
+          setError(specificError);
+        }
+      }
+    }, 0);
+  };
 
+  const isAllFieldsValid = () => {
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    
+    return (
+      newCreative.article.trim() &&
+      validLinks.length > 0 &&
+      invalidLinks.length === 0 &&
+      newCreative.work_types.length > 0 &&
+      newCreative.trello_link.trim() &&
+      (newCreative.trello_link.trim().startsWith('https://trello.com/c/') || 
+       newCreative.trello_link.trim().startsWith('trello.com/c/'))
+    );
+  };
+
+  const getSpecificErrorMessage = () => {
     if (!newCreative.article.trim()) {
-      errors.article = true;
+      return 'Артикул обязателен для заполнения';
     }
 
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
     if (validLinks.length === 0) {
-      errors.links = true;
+      return 'Необходимо добавить хотя бы одну ссылку на Google Drive';
     }
     if (invalidLinks.length > 0) {
-      errors.links = true;
+      return 'Проверьте правильность ссылки на Google Drive';
+    }
+
+    if (newCreative.work_types.length === 0) {
+      return 'Необходимо выбрать хотя бы один тип работы';
     }
 
     if (!newCreative.trello_link.trim()) {
+      return 'Карточка Trello обязательна для заполнения';
+    }
+
+    const trimmedTrelloLink = newCreative.trello_link.trim();
+    if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+        !trimmedTrelloLink.startsWith('trello.com/c/')) {
+      return 'Проверьте правильность ссылки на Trello';
+    }
+
+    return '';
+  };
+
+  const validateFields = () => {
+    const errors = {};
+    let errorMessage = '';
+
+    // Проверяем артикул
+    if (!newCreative.article.trim()) {
+      errors.article = true;
+      if (!errorMessage) errorMessage = 'Артикул обязателен для заполнения';
+    }
+
+    // Проверяем ссылки
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+      if (!errorMessage) errorMessage = 'Необходимо добавить хотя бы одну ссылку на Google Drive';
+    } else if (invalidLinks.length > 0) {
+      errors.links = true;
+      if (!errorMessage) errorMessage = 'Проверьте правильность ссылки на Google Drive';
+    }
+
+    // Проверяем типы работ
+    if (newCreative.work_types.length === 0) {
+      errors.work_types = true;
+      if (!errorMessage) errorMessage = 'Необходимо выбрать хотя бы один тип работы';
+    }
+
+    // Проверяем Trello ссылку
+    if (!newCreative.trello_link.trim()) {
       errors.trello_link = true;
+      if (!errorMessage) errorMessage = 'Карточка Trello обязательна для заполнения';
     } else {
       const trimmedTrelloLink = newCreative.trello_link.trim();
       if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
           !trimmedTrelloLink.startsWith('trello.com/c/')) {
         errors.trello_link = true;
+        if (!errorMessage) errorMessage = 'Проверьте правильность ссылки на Trello';
       }
     }
 
-    if (newCreative.work_types.length === 0) {
-      errors.work_types = true;
+    // Если есть несколько ошибок, показываем общее сообщение
+    if (Object.keys(errors).length > 1) {
+      errorMessage = 'Пожалуйста, заполните все обязательные поля';
     }
 
     setFieldErrors(errors);
+    
+    // Устанавливаем конкретное сообщение об ошибке
+    if (errorMessage) {
+      setError(errorMessage);
+    }
+    
     return Object.keys(errors).length === 0;
   };
 
@@ -2325,7 +2383,7 @@ function CreativePanel({ user }) {
                       value={newCreative.article}
                       onChange={(e) => {
                         setNewCreative({ ...newCreative, article: e.target.value });
-                        clearMessages();
+                        clearFieldError('article');
                       }}
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                         fieldErrors.article 
@@ -2340,7 +2398,6 @@ function CreativePanel({ user }) {
                     type="button"
                     onClick={() => {
                       setNewCreative({ ...newCreative, is_poland: !newCreative.is_poland });
-                      clearMessages();
                     }}
                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
                       newCreative.is_poland
@@ -2408,7 +2465,7 @@ function CreativePanel({ user }) {
                   value={newCreative.trello_link}
                   onChange={(e) => {
                     setNewCreative({ ...newCreative, trello_link: e.target.value });
-                    clearMessages();
+                    clearFieldError('trello_link');
                   }}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                     fieldErrors.trello_link 
@@ -2472,7 +2529,6 @@ function CreativePanel({ user }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               setNewCreative({ ...newCreative, buyer_id: null });
-                              clearMessages();
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2493,7 +2549,6 @@ function CreativePanel({ user }) {
                             onClick={() => {
                               setNewCreative({ ...newCreative, buyer_id: buyer.id });
                               setShowBuyerDropdown(false);
-                              clearMessages();
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -2572,7 +2627,6 @@ function CreativePanel({ user }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               setNewCreative({ ...newCreative, searcher_id: null });
-                              clearMessages();
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2593,7 +2647,6 @@ function CreativePanel({ user }) {
                             onClick={() => {
                               setNewCreative({ ...newCreative, searcher_id: searcher.id });
                               setShowSearcherDropdown(false);
-                              clearMessages();
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -2633,7 +2686,6 @@ function CreativePanel({ user }) {
                   value={newCreative.comment}
                   onChange={(e) => {
                     setNewCreative({ ...newCreative, comment: e.target.value });
-                    clearMessages();
                   }}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
