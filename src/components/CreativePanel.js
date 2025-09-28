@@ -1650,13 +1650,13 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 sticky left-0 z-30">
                         Дата
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 sticky z-30" style={{left: '120px'}}>
                         Артикул
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 sticky z-30" style={{left: '240px'}}>
                         Видео
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -1732,14 +1732,14 @@ function CreativePanel({ user }) {
                             key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center sticky left-0 z-20 bg-white">
                               <div className="cursor-text select-text">
                                 <div className="font-medium">{formattedDateTime.date}</div>
                                 <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <td className="px-3 py-4 whitespace-nowrap text-center sticky z-20 bg-white" style={{left: '120px'}}>
                               <div className="flex items-center justify-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {creative.comment && (
@@ -1776,7 +1776,7 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 text-sm text-gray-900">
+                            <td className="px-3 py-4 text-sm text-gray-900 sticky z-20 bg-white" style={{left: '240px'}}>
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
                                   creative.link_titles.map((title, index) => (
