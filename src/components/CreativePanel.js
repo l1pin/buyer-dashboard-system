@@ -1777,7 +1777,12 @@ function CreativePanel({ user }) {
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
                                   creative.link_titles.map((title, index) => (
                                     <div key={index} className="flex items-center min-h-[24px]">
-                                      <span className="block text-left flex-1 mr-2 cursor-text select-text">{title}</span>
+                                      <span 
+                                        className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                        title={title}
+                                      >
+                                        {title}
+                                      </span>
                                       <a
                                         href={creative.links[index]}
                                         target="_blank"
