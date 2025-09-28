@@ -259,14 +259,14 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false, peri
           <div className="metric-label-mini text-indigo-600">Показы</div>
         </div>
 
-        <div className="metric-card-mini metric-clicks">
+        <div className="metric-card-mini metric-duration">
           <div className="flex items-center justify-center mb-1">
-            <MousePointer className="h-3 w-3 text-orange-600 metric-icon" />
+            <Clock className="h-3 w-3 text-teal-600 metric-icon" />
           </div>
-          <div className="metric-value-medium text-orange-700">
-            {metrics.formatted.clicks}
+          <div className="metric-value-medium text-teal-700">
+            {metrics.formatted.avg_duration}
           </div>
-          <div className="metric-label-mini text-orange-600">Клики</div>
+          <div className="metric-label-mini text-teal-600">Длит.</div>
         </div>
 
         <div className="metric-card-mini metric-ctr">
@@ -282,6 +282,11 @@ function CreativeMetrics({ videoTitle, showRefresh = true, compact = false, peri
 
       {/* Дополнительные метрики в одну строку */}
       <div className="metrics-grid-additional">
+        <div className="text-center">
+          <div className="text-xs font-medium text-gray-700">{metrics.formatted.clicks}</div>
+          <div className="text-xs text-gray-500 font-medium">Клики</div>
+        </div>
+        
         <div className="text-center">
           <div className="text-xs font-medium text-gray-700">{metrics.formatted.cpc}</div>
           <div className="text-xs text-gray-500 font-medium">CPC</div>
