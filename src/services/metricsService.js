@@ -24,7 +24,8 @@ export class MetricsService {
         COALESCE(SUM(valid), 0) AS leads,
         COALESCE(SUM(cost), 0) AS cost,
         COALESCE(SUM(clicks_on_link_tracker), 0) AS clicks,
-        COALESCE(SUM(showed), 0) AS impressions
+        COALESCE(SUM(showed), 0) AS impressions,
+        COALESCE(AVG(average_time_on_video), 0) AS avg_duration
       FROM ads_collection
       WHERE video_name='${escapedVideoName}'
         AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
@@ -117,7 +118,8 @@ export class MetricsService {
         leads: Number(row.leads) || 0,
         cost: Number(row.cost) || 0,
         clicks: Number(row.clicks) || 0,
-        impressions: Number(row.impressions) || 0
+        impressions: Number(row.impressions) || 0,
+        avg_duration: Number(row.avg_duration) || 0
       }));
     } else {
       // Случай B: [headers, ...rows]
@@ -133,7 +135,8 @@ export class MetricsService {
           leads: Number(map.leads) || 0,
           cost: Number(map.cost) || 0,
           clicks: Number(map.clicks) || 0,
-          impressions: Number(map.impressions) || 0
+          impressions: Number(map.impressions) || 0,
+          avg_duration: Number(map.avg_duration) || 0
         };
       });
     }
@@ -241,29 +244,41 @@ export class MetricsService {
         cost: 0,
         clicks: 0,
         impressions: 0,
+        avg_duration: 0,
         days_count: 0
       };
     }
 
-    return dailyData.reduce((acc, day) => ({
+    const result = dailyData.reduce((acc, day) => ({
       leads: acc.leads + day.leads,
       cost: acc.cost + day.cost,
       clicks: acc.clicks + day.clicks,
       impressions: acc.impressions + day.impressions,
+      duration_sum: acc.duration_sum + (day.avg_duration || 0),
       days_count: acc.days_count + 1
     }), {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
+      duration_sum: 0,
       days_count: 0
     });
+
+    return {
+      leads: result.leads,
+      cost: result.cost,
+      clicks: result.clicks,
+      impressions: result.impressions,
+      avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
+      days_count: result.days_count
+    };
   }
 
   /**
    * Вычисление производных метрик
    */
-  static computeDerivedMetrics({ leads, cost, clicks, impressions, days_count }) {
+  static computeDerivedMetrics({ leads, cost, clicks, impressions, avg_duration, days_count }) {
     const fix2 = (x) => Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
     
     const CPL = leads > 0 ? cost / leads : 0;
@@ -276,6 +291,7 @@ export class MetricsService {
       cost: fix2(cost),
       clicks,
       impressions,
+      avg_duration: fix2(avg_duration),
       days_count,
       cpl: fix2(CPL),
       ctr_percent: fix2(CTR),
@@ -291,6 +307,7 @@ export class MetricsService {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
     const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
     const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
+    const formatDuration = (n) => (Number(n) || 0).toFixed(1) + "с";
 
     return {
       leads: formatInt(metrics.leads),
@@ -301,6 +318,7 @@ export class MetricsService {
       cpm: formatMoney(metrics.cpm),
       clicks: formatInt(metrics.clicks),
       impressions: formatInt(metrics.impressions),
+      avg_duration: formatDuration(metrics.avg_duration),
       days: formatInt(metrics.days_count) + " дн."
     };
   }
