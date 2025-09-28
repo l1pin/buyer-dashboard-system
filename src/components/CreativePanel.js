@@ -2,7 +2,7 @@
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
-import { creativeService } from '../supabaseClient';
+import { creativeService, userService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
@@ -85,6 +85,11 @@ function CreativePanel({ user }) {
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
+  const [buyers, setBuyers] = useState([]);
+  const [searchers, setSearchers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
+  const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
 
   // Хуки для метрик
   const { 
@@ -187,6 +192,37 @@ function CreativePanel({ user }) {
       <div className="w-full h-3 bg-white"></div>
       <div className="w-full h-3 bg-red-500"></div>
     </div>
+  );
+
+  const UserOption = ({ user, onClick, isSelected = false }) => (
+    <button
+      type="button"
+      onClick={() => onClick(user)}
+      className={`w-full flex items-center px-3 py-2 text-left hover:bg-gray-100 transition-colors duration-200 ${
+        isSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+      }`}
+    >
+      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+        {user.avatar_url ? (
+          <img
+            src={user.avatar_url}
+            alt={user.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <div className={`w-full h-full flex items-center justify-center ${user.avatar_url ? 'hidden' : ''}`}>
+          <User className="h-4 w-4 text-gray-400" />
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">{user.name}</div>
+        <div className="text-xs text-gray-500 truncate">{user.email}</div>
+      </div>
+    </button>
   );
 
   // ОБНОВЛЕННАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
@@ -813,6 +849,10 @@ function CreativePanel({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
+      if (!event.target.closest('.user-dropdown')) {
+        setShowBuyerDropdown(false);
+        setShowSearcherDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -918,6 +958,31 @@ function CreativePanel({ user }) {
   const clearMessages = () => {
     setError('');
     setSuccess('');
+  };
+
+  const loadUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      
+      const [buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('buyer'),
+        userService.getUsersByRole('searcher')
+      ]);
+      
+      setBuyers(buyersData || []);
+      setSearchers(searchersData || []);
+      
+      console.log('✅ Загружены пользователи:', {
+        buyers: buyersData?.length || 0,
+        searchers: searchersData?.length || 0
+      });
+      
+    } catch (error) {
+      console.error('❌ Ошибка загрузки пользователей:', error);
+      setError('Ошибка загрузки списка пользователей: ' + error.message);
+    } finally {
+      setLoadingUsers(false);
+    }
   };
 
   const handleRefreshAll = async () => {
@@ -1036,7 +1101,10 @@ function CreativePanel({ user }) {
               Обновить
             </button>
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setShowCreateModal(true);
+                loadUsers();
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -1506,7 +1574,10 @@ function CreativePanel({ user }) {
               Создайте свой первый креатив с Google Drive ссылками
             </p>
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setShowCreateModal(true);
+                loadUsers();
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -2173,6 +2244,8 @@ function CreativePanel({ user }) {
                     searcher: ''
                   });
                   setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -2284,32 +2357,134 @@ function CreativePanel({ user }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Байер *
                   </label>
-                  <input
-                    type="text"
-                    value={newCreative.buyer}
-                    onChange={(e) => {
-                      setNewCreative({ ...newCreative, buyer: e.target.value });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Имя байера"
-                  />
+                  <div className="relative user-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBuyerDropdown(!showBuyerDropdown);
+                        setShowSearcherDropdown(false);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
+                    >
+                      {newCreative.buyer ? (
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
+                            {(() => {
+                              const selectedBuyer = buyers.find(b => b.name === newCreative.buyer);
+                              return selectedBuyer?.avatar_url ? (
+                                <img
+                                  src={selectedBuyer.avatar_url}
+                                  alt={selectedBuyer.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-3 w-3 text-gray-400" />
+                              );
+                            })()}
+                          </div>
+                          <span className="text-sm">{newCreative.buyer}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Выберите байера</span>
+                      )}
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    </button>
+                    
+                    {showBuyerDropdown && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {loadingUsers ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Загрузка байеров...
+                          </div>
+                        ) : buyers.length > 0 ? (
+                          buyers.map((buyer) => (
+                            <UserOption
+                              key={buyer.id}
+                              user={buyer}
+                              isSelected={newCreative.buyer === buyer.name}
+                              onClick={(user) => {
+                                setNewCreative({ ...newCreative, buyer: user.name });
+                                setShowBuyerDropdown(false);
+                                clearMessages();
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            Байеры не найдены
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Серчер *
                   </label>
-                  <input
-                    type="text"
-                    value={newCreative.searcher}
-                    onChange={(e) => {
-                      setNewCreative({ ...newCreative, searcher: e.target.value });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Имя серчера"
-                  />
+                  <div className="relative user-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSearcherDropdown(!showSearcherDropdown);
+                        setShowBuyerDropdown(false);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
+                    >
+                      {newCreative.searcher ? (
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
+                            {(() => {
+                              const selectedSearcher = searchers.find(s => s.name === newCreative.searcher);
+                              return selectedSearcher?.avatar_url ? (
+                                <img
+                                  src={selectedSearcher.avatar_url}
+                                  alt={selectedSearcher.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-3 w-3 text-gray-400" />
+                              );
+                            })()}
+                          </div>
+                          <span className="text-sm">{newCreative.searcher}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Выберите серчера</span>
+                      )}
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    </button>
+                    
+                    {showSearcherDropdown && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {loadingUsers ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Загрузка серчеров...
+                          </div>
+                        ) : searchers.length > 0 ? (
+                          searchers.map((searcher) => (
+                            <UserOption
+                              key={searcher.id}
+                              user={searcher}
+                              isSelected={newCreative.searcher === searcher.name}
+                              onClick={(user) => {
+                                setNewCreative({ ...newCreative, searcher: user.name });
+                                setShowSearcherDropdown(false);
+                                clearMessages();
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            Серчеры не найдены
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2393,6 +2568,8 @@ function CreativePanel({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
