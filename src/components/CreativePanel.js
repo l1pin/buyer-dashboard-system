@@ -88,6 +88,8 @@ function CreativePanel({ user }) {
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
+  const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
 
   // Хуки для метрик
   const { 
@@ -837,6 +839,12 @@ function CreativePanel({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
+      if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
+        setShowBuyerDropdown(false);
+      }
+      if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
+        setShowSearcherDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -966,6 +974,16 @@ function CreativePanel({ user }) {
     if (!searcherId) return null;
     const searcher = searchers.find(s => s.id === searcherId);
     return searcher ? searcher.avatar_url : null;
+  };
+
+  const getSelectedBuyer = () => {
+    if (!newCreative.buyer_id) return null;
+    return buyers.find(b => b.id === newCreative.buyer_id);
+  };
+
+  const getSelectedSearcher = () => {
+    if (!newCreative.searcher_id) return null;
+    return searchers.find(s => s.id === newCreative.searcher_id);
   };
 
   const handleRefreshAll = async () => {
@@ -2251,6 +2269,8 @@ function CreativePanel({ user }) {
                     searcher_id: null
                   });
                   setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -2362,22 +2382,81 @@ function CreativePanel({ user }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Байер *
                   </label>
-                  <select
-                    value={newCreative.buyer_id || ''}
-                    onChange={(e) => {
-                      setNewCreative({ ...newCreative, buyer_id: e.target.value || null });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={loadingUsers}
-                  >
-                    <option value="">Выберите байера</option>
-                    {buyers.map((buyer) => (
-                      <option key={buyer.id} value={buyer.id}>
-                        {buyer.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowBuyerDropdown(!showBuyerDropdown);
+                          setShowSearcherDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {getSelectedBuyer() ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSelectedBuyer().avatar_url ? (
+                                <img
+                                  src={getSelectedBuyer().avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getSelectedBuyer().name}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите байера</span>
+                        )}
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    </button>
+                    
+                    {showBuyerDropdown && !loadingUsers && (
+                      <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {buyers.map((buyer) => (
+                          <button
+                            key={buyer.id}
+                            type="button"
+                            onClick={() => {
+                              setNewCreative({ ...newCreative, buyer_id: buyer.id });
+                              setShowBuyerDropdown(false);
+                              clearMessages();
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {buyer.avatar_url ? (
+                                <img
+                                  src={buyer.avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{buyer.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {loadingUsers && (
                     <p className="mt-1 text-xs text-gray-500">Загрузка байеров...</p>
                   )}
@@ -2387,22 +2466,81 @@ function CreativePanel({ user }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Серчер *
                   </label>
-                  <select
-                    value={newCreative.searcher_id || ''}
-                    onChange={(e) => {
-                      setNewCreative({ ...newCreative, searcher_id: e.target.value || null });
-                      clearMessages();
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={loadingUsers}
-                  >
-                    <option value="">Выберите серчера</option>
-                    {searchers.map((searcher) => (
-                      <option key={searcher.id} value={searcher.id}>
-                        {searcher.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowSearcherDropdown(!showSearcherDropdown);
+                          setShowBuyerDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {getSelectedSearcher() ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSelectedSearcher().avatar_url ? (
+                                <img
+                                  src={getSelectedSearcher().avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedSearcher().avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getSelectedSearcher().name}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите серчера</span>
+                        )}
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    </button>
+                    
+                    {showSearcherDropdown && !loadingUsers && (
+                      <div className="searcher-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {searchers.map((searcher) => (
+                          <button
+                            key={searcher.id}
+                            type="button"
+                            onClick={() => {
+                              setNewCreative({ ...newCreative, searcher_id: searcher.id });
+                              setShowSearcherDropdown(false);
+                              clearMessages();
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {searcher.avatar_url ? (
+                                <img
+                                  src={searcher.avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{searcher.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {loadingUsers && (
                     <p className="mt-1 text-xs text-gray-500">Загрузка серчеров...</p>
                   )}
