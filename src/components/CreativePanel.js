@@ -230,7 +230,7 @@ function CreativePanel({ user }) {
       days_count: 0
     });
 
-    // Вычисляем среднюю длительность
+    // Вычисляем среднее время просмотра
     const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
 
     // Вычисляем производные метрики
@@ -1690,7 +1690,7 @@ function CreativePanel({ user }) {
                         Показы
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Длительность
+                        Время
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дней
