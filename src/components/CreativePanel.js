@@ -1679,6 +1679,9 @@ function CreativePanel({ user }) {
                         Показы
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Длительность
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дней
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2141,6 +2144,40 @@ function CreativePanel({ user }) {
                                         {videoMetric.found ? (
                                           <span className="font-bold text-sm cursor-text select-text text-black-700">
                                             {videoMetric.data.formatted.impressions}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
+                                currentDisplayData.metrics?.found ? (
+                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                    {currentDisplayData.metrics.data.formatted.avg_duration}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                )
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px]">
+                                        {videoMetric.found ? (
+                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
+                                            {videoMetric.data.formatted.avg_duration}
                                           </span>
                                         ) : (
                                           <span className="text-gray-400 text-sm cursor-text select-text">—</span>
