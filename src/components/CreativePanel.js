@@ -2419,7 +2419,23 @@ function CreativePanel({ user }) {
                           <span className="text-gray-500">Выберите байера</span>
                         )}
                       </div>
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center space-x-1">
+                        {getSelectedBuyer() && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewCreative({ ...newCreative, buyer_id: null });
+                              clearMessages();
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
                     </button>
                     
                     {showBuyerDropdown && !loadingUsers && (
@@ -2503,7 +2519,23 @@ function CreativePanel({ user }) {
                           <span className="text-gray-500">Выберите серчера</span>
                         )}
                       </div>
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center space-x-1">
+                        {getSelectedSearcher() && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewCreative({ ...newCreative, searcher_id: null });
+                              clearMessages();
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
                     </button>
                     
                     {showSearcherDropdown && !loadingUsers && (
