@@ -80,11 +80,14 @@ function CreativePanel({ user }) {
     comment: '',
     is_poland: false,
     trello_link: '',
-    buyer: '',
-    searcher: ''
+    buyer_id: null,
+    searcher_id: null
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
+  const [buyers, setBuyers] = useState([]);
+  const [searchers, setSearchers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Хуки для метрик
   const { 
@@ -577,6 +580,7 @@ function CreativePanel({ user }) {
 
   useEffect(() => {
     loadCreatives();
+    loadUsers();
   }, []);
 
   const loadCreatives = async () => {
@@ -592,6 +596,26 @@ function CreativePanel({ user }) {
       setError('Ошибка загрузки креативов: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      console.log('👥 Загрузка пользователей...');
+      
+      const [buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('buyer'),
+        userService.getUsersByRole('search_manager')
+      ]);
+      
+      setBuyers(buyersData);
+      setSearchers(searchersData);
+      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки пользователей:', error);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -641,12 +665,12 @@ function CreativePanel({ user }) {
       return;
     }
 
-    if (!newCreative.buyer.trim()) {
+    if (!newCreative.buyer_id) {
       setError('Байер обязателен для заполнения');
       return;
     }
 
-    if (!newCreative.searcher.trim()) {
+    if (!newCreative.searcher_id) {
       setError('Серчер обязателен для заполнения');
       return;
     }
@@ -690,8 +714,8 @@ function CreativePanel({ user }) {
         comment: newCreative.comment.trim() || null,
         is_poland: newCreative.is_poland,
         trello_link: newCreative.trello_link.trim(),
-        buyer: newCreative.buyer.trim(),
-        searcher: newCreative.searcher.trim()
+        buyer_id: newCreative.buyer_id,
+        searcher_id: newCreative.searcher_id
       });
 
       setNewCreative({
@@ -702,8 +726,8 @@ function CreativePanel({ user }) {
         comment: '',
         is_poland: false,
         trello_link: '',
-        buyer: '',
-        searcher: ''
+        buyer_id: null,
+        searcher_id: null
       });
       setShowCreateModal(false);
 
@@ -918,6 +942,30 @@ function CreativePanel({ user }) {
   const clearMessages = () => {
     setError('');
     setSuccess('');
+  };
+
+  const getBuyerName = (buyerId) => {
+    if (!buyerId) return '—';
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.name : 'Удален';
+  };
+
+  const getSearcherName = (searcherId) => {
+    if (!searcherId) return '—';
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.name : 'Удален';
+  };
+
+  const getBuyerAvatar = (buyerId) => {
+    if (!buyerId) return null;
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.avatar_url : null;
+  };
+
+  const getSearcherAvatar = (searcherId) => {
+    if (!searcherId) return null;
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.avatar_url : null;
   };
 
   const handleRefreshAll = async () => {
@@ -2169,8 +2217,8 @@ function CreativePanel({ user }) {
                     comment: '',
                     is_poland: false,
                     trello_link: '',
-                    buyer: '',
-                    searcher: ''
+                    buyer_id: null,
+                    searcher_id: null
                   });
                   setExtractingTitles(false);
                   clearMessages();
@@ -2284,32 +2332,50 @@ function CreativePanel({ user }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Байер *
                   </label>
-                  <input
-                    type="text"
-                    value={newCreative.buyer}
+                  <select
+                    value={newCreative.buyer_id || ''}
                     onChange={(e) => {
-                      setNewCreative({ ...newCreative, buyer: e.target.value });
+                      setNewCreative({ ...newCreative, buyer_id: e.target.value || null });
                       clearMessages();
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Имя байера"
-                  />
+                    disabled={loadingUsers}
+                  >
+                    <option value="">Выберите байера</option>
+                    {buyers.map((buyer) => (
+                      <option key={buyer.id} value={buyer.id}>
+                        {buyer.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка байеров...</p>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Серчер *
                   </label>
-                  <input
-                    type="text"
-                    value={newCreative.searcher}
+                  <select
+                    value={newCreative.searcher_id || ''}
                     onChange={(e) => {
-                      setNewCreative({ ...newCreative, searcher: e.target.value });
+                      setNewCreative({ ...newCreative, searcher_id: e.target.value || null });
                       clearMessages();
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Имя серчера"
-                  />
+                    disabled={loadingUsers}
+                  >
+                    <option value="">Выберите серчера</option>
+                    {searchers.map((searcher) => (
+                      <option key={searcher.id} value={searcher.id}>
+                        {searcher.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка серчеров...</p>
+                  )}
                 </div>
               </div>
 
