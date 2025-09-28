@@ -394,7 +394,7 @@ function CreativePanel({ user }) {
     }
 
     return (
-      <div className="flex flex-wrap justify-center gap-1 max-w-[120px]">
+      <div className="grid grid-cols-2 gap-1">
         {zones.map((zone, index) => (
           <span 
             key={zone.color}
