@@ -378,28 +378,31 @@ function CreativePanel({ user }) {
       );
     }
 
+    // Собираем доступные зоны
+    const zones = [];
+    if (zoneData.red !== '—') zones.push({ color: 'red', value: zoneData.red, bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' });
+    if (zoneData.pink !== '—') zones.push({ color: 'pink', value: zoneData.pink, bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' });
+    if (zoneData.gold !== '—') zones.push({ color: 'gold', value: zoneData.gold, bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' });
+    if (zoneData.green !== '—') zones.push({ color: 'green', value: zoneData.green, bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' });
+
+    if (zones.length === 0) {
+      return (
+        <div className="text-center">
+          <span className="text-gray-400 text-xs">—</span>
+        </div>
+      );
+    }
+
     return (
-      <div className="grid grid-cols-2 gap-1">
-        {zoneData.red !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-red-100 text-red-800 border-red-200">
-            {zoneData.red}
+      <div className="flex flex-wrap justify-center gap-1 max-w-[120px]">
+        {zones.map((zone, index) => (
+          <span 
+            key={zone.color}
+            className={`font-mono font-bold inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs border ${zone.bg} ${zone.text} ${zone.border} whitespace-nowrap`}
+          >
+            {zone.value}
           </span>
-        )}
-        {zoneData.pink !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-pink-100 text-pink-800 border-pink-200">
-            {zoneData.pink}
-          </span>
-        )}
-        {zoneData.gold !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-yellow-100 text-yellow-800 border-yellow-200">
-            {zoneData.gold}
-          </span>
-        )}
-        {zoneData.green !== '—' && (
-          <span className="font-mono font-bold inline-flex items-center justify-center px-2 py-1 rounded-full text-xs border bg-green-100 text-green-800 border-green-200">
-            {zoneData.green}
-          </span>
-        )}
+        ))}
       </div>
     );
   };
