@@ -2,7 +2,7 @@
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect } from 'react';
-import { creativeService } from '../supabaseClient';
+import { creativeService, userService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
@@ -2164,19 +2164,49 @@ function CreativePanel({ user }) {
         </a>
       </div>
       <div className="space-y-1">
-        {creative.searcher && (
+        {(creative.searcher_id || creative.searcher) && (
           <div className="flex items-center justify-center space-x-1">
-            <Search className="h-3 w-3 text-blue-600" />
+            <div className="w-4 h-4 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+              {getSearcherAvatar(creative.searcher_id) ? (
+                <img
+                  src={getSearcherAvatar(creative.searcher_id)}
+                  alt="Searcher"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(creative.searcher_id) ? 'hidden' : ''}`}>
+                <Search className="h-2 w-2 text-blue-600" />
+              </div>
+            </div>
             <span className="text-xs text-gray-700 cursor-text select-text">
-              {creative.searcher}
+              {creative.searcher_id ? getSearcherName(creative.searcher_id) : creative.searcher}
             </span>
           </div>
         )}
-        {creative.buyer && (
+        {(creative.buyer_id || creative.buyer) && (
           <div className="flex items-center justify-center space-x-1">
-            <User className="h-3 w-3 text-blue-600" />
+            <div className="w-4 h-4 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+              {getBuyerAvatar(creative.buyer_id) ? (
+                <img
+                  src={getBuyerAvatar(creative.buyer_id)}
+                  alt="Buyer"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(creative.buyer_id) ? 'hidden' : ''}`}>
+                <User className="h-2 w-2 text-blue-600" />
+              </div>
+            </div>
             <span className="text-xs text-gray-700 cursor-text select-text">
-              {creative.buyer}
+              {creative.buyer_id ? getBuyerName(creative.buyer_id) : creative.buyer}
             </span>
           </div>
         )}
