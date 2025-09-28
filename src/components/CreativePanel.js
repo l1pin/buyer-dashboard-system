@@ -923,27 +923,16 @@ function CreativePanel({ user }) {
     setFieldErrors({});
   };
 
+  const clearErrorMessage = () => {
+    setError('');
+  };
+
   const clearFieldError = (fieldName) => {
     setFieldErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[fieldName];
       return newErrors;
     });
-    
-    // Обновляем сообщение об ошибке в зависимости от оставшихся проблем
-    setTimeout(() => {
-      const newFieldErrors = { ...fieldErrors };
-      delete newFieldErrors[fieldName];
-      
-      if (Object.keys(newFieldErrors).length === 0 && isAllFieldsValid()) {
-        setError('');
-      } else {
-        const specificError = getSpecificErrorMessage();
-        if (specificError) {
-          setError(specificError);
-        }
-      }
-    }, 0);
   };
 
   const isAllFieldsValid = () => {
@@ -960,85 +949,54 @@ function CreativePanel({ user }) {
     );
   };
 
-  const getSpecificErrorMessage = () => {
-    if (!newCreative.article.trim()) {
-      return 'Артикул обязателен для заполнения';
-    }
-
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
-    if (validLinks.length === 0) {
-      return 'Необходимо добавить хотя бы одну ссылку на Google Drive';
-    }
-    if (invalidLinks.length > 0) {
-      return 'Проверьте правильность ссылки на Google Drive';
-    }
-
-    if (newCreative.work_types.length === 0) {
-      return 'Необходимо выбрать хотя бы один тип работы';
-    }
-
-    if (!newCreative.trello_link.trim()) {
-      return 'Карточка Trello обязательна для заполнения';
-    }
-
-    const trimmedTrelloLink = newCreative.trello_link.trim();
-    if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
-        !trimmedTrelloLink.startsWith('trello.com/c/')) {
-      return 'Проверьте правильность ссылки на Trello';
-    }
-
-    return '';
-  };
-
   const validateFields = () => {
     const errors = {};
-    let errorMessage = '';
+    const errorMessages = [];
 
     // Проверяем артикул
     if (!newCreative.article.trim()) {
       errors.article = true;
-      if (!errorMessage) errorMessage = 'Артикул обязателен для заполнения';
+      errorMessages.push('Артикул обязателен для заполнения');
     }
 
     // Проверяем ссылки
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
     if (validLinks.length === 0) {
       errors.links = true;
-      if (!errorMessage) errorMessage = 'Необходимо добавить хотя бы одну ссылку на Google Drive';
+      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
     } else if (invalidLinks.length > 0) {
       errors.links = true;
-      if (!errorMessage) errorMessage = 'Проверьте правильность ссылки на Google Drive';
+      errorMessages.push('Проверьте правильность ссылок на Google Drive');
     }
 
     // Проверяем типы работ
     if (newCreative.work_types.length === 0) {
       errors.work_types = true;
-      if (!errorMessage) errorMessage = 'Необходимо выбрать хотя бы один тип работы';
+      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
     }
 
     // Проверяем Trello ссылку
     if (!newCreative.trello_link.trim()) {
       errors.trello_link = true;
-      if (!errorMessage) errorMessage = 'Карточка Trello обязательна для заполнения';
+      errorMessages.push('Карточка Trello обязательна для заполнения');
     } else {
       const trimmedTrelloLink = newCreative.trello_link.trim();
       if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
           !trimmedTrelloLink.startsWith('trello.com/c/')) {
         errors.trello_link = true;
-        if (!errorMessage) errorMessage = 'Проверьте правильность ссылки на Trello';
+        errorMessages.push('Проверьте правильность ссылки на Trello');
       }
-    }
-
-    // Если есть несколько ошибок, показываем общее сообщение
-    if (Object.keys(errors).length > 1) {
-      errorMessage = 'Пожалуйста, заполните все обязательные поля';
     }
 
     setFieldErrors(errors);
     
-    // Устанавливаем конкретное сообщение об ошибке
-    if (errorMessage) {
-      setError(errorMessage);
+    // Устанавливаем сообщение об ошибке
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
     }
     
     return Object.keys(errors).length === 0;
@@ -2752,6 +2710,20 @@ function CreativePanel({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setNewCreative({
+                    article: '',
+                    links: [''],
+                    work_types: [],
+                    link_titles: [],
+                    comment: '',
+                    is_poland: false,
+                    trello_link: '',
+                    buyer_id: null,
+                    searcher_id: null
+                  });
+                  setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
