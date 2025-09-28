@@ -1833,9 +1833,15 @@ function CreativePanel({ user }) {
                                         : "Показать общую статистику"
                                       }
                                     >
-                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
-                                      </svg>
+                                      {currentMode === 'individual' ? (
+                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 15l-4-4-4 4m0-6l4 4 4-4"/>
+                                        </svg>
+                                      ) : (
+                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                                        </svg>
+                                      )}
                                     </button>
                                     <div className="min-w-[24px] flex justify-center">
                                       {getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
@@ -1873,7 +1879,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.leads}
                                           </span>
                                         ) : (
@@ -1907,7 +1913,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpl}
                                           </span>
                                         ) : (
@@ -1941,7 +1947,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cost}
                                           </span>
                                         ) : (
@@ -1975,7 +1981,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.clicks}
                                           </span>
                                         ) : (
@@ -2009,7 +2015,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpc}
                                           </span>
                                         ) : (
@@ -2043,7 +2049,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.ctr}
                                           </span>
                                         ) : (
@@ -2077,7 +2083,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpm}
                                           </span>
                                         ) : (
@@ -2111,7 +2117,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.impressions}
                                           </span>
                                         ) : (
@@ -2145,7 +2151,7 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.days.replace(/\s*дн\./g, '')}
                                           </span>
                                         ) : (
