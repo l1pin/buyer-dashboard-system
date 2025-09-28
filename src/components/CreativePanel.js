@@ -673,6 +673,10 @@ function CreativePanel({ user }) {
 
       const cofRating = calculateCOF(newCreative.work_types);
 
+      // Получаем имена байера и серчера по их ID
+      const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
+      const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
+
       await creativeService.createCreative({
         user_id: user.id,
         editor_name: user.name,
@@ -685,7 +689,9 @@ function CreativePanel({ user }) {
         is_poland: newCreative.is_poland,
         trello_link: newCreative.trello_link.trim(),
         buyer_id: newCreative.buyer_id,
-        searcher_id: newCreative.searcher_id
+        searcher_id: newCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null
       });
 
       setNewCreative({
