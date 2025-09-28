@@ -1100,10 +1100,7 @@ function CreativePanel({ user }) {
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name} • {creatives.length} креативов • COF: {formatCOF(cofStats.totalCOF)}
-                {zoneDataStats.total > 0 && (
-                  <span className="ml-2">• Зоны: {zoneDataStats.found}/{zoneDataStats.total}</span>
-                )}
+                {user?.name}
               </p>
             </div>
           </div>
@@ -1381,8 +1378,7 @@ function CreativePanel({ user }) {
           </div>
 
           {/* ВТОРАЯ СТРОКА - метрики */}
-          {hasMetricsData && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
               {/* Лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-2 sm:p-3 md:p-4">
@@ -1396,7 +1392,7 @@ function CreativePanel({ user }) {
                           Лидов
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {formatStats().totalLeads}
+                          {hasMetricsData ? formatStats().totalLeads : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1419,9 +1415,9 @@ function CreativePanel({ user }) {
                           CPL
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          {hasMetricsData ? (creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
-                          '0.00$'}
+                          '0.00$') : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1442,7 +1438,7 @@ function CreativePanel({ user }) {
                           Расходы
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {formatStats().totalCost}
+                          {hasMetricsData ? formatStats().totalCost : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1465,7 +1461,7 @@ function CreativePanel({ user }) {
                           Клики
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {Math.round(aggregatedMetricsStats.totalClicks).toLocaleString()}
+                          {hasMetricsData ? Math.round(aggregatedMetricsStats.totalClicks).toLocaleString() : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1488,9 +1484,9 @@ function CreativePanel({ user }) {
                           CPC
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {aggregatedMetricsStats.totalClicks > 0 ? 
+                          {hasMetricsData ? (aggregatedMetricsStats.totalClicks > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
-                          '0.00$'}
+                          '0.00$') : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1513,7 +1509,7 @@ function CreativePanel({ user }) {
                           CTR
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {formatStats().avgCTR}
+                          {hasMetricsData ? formatStats().avgCTR : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1536,9 +1532,9 @@ function CreativePanel({ user }) {
                           CPM
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {aggregatedMetricsStats.totalImpressions > 0 ? 
+                          {hasMetricsData ? (aggregatedMetricsStats.totalImpressions > 0 ? 
                           ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
-                          '0.00$'}
+                          '0.00$') : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1559,7 +1555,7 @@ function CreativePanel({ user }) {
                           Показы
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
+                          {hasMetricsData ? Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString() : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -1584,17 +1580,15 @@ function CreativePanel({ user }) {
                           Ср. лидов
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0}
+                          {hasMetricsData ? (creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0) : '—'}
                         </dd>
                       </dl>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          
+            </div>
         </div>
       )}
       
@@ -2537,7 +2531,7 @@ function CreativePanel({ user }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Байер
+                    Buyer
                   </label>
                   <div className="relative">
                     <button
@@ -2635,7 +2629,7 @@ function CreativePanel({ user }) {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Серчер
+                    Searcher
                   </label>
                   <div className="relative">
                     <button
