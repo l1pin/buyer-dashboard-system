@@ -650,7 +650,7 @@ function CreativePanel({ user }) {
     }
 
     if (invalidLinks.length > 0) {
-      setError('Проверьте правильность ссылки на Google Drive. Ссылка должна начинаться с https://drive.google.com/file/d/');
+      setError('Проверьте правильность ссылки на видео Google Drive.');
       return;
     }
 
@@ -667,7 +667,7 @@ function CreativePanel({ user }) {
     const trimmedTrelloLink = newCreative.trello_link.trim();
     if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
         !trimmedTrelloLink.startsWith('trello.com/c/')) {
-      setError('Проверьте правильность ссылки на Trello. Ссылка должна начинаться с https://trello.com/c/');
+      setError('Проверьте правильность ссылки на карточку Trello.');
       return;
     }
 
@@ -2650,13 +2650,6 @@ function CreativePanel({ user }) {
                   </div>
                 )}
               </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
