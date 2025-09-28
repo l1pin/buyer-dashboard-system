@@ -394,11 +394,12 @@ function CreativePanel({ user }) {
     }
 
     return (
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-2 gap-1 w-24 mx-auto">
         {zones.map((zone, index) => (
           <span 
             key={zone.color}
-            className={`font-mono font-bold inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs border ${zone.bg} ${zone.text} ${zone.border} whitespace-nowrap`}
+            className={`font-mono font-bold flex items-center justify-center w-11 h-6 rounded-full text-xs border ${zone.bg} ${zone.text} ${zone.border} text-center`}
+            style={{ fontSize: '10px' }}
           >
             {zone.value}
           </span>
