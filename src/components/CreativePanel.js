@@ -90,6 +90,7 @@ function CreativePanel({ user }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Хуки для метрик
   const { 
@@ -637,6 +638,11 @@ function CreativePanel({ user }) {
   };
 
   const handleCreateCreative = async () => {
+    if (!validateFields()) {
+      setError('Пожалуйста, заполните все обязательные поля');
+      return;
+    }
+
     if (!newCreative.article.trim()) {
       setError('Артикул обязателен для заполнения');
       return;
@@ -650,7 +656,7 @@ function CreativePanel({ user }) {
     }
 
     if (invalidLinks.length > 0) {
-      setError('Проверьте правильность ссылки на видео Google Drive.');
+      setError('Проверьте правильность ссылки на Google Drive');
       return;
     }
 
@@ -667,17 +673,7 @@ function CreativePanel({ user }) {
     const trimmedTrelloLink = newCreative.trello_link.trim();
     if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
         !trimmedTrelloLink.startsWith('trello.com/c/')) {
-      setError('Проверьте правильность ссылки на карточку Trello.');
-      return;
-    }
-
-    if (!newCreative.buyer_id) {
-      setError('Байер обязателен для заполнения');
-      return;
-    }
-
-    if (!newCreative.searcher_id) {
-      setError('Серчер обязателен для заполнения');
+      setError('Проверьте правильность ссылки на Trello');
       return;
     }
 
@@ -954,6 +950,40 @@ function CreativePanel({ user }) {
   const clearMessages = () => {
     setError('');
     setSuccess('');
+    setFieldErrors({});
+  };
+
+  const validateFields = () => {
+    const errors = {};
+
+    if (!newCreative.article.trim()) {
+      errors.article = true;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+    }
+    if (invalidLinks.length > 0) {
+      errors.links = true;
+    }
+
+    if (!newCreative.trello_link.trim()) {
+      errors.trello_link = true;
+    } else {
+      const trimmedTrelloLink = newCreative.trello_link.trim();
+      if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+          !trimmedTrelloLink.startsWith('trello.com/c/')) {
+        errors.trello_link = true;
+      }
+    }
+
+    if (newCreative.work_types.length === 0) {
+      errors.work_types = true;
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const getBuyerName = (buyerId) => {
@@ -2285,7 +2315,7 @@ function CreativePanel({ user }) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
                   Артикул *
                 </label>
                 <div className="flex items-center space-x-3">
@@ -2297,7 +2327,11 @@ function CreativePanel({ user }) {
                         setNewCreative({ ...newCreative, article: e.target.value });
                         clearMessages();
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        fieldErrors.article 
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                          : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                      }`}
                       placeholder="Введите артикул"
                     />
                   </div>
@@ -2324,7 +2358,7 @@ function CreativePanel({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
                   Google Drive ссылки *
                 </label>
                 <div className="space-y-2">
@@ -2334,7 +2368,11 @@ function CreativePanel({ user }) {
                         type="url"
                         value={link}
                         onChange={(e) => updateLink(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                          fieldErrors.links 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                         placeholder="https://drive.google.com/file/d/..."
                       />
                       {newCreative.links.length > 1 && (
@@ -2362,7 +2400,7 @@ function CreativePanel({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.trello_link ? 'text-red-600' : 'text-gray-700'}`}>
                   Карточка Trello *
                 </label>
                 <input
@@ -2372,7 +2410,11 @@ function CreativePanel({ user }) {
                     setNewCreative({ ...newCreative, trello_link: e.target.value });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    fieldErrors.trello_link 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                  }`}
                   placeholder="https://trello.com/c/..."
                 />
                 <p className="mt-1 text-xs text-blue-600 flex items-center">
@@ -2384,7 +2426,7 @@ function CreativePanel({ user }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Байер *
+                    Байер
                   </label>
                   <div className="relative">
                     <button
@@ -2484,7 +2526,7 @@ function CreativePanel({ user }) {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Серчер *
+                    Серчер
                   </label>
                   <div className="relative">
                     <button
@@ -2601,7 +2643,7 @@ function CreativePanel({ user }) {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className={`block text-sm font-medium ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
                     Типы работ * ({newCreative.work_types.length} выбрано)
                   </label>
                   {newCreative.work_types.length > 0 && (
@@ -2613,7 +2655,9 @@ function CreativePanel({ user }) {
                     </div>
                   )}
                 </div>
-                <div className="max-h-72 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
+                <div className={`max-h-72 overflow-y-auto border rounded-md p-3 bg-gray-50 ${
+                  fieldErrors.work_types ? 'border-red-300' : 'border-gray-300'
+                }`}>
                   <div className="grid grid-cols-1 gap-2">
                     {workTypes.map((type) => (
                       <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
