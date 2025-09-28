@@ -866,8 +866,8 @@ export const creativeService = {
       cof_rating: creativeData.cof_rating,
       is_poland: creativeData.is_poland,
       trello_link: creativeData.trello_link,
-      buyer: creativeData.buyer,
-      searcher: creativeData.searcher
+      buyer_id: creativeData.buyer_id,
+      searcher_id: creativeData.searcher_id
     });
 
     const { data, error } = await supabase
@@ -884,6 +884,8 @@ export const creativeService = {
           comment: creativeData.comment || null,
           is_poland: creativeData.is_poland || false,
           trello_link: creativeData.trello_link || null,
+          buyer_id: creativeData.buyer_id || null,
+          searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
           searcher: creativeData.searcher || null
         }
