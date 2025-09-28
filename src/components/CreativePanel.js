@@ -1183,20 +1183,20 @@ function CreativePanel({ user }) {
       {creatives.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
-          <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
             {/* Креативов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Video className="h-6 w-6 text-blue-500" />
+                    <Video className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
                         Креативов
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {creatives.length}
                       </dd>
                     </dl>
@@ -1207,17 +1207,17 @@ function CreativePanel({ user }) {
 
             {/* С комментарием */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <MessageCircle className="h-6 w-6 text-blue-500" />
+                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
                         С комментарием
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {creatives.filter(c => c.comment && c.comment.trim()).length}
                       </dd>
                     </dl>
@@ -1228,17 +1228,17 @@ function CreativePanel({ user }) {
 
             {/* UA/PL */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Globe className="h-6 w-6 text-blue-500" />
+                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
                         UA/PL
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         <div className="flex items-center space-x-1">
                           <span>{countryStats.ukraineCount}</span>
                           <span className="text-gray-400">/</span>
@@ -1253,19 +1253,19 @@ function CreativePanel({ user }) {
 
             {/* Общий COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold" style={{fontSize: '10px'}}>COF</span>
+                    <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs sm:text-xs md:text-xs">COF</span>
                     </div>
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
                         Общий COF
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {formatCOF(cofStats.totalCOF)}
                       </dd>
                     </dl>
@@ -1276,17 +1276,17 @@ function CreativePanel({ user }) {
 
             {/* Средний COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-blue-500" />
+                    <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
                         Средний COF
                       </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {formatCOF(cofStats.avgCOF)}
                       </dd>
                     </dl>
@@ -1297,17 +1297,17 @@ function CreativePanel({ user }) {
 
             {/* Красная зона */}
             <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Star className="h-6 w-6 text-white" />
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-red-100 truncate">
                         Красная зона
                       </dt>
-                      <dd className="text-lg font-semibold text-white">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
                         {zoneStats.red}
                       </dd>
                     </dl>
@@ -1318,17 +1318,17 @@ function CreativePanel({ user }) {
 
             {/* Розовая зона */}
             <div className="bg-pink-500 overflow-hidden shadow-sm rounded-lg border border-pink-600">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Star className="h-6 w-6 text-white" />
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-pink-100 truncate">
                         Розовая зона
                       </dt>
-                      <dd className="text-lg font-semibold text-white">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
                         {zoneStats.pink}
                       </dd>
                     </dl>
@@ -1339,17 +1339,17 @@ function CreativePanel({ user }) {
 
             {/* Золотая зона */}
             <div className="bg-yellow-500 overflow-hidden shadow-sm rounded-lg border border-yellow-600">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Star className="h-6 w-6 text-black" />
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-black" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-yellow-800 truncate">
                         Золотая зона
                       </dt>
-                      <dd className="text-lg font-semibold text-black">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-black">
                         {zoneStats.gold}
                       </dd>
                     </dl>
@@ -1360,17 +1360,17 @@ function CreativePanel({ user }) {
 
             {/* Зеленая зона */}
             <div className="bg-green-500 overflow-hidden shadow-sm rounded-lg border border-green-600">
-              <div className="p-4">
+              <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Star className="h-6 w-6 text-white" />
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                   </div>
-                  <div className="ml-3 w-0 flex-1">
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-green-100 truncate">
                         Зеленая зона
                       </dt>
-                      <dd className="text-lg font-semibold text-white">
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
                         {zoneStats.green}
                       </dd>
                     </dl>
@@ -1382,20 +1382,20 @@ function CreativePanel({ user }) {
 
           {/* ВТОРАЯ СТРОКА - метрики */}
           {hasMetricsData && (
-            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
               {/* Лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Users className="h-6 w-6 text-blue-500" />
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           Лидов
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {formatStats().totalLeads}
                         </dd>
                       </dl>
@@ -1406,19 +1406,19 @@ function CreativePanel({ user }) {
 
               {/* CPL */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPL</span>
+                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPL</span>
                       </div>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           CPL
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
                           '0.00$'}
@@ -1431,17 +1431,17 @@ function CreativePanel({ user }) {
 
               {/* Расходы */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <DollarSign className="h-6 w-6 text-blue-500" />
+                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           Расходы
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {formatStats().totalCost}
                         </dd>
                       </dl>
@@ -1452,19 +1452,19 @@ function CreativePanel({ user }) {
 
               {/* Клики */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                       </svg>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           Клики
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {Math.round(aggregatedMetricsStats.totalClicks).toLocaleString()}
                         </dd>
                       </dl>
@@ -1475,19 +1475,19 @@ function CreativePanel({ user }) {
 
               {/* CPC */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPC</span>
+                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPC</span>
                       </div>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           CPC
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {aggregatedMetricsStats.totalClicks > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
                           '0.00$'}
@@ -1500,19 +1500,19 @@ function CreativePanel({ user }) {
 
               {/* CTR */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CTR</span>
+                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CTR</span>
                       </div>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           CTR
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {formatStats().avgCTR}
                         </dd>
                       </dl>
@@ -1523,19 +1523,19 @@ function CreativePanel({ user }) {
 
               {/* CPM */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-6 w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold" style={{fontSize: '10px'}}>CPM</span>
+                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPM</span>
                       </div>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           CPM
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {aggregatedMetricsStats.totalImpressions > 0 ? 
                           ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
                           '0.00$'}
@@ -1548,17 +1548,17 @@ function CreativePanel({ user }) {
 
               {/* Показы */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <Eye className="h-6 w-6 text-blue-500" />
+                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           Показы
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
                         </dd>
                       </dl>
@@ -1569,21 +1569,21 @@ function CreativePanel({ user }) {
 
               {/* Ср. лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                         <circle cx="8.5" cy="7" r="4" />
                         <polyline points="17 11 19 13 23 9" />
                       </svg>
                     </div>
-                    <div className="ml-3 w-0 flex-1">
+                    <div className="ml-2 sm:ml-3 w-0 flex-1">
                       <dl>
                         <dt className="text-xs font-medium text-gray-500 truncate">
                           Ср. лидов
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
+                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                           {creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0}
                         </dd>
                       </dl>
