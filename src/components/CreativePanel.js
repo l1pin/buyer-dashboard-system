@@ -51,6 +51,16 @@ import {
   Search
 } from 'lucide-react';
 
+// Утилита для получения времени по Киеву (UTC+3)
+const getKyivTime = () => {
+  const now = new Date();
+  // Киев UTC+3 (постоянно, без учета летнего/зимнего времени)
+  const kyivOffset = 3 * 60; // 3 часа в минутах
+  const localOffset = now.getTimezoneOffset(); // offset текущей временной зоны
+  const kyivTime = new Date(now.getTime() + (kyivOffset + localOffset) * 60 * 1000);
+  return kyivTime.toISOString();
+};
+
 function CreativePanel({ user }) {
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -914,7 +924,7 @@ function CreativePanel({ user }) {
         change_type: 'updated'
       });
 
-      await creativeService.updateCreative(editingCreative.id, {
+      const updatedCreative = await creativeService.updateCreative(editingCreative.id, {
         links: links,
         link_titles: titles,
         work_types: editCreative.work_types,
@@ -926,6 +936,27 @@ function CreativePanel({ user }) {
         searcher_id: editCreative.searcher_id,
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null
+      });
+
+      // Создаем запись в истории с киевским временем
+      await creativeHistoryService.createHistoryEntry({
+        creative_id: editingCreative.id,
+        article: editingCreative.article,
+        links: links,
+        link_titles: titles,
+        work_types: editCreative.work_types,
+        cof_rating: cofRating,
+        comment: editCreative.comment.trim() || null,
+        is_poland: editCreative.is_poland,
+        trello_link: editCreative.trello_link.trim(),
+        buyer_id: editCreative.buyer_id,
+        searcher_id: editCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null,
+        changed_at: getKyivTime(), // 🕐 Киевское время
+        changed_by_id: user.id,
+        changed_by_name: user.name,
+        change_type: 'updated'
       });
 
       setEditCreative({
