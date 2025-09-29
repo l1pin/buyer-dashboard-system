@@ -69,31 +69,25 @@ function CreativeAnalytics({ user }) {
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   
-  // НОВЫЕ состояния для истории изменений
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
   
-  // НОВЫЕ состояния для сегментации по месяцам
-  const [selectedMonth, setSelectedMonth] = useState(null); // null = текущий месяц
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
-  // НОВЫЕ состояния для переключения метрик в той же строке
   const [detailMode, setDetailMode] = useState(new Map());
   const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map());
 
-  // Используем useMemo для оптимизации фильтрации креативов по месяцам
   const filteredCreativesByMonth = useMemo(() => {
     let creativesToFilter = analytics.creatives;
     
-    // Сначала применяем фильтр по редактору
     if (selectedEditor !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.user_id === selectedEditor);
     }
     
-    // Затем применяем фильтр по периоду (для статистики)
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -107,9 +101,7 @@ function CreativeAnalytics({ user }) {
       creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= monthStart);
     }
     
-    // Затем применяем фильтр по месяцам для отображения
     if (selectedMonth === null) {
-      // Текущий месяц
       const currentYear = now.getFullYear();
       const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
       const currentMonthKey = `${currentYear}-${currentMonth}`;
@@ -125,7 +117,6 @@ function CreativeAnalytics({ user }) {
       });
     }
     
-    // Выбранный месяц
     return creativesToFilter.filter(creative => {
       const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (match) {
@@ -137,7 +128,6 @@ function CreativeAnalytics({ user }) {
     });
   }, [analytics.creatives, selectedEditor, selectedPeriod, selectedMonth]);
 
-  // Хуки для метрик - используем отфильтрованные креативы
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -160,7 +150,6 @@ function CreativeAnalytics({ user }) {
     isAvailable: isMetricsApiAvailable 
   } = useMetricsApi();
 
-  // Хук для зональных данных
   const {
     zoneDataMap,
     loading: zoneDataLoading,
@@ -173,7 +162,6 @@ function CreativeAnalytics({ user }) {
     refresh: refreshZoneData
   } = useZoneData(filteredCreativesByMonth, true);
 
-  // Оценки типов работ для подсчета COF
   const workTypeValues = {
     'Монтаж _Video': 1,
     'Монтаж > 21s': 0.4,
@@ -203,7 +191,6 @@ function CreativeAnalytics({ user }) {
     'Доп. 2': 2
   };
 
-  // Компоненты флагов
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
       <div className="w-full h-3 bg-blue-500"></div>
@@ -218,7 +205,6 @@ function CreativeAnalytics({ user }) {
     </div>
   );
 
-  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
   const getAggregatedCreativeMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
@@ -281,7 +267,6 @@ function CreativeAnalytics({ user }) {
     };
   };
 
-  // НОВАЯ ФУНКЦИЯ: Получение метрик для конкретного видео
   const getIndividualVideoMetrics = (creative, videoIndex) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
@@ -304,7 +289,6 @@ function CreativeAnalytics({ user }) {
     };
   };
 
-  // НОВАЯ ФУНКЦИЯ: Переключение режима отображения метрик
   const toggleDetailMode = (creativeId) => {
     const newDetailMode = new Map(detailMode);
     const currentMode = newDetailMode.get(creativeId) || 'aggregated';
@@ -321,7 +305,6 @@ function CreativeAnalytics({ user }) {
     setDetailMode(newDetailMode);
   };
 
-  // НОВАЯ ФУНКЦИЯ: Получение текущих метрик для отображения
   const getCurrentMetricsForDisplay = (creative) => {
     const currentMode = detailMode.get(creative.id) || 'aggregated';
     
@@ -340,7 +323,6 @@ function CreativeAnalytics({ user }) {
     }
   };
 
-  // НОВАЯ ФУНКЦИЯ: Получение всех метрик видео для отображения
   const getAllVideoMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
     
@@ -356,7 +338,6 @@ function CreativeAnalytics({ user }) {
     }));
   };
 
-  // Компонент отображения зональных данных
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -394,7 +375,6 @@ function CreativeAnalytics({ user }) {
     );
   };
 
-  // Определение текущей зоны на основе CPL
   const getCurrentZoneByMetrics = (article, cplValue) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -447,7 +427,6 @@ function CreativeAnalytics({ user }) {
     };
   };
 
-  // Отображение текущей зоны
   const CurrentZoneDisplay = ({ article, metricsData }) => {
     if (!metricsData?.found || !metricsData.data) {
       return (
@@ -524,7 +503,6 @@ function CreativeAnalytics({ user }) {
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
-  // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
   const getCountryStats = () => {
     const ukraineCount = filteredCreativesByMonth.filter(c => !c.is_poland).length;
     const polandCount = filteredCreativesByMonth.filter(c => c.is_poland).length;
@@ -552,7 +530,6 @@ function CreativeAnalytics({ user }) {
     return zoneCount;
   };
 
-  // Подсчет зон для каждого байера
   const getEditorZoneStats = () => {
     const editorZones = {};
     
@@ -591,7 +568,6 @@ function CreativeAnalytics({ user }) {
     return `${month}, ${year}`;
   };
 
-  // Получить список всех доступных месяцев
   const getAvailableMonths = () => {
     if (analytics.creatives.length === 0) return [];
     
@@ -619,7 +595,6 @@ function CreativeAnalytics({ user }) {
     return monthsList;
   };
 
-  // Получить отображаемое название месяца
   const getDisplayMonthYear = () => {
     if (selectedMonth === null) {
       return getCurrentMonthYear();
@@ -630,7 +605,6 @@ function CreativeAnalytics({ user }) {
     return found ? found.display : getCurrentMonthYear();
   };
 
-  // Функция для показа комментария
   const showComment = (creative) => {
     setSelectedComment({
       article: creative.article,
@@ -641,7 +615,6 @@ function CreativeAnalytics({ user }) {
     setShowCommentModal(true);
   };
 
-  // НОВАЯ ФУНКЦИЯ: Показ истории изменений
   const showHistory = async (creative) => {
     setLoadingHistory(true);
     setShowHistoryModal(true);
@@ -658,7 +631,6 @@ function CreativeAnalytics({ user }) {
     }
   };
 
-  // Переключение детализации типов работ
   const toggleWorkTypes = (creativeId) => {
     const newExpanded = new Set(expandedWorkTypes);
     if (newExpanded.has(creativeId)) {
@@ -692,7 +664,6 @@ function CreativeAnalytics({ user }) {
       
       const editors = safeEditors.filter(u => u.role === 'editor');
       
-      // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
       for (const creative of safeCreatives) {
         const hasHistory = await creativeHistoryService.hasHistory(creative.id);
