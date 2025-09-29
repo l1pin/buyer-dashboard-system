@@ -922,6 +922,8 @@ function CreativePanel({ user }) {
       setUpdating(false);
     }
   };
+
+  const handleDeleteCreative = async (creativeId, article) => {
     if (!window.confirm(`Вы уверены, что хотите удалить креатив "${article}"?`)) {
       return;
     }
@@ -1172,6 +1174,16 @@ function CreativePanel({ user }) {
     
     return Object.keys(errors).length === 0;
   };
+
+  const validateFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    // Проверяем артикул
+    if (!newCreative.article.trim()) {
+      errors.article = true;
+      errorMessages.push('Артикул обязателен для заполнения');
+    }
 
     // Проверяем ссылки
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
