@@ -1711,7 +1711,7 @@ function CreativeAnalytics({ user }) {
                 {getDisplayMonthYear()} - Полная аналитика креативов
               </h3>
               
-              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 500px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
