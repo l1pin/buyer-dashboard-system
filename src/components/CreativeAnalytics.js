@@ -1101,7 +1101,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {zoneDataError && (
-        <div className="mx-6 mt-4 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-md text-sm flex items-center">
+        <div className="mx-6 mt-4 bg-orange-50 border border-orange-200 text-black px-4 py-3 rounded-md text-sm flex items-center">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           Ошибка загрузки зональных данных: {zoneDataError}
         </div>
@@ -1930,9 +1930,31 @@ function CreativeAnalytics({ user }) {
                                         : "Показать общую статистику"
                                       }
                                     >
-                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
-                                      </svg>
+                                      {currentMode === 'individual' ? (
+                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                          <path stroke="none" d="M0 0h24v24H0z"/>
+                                          <polyline points="5 9 9 9 9 5" />
+                                          <line x1="3" y1="3" x2="9" y2="9" />
+                                          <polyline points="5 15 9 15 9 19" />
+                                          <line x1="3" y1="21" x2="9" y2="15" />
+                                          <polyline points="19 9 15 9 15 5" />
+                                          <line x1="15" y1="9" x2="21" y2="3" />
+                                          <polyline points="19 15 15 15 15 19" />
+                                          <line x1="15" y1="15" x2="21" y2="21" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                          <path stroke="none" d="M0 0h24v24H0z"/>
+                                          <polyline points="16 4 20 4 20 8" />
+                                          <line x1="14" y1="10" x2="20" y2="4" />
+                                          <polyline points="8 20 4 20 4 16" />
+                                          <line x1="4" y1="20" x2="10" y2="14" />
+                                          <polyline points="16 20 20 20 20 16" />
+                                          <line x1="14" y1="14" x2="20" y2="20" />
+                                          <polyline points="8 4 4 4 4 8" />
+                                          <line x1="4" y1="4" x2="10" y2="10" />
+                                        </svg>
+                                      )}
                                     </button>
                                     <div className="min-w-[24px] flex justify-center">
                                       {getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
@@ -1968,7 +1990,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.leads}
                                           </span>
                                         ) : (
@@ -2002,7 +2024,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpl}
                                           </span>
                                         ) : (
@@ -2036,7 +2058,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cost}
                                           </span>
                                         ) : (
@@ -2070,7 +2092,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.clicks}
                                           </span>
                                         ) : (
@@ -2104,7 +2126,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpc}
                                           </span>
                                         ) : (
@@ -2138,7 +2160,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.ctr}
                                           </span>
                                         ) : (
@@ -2172,7 +2194,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.cpm}
                                           </span>
                                         ) : (
@@ -2206,7 +2228,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.impressions}
                                           </span>
                                         ) : (
@@ -2240,7 +2262,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.avg_duration || '0.0с'}
                                           </span>
                                         ) : (
@@ -2274,7 +2296,7 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-orange-700">
+                                          <span className="font-bold text-sm cursor-text select-text text-black">
                                             {videoMetric.data.formatted.days.replace(/\s*дн\./g, '')}
                                           </span>
                                         ) : (
