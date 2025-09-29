@@ -1693,7 +1693,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 overflow-auto p-6">
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -1711,7 +1711,7 @@ function CreativeAnalytics({ user }) {
                 {getDisplayMonthYear()} - Полная аналитика креативов
               </h3>
               
-              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 500px)', overflowY: 'auto'}}>
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
