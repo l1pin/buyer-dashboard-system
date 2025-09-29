@@ -913,7 +913,8 @@ export const creativeService = {
           buyer_id: creativeData.buyer_id || null,
           searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
-          searcher: creativeData.searcher || null
+          searcher: creativeData.searcher || null,
+          created_at: getKyivISOString()
         }
       ])
       .select();
