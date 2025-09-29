@@ -4,12 +4,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
 
-// Функция для получения текущего времени в ISO формате (UTC) для Supabase
-const getKyivISOString = () => {
-  // Просто возвращаем текущее UTC время - Supabase сам конвертирует при отображении
-  return new Date().toISOString();
-};
-
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
@@ -137,7 +131,7 @@ export const userService = {
               created_by_id: userData.created_by_id,
               created_by_name: userData.created_by_name,
               is_protected: userData.role === 'teamlead' ? true : false,
-              created_at: getKyivISOString()
+              created_at: new Date().toISOString()
             }
           ], {
             onConflict: 'id', // При конфликте по ID - обновляем данные
@@ -237,7 +231,7 @@ export const userService = {
             created_by_id: userData.created_by_id,
             created_by_name: userData.created_by_name,
             is_protected: userData.role === 'teamlead' ? true : false,
-            created_at: getKyivISOString()
+            created_at: new Date().toISOString()
           }
         ], {
           onConflict: 'id', // При конфликте по ID - обновляем данные
@@ -464,7 +458,7 @@ export const userService = {
         .from('users')
         .update({
           ...profileUpdates,
-          updated_at: getKyivISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()
@@ -493,7 +487,7 @@ export const userService = {
       .from('users')
       .update({
         ...updates,
-        updated_at: getKyivISOString()
+        updated_at: new Date().toISOString()
       })
       .eq('id', userId)
       .select()
@@ -639,7 +633,7 @@ export const tableService = {
             user_id: userId,
             html_content: null,
             css_content: null,
-            updated_at: getKyivISOString()
+            updated_at: new Date().toISOString()
           }
         ], {
           onConflict: 'user_id'
@@ -666,8 +660,8 @@ export const tableService = {
               row_index: rowIndex,
               column_index: colIndex,
               value: String(cellValue).trim(),
-              created_at: getKyivISOString(),
-              updated_at: getKyivISOString()
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             });
           }
         });
@@ -786,7 +780,7 @@ export const cellService = {
           .from('cells')
           .update({
             value: String(value),
-            updated_at: getKyivISOString()
+            updated_at: new Date().toISOString()
           })
           .eq('id', existingCell.id)
           .select();
@@ -802,8 +796,8 @@ export const cellService = {
               row_index: rowIndex,
               column_index: columnIndex,
               value: String(value),
-              created_at: getKyivISOString(),
-              updated_at: getKyivISOString()
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             }
           ])
           .select();
@@ -893,8 +887,7 @@ export const creativeService = {
           buyer_id: creativeData.buyer_id || null,
           searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
-          searcher: creativeData.searcher || null,
-          created_at: getKyivISOString()
+          searcher: creativeData.searcher || null
         }
       ])
       .select();
@@ -1119,7 +1112,7 @@ export const metricsAnalyticsService = {
         .upsert([
           {
             id: 1,
-            last_updated: getKyivISOString(),
+            last_updated: new Date().toISOString(),
             total_records: successfullyInserted
           }
         ], {
