@@ -1021,7 +1021,7 @@ export const creativeService = {
           searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
           searcher: creativeData.searcher || null,
-          created_at: getKyivTime() // 🕐 Киевское время
+          created_at: new Date().toISOString() // Стандартное UTC время
         }
       ])
       .select();
