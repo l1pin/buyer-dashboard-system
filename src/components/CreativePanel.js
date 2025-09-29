@@ -887,21 +887,21 @@ function CreativePanel({ user }) {
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
-      const dateStr = date.toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const timeStr = date.toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      
+      // Получаем UTC компоненты (без конвертации в локальное время)
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      
+      const dateStr = `${day}.${month}.${year}`;
+      const timeStr = `${hours}:${minutes}`;
+      
       return { date: dateStr, time: timeStr };
     } catch (error) {
       console.error('Error formatting date:', error);
-      const fallback = new Date(dateString).toLocaleDateString('ru-RU');
-      return { date: fallback, time: '00:00' };
+      return { date: '00.00.0000', time: '00:00' };
     }
   };
 
