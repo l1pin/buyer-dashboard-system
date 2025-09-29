@@ -4,6 +4,16 @@
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
 
+// Утилита для получения времени по Киеву (UTC+3)
+const getKyivTime = () => {
+  const now = new Date();
+  // Киев UTC+3 (постоянно, без учета летнего/зимнего времени)
+  const kyivOffset = 3 * 60; // 3 часа в минутах
+  const localOffset = now.getTimezoneOffset(); // offset текущей временной зоны
+  const kyivTime = new Date(now.getTime() + (kyivOffset + localOffset) * 60 * 1000);
+  return kyivTime.toISOString();
+};
+
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
@@ -864,9 +874,16 @@ export const creativeHistoryService = {
     try {
       console.log('📝 Создание записи истории креатива:', historyData.creative_id);
       
+      // Устанавливаем киевское время, если не передано
+      const dataToInsert = {
+        ...historyData,
+        changed_at: historyData.changed_at || getKyivTime(),
+        created_at: getKyivTime() // Всегда используем киевское время для created_at
+      };
+      
       const { data, error } = await supabase
         .from('creative_history')
-        .insert([historyData])
+        .insert([dataToInsert])
         .select();
 
       if (error) {
@@ -874,7 +891,7 @@ export const creativeHistoryService = {
         throw error;
       }
 
-      console.log('✅ Запись истории создана');
+      console.log('✅ Запись истории создана с киевским временем');
       return data[0];
     } catch (error) {
       console.error('💥 Критическая ошибка создания записи истории:', error);
@@ -977,7 +994,8 @@ export const creativeService = {
           buyer_id: creativeData.buyer_id || null,
           searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
-          searcher: creativeData.searcher || null
+          searcher: creativeData.searcher || null,
+          created_at: getKyivTime() // 🕐 Киевское время
         }
       ])
       .select();
