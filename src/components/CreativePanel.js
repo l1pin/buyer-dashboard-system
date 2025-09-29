@@ -886,14 +886,15 @@ function CreativePanel({ user }) {
 
   const formatKyivTime = (dateString) => {
     try {
-      const date = new Date(dateString);
+      // Парсим строку напрямую БЕЗ создания Date объекта
+      // Формат: 2025-09-29 06:34:24.19675+00 или 2025-09-29T06:34:24.19675+00:00
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
       
-      // Получаем UTC компоненты (без конвертации в локальное время)
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const year = date.getUTCFullYear();
-      const hours = String(date.getUTCHours()).padStart(2, '0');
-      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      if (!match) {
+        throw new Error('Invalid date format');
+      }
+      
+      const [_, year, month, day, hours, minutes] = match;
       
       const dateStr = `${day}.${month}.${year}`;
       const timeStr = `${hours}:${minutes}`;
