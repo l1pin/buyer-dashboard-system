@@ -1366,7 +1366,7 @@ function CreativePanel({ user }) {
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-xs sm:text-xs md:text-xs">COF</span>
+                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">COF</span>
                     </div>
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
@@ -1518,7 +1518,7 @@ function CreativePanel({ user }) {
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPL</span>
+                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPL</span>
                       </div>
                     </div>
                     <div className="ml-2 sm:ml-3 w-0 flex-1">
@@ -1587,7 +1587,7 @@ function CreativePanel({ user }) {
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPC</span>
+                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPC</span>
                       </div>
                     </div>
                     <div className="ml-2 sm:ml-3 w-0 flex-1">
@@ -1612,7 +1612,7 @@ function CreativePanel({ user }) {
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CTR</span>
+                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CTR</span>
                       </div>
                     </div>
                     <div className="ml-2 sm:ml-3 w-0 flex-1">
@@ -1635,7 +1635,7 @@ function CreativePanel({ user }) {
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-xs md:text-xs">CPM</span>
+                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPM</span>
                       </div>
                     </div>
                     <div className="ml-2 sm:ml-3 w-0 flex-1">
@@ -1845,8 +1845,8 @@ function CreativePanel({ user }) {
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-center">
-                              <div className="flex items-center justify-center space-x-2">
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {creative.comment && (
                                     <button
