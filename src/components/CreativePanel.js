@@ -2,7 +2,7 @@
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { creativeService, userService } from '../supabaseClient';
+import { creativeService, userService, creativeHistoryService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
@@ -61,6 +61,11 @@ function CreativePanel({ user }) {
   const [editingCreative, setEditingCreative] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
@@ -693,6 +698,16 @@ function CreativePanel({ user }) {
       const data = await creativeService.getUserCreatives(user.id);
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов`);
+      
+      // Проверяем наличие истории для каждого креатива
+      const creativesWithHistorySet = new Set();
+      for (const creative of data) {
+        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+        if (hasHistory) {
+          creativesWithHistorySet.add(creative.id);
+        }
+      }
+      setCreativesWithHistory(creativesWithHistorySet);
     } catch (error) {
       console.error('❌ Ошибка загрузки креативов:', error);
       setError('Ошибка загрузки креативов: ' + error.message);
@@ -879,6 +894,26 @@ function CreativePanel({ user }) {
       const buyerName = editCreative.buyer_id ? getBuyerName(editCreative.buyer_id) : null;
       const searcherName = editCreative.searcher_id ? getSearcherName(editCreative.searcher_id) : null;
 
+      // Сохраняем старое состояние в историю ПЕРЕД обновлением
+      await creativeHistoryService.createHistoryEntry({
+        creative_id: editingCreative.id,
+        article: editingCreative.article,
+        links: editingCreative.links,
+        link_titles: editingCreative.link_titles,
+        work_types: editingCreative.work_types,
+        cof_rating: editingCreative.cof_rating,
+        comment: editingCreative.comment,
+        is_poland: editingCreative.is_poland,
+        trello_link: editingCreative.trello_link,
+        buyer_id: editingCreative.buyer_id,
+        searcher_id: editingCreative.searcher_id,
+        buyer: editingCreative.buyer,
+        searcher: editingCreative.searcher,
+        changed_by_id: user.id,
+        changed_by_name: user.name,
+        change_type: 'updated'
+      });
+
       await creativeService.updateCreative(editingCreative.id, {
         links: links,
         link_titles: titles,
@@ -985,6 +1020,22 @@ function CreativePanel({ user }) {
       editorName: creative.editor_name
     });
     setShowCommentModal(true);
+  };
+
+  const showHistory = async (creative) => {
+    setLoadingHistory(true);
+    setShowHistoryModal(true);
+    setSelectedHistory(creative);
+    
+    try {
+      const history = await creativeHistoryService.getCreativeHistory(creative.id);
+      setHistoryData(history);
+    } catch (error) {
+      console.error('Ошибка загрузки истории:', error);
+      setError('Ошибка загрузки истории: ' + error.message);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const toggleWorkTypes = (creativeId) => {
@@ -2001,6 +2052,25 @@ function CreativePanel({ user }) {
                                   )}
                                 </div>
                                 
+                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  {creativesWithHistory.has(creative.id) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showHistory(creative);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title="Показать историю изменений"
+                                    >
+                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z"/>
+                                        <polyline points="12 8 12 12 14 14" />
+                                        <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                                
                                 {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                 
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
@@ -2130,7 +2200,6 @@ function CreativePanel({ user }) {
                                 )}
                               </div>
 
-                              
                             </td>
                             
                             {/* ОБНОВЛЕННЫЕ колонки метрик */}
@@ -3624,6 +3693,178 @@ function CreativePanel({ user }) {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setShowCommentModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && selectedHistory && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white my-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <svg className="h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <path stroke="none" d="M0 0h24v24H0z"/>
+                  <polyline points="12 8 12 12 14 14" />
+                  <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                </svg>
+                История изменений: {selectedHistory.article}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory(null);
+                  setHistoryData([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Загрузка истории...</p>
+                </div>
+              </div>
+            ) : historyData.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">История изменений пуста</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                {historyData.map((entry, index) => {
+                  const formattedDateTime = formatKyivTime(entry.changed_at);
+                  const isFirst = index === historyData.length - 1;
+                  
+                  return (
+                    <div key={entry.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            entry.change_type === 'created' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {entry.change_type === 'created' ? 'Создано' : 'Изменено'}
+                          </span>
+                          {isFirst && (
+                            <span className="text-xs text-gray-500">(Исходная версия)</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <div className="font-medium">{formattedDateTime.date} {formattedDateTime.time}</div>
+                          <div className="text-xs">Автор: {entry.changed_by_name || 'Неизвестно'}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Видео:</label>
+                          <div className="mt-1 space-y-1">
+                            {entry.link_titles && entry.link_titles.length > 0 ? (
+                              entry.link_titles.map((title, idx) => (
+                                <div key={idx} className="text-sm text-gray-900 truncate" title={title}>
+                                  {title}
+                                </div>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Страна:</label>
+                          <div className="mt-1 flex items-center space-x-2">
+                            {entry.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                            <span className="text-sm text-gray-900">{entry.is_poland ? 'Poland' : 'Ukraine'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Trello:</label>
+                          <div className="mt-1">
+                            {entry.trello_link ? (
+                              
+                                <a href={entry.trello_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:text-blue-800 truncate block"
+                              >
+                                Открыть карточку
+                              </a>
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Buyer:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{entry.buyer || '—'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Searcher:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{entry.searcher || '—'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">COF:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{formatCOF(entry.cof_rating || 0)}</span>
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="text-xs font-medium text-gray-700">Типы работ:</label>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {entry.work_types && entry.work_types.length > 0 ? (
+                              entry.work_types.map((type, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                                  {type}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {entry.comment && (
+                          <div className="md:col-span-2">
+                            <label className="text-xs font-medium text-gray-700">Комментарий:</label>
+                            <div className="mt-1 p-2 bg-white border border-gray-200 rounded">
+                              <p className="text-sm text-gray-900 whitespace-pre-wrap">{entry.comment}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory(null);
+                  setHistoryData([]);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Закрыть
