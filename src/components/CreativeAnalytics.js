@@ -254,6 +254,7 @@ function CreativeAnalytics({ user }) {
         cost: acc.cost + (data.cost || 0),
         clicks: acc.clicks + (data.clicks || 0),
         impressions: acc.impressions + (data.impressions || 0),
+        avg_duration: acc.avg_duration + (data.avg_duration || 0),
         days_count: Math.max(acc.days_count, data.days_count || 0)
       };
     }, {
@@ -261,8 +262,12 @@ function CreativeAnalytics({ user }) {
       cost: 0,
       clicks: 0,
       impressions: 0,
+      avg_duration: 0,
       days_count: 0
     });
+
+    // Вычисляем среднее время просмотра
+    const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
 
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
     const ctr = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
@@ -276,6 +281,7 @@ function CreativeAnalytics({ user }) {
       data: {
         raw: {
           ...aggregated,
+          avg_duration: Number(avgDuration.toFixed(2)),
           cpl: Number(cpl.toFixed(2)),
           ctr_percent: Number(ctr.toFixed(2)),
           cpc: Number(cpc.toFixed(2)),
@@ -290,6 +296,7 @@ function CreativeAnalytics({ user }) {
           cpm: `${cpm.toFixed(2)}$`,
           clicks: String(Math.round(aggregated.clicks)),
           impressions: String(Math.round(aggregated.impressions)),
+          avg_duration: `${avgDuration.toFixed(1)}с`,
           days: String(aggregated.days_count)
         }
       }
