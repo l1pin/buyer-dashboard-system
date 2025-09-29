@@ -191,6 +191,30 @@ function CreativeAnalytics({ user }) {
     'Доп. 2': 2
   };
 
+  const getBuyerName = (buyerId) => {
+    if (!buyerId) return '—';
+    // Здесь можно добавить логику получения имени из списка байеров
+    return '—';
+  };
+
+  const getSearcherName = (searcherId) => {
+    if (!searcherId) return '—';
+    // Здесь можно добавить логику получения имени из списка серчеров
+    return '—';
+  };
+
+  const getBuyerAvatar = (buyerId) => {
+    if (!buyerId) return null;
+    // Здесь можно добавить логику получения аватара
+    return null;
+  };
+
+  const getSearcherAvatar = (searcherId) => {
+    if (!searcherId) return null;
+    // Здесь можно добавить логику получения аватара
+    return null;
+  };
+
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
       <div className="w-full h-3 bg-blue-500"></div>
@@ -1709,6 +1733,15 @@ function CreativeAnalytics({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         COF
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Trello
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Buyer
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Searcher
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -2274,6 +2307,83 @@ function CreativeAnalytics({ user }) {
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {creative.trello_link ? (
+                                <div className="space-y-2">
+                                  <div>
+                                    
+                                     <a href={creative.trello_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Карточка
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {(creative.buyer_id || creative.buyer) ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getBuyerAvatar(creative.buyer_id) ? (
+                                      <img
+                                        src={getBuyerAvatar(creative.buyer_id)}
+                                        alt="Buyer"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(creative.buyer_id) ? 'hidden' : ''}`}>
+                                      <User className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900 cursor-text select-text">
+                                    {creative.buyer_id ? getBuyerName(creative.buyer_id) : creative.buyer}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              {(creative.searcher_id || creative.searcher) ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getSearcherAvatar(creative.searcher_id) ? (
+                                      <img
+                                        src={getSearcherAvatar(creative.searcher_id)}
+                                        alt="Searcher"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(creative.searcher_id) ? 'hidden' : ''}`}>
+                                      <Search className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900 cursor-text select-text">
+                                    {creative.searcher_id ? getSearcherName(creative.searcher_id) : creative.searcher}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
                           </tr>
                         );
                       })}
