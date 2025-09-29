@@ -856,6 +856,96 @@ export const cellService = {
 };
 
 // Остальные сервисы (creativeService, metricsAnalyticsService) остаются без изменений
+
+// Сервис для работы с историей креативов
+export const creativeHistoryService = {
+  // Создать запись в истории
+  async createHistoryEntry(historyData) {
+    try {
+      console.log('📝 Создание записи истории креатива:', historyData.creative_id);
+      
+      const { data, error } = await supabase
+        .from('creative_history')
+        .insert([historyData])
+        .select();
+
+      if (error) {
+        console.error('❌ Ошибка создания записи истории:', error);
+        throw error;
+      }
+
+      console.log('✅ Запись истории создана');
+      return data[0];
+    } catch (error) {
+      console.error('💥 Критическая ошибка создания записи истории:', error);
+      throw error;
+    }
+  },
+
+  // Получить всю историю для креатива
+  async getCreativeHistory(creativeId) {
+    try {
+      console.log('📡 Запрос истории креатива:', creativeId);
+      
+      const { data, error } = await supabase
+        .from('creative_history')
+        .select('*')
+        .eq('creative_id', creativeId)
+        .order('changed_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Ошибка получения истории:', error);
+        throw error;
+      }
+
+      console.log(`✅ Получено ${data?.length || 0} записей истории`);
+      return data || [];
+    } catch (error) {
+      console.error('💥 Критическая ошибка получения истории:', error);
+      return [];
+    }
+  },
+
+  // Получить последнюю запись истории для креатива
+  async getLastHistoryEntry(creativeId) {
+    try {
+      const { data, error } = await supabase
+        .from('creative_history')
+        .select('*')
+        .eq('creative_id', creativeId)
+        .order('changed_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Ошибка получения последней записи истории:', error);
+      return null;
+    }
+  },
+
+  // Проверить, есть ли история у креатива
+  async hasHistory(creativeId) {
+    try {
+      const { count, error } = await supabase
+        .from('creative_history')
+        .select('*', { count: 'exact', head: true })
+        .eq('creative_id', creativeId);
+
+      if (error) throw error;
+
+      return count > 0;
+    } catch (error) {
+      console.error('Ошибка проверки наличия истории:', error);
+      return false;
+    }
+  }
+};
+
 export const creativeService = {
   async createCreative(creativeData) {
     console.log('📝 Создание креатива с данными:', {
