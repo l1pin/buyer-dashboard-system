@@ -7,12 +7,10 @@ import Papa from 'papaparse';
 // Утилита для получения времени по Киеву (UTC+3)
 const getKyivTime = () => {
   const now = new Date();
-  // Киев UTC+3 (постоянно, без учета летнего/зимнего времени)
-  const kyivOffset = 3 * 60; // 3 часа в минутах
-  const localOffset = now.getTimezoneOffset(); // offset текущей временной зоны
-  const kyivTime = new Date(now.getTime() + (kyivOffset + localOffset) * 60 * 1000);
+  // Добавляем 3 часа (10800000 миллисекунд) к текущему UTC времени
+  const kyivTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
   
-  // Форматируем время с указанием timezone +03:00 для корректной записи в БД
+  // Форматируем время с указанием timezone +03:00
   const year = kyivTime.getUTCFullYear();
   const month = String(kyivTime.getUTCMonth() + 1).padStart(2, '0');
   const day = String(kyivTime.getUTCDate()).padStart(2, '0');
