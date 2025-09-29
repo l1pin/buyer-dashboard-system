@@ -1,7 +1,7 @@
 // CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
 // Замените содержимое src/components/CreativePanel.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { creativeService, userService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
@@ -94,7 +94,39 @@ function CreativePanel({ user }) {
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Хуки для метрик
+  // Используем useMemo для оптимизации фильтрации креативов
+  const filteredCreatives = useMemo(() => {
+    if (selectedMonth === null) {
+      // Текущий месяц
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+      const currentMonthKey = `${currentYear}-${currentMonth}`;
+      
+      return creatives.filter(creative => {
+        const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          const [_, year, month] = match;
+          const creativeMonthKey = `${year}-${month}`;
+          return creativeMonthKey === currentMonthKey;
+        }
+        return false;
+      });
+    }
+    
+    // Выбранный месяц
+    return creatives.filter(creative => {
+      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month] = match;
+        const creativeMonthKey = `${year}-${month}`;
+        return creativeMonthKey === selectedMonth;
+      }
+      return false;
+    });
+  }, [creatives, selectedMonth]);
+
+  // Хуки для метрик - используем отфильтрованные креативы
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -103,15 +135,15 @@ function CreativePanel({ user }) {
     getVideoMetrics,
     getCreativeMetrics,
     refresh: refreshMetrics 
-  } = useBatchMetrics(creatives, true, metricsPeriod);
+  } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData 
-  } = useMetricsStats(creatives, batchMetrics);
+  } = useMetricsStats(filteredCreatives, batchMetrics);
 
-  // Хук для зональных данных
+  // Хук для зональных данных - используем отфильтрованные креативы
   const {
     zoneDataMap,
     loading: zoneDataLoading,
@@ -122,7 +154,7 @@ function CreativePanel({ user }) {
     getCurrentZone,
     getZonePricesString,
     refresh: refreshZoneData
-  } = useZoneData(creatives, true);
+  } = useZoneData(filteredCreatives, true);
 
   const workTypes = [
     'Монтаж _Video',
@@ -633,37 +665,7 @@ function CreativePanel({ user }) {
     return found ? found.display : getCurrentMonthYear();
   };
 
-  // Фильтровать креативы по выбранному месяцу
-  const getFilteredCreatives = () => {
-    if (selectedMonth === null) {
-      // Текущий месяц
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-      const currentMonthKey = `${currentYear}-${currentMonth}`;
-      
-      return creatives.filter(creative => {
-        const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (match) {
-          const [_, year, month] = match;
-          const creativeMonthKey = `${year}-${month}`;
-          return creativeMonthKey === currentMonthKey;
-        }
-        return false;
-      });
-    }
-    
-    // Выбранный месяц
-    return creatives.filter(creative => {
-      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        const [_, year, month] = match;
-        const creativeMonthKey = `${year}-${month}`;
-        return creativeMonthKey === selectedMonth;
-      }
-      return false;
-    });
-  };
+  // Функция больше не нужна, используем useMemo выше
 
   useEffect(() => {
     loadCreatives();
@@ -1133,7 +1135,6 @@ function CreativePanel({ user }) {
     refreshZoneData();
   };
 
-  const filteredCreatives = getFilteredCreatives();
   const availableMonths = getAvailableMonths();
   
   const cofStats = getCOFStats(filteredCreatives);
