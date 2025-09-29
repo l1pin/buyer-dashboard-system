@@ -540,32 +540,32 @@ function CreativePanel({ user }) {
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
-  const getCOFStats = () => {
-    const totalCOF = creatives.reduce((sum, creative) => {
+  const getCOFStats = (creativesData) => {
+    const totalCOF = creativesData.reduce((sum, creative) => {
       return sum + calculateCOF(creative.work_types);
     }, 0);
 
-    const avgCOF = creatives.length > 0 ? totalCOF / creatives.length : 0;
+    const avgCOF = creativesData.length > 0 ? totalCOF / creativesData.length : 0;
     
     return {
       totalCOF: totalCOF,
       avgCOF: avgCOF,
-      maxCOF: Math.max(...creatives.map(c => calculateCOF(c.work_types)), 0),
-      minCOF: creatives.length > 0 ? Math.min(...creatives.map(c => calculateCOF(c.work_types))) : 0
+      maxCOF: Math.max(...creativesData.map(c => calculateCOF(c.work_types)), 0),
+      minCOF: creativesData.length > 0 ? Math.min(...creativesData.map(c => calculateCOF(c.work_types))) : 0
     };
   };
 
   // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
-  const getCountryStats = () => {
-    const ukraineCount = creatives.filter(c => !c.is_poland).length;
-    const polandCount = creatives.filter(c => c.is_poland).length;
+  const getCountryStats = (creativesData) => {
+    const ukraineCount = creativesData.filter(c => !c.is_poland).length;
+    const polandCount = creativesData.filter(c => c.is_poland).length;
     return { ukraineCount, polandCount };
   };
 
-  const getZoneStats = () => {
+  const getZoneStats = (creativesData) => {
     const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
     
-    creatives.forEach(creative => {
+    creativesData.forEach(creative => {
       const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
       if (aggregatedMetrics?.found && aggregatedMetrics.data) {
         const cplString = aggregatedMetrics.data.formatted.cpl;
@@ -1136,9 +1136,9 @@ function CreativePanel({ user }) {
   const filteredCreatives = getFilteredCreatives();
   const availableMonths = getAvailableMonths();
   
-  const cofStats = getCOFStats();
-  const countryStats = getCountryStats();
-  const zoneStats = getZoneStats();
+  const cofStats = getCOFStats(filteredCreatives);
+  const countryStats = getCountryStats(filteredCreatives);
+  const zoneStats = getZoneStats(filteredCreatives);
 
   if (loading) {
     return (
@@ -1196,18 +1196,6 @@ function CreativePanel({ user }) {
               {showMonthDropdown && availableMonths.length > 0 && (
                 <div className="month-dropdown absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
                   <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setSelectedMonth(null);
-                        setShowMonthDropdown(false);
-                      }}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedMonth === null ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {getCurrentMonthYear()} (текущий)
-                    </button>
                     {availableMonths.map((month) => (
                       <button
                         key={month.key}
@@ -1538,7 +1526,7 @@ function CreativePanel({ user }) {
                           CPL
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          {hasMetricsData ? (filteredCreatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
                           '0.00$') : '—'}
                         </dd>
@@ -1703,7 +1691,7 @@ function CreativePanel({ user }) {
                           Ср. лидов
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / creatives.length) : 0) : '—'}
+                          {hasMetricsData ? (filteredCreatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredCreatives.length) : 0) : '—'}
                         </dd>
                       </dl>
                     </div>
