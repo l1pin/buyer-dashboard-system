@@ -1,8 +1,5 @@
-// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ CreativeAnalytics.js с интерфейсом как в CreativePanel
-// Замените полностью содержимое src/components/CreativeAnalytics.js
-
-import React, { useState, useEffect } from 'react';
-import { creativeService, userService } from '../supabaseClient';
+import React, { useState, useEffect, useMemo } from 'react';
+import { creativeService, userService, creativeHistoryService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
@@ -37,7 +34,8 @@ import {
   Star,
   Layers,
   Trophy,
-  Award
+  Award,
+  Search
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
@@ -71,11 +69,75 @@ function CreativeAnalytics({ user }) {
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   
+  // НОВЫЕ состояния для истории изменений
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
+  
+  // НОВЫЕ состояния для сегментации по месяцам
+  const [selectedMonth, setSelectedMonth] = useState(null); // null = текущий месяц
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  
   // НОВЫЕ состояния для переключения метрик в той же строке
-  const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
+  const [detailMode, setDetailMode] = useState(new Map());
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map());
 
-  // Хуки для метрик - с поддержкой периодов
+  // Используем useMemo для оптимизации фильтрации креативов по месяцам
+  const filteredCreativesByMonth = useMemo(() => {
+    let creativesToFilter = analytics.creatives;
+    
+    // Сначала применяем фильтр по редактору
+    if (selectedEditor !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.user_id === selectedEditor);
+    }
+    
+    // Затем применяем фильтр по периоду (для статистики)
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    if (selectedPeriod === 'today') {
+      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= todayStart);
+    } else if (selectedPeriod === 'week') {
+      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= weekStart);
+    } else if (selectedPeriod === 'month') {
+      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= monthStart);
+    }
+    
+    // Затем применяем фильтр по месяцам для отображения
+    if (selectedMonth === null) {
+      // Текущий месяц
+      const currentYear = now.getFullYear();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+      const currentMonthKey = `${currentYear}-${currentMonth}`;
+      
+      return creativesToFilter.filter(creative => {
+        const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          const [_, year, month] = match;
+          const creativeMonthKey = `${year}-${month}`;
+          return creativeMonthKey === currentMonthKey;
+        }
+        return false;
+      });
+    }
+    
+    // Выбранный месяц
+    return creativesToFilter.filter(creative => {
+      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month] = match;
+        const creativeMonthKey = `${year}-${month}`;
+        return creativeMonthKey === selectedMonth;
+      }
+      return false;
+    });
+  }, [analytics.creatives, selectedEditor, selectedPeriod, selectedMonth]);
+
+  // Хуки для метрик - используем отфильтрованные креативы
   const { 
     batchMetrics, 
     loading: metricsLoading, 
@@ -83,13 +145,13 @@ function CreativeAnalytics({ user }) {
     stats: metricsStats,
     getCreativeMetrics,
     refresh: refreshMetrics 
-  } = useBatchMetrics(analytics.creatives, true, metricsPeriod);
+  } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
   
   const { 
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData 
-  } = useMetricsStats(analytics.creatives, batchMetrics);
+  } = useMetricsStats(filteredCreativesByMonth, batchMetrics);
 
   const { 
     apiStatus, 
@@ -109,7 +171,7 @@ function CreativeAnalytics({ user }) {
     getCurrentZone,
     getZonePricesString,
     refresh: refreshZoneData
-  } = useZoneData(analytics.creatives, true);
+  } = useZoneData(filteredCreativesByMonth, true);
 
   // Оценки типов работ для подсчета COF
   const workTypeValues = {
@@ -164,14 +226,12 @@ function CreativeAnalytics({ user }) {
       return null;
     }
 
-    // Фильтруем только найденные метрики
     const validMetrics = creativeMetrics.filter(metric => metric.found && metric.data);
     
     if (validMetrics.length === 0) {
       return null;
     }
 
-    // Агрегируем все метрики
     const aggregated = validMetrics.reduce((acc, metric) => {
       const data = metric.data.raw;
       return {
@@ -189,7 +249,6 @@ function CreativeAnalytics({ user }) {
       days_count: 0
     });
 
-    // Вычисляем производные метрики
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
     const ctr = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
     const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
@@ -252,7 +311,6 @@ function CreativeAnalytics({ user }) {
     
     if (currentMode === 'aggregated') {
       newDetailMode.set(creativeId, 'individual');
-      // Устанавливаем начальный индекс видео на 0
       const newCurrentVideoIndex = new Map(currentVideoIndex);
       newCurrentVideoIndex.set(creativeId, 0);
       setCurrentVideoIndex(newCurrentVideoIndex);
@@ -298,7 +356,7 @@ function CreativeAnalytics({ user }) {
     }));
   };
 
-  // Компонент отображения зональных данных - компактные цены в два ряда
+  // Компонент отображения зональных данных
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
@@ -449,9 +507,6 @@ function CreativeAnalytics({ user }) {
     );
   };
 
-  /**
-   * Вычисление COF для креатива (fallback для старых записей)
-   */
   const calculateCOF = (workTypes) => {
     if (!workTypes || !Array.isArray(workTypes)) return 0;
     
@@ -461,29 +516,25 @@ function CreativeAnalytics({ user }) {
     }, 0);
   };
 
-  /**
-   * Форматирование COF для отображения
-   */
   const formatCOF = (cof) => {
     return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
   };
 
-  // ИЗМЕНЕН: COF теперь нейтральные цвета
   const getCOFBadgeColor = (cof) => {
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
   const getCountryStats = () => {
-    const ukraineCount = analytics.creatives.filter(c => !c.is_poland).length;
-    const polandCount = analytics.creatives.filter(c => c.is_poland).length;
+    const ukraineCount = filteredCreativesByMonth.filter(c => !c.is_poland).length;
+    const polandCount = filteredCreativesByMonth.filter(c => c.is_poland).length;
     return { ukraineCount, polandCount };
   };
 
   const getZoneStats = () => {
     const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
     
-    analytics.creatives.forEach(creative => {
+    filteredCreativesByMonth.forEach(creative => {
       const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
       if (aggregatedMetrics?.found && aggregatedMetrics.data) {
         const cplString = aggregatedMetrics.data.formatted.cpl;
@@ -505,7 +556,7 @@ function CreativeAnalytics({ user }) {
   const getEditorZoneStats = () => {
     const editorZones = {};
     
-    analytics.creatives.forEach(creative => {
+    filteredCreativesByMonth.forEach(creative => {
       const editorId = creative.user_id || 'unknown';
       
       if (!editorZones[editorId]) {
@@ -540,6 +591,45 @@ function CreativeAnalytics({ user }) {
     return `${month}, ${year}`;
   };
 
+  // Получить список всех доступных месяцев
+  const getAvailableMonths = () => {
+    if (analytics.creatives.length === 0) return [];
+    
+    const monthsSet = new Set();
+    const months = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    
+    analytics.creatives.forEach(creative => {
+      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month] = match;
+        const monthIndex = parseInt(month) - 1;
+        const monthYear = `${months[monthIndex]}, ${year}`;
+        const monthKey = `${year}-${month}`;
+        monthsSet.add(JSON.stringify({ display: monthYear, key: monthKey }));
+      }
+    });
+    
+    const monthsList = Array.from(monthsSet)
+      .map(item => JSON.parse(item))
+      .sort((a, b) => b.key.localeCompare(a.key));
+    
+    return monthsList;
+  };
+
+  // Получить отображаемое название месяца
+  const getDisplayMonthYear = () => {
+    if (selectedMonth === null) {
+      return getCurrentMonthYear();
+    }
+    
+    const availableMonths = getAvailableMonths();
+    const found = availableMonths.find(m => m.key === selectedMonth);
+    return found ? found.display : getCurrentMonthYear();
+  };
+
   // Функция для показа комментария
   const showComment = (creative) => {
     setSelectedComment({
@@ -549,6 +639,23 @@ function CreativeAnalytics({ user }) {
       editorName: creative.editor_name
     });
     setShowCommentModal(true);
+  };
+
+  // НОВАЯ ФУНКЦИЯ: Показ истории изменений
+  const showHistory = async (creative) => {
+    setLoadingHistory(true);
+    setShowHistoryModal(true);
+    setSelectedHistory(creative);
+    
+    try {
+      const history = await creativeHistoryService.getCreativeHistory(creative.id);
+      setHistoryData(history);
+    } catch (error) {
+      console.error('Ошибка загрузки истории:', error);
+      setError('Ошибка загрузки истории: ' + error.message);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   // Переключение детализации типов работ
@@ -580,40 +687,27 @@ function CreativeAnalytics({ user }) {
         пользователей: editorsData?.length || 0
       });
 
-      // Безопасное получение данных
       const safeCreatives = creativesData || [];
       const safeEditors = editorsData || [];
       
       const editors = safeEditors.filter(u => u.role === 'editor');
       
-      let filteredCreatives = safeCreatives;
-      if (selectedEditor !== 'all') {
-        filteredCreatives = safeCreatives.filter(c => c.user_id === selectedEditor);
+      // Проверяем наличие истории для каждого креатива
+      const creativesWithHistorySet = new Set();
+      for (const creative of safeCreatives) {
+        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+        if (hasHistory) {
+          creativesWithHistorySet.add(creative.id);
+        }
       }
+      setCreativesWithHistory(creativesWithHistorySet);
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      let periodCreatives = filteredCreatives;
-      if (selectedPeriod === 'today') {
-        periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= todayStart);
-      } else if (selectedPeriod === 'week') {
-        periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
-      } else if (selectedPeriod === 'month') {
-        periodCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= monthStart);
-      }
-
-      console.log('📅 Фильтрация по периоду:', {
-        период: selectedPeriod,
-        всего: filteredCreatives.length,
-        заПериод: periodCreatives.length
-      });
-
-      // Вычисляем COF статистику
-      const todayCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= todayStart);
-      const weekCreatives = filteredCreatives.filter(c => new Date(c.created_at) >= weekStart);
+      const todayCreatives = safeCreatives.filter(c => new Date(c.created_at) >= todayStart);
+      const weekCreatives = safeCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
       const calculateCreativeCOF = (creative) => {
         if (typeof creative.cof_rating === 'number') {
@@ -622,16 +716,15 @@ function CreativeAnalytics({ user }) {
         return calculateCOF(creative.work_types || []);
       };
 
-      const totalCOF = filteredCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+      const totalCOF = safeCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
       const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
       const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-      const avgCOF = filteredCreatives.length > 0 ? totalCOF / filteredCreatives.length : 0;
+      const avgCOF = safeCreatives.length > 0 ? totalCOF / safeCreatives.length : 0;
 
-      // Подсчитываем креативы с комментариями
-      const creativesWithComments = filteredCreatives.filter(c => c.comment && c.comment.trim()).length;
+      const creativesWithComments = safeCreatives.filter(c => c.comment && c.comment.trim()).length;
 
       const stats = {
-        totalCreatives: filteredCreatives.length,
+        totalCreatives: safeCreatives.length,
         totalEditors: editors.length,
         todayCreatives: todayCreatives.length,
         weekCreatives: weekCreatives.length,
@@ -642,87 +735,12 @@ function CreativeAnalytics({ user }) {
         creativesWithComments: creativesWithComments
       };
 
-      console.log('📈 Статистика COF и комментариев:', stats);
-
-      // Статистика по типам работ с COF
-      const workTypeStats = {};
-      periodCreatives.forEach(creative => {
-        if (creative.work_types && Array.isArray(creative.work_types)) {
-          creative.work_types.forEach(workType => {
-            if (!workTypeStats[workType]) {
-              workTypeStats[workType] = {
-                count: 0,
-                totalCOF: 0
-              };
-            }
-            workTypeStats[workType].count += 1;
-            workTypeStats[workType].totalCOF += (workTypeValues[workType] || 0);
-          });
-        }
-      });
-
-      // Статистика по монтажерам
-      const editorStats = {};
-      
-      periodCreatives.forEach(creative => {
-        let editorName = 'Неизвестный монтажер';
-        let editorId = creative.user_id || 'unknown';
-
-        if (creative.editor_name) {
-          editorName = creative.editor_name;
-        } else if (creative.users && creative.users.name) {
-          editorName = creative.users.name;
-        } else {
-          const editor = editors.find(e => e.id === creative.user_id);
-          if (editor) {
-            editorName = editor.name;
-          }
-        }
-
-        if (!editorStats[editorId]) {
-          editorStats[editorId] = {
-            name: editorName,
-            count: 0,
-            totalCOF: 0,
-            avgCOF: 0,
-            types: {},
-            commentsCount: 0
-          };
-        }
-
-        editorStats[editorId].count += 1;
-        
-        const cof = calculateCreativeCOF(creative);
-        editorStats[editorId].totalCOF += cof;
-        
-        // Подсчитываем комментарии
-        if (creative.comment && creative.comment.trim()) {
-          editorStats[editorId].commentsCount += 1;
-        }
-        
-        if (creative.work_types && Array.isArray(creative.work_types)) {
-          creative.work_types.forEach(workType => {
-            editorStats[editorId].types[workType] = 
-              (editorStats[editorId].types[workType] || 0) + 1;
-          });
-        }
-      });
-
-      // Рассчитываем средний COF для каждого монтажера
-      Object.keys(editorStats).forEach(editorId => {
-        const statsData = editorStats[editorId];
-        statsData.avgCOF = statsData.count > 0 ? statsData.totalCOF / statsData.count : 0;
-      });
-
-      console.log('👥 Статистика монтажеров:', Object.keys(editorStats).length);
-      console.log('🎯 Типы работ:', Object.keys(workTypeStats).length);
-
       setAnalytics({
-        creatives: periodCreatives,
+        creatives: safeCreatives,
         editors,
         stats,
-        workTypeStats,
-        editorStats
+        workTypeStats: {},
+        editorStats: {}
       });
 
       console.log('✅ Аналитика успешно загружена');
@@ -764,6 +782,9 @@ function CreativeAnalytics({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
+      if (!event.target.closest('.month-dropdown') && !event.target.closest('.month-trigger')) {
+        setShowMonthDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -774,26 +795,21 @@ function CreativeAnalytics({ user }) {
 
   const formatKyivTime = (dateString) => {
     try {
-      const date = new Date(dateString);
-      const dateStr = date.toLocaleDateString('ru-RU', {
-        timeZone: 'Europe/Kiev',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const timeStr = date.toLocaleTimeString('ru-RU', {
-        timeZone: 'Europe/Kiev',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
+      
+      if (!match) {
+        throw new Error('Invalid date format');
+      }
+      
+      const [_, year, month, day, hours, minutes] = match;
+      
+      const dateStr = `${day}.${month}.${year}`;
+      const timeStr = `${hours}:${minutes}`;
+      
       return { date: dateStr, time: timeStr };
     } catch (error) {
       console.error('Error formatting date:', error);
-      const fallback = new Date(dateString).toLocaleDateString('ru-RU', {
-        timeZone: 'Europe/Kiev'
-      });
-      return { date: fallback, time: '00:00' };
+      return { date: '00.00.0000', time: '00:00' };
     }
   };
 
@@ -806,8 +822,6 @@ function CreativeAnalytics({ user }) {
         generated: new Date().toISOString(),
         stats: analytics.stats,
         metricsStats: aggregatedMetricsStats,
-        workTypes: analytics.workTypeStats,
-        editors: analytics.editorStats,
         apiStatus: apiStatus,
         creativesWithMetrics: metricsStats?.found || 0,
         creativesWithoutMetrics: (metricsStats?.total || 0) - (metricsStats?.found || 0),
@@ -848,6 +862,7 @@ function CreativeAnalytics({ user }) {
     return metricsPeriod === 'all' ? 'Все время' : '4 дня';
   };
 
+  const availableMonths = getAvailableMonths();
   const countryStats = getCountryStats();
   const zoneStats = getZoneStats();
   const editorZoneStats = getEditorZoneStats();
@@ -878,6 +893,53 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
           <div className="flex items-center space-x-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+                className="month-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {getDisplayMonthYear()}
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showMonthDropdown && availableMonths.length > 0 && (
+                <div className="month-dropdown absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedMonth(null);
+                        setShowMonthDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedMonth === null ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {getCurrentMonthYear()}
+                    </button>
+                    {availableMonths.map((month) => (
+                      <button
+                        key={month.key}
+                        onClick={() => {
+                          setSelectedMonth(month.key);
+                          setShowMonthDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedMonth === month.key ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {month.display}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <button
                 onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
@@ -1021,12 +1083,11 @@ function CreativeAnalytics({ user }) {
         </div>
       )}
 
-      {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
-      {analytics.creatives.length > 0 && (
+      {/* Statistics Cards */}
+      {filteredCreativesByMonth.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
-            {/* Креативов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1035,19 +1096,14 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Креативов
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {analytics.creatives.length}
-                      </dd>
+                      <dt className="text-xs font-medium text-gray-500 truncate">Креативов</dt>
+                      <dd className="text-lg font-semibold text-gray-900">{filteredCreativesByMonth.length}</dd>
                     </dl>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* С комментарием */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1056,11 +1112,9 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С комментарием
-                      </dt>
+                      <dt className="text-xs font-medium text-gray-500 truncate">С комментарием</dt>
                       <dd className="text-lg font-semibold text-gray-900">
-                        {analytics.stats.creativesWithComments}
+                        {filteredCreativesByMonth.filter(c => c.comment && c.comment.trim()).length}
                       </dd>
                     </dl>
                   </div>
@@ -1068,7 +1122,6 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* UA/PL */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1077,9 +1130,7 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        UA/PL
-                      </dt>
+                      <dt className="text-xs font-medium text-gray-500 truncate">UA/PL</dt>
                       <dd className="text-lg font-semibold text-gray-900">
                         <div className="flex items-center space-x-1">
                           <span>{countryStats.ukraineCount}</span>
@@ -1093,7 +1144,6 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* Общий COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1104,11 +1154,9 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Общий COF
-                      </dt>
+                      <dt className="text-xs font-medium text-gray-500 truncate">Общий COF</dt>
                       <dd className="text-lg font-semibold text-gray-900">
-                        {formatCOF(analytics.stats.totalCOF)}
+                        {formatCOF(filteredCreativesByMonth.reduce((sum, c) => sum + (c.cof_rating || calculateCOF(c.work_types || [])), 0))}
                       </dd>
                     </dl>
                   </div>
@@ -1116,7 +1164,6 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* Средний COF */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1125,11 +1172,12 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний COF
-                      </dt>
+                      <dt className="text-xs font-medium text-gray-500 truncate">Средний COF</dt>
                       <dd className="text-lg font-semibold text-gray-900">
-                        {formatCOF(analytics.stats.avgCOF)}
+                        {formatCOF(filteredCreativesByMonth.length > 0 
+                          ? filteredCreativesByMonth.reduce((sum, c) => sum + (c.cof_rating || calculateCOF(c.work_types || [])), 0) / filteredCreativesByMonth.length
+                          : 0
+                        )}
                       </dd>
                     </dl>
                   </div>
@@ -1137,7 +1185,6 @@ function CreativeAnalytics({ user }) {
               </div>
             </div>
 
-            {/* Красная зона */}
             <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1146,19 +1193,14 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-red-100 truncate">
-                        Красная зона
-                      </dt>
-                      <dd className="text-lg font-semibold text-white">
-                        {zoneStats.red}
-                      </dd>
+                      <dt className="text-xs font-medium text-red-100 truncate">Красная зона</dt>
+                      <dd className="text-lg font-semibold text-white">{zoneStats.red}</dd>
                     </dl>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Розовая зона */}
             <div className="bg-pink-500 overflow-hidden shadow-sm rounded-lg border border-pink-600">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1167,19 +1209,14 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-pink-100 truncate">
-                        Розовая зона
-                      </dt>
-                      <dd className="text-lg font-semibold text-white">
-                        {zoneStats.pink}
-                      </dd>
+                      <dt className="text-xs font-medium text-pink-100 truncate">Розовая зона</dt>
+                      <dd className="text-lg font-semibold text-white">{zoneStats.pink}</dd>
                     </dl>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Золотая зона */}
             <div className="bg-yellow-500 overflow-hidden shadow-sm rounded-lg border border-yellow-600">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1188,19 +1225,14 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-yellow-800 truncate">
-                        Золотая зона
-                      </dt>
-                      <dd className="text-lg font-semibold text-black">
-                        {zoneStats.gold}
-                      </dd>
+                      <dt className="text-xs font-medium text-yellow-800 truncate">Золотая зона</dt>
+                      <dd className="text-lg font-semibold text-black">{zoneStats.gold}</dd>
                     </dl>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Зеленая зона */}
             <div className="bg-green-500 overflow-hidden shadow-sm rounded-lg border border-green-600">
               <div className="p-4">
                 <div className="flex items-center">
@@ -1209,12 +1241,8 @@ function CreativeAnalytics({ user }) {
                   </div>
                   <div className="ml-3 w-0 flex-1">
                     <dl>
-                      <dt className="text-xs font-medium text-green-100 truncate">
-                        Зеленая зона
-                      </dt>
-                      <dd className="text-lg font-semibold text-white">
-                        {zoneStats.green}
-                      </dd>
+                      <dt className="text-xs font-medium text-green-100 truncate">Зеленая зона</dt>
+                      <dd className="text-lg font-semibold text-white">{zoneStats.green}</dd>
                     </dl>
                   </div>
                 </div>
@@ -1225,7 +1253,6 @@ function CreativeAnalytics({ user }) {
           {/* ВТОРАЯ СТРОКА - метрики */}
           {hasMetricsData && (
             <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4">
-              {/* Лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1234,19 +1261,14 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Лидов
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {formatStats().totalLeads}
-                        </dd>
+                        <dt className="text-xs font-medium text-gray-500 truncate">Лидов</dt>
+                        <dd className="text-lg font-semibold text-gray-900">{formatStats().totalLeads}</dd>
                       </dl>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* CPL */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1257,11 +1279,9 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPL
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">CPL</dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          {analytics.creatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          {aggregatedMetricsStats.totalLeads > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
                           '0.00$'}
                         </dd>
@@ -1271,7 +1291,6 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* Расходы */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1280,32 +1299,23 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Расходы
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {formatStats().totalCost}
-                        </dd>
+                        <dt className="text-xs font-medium text-gray-500 truncate">Расходы</dt>
+                        <dd className="text-lg font-semibold text-gray-900">{formatStats().totalCost}</dd>
                       </dl>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Клики */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                      </svg>
+                      <MousePointer className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Клики
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">Клики</dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {Math.round(aggregatedMetricsStats.totalClicks).toLocaleString()}
                         </dd>
@@ -1315,7 +1325,6 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* CPC */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1326,9 +1335,7 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPC
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">CPC</dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {aggregatedMetricsStats.totalClicks > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
@@ -1340,7 +1347,6 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* CTR */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1351,19 +1357,14 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CTR
-                        </dt>
-                        <dd className="text-lg font-semibold text-gray-900">
-                          {formatStats().avgCTR}
-                        </dd>
+                        <dt className="text-xs font-medium text-gray-500 truncate">CTR</dt>
+                        <dd className="text-lg font-semibold text-gray-900">{formatStats().avgCTR}</dd>
                       </dl>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* CPM */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1374,9 +1375,7 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPM
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">CPM</dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {aggregatedMetricsStats.totalImpressions > 0 ? 
                           ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
@@ -1388,7 +1387,6 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* Показы */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
@@ -1397,9 +1395,7 @@ function CreativeAnalytics({ user }) {
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Показы
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">Показы</dt>
                         <dd className="text-lg font-semibold text-gray-900">
                           {Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString()}
                         </dd>
@@ -1409,24 +1405,17 @@ function CreativeAnalytics({ user }) {
                 </div>
               </div>
 
-              {/* Ср. лидов */}
               <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
                 <div className="p-4">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="8.5" cy="7" r="4" />
-                        <polyline points="17 11 19 13 23 9" />
-                      </svg>
+                      <Users className="h-6 w-6 text-blue-500" />
                     </div>
                     <div className="ml-3 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. лидов
-                        </dt>
+                        <dt className="text-xs font-medium text-gray-500 truncate">Ср. лидов</dt>
                         <dd className="text-lg font-semibold text-gray-900">
-                          {analytics.creatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / analytics.creatives.length) : 0}
+                          {filteredCreativesByMonth.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredCreativesByMonth.length) : 0}
                         </dd>
                       </dl>
                     </div>
@@ -1436,7 +1425,7 @@ function CreativeAnalytics({ user }) {
             </div>
           )}
 
-          {/* Рейтинг байеров по зонам и COF */}
+          {/* Рейтинги монтажеров */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             {/* Рейтинг байеров по зонам */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -1472,77 +1461,56 @@ function CreativeAnalytics({ user }) {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {(() => {
-                        // Собираем агрегированные метрики для каждого монтажера
-                        const editorsWithMetrics = Object.entries(analytics.editorStats).map(([editorId, stats]) => {
-                          const editorCreatives = analytics.creatives.filter(c => c.user_id === editorId);
+                        const editorsMap = new Map();
+                        
+                        filteredCreativesByMonth.forEach(creative => {
+                          const editorId = creative.user_id || 'unknown';
+                          const editorName = creative.editor_name || creative.users?.name || 'Неизвестный';
                           
-                          let totalLeads = 0;
-                          let totalCost = 0;
-                          let totalClicks = 0;
-                          let totalImpressions = 0;
-                          let creativesWithMetrics = 0;
+                          if (!editorsMap.has(editorId)) {
+                            editorsMap.set(editorId, {
+                              name: editorName,
+                              zones: editorZoneStats[editorId] || { red: 0, pink: 0, gold: 0, green: 0 },
+                              count: 0
+                            });
+                          }
                           
-                          editorCreatives.forEach(creative => {
-                            const metrics = getAggregatedCreativeMetrics(creative);
-                            if (metrics?.found && metrics.data) {
-                              totalLeads += metrics.data.raw.leads || 0;
-                              totalCost += metrics.data.raw.cost || 0;
-                              totalClicks += metrics.data.raw.clicks || 0;
-                              totalImpressions += metrics.data.raw.impressions || 0;
-                              creativesWithMetrics++;
-                            }
-                          });
-                          
-                          const avgCPL = totalLeads > 0 ? totalCost / totalLeads : 0;
-                          const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-                          
-                          return {
-                            editorId,
-                            ...stats,
-                            zones: editorZoneStats[editorId] || { red: 0, pink: 0, gold: 0, green: 0 },
-                            metrics: {
-                              totalLeads,
-                              totalCost,
-                              avgCPL,
-                              avgCTR,
-                              creativesWithMetrics
-                            }
-                          };
+                          editorsMap.get(editorId).count++;
                         });
                         
-                        return editorsWithMetrics
-                          .sort((a, b) => b.totalCOF - a.totalCOF)
+                        return Array.from(editorsMap.values())
+                          .sort((a, b) => b.count - a.count)
                           .slice(0, 8)
-                          .map((stats, index) => (
-                            <tr key={stats.editorId} className="hover:bg-gray-50">
+                          .map((editor, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
                               <td className="px-4 py-2 whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900 truncate">
-                                  {stats.name}
+                                  {editor.name}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-red-600">
-                                  {stats.zones.red}
+                                  {editor.zones.red}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-pink-600">
-                                  {stats.zones.pink}
+                                  {editor.zones.pink}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-yellow-600">
-                                  {stats.zones.gold}
+                                  {editor.zones.gold}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-green-600">
-                                  {stats.zones.green}
+                                  {editor.zones.green}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-blue-600">
-                                  {stats.count}
+                                  {editor.count}
                                 </span>
                               </td>
                             </tr>
@@ -1594,94 +1562,95 @@ function CreativeAnalytics({ user }) {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {(() => {
-                        // Собираем агрегированные метрики для каждого монтажера
-                        const editorsWithMetrics = Object.entries(analytics.editorStats).map(([editorId, stats]) => {
-                          const editorCreatives = analytics.creatives.filter(c => c.user_id === editorId);
+                        const editorsMap = new Map();
+                        
+                        filteredCreativesByMonth.forEach(creative => {
+                          const editorId = creative.user_id || 'unknown';
+                          const editorName = creative.editor_name || creative.users?.name || 'Неизвестный';
                           
-                          let totalLeads = 0;
-                          let totalCost = 0;
-                          let totalClicks = 0;
-                          let totalImpressions = 0;
-                          let creativesWithMetrics = 0;
+                          if (!editorsMap.has(editorId)) {
+                            editorsMap.set(editorId, {
+                              name: editorName,
+                              totalCOF: 0,
+                              totalLeads: 0,
+                              totalCost: 0,
+                              totalClicks: 0,
+                              totalImpressions: 0,
+                              commentsCount: 0
+                            });
+                          }
                           
-                          editorCreatives.forEach(creative => {
-                            const metrics = getAggregatedCreativeMetrics(creative);
-                            if (metrics?.found && metrics.data) {
-                              totalLeads += metrics.data.raw.leads || 0;
-                              totalCost += metrics.data.raw.cost || 0;
-                              totalClicks += metrics.data.raw.clicks || 0;
-                              totalImpressions += metrics.data.raw.impressions || 0;
-                              creativesWithMetrics++;
-                            }
-                          });
+                          const editor = editorsMap.get(editorId);
+                          editor.totalCOF += creative.cof_rating || calculateCOF(creative.work_types || []);
                           
-                          const avgCPL = totalLeads > 0 ? totalCost / totalLeads : 0;
-                          const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-                          const avgCPC = totalClicks > 0 ? totalCost / totalClicks : 0;
+                          if (creative.comment && creative.comment.trim()) {
+                            editor.commentsCount++;
+                          }
                           
-                          return {
-                            editorId,
-                            ...stats,
-                            metrics: {
-                              totalLeads,
-                              totalCost,
-                              avgCPL,
-                              avgCTR,
-                              avgCPC,
-                              creativesWithMetrics
-                            }
-                          };
+                          const metrics = getAggregatedCreativeMetrics(creative);
+                          if (metrics?.found && metrics.data) {
+                            editor.totalLeads += metrics.data.raw.leads || 0;
+                            editor.totalCost += metrics.data.raw.cost || 0;
+                            editor.totalClicks += metrics.data.raw.clicks || 0;
+                            editor.totalImpressions += metrics.data.raw.impressions || 0;
+                          }
                         });
                         
-                        return editorsWithMetrics
+                        return Array.from(editorsMap.values())
                           .sort((a, b) => b.totalCOF - a.totalCOF)
                           .slice(0, 8)
-                          .map((stats, index) => (
-                            <tr key={stats.editorId} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900 truncate">
-                                  {stats.name}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(stats.totalCOF).replace('border-', '').replace('border', '')}`}>
-                                  {formatCOF(stats.totalCOF)}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-gray-900">
-                                  {Math.round(stats.metrics.totalLeads)}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-gray-900">
-                                  {stats.metrics.avgCPL > 0 ? stats.metrics.avgCPL.toFixed(2) : '0.00'}$
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-gray-900">
-                                  {stats.metrics.totalCost.toFixed(2)}$
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-gray-900">
-                                  {stats.metrics.avgCTR > 0 ? stats.metrics.avgCTR.toFixed(2) + '%' : '0.00%'}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className="text-sm font-bold text-gray-900">
-                                  {stats.metrics.avgCPC > 0 ? stats.metrics.avgCPC.toFixed(2) : '0.00'}$
-                                </span>
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                <span className={`text-sm font-bold ${
-                                  stats.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
-                                }`}>
-                                  {stats.commentsCount}
-                                </span>
-                              </td>
-                            </tr>
-                          ));
+                          .map((editor, index) => {
+                            const avgCPL = editor.totalLeads > 0 ? editor.totalCost / editor.totalLeads : 0;
+                            const avgCTR = editor.totalImpressions > 0 ? (editor.totalClicks / editor.totalImpressions) * 100 : 0;
+                            const avgCPC = editor.totalClicks > 0 ? editor.totalCost / editor.totalClicks : 0;
+                            
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  <span className="text-sm font-medium text-gray-900 truncate">
+                                    {editor.name}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(editor.totalCOF)}`}>
+                                    {formatCOF(editor.totalCOF)}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {Math.round(editor.totalLeads)}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {avgCPL > 0 ? avgCPL.toFixed(2) : '0.00'}$
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {editor.totalCost.toFixed(2)}$
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {avgCTR > 0 ? avgCTR.toFixed(2) + '%' : '0.00%'}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {avgCPC > 0 ? avgCPC.toFixed(2) : '0.00'}$
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className={`text-sm font-bold ${
+                                    editor.commentsCount > 0 ? 'text-indigo-600' : 'text-gray-400'
+                                  }`}>
+                                    {editor.commentsCount}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          });
                       })()}
                     </tbody>
                   </table>
@@ -1692,9 +1661,9 @@ function CreativeAnalytics({ user }) {
         </div>
       )}
 
-      {/* Content */}
+      {/* Content - Table */}
       <div className="flex-1 overflow-auto p-6">
-        {analytics.creatives.length === 0 ? (
+        {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -1708,7 +1677,7 @@ function CreativeAnalytics({ user }) {
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                {getCurrentMonthYear()} - Полная аналитика креативов
+                {getDisplayMonthYear()} - Полная аналитика креативов
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
@@ -1769,7 +1738,7 @@ function CreativeAnalytics({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {analytics.creatives
+                    {filteredCreativesByMonth
                       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                       .map((creative) => {
                         const cof = typeof creative.cof_rating === 'number' 
@@ -1807,6 +1776,25 @@ function CreativeAnalytics({ user }) {
                                       title="Показать комментарий"
                                     >
                                       <MessageCircle className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  {creativesWithHistory.has(creative.id) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showHistory(creative);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                      title="Показать историю изменений"
+                                    >
+                                      <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                        <path stroke="none" d="M0 0h24v24H0z"/>
+                                        <polyline points="12 8 12 12 14 14" />
+                                        <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                                      </svg>
                                     </button>
                                   )}
                                 </div>
@@ -1885,7 +1873,6 @@ function CreativeAnalytics({ user }) {
                               )}
                             </td>
 
-                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="flex items-center justify-center">
                                 {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
@@ -1920,7 +1907,7 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </td>
                             
-                            {/* ОБНОВЛЕННЫЕ колонки метрик */}
+                            {/* КОЛОНКИ МЕТРИК */}
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {metricsLoading ? (
                                 <div className="flex items-center justify-center">
@@ -2234,13 +2221,11 @@ function CreativeAnalytics({ user }) {
                             <td className="px-3 py-4 whitespace-nowrap text-center">
                               {creative.work_types && creative.work_types.length > 0 ? (
                                 <div className="space-y-1">
-                                  {/* Первая строка: COF рейтинг */}
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`}>
                                     <span className="text-xs font-bold mr-1">COF</span>
                                     {formatCOF(cof)}
                                   </span>
                                   
-                                  {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
                                   <div>
                                     <button
                                       onClick={(e) => {
@@ -2264,7 +2249,6 @@ function CreativeAnalytics({ user }) {
                                     </button>
                                   </div>
                                   
-                                  {/* Расширенный список работ */}
                                   {isWorkTypesExpanded && (
                                     <div className="mt-2 space-y-1 max-w-xs">
                                       {creative.work_types.map((workType, index) => (
@@ -2337,6 +2321,177 @@ function CreativeAnalytics({ user }) {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setShowCommentModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && selectedHistory && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white my-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <svg className="h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <path stroke="none" d="M0 0h24v24H0z"/>
+                  <polyline points="12 8 12 12 14 14" />
+                  <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                </svg>
+                История изменений: {selectedHistory.article}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory(null);
+                  setHistoryData([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Загрузка истории...</p>
+                </div>
+              </div>
+            ) : historyData.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">История изменений пуста</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                {historyData.map((entry, index) => {
+                  const formattedDateTime = formatKyivTime(entry.changed_at);
+                  const isFirst = index === historyData.length - 1;
+                  
+                  return (
+                    <div key={entry.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            entry.change_type === 'created' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {entry.change_type === 'created' ? 'Создано' : 'Изменено'}
+                          </span>
+                          {isFirst && (
+                            <span className="text-xs text-gray-500">(Исходная версия)</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <div className="font-medium">{formattedDateTime.date} {formattedDateTime.time}</div>
+                          <div className="text-xs">Автор: {entry.changed_by_name || 'Неизвестно'}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Видео:</label>
+                          <div className="mt-1 space-y-1">
+                            {entry.link_titles && entry.link_titles.length > 0 ? (
+                              entry.link_titles.map((title, idx) => (
+                                <div key={idx} className="text-sm text-gray-900 truncate" title={title}>
+                                  {title}
+                                </div>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Страна:</label>
+                          <div className="mt-1 flex items-center space-x-2">
+                            {entry.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                            <span className="text-sm text-gray-900">{entry.is_poland ? 'Poland' : 'Ukraine'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Trello:</label>
+                          <div className="mt-1">
+                            {entry.trello_link ? (
+                              <a href={entry.trello_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:text-blue-800 truncate block"
+                              >
+                                Открыть карточку
+                              </a>
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Buyer:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{entry.buyer || '—'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">Searcher:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{entry.searcher || '—'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-gray-700">COF:</label>
+                          <div className="mt-1">
+                            <span className="text-sm text-gray-900">{formatCOF(entry.cof_rating || 0)}</span>
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="text-xs font-medium text-gray-700">Типы работ:</label>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {entry.work_types && entry.work_types.length > 0 ? (
+                              entry.work_types.map((type, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                                  {type}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {entry.comment && (
+                          <div className="md:col-span-2">
+                            <label className="text-xs font-medium text-gray-700">Комментарий:</label>
+                            <div className="mt-1 p-2 bg-white border border-gray-200 rounded">
+                              <p className="text-sm text-gray-900 whitespace-pre-wrap">{entry.comment}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory(null);
+                  setHistoryData([]);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Закрыть
