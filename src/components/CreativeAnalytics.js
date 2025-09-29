@@ -798,6 +798,7 @@ function CreativeAnalytics({ user }) {
 
   useEffect(() => {
     loadUsers();
+    loadAnalytics();
   }, []);
 
   useEffect(() => {
