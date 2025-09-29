@@ -67,6 +67,8 @@ function CreativePanel({ user }) {
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [debugMode, setDebugMode] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null); // null = текущий месяц
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
   // НОВЫЕ состояния для переключения метрик в той же строке
   const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
@@ -592,6 +594,77 @@ function CreativePanel({ user }) {
     return `${month}, ${year}`;
   };
 
+  // Получить список всех доступных месяцев из креативов
+  const getAvailableMonths = () => {
+    if (creatives.length === 0) return [];
+    
+    const monthsSet = new Set();
+    const months = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    
+    creatives.forEach(creative => {
+      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month] = match;
+        const monthIndex = parseInt(month) - 1;
+        const monthYear = `${months[monthIndex]}, ${year}`;
+        const monthKey = `${year}-${month}`;
+        monthsSet.add(JSON.stringify({ display: monthYear, key: monthKey }));
+      }
+    });
+    
+    const monthsList = Array.from(monthsSet)
+      .map(item => JSON.parse(item))
+      .sort((a, b) => b.key.localeCompare(a.key)); // Сортировка от нового к старому
+    
+    return monthsList;
+  };
+
+  // Получить отображаемое название месяца
+  const getDisplayMonthYear = () => {
+    if (selectedMonth === null) {
+      return getCurrentMonthYear();
+    }
+    
+    const availableMonths = getAvailableMonths();
+    const found = availableMonths.find(m => m.key === selectedMonth);
+    return found ? found.display : getCurrentMonthYear();
+  };
+
+  // Фильтровать креативы по выбранному месяцу
+  const getFilteredCreatives = () => {
+    if (selectedMonth === null) {
+      // Текущий месяц
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+      const currentMonthKey = `${currentYear}-${currentMonth}`;
+      
+      return creatives.filter(creative => {
+        const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          const [_, year, month] = match;
+          const creativeMonthKey = `${year}-${month}`;
+          return creativeMonthKey === currentMonthKey;
+        }
+        return false;
+      });
+    }
+    
+    // Выбранный месяц
+    return creatives.filter(creative => {
+      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month] = match;
+        const creativeMonthKey = `${year}-${month}`;
+        return creativeMonthKey === selectedMonth;
+      }
+      return false;
+    });
+  };
+
   useEffect(() => {
     loadCreatives();
     loadUsers();
@@ -826,6 +899,9 @@ function CreativePanel({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
+      if (!event.target.closest('.month-dropdown') && !event.target.closest('.month-trigger')) {
+        setShowMonthDropdown(false);
+      }
       if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
         setShowBuyerDropdown(false);
       }
@@ -1057,6 +1133,9 @@ function CreativePanel({ user }) {
     refreshZoneData();
   };
 
+  const filteredCreatives = getFilteredCreatives();
+  const availableMonths = getAvailableMonths();
+  
   const cofStats = getCOFStats();
   const countryStats = getCountryStats();
   const zoneStats = getZoneStats();
@@ -1102,6 +1181,53 @@ function CreativePanel({ user }) {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+                className="month-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {getDisplayMonthYear()}
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showMonthDropdown && availableMonths.length > 0 && (
+                <div className="month-dropdown absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedMonth(null);
+                        setShowMonthDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedMonth === null ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {getCurrentMonthYear()} (текущий)
+                    </button>
+                    {availableMonths.map((month) => (
+                      <button
+                        key={month.key}
+                        onClick={() => {
+                          setSelectedMonth(month.key);
+                          setShowMonthDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedMonth === month.key ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {month.display}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <button
                 onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
@@ -1174,7 +1300,7 @@ function CreativePanel({ user }) {
       </div>
 
       {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
-      {creatives.length > 0 && (
+      {filteredCreatives.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
@@ -1191,7 +1317,7 @@ function CreativePanel({ user }) {
                         Креативов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {creatives.length}
+                        {filteredCreatives.length}
                       </dd>
                     </dl>
                   </div>
@@ -1212,7 +1338,7 @@ function CreativePanel({ user }) {
                         С комментарием
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {creatives.filter(c => c.comment && c.comment.trim()).length}
+                        {filteredCreatives.filter(c => c.comment && c.comment.trim()).length}
                       </dd>
                     </dl>
                   </div>
@@ -1613,7 +1739,7 @@ function CreativePanel({ user }) {
 
       {/* Content */}
       <div className="flex-1 p-6">
-        {creatives.length === 0 ? (
+        {filteredCreatives.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -1634,7 +1760,7 @@ function CreativePanel({ user }) {
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                {getCurrentMonthYear()}
+                {getDisplayMonthYear()}
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
@@ -1704,8 +1830,8 @@ function CreativePanel({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {creatives
-                      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    {filteredCreatives
+                      .sort((a, b) => b.created_at.localeCompare(a.created_at))
                       .map((creative) => {
                         const cof = typeof creative.cof_rating === 'number' 
                           ? creative.cof_rating 
