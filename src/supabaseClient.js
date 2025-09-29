@@ -730,7 +730,7 @@ export const tableService = {
       .from('tables')
       .select(`
         *,
-        users(name, email)
+        users!tables_user_id_fkey(name, email)
       `)
       .order('updated_at', { ascending: false });
     
@@ -1072,7 +1072,7 @@ export const creativeService = {
         .from('creatives')
         .select(`
           *,
-          users(name, email)
+          users!creatives_user_id_fkey(name, email)
         `)
         .order('created_at', { ascending: false });
       
@@ -1175,7 +1175,7 @@ export const creativeService = {
         .from('creatives')
         .select(`
           *,
-          users(name, email)
+          users!creatives_user_id_fkey(name, email)
         `)
         .order('created_at', { ascending: false });
 
