@@ -1661,7 +1661,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 p-6">
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
