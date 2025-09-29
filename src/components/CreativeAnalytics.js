@@ -78,6 +78,10 @@ function CreativeAnalytics({ user }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
+// НОВЫЕ состояния для переключения метрик в той же строке
+  const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
+
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
