@@ -4,30 +4,10 @@
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
 
-// Функция для получения текущего времени в киевском часовом поясе в ISO формате
+// Функция для получения текущего времени в ISO формате (UTC) для Supabase
 const getKyivISOString = () => {
-  const now = new Date();
-  // Получаем время в Киеве
-  const kyivTime = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Kiev',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  }).formatToParts(now);
-  
-  // Собираем ISO строку
-  const year = kyivTime.find(part => part.type === 'year').value;
-  const month = kyivTime.find(part => part.type === 'month').value;
-  const day = kyivTime.find(part => part.type === 'day').value;
-  const hour = kyivTime.find(part => part.type === 'hour').value;
-  const minute = kyivTime.find(part => part.type === 'minute').value;
-  const second = kyivTime.find(part => part.type === 'second').value;
-  
-  return `${year}-${month}-${day}T${hour}:${minute}:${second}.000Z`;
+  // Просто возвращаем текущее UTC время - Supabase сам конвертирует при отображении
+  return new Date().toISOString();
 };
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
