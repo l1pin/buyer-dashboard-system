@@ -11,7 +11,17 @@ const getKyivTime = () => {
   const kyivOffset = 3 * 60; // 3 часа в минутах
   const localOffset = now.getTimezoneOffset(); // offset текущей временной зоны
   const kyivTime = new Date(now.getTime() + (kyivOffset + localOffset) * 60 * 1000);
-  return kyivTime.toISOString();
+  
+  // Форматируем время с указанием timezone +03:00 для корректной записи в БД
+  const year = kyivTime.getUTCFullYear();
+  const month = String(kyivTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(kyivTime.getUTCDate()).padStart(2, '0');
+  const hours = String(kyivTime.getUTCHours()).padStart(2, '0');
+  const minutes = String(kyivTime.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(kyivTime.getUTCSeconds()).padStart(2, '0');
+  const ms = String(kyivTime.getUTCMilliseconds()).padStart(3, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}+03:00`;
 };
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
