@@ -78,8 +78,9 @@ function CreativeAnalytics({ user }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
-  const [detailMode, setDetailMode] = useState(new Map());
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map());
+  const [buyers, setBuyers] = useState([]);
+  const [searchers, setSearchers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   const filteredCreativesByMonth = useMemo(() => {
     let creativesToFilter = analytics.creatives;
@@ -193,26 +194,26 @@ function CreativeAnalytics({ user }) {
 
   const getBuyerName = (buyerId) => {
     if (!buyerId) return '—';
-    // Здесь можно добавить логику получения имени из списка байеров
-    return '—';
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.name : 'Удален';
   };
 
   const getSearcherName = (searcherId) => {
     if (!searcherId) return '—';
-    // Здесь можно добавить логику получения имени из списка серчеров
-    return '—';
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.name : 'Удален';
   };
 
   const getBuyerAvatar = (buyerId) => {
     if (!buyerId) return null;
-    // Здесь можно добавить логику получения аватара
-    return null;
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.avatar_url : null;
   };
 
   const getSearcherAvatar = (searcherId) => {
     if (!searcherId) return null;
-    // Здесь можно добавить логику получения аватара
-    return null;
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.avatar_url : null;
   };
 
   const UkraineFlag = () => (
@@ -669,6 +670,26 @@ function CreativeAnalytics({ user }) {
     setExpandedWorkTypes(newExpanded);
   };
 
+  const loadUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      console.log('👥 Загрузка пользователей...');
+      
+      const [buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('buyer'),
+        userService.getUsersByRole('search_manager')
+      ]);
+      
+      setBuyers(buyersData);
+      setSearchers(searchersData);
+      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки пользователей:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
   const loadAnalytics = async () => {
     console.log('🚀 Начинаем загрузку полной аналитики креативов...');
     
@@ -772,9 +793,8 @@ function CreativeAnalytics({ user }) {
   };
 
   useEffect(() => {
-    console.log('🔄 useEffect триггер:', { selectedPeriod, selectedEditor });
-    loadAnalytics();
-  }, [selectedPeriod, selectedEditor]);
+    loadUsers();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
