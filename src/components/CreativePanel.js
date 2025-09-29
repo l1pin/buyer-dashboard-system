@@ -887,7 +887,6 @@ function CreativePanel({ user }) {
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
-      // Supabase хранит в UTC, поэтому правильно конвертируем в киевское время
       const dateStr = date.toLocaleDateString('ru-RU', {
         timeZone: 'Europe/Kiev',
         day: '2-digit',
