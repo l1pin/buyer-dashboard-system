@@ -4,22 +4,40 @@
 import { createClient } from '@supabase/supabase-js';
 import Papa from 'papaparse';
 
-// Утилита для получения времени по Киеву (UTC+3)
+// Утилита для получения времени по Киеву с автоматическим учетом летнего/зимнего времени
 const getKyivTime = () => {
   const now = new Date();
-  // Добавляем 3 часа (10800000 миллисекунд) к текущему UTC времени
-  const kyivTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
   
-  // Форматируем время с указанием timezone +03:00
-  const year = kyivTime.getUTCFullYear();
-  const month = String(kyivTime.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(kyivTime.getUTCDate()).padStart(2, '0');
-  const hours = String(kyivTime.getUTCHours()).padStart(2, '0');
-  const minutes = String(kyivTime.getUTCMinutes()).padStart(2, '0');
-  const seconds = String(kyivTime.getUTCSeconds()).padStart(2, '0');
-  const ms = String(kyivTime.getUTCMilliseconds()).padStart(3, '0');
+  // Получаем компоненты времени в часовом поясе Europe/Kiev
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Kiev',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
   
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}+03:00`;
+  const parts = formatter.formatToParts(now);
+  const getValue = (type) => parts.find(p => p.type === type)?.value;
+  
+  const year = getValue('year');
+  const month = getValue('month');
+  const day = getValue('day');
+  const hour = getValue('hour');
+  const minute = getValue('minute');
+  const second = getValue('second');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  
+  // Определяем текущий offset для Киева (зимой +02:00, летом +03:00)
+  const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const kyivDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+  const diffHours = Math.round((kyivDate - utcDate) / (1000 * 60 * 60));
+  const offset = diffHours === 3 ? '+03:00' : '+02:00';
+  
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.${ms}${offset}`;
 };
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
