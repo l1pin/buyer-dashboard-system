@@ -1100,32 +1100,15 @@ function CreativePanel({ user }) {
 
   const formatKyivTime = (dateString) => {
     try {
-      // Создаем Date объект из UTC строки
-      const date = new Date(dateString);
+      // Парсим строку напрямую БЕЗ создания Date объекта
+      // Формат: 2025-09-29 06:34:24.19675+00 или 2025-09-29T06:34:24.19675+00:00
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
       
-      if (isNaN(date.getTime())) {
-        throw new Error('Invalid date');
+      if (!match) {
+        throw new Error('Invalid date format');
       }
       
-      // Форматируем в киевском часовом поясе
-      const formatter = new Intl.DateTimeFormat('ru-RU', {
-        timeZone: 'Europe/Kiev',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      
-      const parts = formatter.formatToParts(date);
-      const getValue = (type) => parts.find(p => p.type === type)?.value;
-      
-      const day = getValue('day');
-      const month = getValue('month');
-      const year = getValue('year');
-      const hours = getValue('hour');
-      const minutes = getValue('minute');
+      const [_, year, month, day, hours, minutes] = match;
       
       const dateStr = `${day}.${month}.${year}`;
       const timeStr = `${hours}:${minutes}`;
