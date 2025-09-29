@@ -36,7 +36,6 @@ import {
   Clock,
   MoreHorizontal,
   Edit,
-  Bug,
   Users,
   Target,
   DollarSign,
@@ -66,7 +65,6 @@ function CreativePanel({ user }) {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
-  const [debugMode, setDebugMode] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(null); // null = текущий месяц
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
@@ -933,35 +931,6 @@ function CreativePanel({ user }) {
     return metricsPeriod === 'all' ? 'Все время' : '4 дня';
   };
 
-  const debugCreativeMetrics = async (creative) => {
-    if (!creative.link_titles || creative.link_titles.length === 0) {
-      console.log('❌ У креатива нет названий видео для отладки');
-      return;
-    }
-
-    console.log(`🐛 === ОТЛАДКА МЕТРИК ДЛЯ КРЕАТИВА "${creative.article}" ===`);
-    console.log('📋 Информация о креативе:');
-    console.log('  - ID:', creative.id);
-    console.log('  - Артикул:', creative.article);
-    console.log('  - Видео:', creative.link_titles);
-    console.log('  - Период:', metricsPeriod);
-    
-    for (let i = 0; i < creative.link_titles.length; i++) {
-      const videoTitle = creative.link_titles[i];
-      if (videoTitle && !videoTitle.startsWith('Видео ')) {
-        console.log(`🔍 Тестирование метрик для видео ${i + 1}: "${videoTitle}"`);
-        try {
-          const result = await MetricsService.getVideoMetrics(videoTitle, metricsPeriod);
-          console.log(`📊 Результат теста для видео ${i + 1}:`, result);
-        } catch (error) {
-          console.error(`❌ Ошибка теста для видео ${i + 1}:`, error);
-        }
-      }
-    }
-    
-    console.log('🐛 === КОНЕЦ ОТЛАДКИ МЕТРИК ===');
-  };
-
   const formatKyivTime = (dateString) => {
     try {
       // Парсим строку напрямую БЕЗ создания Date объекта
@@ -1255,21 +1224,6 @@ function CreativePanel({ user }) {
               )}
             </div>
 
-            {metricsPeriod === '4days' && (
-              <button
-                onClick={() => setDebugMode(!debugMode)}
-                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                  debugMode 
-                    ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' 
-                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                }`}
-                title="Включить режим отладки метрик"
-              >
-                <Bug className="h-4 w-4 mr-2" />
-                {debugMode ? 'Отладка ВКЛ' : 'Отладка'}
-              </button>
-            )}
-            
             <button
               onClick={handleRefreshAll}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -1866,18 +1820,6 @@ function CreativePanel({ user }) {
                                 
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
                                   {creative.article}
-                                  {debugMode && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        debugCreativeMetrics(creative);
-                                      }}
-                                      className="ml-2 text-yellow-600 hover:text-yellow-800"
-                                      title="Отладить метрики для этого креатива"
-                                    >
-                                      🐛
-                                    </button>
-                                  )}
                                 </div>
                               </div>
                             </td>
