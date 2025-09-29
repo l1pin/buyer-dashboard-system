@@ -951,21 +951,29 @@ function CreativeAnalytics({ user }) {
                       <Calendar className="h-4 w-4 mr-2" />
                       {getCurrentMonthYear()}
                     </button>
-                    {availableMonths.map((month) => (
-                      <button
-                        key={month.key}
-                        onClick={() => {
-                          setSelectedMonth(month.key);
-                          setShowMonthDropdown(false);
-                        }}
-                        className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                          selectedMonth === month.key ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {month.display}
-                      </button>
-                    ))}
+                    {availableMonths
+                        .filter(month => {
+                          const now = new Date();
+                          const currentYear = now.getFullYear();
+                          const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+                          const currentMonthKey = `${currentYear}-${currentMonth}`;
+                          return month.key !== currentMonthKey;
+                        })
+                        .map((month) => (
+                          <button
+                            key={month.key}
+                            onClick={() => {
+                              setSelectedMonth(month.key);
+                              setShowMonthDropdown(false);
+                            }}
+                            className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                              selectedMonth === month.key ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                            }`}
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {month.display}
+                          </button>
+                        ))}
                   </div>
                 </div>
               )}
