@@ -228,9 +228,16 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       const now = new Date();
       setLastUpdated(now);
       
-      // Получаем дату последнего обновления кеша
-      const cacheUpdate = await MetricsService.getLastCacheUpdate();
-      setLastCacheUpdate(cacheUpdate);
+      // Получаем дату последнего обновления кеша ПОСЛЕ загрузки метрик
+      try {
+        const cacheUpdate = await MetricsService.getLastCacheUpdate();
+        if (cacheUpdate) {
+          setLastCacheUpdate(cacheUpdate);
+          console.log(`📅 Дата последнего обновления кеша: ${cacheUpdate}`);
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ Не удалось получить дату обновления кеша:', cacheError);
+      }
       
       console.log(`✅ Загрузка завершена: ${successCount}/${results.length} метрик найдено`);
       if (!forceRefresh && fromCacheCount > 0) {
