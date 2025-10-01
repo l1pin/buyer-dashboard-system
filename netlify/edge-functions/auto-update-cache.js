@@ -30,5 +30,5 @@ export default async (request, context) => {
 };
 
 export const config = {
-  schedule: '0 2 * * *' // 04:00 по Киеву = 02:00 UTC
+  schedule: '0 1 * * *' // 04:00 по Киеву (зимнее время) = 01:00 UTC, 03:00 UTC (летнее время) = 04:00 Киев
 };
