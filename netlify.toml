@@ -40,8 +40,9 @@
   for = "/.netlify/functions/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 # Кэширование статических ресурсов
 [[headers]]
@@ -49,9 +50,38 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Edge Functions для автоматического обновления кеша
+[[edge_functions]]
+  path = "/.netlify/edge-functions/auto-update-cache"
+  function = "auto-update-cache"
+
+# Настройки для Scheduled Functions (если поддерживаются)
+[functions."auto-update-cache"]
+  schedule = "0 1 * * *"
+  # 04:00 по Киеву (зимнее время) = 01:00 UTC
+  # 04:00 по Киеву (летнее время) = 01:00 UTC (автоматически корректируется)
+
 # Настройки для разработки
 [dev]
   command = "npm start"
   port = 3000
   autoLaunch = false
   functions = "netlify/functions"
+
+  # Переменные окружения для продакшена (переопределяются через Netlify UI)
+[context.production.environment]
+  NODE_ENV = "production"
+  REACT_APP_ENV = "production"
+
+# Переменные для разработки
+[context.dev.environment]
+  NODE_ENV = "development"
+  REACT_APP_ENV = "development"
+
+# Настройки для функций
+[functions.environment]
+  NODE_OPTIONS = "--max-old-space-size=4096"
+
+# Таймауты для функций (максимум 26 секунд на бесплатном плане)
+[functions]
+  external_node_modules = ["@supabase/supabase-js"]
