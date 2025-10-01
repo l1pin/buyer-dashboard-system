@@ -1,4 +1,4 @@
-// netlify/functions/metrics-proxy.js - УЛУЧШЕННАЯ ВЕРСИЯ
+// Создайте файл: netlify/functions/metrics-proxy.js
 
 exports.handler = async (event, context) => {
   const headers = {
@@ -135,7 +135,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: `API error: ${apiResponse.status}`,
-          details: responseText.substring(0, 500) // Ограничиваем длину для безопасности
+          details: responseText.substring(0, 500)
         })
       };
     }
