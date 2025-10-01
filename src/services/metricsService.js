@@ -59,6 +59,8 @@ export class MetricsService {
     };
 
     try {
+      console.log('📡 Отправка запроса к прокси:', METRICS_API_URL);
+      
       const response = await fetch(METRICS_API_URL, options);
       
       if (!response.ok) {
@@ -68,15 +70,34 @@ export class MetricsService {
         try {
           const errorJson = JSON.parse(errorText);
           errorMessage = errorJson.error || errorJson.details || `HTTP ${response.status}`;
+          
+          // Детальное логирование для отладки
+          console.error('❌ Ошибка от прокси:', {
+            status: response.status,
+            error: errorJson.error,
+            details: errorJson.details,
+            type: errorJson.type
+          });
         } catch {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          console.error('❌ Ошибка от прокси (не JSON):', response.status, errorText.substring(0, 200));
         }
         
-        throw new Error(errorMessage);
+        // Более дружелюбные сообщения для пользователя
+        if (response.status === 502) {
+          throw new Error('API метрик временно недоступен. Попробуйте позже.');
+        } else if (response.status === 504) {
+          throw new Error('Превышено время ожидания. Попробуйте обновить данные.');
+        } else if (response.status === 500) {
+          throw new Error('Внутренняя ошибка сервера метрик.');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
 
       const text = await response.text();
       if (!text || !text.trim()) {
+        console.log('⚠️ Пустой ответ от API');
         return [];
       }
 
@@ -84,19 +105,25 @@ export class MetricsService {
       try {
         json = JSON.parse(text);
       } catch (e) {
-        throw new Error("Неверный JSON от сервера: " + e.message);
+        console.error('❌ Неверный JSON:', e.message, text.substring(0, 200));
+        throw new Error("Неверный ответ от API метрик");
       }
 
       if (json && typeof json === "object" && json.error) {
+        console.error('❌ Ошибка в ответе API:', json.error);
         throw new Error("Ошибка API: " + (json.details || json.error));
       }
 
       return Array.isArray(json) ? json : [];
       
     } catch (error) {
+      // Обработка ошибок сети
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        throw new Error('Сервис метрик недоступен. Проверьте подключение к интернету.');
+        console.error('🌐 Ошибка сети:', error);
+        throw new Error('Не удается подключиться к сервису метрик. Проверьте интернет-соединение.');
       }
+      
+      console.error('❌ Ошибка fetchFromDatabase:', error);
       throw error;
     }
   }
