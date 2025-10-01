@@ -1,6 +1,7 @@
 // scripts/updateMetricsCache.js
 const fetch = require('node-fetch');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const NETLIFY_URL = process.env.URL || process.env.DEPLOY_URL || 'http://localhost:8888';
 
