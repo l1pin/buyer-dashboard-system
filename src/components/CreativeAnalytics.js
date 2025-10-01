@@ -1127,6 +1127,9 @@ function CreativeAnalytics({ user }) {
         </div>
       </div>
 
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto">
+
       {/* Error Messages */}
       {error && (
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
@@ -1728,7 +1731,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="p-6">
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -2751,6 +2754,8 @@ function CreativeAnalytics({ user }) {
           </div>
         </div>
       )}
+      </div>
+      {/* End Scrollable Content Area */}
     </div>
   );
 }
