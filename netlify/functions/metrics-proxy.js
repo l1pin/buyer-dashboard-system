@@ -1,4 +1,4 @@
-// Создайте файл: netlify/functions/metrics-proxy.js
+// netlify/functions/metrics-proxy.js - УЛУЧШЕННАЯ ВЕРСИЯ
 
 exports.handler = async (event, context) => {
   const headers = {
@@ -32,6 +32,7 @@ exports.handler = async (event, context) => {
     try {
       requestBody = JSON.parse(event.body);
     } catch (e) {
+      console.error('❌ Неверный JSON:', e);
       return {
         statusCode: 400,
         headers,
@@ -64,21 +65,69 @@ exports.handler = async (event, context) => {
     // URL API метрик
     const API_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
-    // Отправляем запрос к API метрик
-    const apiResponse = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Netlify-Functions-Proxy/1.0'
-      },
-      body: JSON.stringify(requestBody),
-      timeout: 30000 // 30 секунд таймаут
-    });
+    // ПРАВИЛЬНАЯ реализация таймаута для fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд
+
+    let apiResponse;
+    try {
+      // Отправляем запрос к API метрик с таймаутом
+      apiResponse = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Netlify-Functions-Proxy/1.0'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // Обработка различных типов ошибок fetch
+      if (fetchError.name === 'AbortError') {
+        console.error('⏱️ Таймаут запроса к API метрик');
+        return {
+          statusCode: 504,
+          headers,
+          body: JSON.stringify({ 
+            error: 'Таймаут запроса к API метрик',
+            details: 'API не ответил в течение 30 секунд'
+          })
+        };
+      }
+      
+      console.error('🌐 Ошибка сети при обращении к API:', fetchError.message);
+      return {
+        statusCode: 502,
+        headers,
+        body: JSON.stringify({ 
+          error: 'API метрик недоступен',
+          details: fetchError.message
+        })
+      };
+    }
+
+    clearTimeout(timeoutId);
 
     // Читаем ответ
-    const responseText = await apiResponse.text();
+    let responseText;
+    try {
+      responseText = await apiResponse.text();
+    } catch (readError) {
+      console.error('📖 Ошибка чтения ответа:', readError);
+      return {
+        statusCode: 502,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Ошибка чтения ответа от API',
+          details: readError.message
+        })
+      };
+    }
     
+    // Проверяем статус ответа
     if (!apiResponse.ok) {
       console.error('❌ Ошибка API метрик:', apiResponse.status, responseText);
       return {
@@ -86,7 +135,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: `API error: ${apiResponse.status}`,
-          details: responseText
+          details: responseText.substring(0, 500) // Ограничиваем длину для безопасности
         })
       };
     }
@@ -105,14 +154,16 @@ exports.handler = async (event, context) => {
     let jsonResponse;
     try {
       jsonResponse = JSON.parse(responseText);
-    } catch (e) {
-      console.error('❌ Неверный JSON от API метрик:', e.message);
+    } catch (parseError) {
+      console.error('❌ Неверный JSON от API метрик:', parseError.message);
+      console.error('Первые 200 символов ответа:', responseText.substring(0, 200));
       return {
         statusCode: 502,
         headers,
         body: JSON.stringify({ 
           error: 'Неверный JSON от API метрик',
-          rawResponse: responseText.substring(0, 500)
+          details: parseError.message,
+          rawResponse: responseText.substring(0, 200)
         })
       };
     }
@@ -130,7 +181,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log('✅ Успешный ответ от API метрик, записей:', Array.isArray(jsonResponse) ? jsonResponse.length : 'не массив');
+    const recordCount = Array.isArray(jsonResponse) ? jsonResponse.length : 'не массив';
+    console.log(`✅ Успешный ответ от API метрик, записей: ${recordCount}`);
 
     // Возвращаем успешный ответ
     return {
@@ -141,6 +193,7 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('💥 Критическая ошибка в прокси функции:', error);
+    console.error('Stack trace:', error.stack);
     
     // Определяем тип ошибки для лучшего ответа
     let statusCode = 500;
@@ -149,7 +202,7 @@ exports.handler = async (event, context) => {
     if (error.name === 'AbortError' || error.message.includes('timeout')) {
       statusCode = 504;
       errorMessage = 'Таймаут запроса к API метрик';
-    } else if (error.message.includes('fetch')) {
+    } else if (error.message.includes('fetch') || error.message.includes('network')) {
       statusCode = 502;
       errorMessage = 'API метрик недоступен';
     }
@@ -159,7 +212,8 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({ 
         error: errorMessage,
-        details: error.message
+        details: error.message,
+        type: error.name
       })
     };
   }
