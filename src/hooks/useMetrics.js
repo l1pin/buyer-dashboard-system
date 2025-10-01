@@ -153,14 +153,14 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       const results = await Promise.allSettled(
         videoNames.map(async (videoName, index) => {
           try {
-            // Сильно уменьшенные задержки для ускорения
+            // Увеличенные задержки для снижения нагрузки на API
             if (index > 0) {
               if (index % 10 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 200)); // Каждые 10 запросов - пауза 200мс
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Каждые 10 запросов - пауза 1сек
               } else if (index % 5 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 50));  // Каждые 5 запросов - пауза 50мс
+                await new Promise(resolve => setTimeout(resolve, 300));  // Каждые 5 запросов - пауза 300мс
               } else {
-                await new Promise(resolve => setTimeout(resolve, 10));  // Между остальными - 10мс
+                await new Promise(resolve => setTimeout(resolve, 100));  // Между остальными - 100мс
               }
             }
             
