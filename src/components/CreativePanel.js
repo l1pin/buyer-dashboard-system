@@ -150,6 +150,8 @@ function CreativePanel({ user }) {
     loading: metricsLoading, 
     error: metricsError,
     stats: metricsStats,
+    lastUpdated: metricsLastUpdated,
+    lastCacheUpdate,
     getVideoMetrics,
     getCreativeMetrics,
     refresh: refreshMetrics 
@@ -1314,10 +1316,29 @@ function CreativePanel({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log(`🔄 Полное обновление данных (период: ${metricsPeriod})`);
-    await loadCreatives();
-    refreshMetrics();
-    refreshZoneData();
+    console.log(`🔄 ПРИНУДИТЕЛЬНОЕ обновление данных (период: ${metricsPeriod})`);
+    clearMessages();
+    
+    try {
+      await loadCreatives();
+      await refreshMetrics();
+      await refreshZoneData();
+      setSuccess('Данные обновлены из базы данных и сохранены в кеш');
+    } catch (err) {
+      setError('Ошибка обновления: ' + err.message);
+    }
+  };
+
+  const formatLastUpdated = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const availableMonths = getAvailableMonths();
@@ -1440,13 +1461,21 @@ function CreativePanel({ user }) {
               )}
             </div>
 
-            <button
-              onClick={handleRefreshAll}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Обновить
-            </button>
+            <div className="flex items-center space-x-3">
+              {lastCacheUpdate && (
+                <div className="text-xs text-gray-600">
+                  Обновлено: {formatLastUpdated(lastCacheUpdate)}
+                </div>
+              )}
+              <button
+                onClick={handleRefreshAll}
+                disabled={loading || metricsLoading}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${metricsLoading ? 'animate-spin' : ''}`} />
+                Обновить
+              </button>
+            </div>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
