@@ -166,8 +166,8 @@ function Dashboard({ user, session, updateUser }) {
         onLogout={handleLogout}
       />
 
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full">
+      <main className="flex-1 overflow-auto">
+        <div className="min-h-full">
           {renderActiveSection()}
         </div>
       </main>
