@@ -150,40 +150,47 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       console.log(`📊 Запуск ОПТИМИЗИРОВАННОЙ загрузки ${videoNames.length} видео...`);
       
       // ОПТИМИЗИРОВАННАЯ батчевая загрузка с меньшими задержками
-      const results = await Promise.allSettled(
-        videoNames.map(async (videoName, index) => {
-          try {
-            // Увеличенные задержки для снижения нагрузки на API
-            if (index > 0) {
-              if (index % 10 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Каждые 10 запросов - пауза 1сек
-              } else if (index % 5 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 300));  // Каждые 5 запросов - пауза 300мс
-              } else {
-                await new Promise(resolve => setTimeout(resolve, 100));  // Между остальными - 100мс
-              }
+      // БАТЧЕВАЯ ОЧЕРЕДЬ - обработка по 3 запроса одновременно
+      const BATCH_SIZE = 3; // Максимум 3 одновременных запроса
+      const BATCH_DELAY = 500; // 500мс между батчами
+      
+      const results = [];
+      
+      for (let i = 0; i < videoNames.length; i += BATCH_SIZE) {
+        // Проверка на отмену
+        if (loadingCancelRef.current) {
+          console.log('⚠️ Загрузка отменена');
+          break;
+        }
+        
+        const batch = videoNames.slice(i, i + BATCH_SIZE);
+        console.log(`🔄 Обработка батча ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videoNames.length / BATCH_SIZE)}: ${batch.length} видео`);
+        
+        const batchResults = await Promise.allSettled(
+          batch.map(async (videoName) => {
+            try {
+              const result = await MetricsService.getVideoMetricsRaw(videoName);
+              return {
+                videoName,
+                ...result
+              };
+            } catch (error) {
+              return {
+                videoName,
+                found: false,
+                error: error.message
+              };
             }
-            
-            // Проверка на отмену
-            if (loadingCancelRef.current) {
-              throw new Error('Загрузка отменена');
-            }
-            
-            const result = await MetricsService.getVideoMetricsRaw(videoName);
-            
-            return {
-              videoName,
-              ...result
-            };
-          } catch (error) {
-            return {
-              videoName,
-              found: false,
-              error: error.message
-            };
-          }
-        })
-      );
+          })
+        );
+        
+        results.push(...batchResults);
+        
+        // Задержка между батчами (кроме последнего)
+        if (i + BATCH_SIZE < videoNames.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+        }
+      }
 
       const rawMetricsMap = new Map();
       let successCount = 0;
