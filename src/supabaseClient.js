@@ -1373,6 +1373,9 @@ export const metricsCacheService = {
     }
   }
 };
+
+// Сервис для работы с метриками аналитики
+export const metricsAnalyticsService = {
   async uploadMetrics(metricsData) {
     try {
       console.log('📊 Загружаем метрики аналитики:', metricsData.length, 'записей');
