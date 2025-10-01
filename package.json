@@ -35,7 +35,14 @@
     "functions:serve": "netlify functions:serve",
     "functions:build": "netlify functions:build",
     "test:local": "npm run build && netlify dev --live",
-    "test:metrics": "node scripts/testMetricsProxy.js"
+    "test:metrics": "node scripts/testMetricsProxy.js",
+    "test:metrics": "node scripts/testMetricsProxy.js",
+    "cache:clear": "node scripts/clearMetricsCache.js",
+    "cache:stats": "node scripts/getCacheStats.js",
+    "cache:update": "node scripts/updateMetricsCache.js",
+    "netlify:deploy": "netlify deploy --prod",
+    "netlify:functions": "netlify functions:list",
+    "netlify:logs": "netlify functions:logs"
   },
   "eslintConfig": {
     "extends": [
@@ -77,7 +84,9 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.3",
     "node-fetch": "^2.7.0",
-    "netlify-cli": "^17.0.0"
+    "netlify-cli": "^17.0.0",
+    "dotenv-cli": "^7.4.2",
+    "cross-env": "^7.0.3"
   },
   "proxy": "http://localhost:3000",
   "engines": {
