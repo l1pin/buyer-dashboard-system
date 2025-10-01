@@ -99,15 +99,17 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
+  const [lastCacheUpdate, setLastCacheUpdate] = useState(null);
 
   // Ссылка для отмены загрузки
   const loadingCancelRef = useRef(false);
 
-  const loadRawBatchMetrics = useCallback(async () => {
+  const loadRawBatchMetrics = useCallback(async (forceRefresh = false) => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
+      setLastCacheUpdate(null);
       return;
     }
 
@@ -116,7 +118,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     loadingCancelRef.current = false;
 
     try {
-      console.log('🚀 ОПТИМИЗИРОВАННАЯ батчевая загрузка данных...');
+      console.log(forceRefresh ? '🔄 ПРИНУДИТЕЛЬНОЕ обновление из БД...' : '💾 Загрузка метрик (из кеша)...');
       
       // Собираем все названия видео из всех креативов
       const videoToCreativeMap = new Map();
@@ -147,49 +149,47 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
       }
 
       const videoNames = Array.from(videoToCreativeMap.keys());
-      console.log(`📊 Запуск ОПТИМИЗИРОВАННОЙ загрузки ${videoNames.length} видео...`);
+      console.log(`📊 Запуск загрузки ${videoNames.length} видео...`);
       
-      // ОПТИМИЗИРОВАННАЯ батчевая загрузка с меньшими задержками
-      // БАТЧЕВАЯ ОЧЕРЕДЬ - обработка по 3 запроса одновременно
-      const BATCH_SIZE = 3; // Максимум 3 одновременных запроса
-      const BATCH_DELAY = 500; // 500мс между батчами
-      
-      const results = [];
-      
-      for (let i = 0; i < videoNames.length; i += BATCH_SIZE) {
-        // Проверка на отмену
-        if (loadingCancelRef.current) {
-          console.log('⚠️ Загрузка отменена');
-          break;
+      let results = [];
+      let fromCacheCount = 0;
+
+      if (forceRefresh) {
+        // ПРИНУДИТЕЛЬНОЕ обновление - загружаем из БД
+        const BATCH_SIZE = 3;
+        const BATCH_DELAY = 500;
+        
+        for (let i = 0; i < videoNames.length; i += BATCH_SIZE) {
+          if (loadingCancelRef.current) {
+            console.log('⚠️ Загрузка отменена');
+            break;
+          }
+          
+          const batch = videoNames.slice(i, i + BATCH_SIZE);
+          console.log(`🔄 Обновление батча ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videoNames.length / BATCH_SIZE)}`);
+          
+          const batchResults = await Promise.allSettled(
+            batch.map(videoName => MetricsService.forceUpdateMetrics(videoName))
+          );
+          
+          results.push(...batchResults);
+          
+          if (i + BATCH_SIZE < videoNames.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+          }
         }
-        
-        const batch = videoNames.slice(i, i + BATCH_SIZE);
-        console.log(`🔄 Обработка батча ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videoNames.length / BATCH_SIZE)}: ${batch.length} видео`);
-        
-        const batchResults = await Promise.allSettled(
-          batch.map(async (videoName) => {
-            try {
-              const result = await MetricsService.getVideoMetricsRaw(videoName);
-              return {
-                videoName,
-                ...result
-              };
-            } catch (error) {
-              return {
-                videoName,
-                found: false,
-                error: error.message
-              };
-            }
-          })
+      } else {
+        // Обычная загрузка - используем кеш
+        results = await Promise.allSettled(
+          videoNames.map(videoName => MetricsService.getVideoMetricsRaw(videoName, true))
         );
         
-        results.push(...batchResults);
-        
-        // Задержка между батчами (кроме последнего)
-        if (i + BATCH_SIZE < videoNames.length) {
-          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
-        }
+        // Подсчет загрузок из кеша
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value?.fromCache) {
+            fromCacheCount++;
+          }
+        });
       }
 
       const rawMetricsMap = new Map();
@@ -225,9 +225,17 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
 
       // Сохраняем сырые данные за все время
       setRawBatchMetrics(rawMetricsMap);
-      setLastUpdated(new Date());
+      const now = new Date();
+      setLastUpdated(now);
       
-      console.log(`✅ ОПТИМИЗИРОВАННАЯ загрузка завершена: ${successCount}/${results.length} метрик найдено`);
+      // Получаем дату последнего обновления кеша
+      const cacheUpdate = await MetricsService.getLastCacheUpdate();
+      setLastCacheUpdate(cacheUpdate);
+      
+      console.log(`✅ Загрузка завершена: ${successCount}/${results.length} метрик найдено`);
+      if (!forceRefresh && fromCacheCount > 0) {
+        console.log(`💾 Из кеша: ${fromCacheCount}/${results.length}`);
+      }
 
     } catch (err) {
       console.error('❌ Ошибка оптимизированной загрузки:', err);
@@ -380,25 +388,26 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   }, [stats]);
 
   const refresh = useCallback(async () => {
-    console.log('🔄 Принудительное обновление с оптимизированной загрузкой...');
-    loadingCancelRef.current = true; // Отменяем текущую загрузку
-    await new Promise(resolve => setTimeout(resolve, 100)); // Ждем отмены
-    await loadRawBatchMetrics();
+    console.log('🔄 ПРИНУДИТЕЛЬНОЕ обновление из БД...');
+    loadingCancelRef.current = true;
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await loadRawBatchMetrics(true);
   }, [loadRawBatchMetrics]);
 
   return {
-    batchMetrics: filteredBatchMetrics, // Возвращаем отфильтрованные данные
-    rawBatchMetrics, // Для отладки
-    loading, // Общий статус загрузки
+    batchMetrics: filteredBatchMetrics,
+    rawBatchMetrics,
+    loading,
     error,
     stats,
     lastUpdated,
+    lastCacheUpdate,
     refresh,
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
     getSuccessRate,
-    currentPeriod: period // Для отладки
+    currentPeriod: period
   };
 }
 
