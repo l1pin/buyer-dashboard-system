@@ -115,7 +115,8 @@ exports.handler = async (event, context) => {
       update_type: 'auto',
       videos_updated: updated,
       videos_failed: failed,
-      started_at: new Date(startTime).toISOString()
+      started_at: new Date(startTime).toISOString(),
+      completed_at: new Date().toISOString()
     });
 
     return {
