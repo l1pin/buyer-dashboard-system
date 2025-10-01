@@ -82,6 +82,16 @@
 [functions.environment]
   NODE_OPTIONS = "--max-old-space-size=4096"
 
+# Переменные окружения для функций (будут использоваться если не заданы в Netlify UI)
+[context.production]
+  environment = { NODE_ENV = "production" }
+
+[context.deploy-preview]
+  environment = { NODE_ENV = "development" }
+
+[context.branch-deploy]
+  environment = { NODE_ENV = "development" }
+
 # Таймауты для функций (максимум 26 секунд на бесплатном плане)
 [functions]
   external_node_modules = ["@supabase/supabase-js"]
