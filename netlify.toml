@@ -1,4 +1,4 @@
-# Создайте/обновите файл: netlify.toml в корне проекта
+# netlify.toml - Конфигурация для Netlify
 
 [build]
   publish = "build"
@@ -12,21 +12,56 @@
   directory = "netlify/functions/"
   included_files = ["netlify/functions/**"]
   node_bundler = "esbuild"
+  external_node_modules = ["@supabase/supabase-js"]
 
-# Настройки для SPA
+[functions.environment]
+  NODE_OPTIONS = "--max-old-space-size=4096"
+
+# Настройки для Scheduled Functions
+[functions."auto-update-cache"]
+  schedule = "0 1 * * *"
+
+# Настройки для разработки
+[dev]
+  command = "npm start"
+  port = 3000
+  autoLaunch = false
+  functions = "netlify/functions"
+
+# Переменные окружения для продакшена
+[context.production.environment]
+  NODE_ENV = "production"
+  REACT_APP_ENV = "production"
+
+# Переменные для разработки
+[context.dev.environment]
+  NODE_ENV = "development"
+  REACT_APP_ENV = "development"
+
+# Переменные для deploy preview
+[context.deploy-preview.environment]
+  NODE_ENV = "development"
+  REACT_APP_ENV = "development"
+
+# Переменные для branch deploy
+[context.branch-deploy.environment]
+  NODE_ENV = "development"
+  REACT_APP_ENV = "development"
+
+# Перенаправление API запросов к функциям
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Перенаправления для React Router
+# Перенаправления для React Router (SPA)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   conditions = {Role = ["!robot"]}
 
-# Настройки безопасности
+# Заголовки безопасности для всех страниц
 [[headers]]
   for = "/*"
   [headers.values]
@@ -35,7 +70,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Настройки для API функций
+# Заголовки для API функций
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
@@ -54,44 +89,3 @@
 [[edge_functions]]
   path = "/.netlify/edge-functions/auto-update-cache"
   function = "auto-update-cache"
-
-# Настройки для Scheduled Functions (если поддерживаются)
-[functions."auto-update-cache"]
-  schedule = "0 1 * * *"
-  # 04:00 по Киеву (зимнее время) = 01:00 UTC
-  # 04:00 по Киеву (летнее время) = 01:00 UTC (автоматически корректируется)
-
-# Настройки для разработки
-[dev]
-  command = "npm start"
-  port = 3000
-  autoLaunch = false
-  functions = "netlify/functions"
-
-  # Переменные окружения для продакшена (переопределяются через Netlify UI)
-[context.production.environment]
-  NODE_ENV = "production"
-  REACT_APP_ENV = "production"
-
-# Переменные для разработки
-[context.dev.environment]
-  NODE_ENV = "development"
-  REACT_APP_ENV = "development"
-
-# Настройки для функций
-[functions.environment]
-  NODE_OPTIONS = "--max-old-space-size=4096"
-
-# Переменные окружения для функций (будут использоваться если не заданы в Netlify UI)
-[context.production]
-  environment = { NODE_ENV = "production" }
-
-[context.deploy-preview]
-  environment = { NODE_ENV = "development" }
-
-[context.branch-deploy]
-  environment = { NODE_ENV = "development" }
-
-# Таймауты для функций (максимум 26 секунд на бесплатном плане)
-[functions]
-  external_node_modules = ["@supabase/supabase-js"]
