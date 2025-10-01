@@ -938,7 +938,7 @@ function CreativeAnalytics({ user }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -1151,7 +1151,7 @@ function CreativeAnalytics({ user }) {
 
       {/* Statistics Cards */}
       {filteredCreativesByMonth.length > 0 && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+        <div className="bg-gray-50 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
@@ -1728,7 +1728,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="p-6">
+      <div className="flex-1 overflow-auto p-6">
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -1746,9 +1746,9 @@ function CreativeAnalytics({ user }) {
                 {getDisplayMonthYear()} - Полная аналитика креативов
               </h3>
               
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
