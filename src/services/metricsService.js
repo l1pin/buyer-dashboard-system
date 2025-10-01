@@ -1,8 +1,6 @@
 // ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ MetricsService.js - МГНОВЕННАЯ клиентская фильтрация
 // Замените содержимое src/services/metricsService.js
 
-import { metricsCacheService } from '../supabaseClient';
-
 const getApiUrl = () => {
   if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
     return '/.netlify/functions/metrics-proxy';
@@ -12,7 +10,6 @@ const getApiUrl = () => {
 
 const METRICS_API_URL = getApiUrl();
 const TIMEZONE = "Europe/Kiev";
-const USE_CACHE = true;
 
 export class MetricsService {
   /**
@@ -354,33 +351,15 @@ export class MetricsService {
   }
 
   /**
-   * ПЕРЕПИСАННЫЙ метод с КЕШИРОВАНИЕМ: Получение метрик для конкретного видео
+   * ПЕРЕПИСАННЫЙ метод: Получение метрик для конкретного видео - ТОЛЬКО за все время
    */
-  static async getVideoMetricsRaw(videoName, useCache = USE_CACHE) {
+  static async getVideoMetricsRaw(videoName) {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
 
-    // Проверяем кеш если включен
-    if (useCache) {
-      try {
-        const cached = await metricsCacheService.getCachedMetrics(videoName);
-        if (cached && cached.metrics_data) {
-          console.log(`💾 Загружено из КЕША: ${videoName}`);
-          return {
-            found: true,
-            data: cached.metrics_data,
-            fromCache: true,
-            lastUpdated: cached.last_updated
-          };
-        }
-      } catch (error) {
-        console.warn('Ошибка чтения кеша:', error);
-      }
-    }
-
     try {
-      console.log(`🔍 Загружаем из БД для: ${videoName}`);
+      console.log(`🔍 Загружаем сырые данные ЗА ВСЕ ВРЕМЯ для: ${videoName}`);
       
       // ВСЕГДА получаем данные за ВСЕ время
       const sql = this.buildDetailedSqlForVideo(videoName);
@@ -420,38 +399,24 @@ export class MetricsService {
       
       console.log(`✅ Сырые данные загружены: ${allDailyData.length} дней активности`);
       
-      const resultData = {
-        raw: metrics,
-        formatted: formatted,
-        allDailyData: allDailyData,
-        dailyData: allDailyData,
-        videoName: videoName,
-        period: 'all',
-        updatedAt: new Date().toLocaleString('ru-RU', {
-          timeZone: TIMEZONE,
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      };
-
-      // Сохраняем в кеш
-      if (useCache) {
-        try {
-          await metricsCacheService.updateCachedMetrics(videoName, resultData);
-          console.log(`💾 Сохранено в КЕШ: ${videoName}`);
-        } catch (error) {
-          console.warn('Ошибка сохранения в кеш:', error);
-        }
-      }
-      
       return {
         found: true,
-        data: resultData,
-        fromCache: false,
-        lastUpdated: new Date().toISOString()
+        data: {
+          raw: metrics,
+          formatted: formatted,
+          allDailyData: allDailyData, // КЛЮЧЕВОЕ: сохраняем ВСЕ дневные данные для фильтрации
+          dailyData: allDailyData, // По умолчанию показываем все дни
+          videoName: videoName,
+          period: 'all', // Сырые данные всегда за все время
+          updatedAt: new Date().toLocaleString('ru-RU', {
+            timeZone: TIMEZONE,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        }
       };
     } catch (error) {
       return {
@@ -596,26 +561,6 @@ export class MetricsService {
    */
   static getApiUrl() {
     return METRICS_API_URL;
-  }
-
-  /**
-   * Принудительное обновление метрик из БД (игнорирует кеш)
-   */
-  static async forceUpdateMetrics(videoName) {
-    console.log(`🔄 Принудительное обновление: ${videoName}`);
-    return await this.getVideoMetricsRaw(videoName, false);
-  }
-
-  /**
-   * Получить дату последнего обновления кеша
-   */
-  static async getLastCacheUpdate() {
-    try {
-      return await metricsCacheService.getLastUpdateInfo();
-    } catch (error) {
-      console.error('Ошибка получения даты обновления кеша:', error);
-      return null;
-    }
   }
 }
 
