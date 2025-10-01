@@ -1199,7 +1199,180 @@ export const creativeService = {
   }
 };
 
-export const metricsAnalyticsService = {
+// Сервис для работы с кешем метрик
+export const metricsCacheService = {
+  // Получить закешированные метрики для видео
+  async getCachedMetrics(videoName) {
+    try {
+      if (!videoName || typeof videoName !== 'string') {
+        return null;
+      }
+
+      console.log(`💾 Запрос кеша для: ${videoName}`);
+
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .select('*')
+        .eq('video_name', videoName.trim())
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log(`📭 Кеш не найден для: ${videoName}`);
+          return null;
+        }
+        throw error;
+      }
+
+      if (data) {
+        console.log(`✅ Кеш найден для: ${videoName}, обновлен: ${data.last_updated}`);
+        return data;
+      }
+
+      return null;
+
+    } catch (error) {
+      console.error('❌ Ошибка получения кеша:', error);
+      return null;
+    }
+  },
+
+  // Обновить или создать кеш для видео
+  async updateCachedMetrics(videoName, metricsData) {
+    try {
+      if (!videoName || typeof videoName !== 'string') {
+        throw new Error('videoName обязателен');
+      }
+
+      console.log(`💾 Сохранение в кеш: ${videoName}`);
+
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .upsert({
+          video_name: videoName.trim(),
+          metrics_data: metricsData,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'video_name'
+        })
+        .select();
+
+      if (error) {
+        console.error('❌ Ошибка сохранения в кеш:', error);
+        throw error;
+      }
+
+      console.log(`✅ Кеш сохранен для: ${videoName}`);
+      return data[0];
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления кеша:', error);
+      throw error;
+    }
+  },
+
+  // Удалить кеш для видео
+  async deleteCachedMetrics(videoName) {
+    try {
+      const { error } = await supabase
+        .from('metrics_cache')
+        .delete()
+        .eq('video_name', videoName.trim());
+
+      if (error) throw error;
+
+      console.log(`🗑️ Кеш удален для: ${videoName}`);
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления кеша:', error);
+      throw error;
+    }
+  },
+
+  // Получить дату последнего обновления кеша
+  async getLastUpdateInfo() {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .select('last_updated')
+        .order('last_updated', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+
+      return data?.last_updated || null;
+
+    } catch (error) {
+      console.error('❌ Ошибка получения даты обновления:', error);
+      return null;
+    }
+  },
+
+  // Получить статистику кеша
+  async getCacheStats() {
+    try {
+      const { count, error } = await supabase
+        .from('metrics_cache')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+
+      return {
+        totalCached: count || 0
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка получения статистики кеша:', error);
+      return {
+        totalCached: 0
+      };
+    }
+  },
+
+  // Очистить весь кеш
+  async clearAllCache() {
+    try {
+      console.log('🧹 Очистка всего кеша...');
+
+      const { error } = await supabase
+        .from('metrics_cache')
+        .delete()
+        .neq('id', 0);
+
+      if (error) throw error;
+
+      console.log('✅ Кеш полностью очищен');
+
+    } catch (error) {
+      console.error('❌ Ошибка очистки кеша:', error);
+      throw error;
+    }
+  },
+
+  // Получить все закешированные видео
+  async getAllCachedVideos() {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .select('video_name, last_updated')
+        .order('last_updated', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка получения списка кеша:', error);
+      return [];
+    }
+  }
+};
   async uploadMetrics(metricsData) {
     try {
       console.log('📊 Загружаем метрики аналитики:', metricsData.length, 'записей');
