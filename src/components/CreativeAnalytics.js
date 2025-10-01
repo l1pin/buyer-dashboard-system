@@ -61,7 +61,6 @@ function CreativeAnalytics({ user }) {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [metricsPeriod, setMetricsPeriod] = useState('all');
@@ -140,8 +139,6 @@ function CreativeAnalytics({ user }) {
     loading: metricsLoading, 
     error: metricsError,
     stats: metricsStats,
-    lastUpdated: metricsLastUpdated,
-    lastCacheUpdate,
     getCreativeMetrics,
     refresh: refreshMetrics 
   } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
@@ -904,28 +901,9 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log('🔄 ПРИНУДИТЕЛЬНОЕ обновление данных аналитики');
-    
-    try {
-      await loadAnalytics();
-      await refreshMetrics();
-      await refreshZoneData();
-      setSuccess('Данные обновлены из базы данных и сохранены в кеш');
-    } catch (err) {
-      setError('Ошибка обновления: ' + err.message);
-    }
-  };
-
-  const formatLastUpdated = (date) => {
-    if (!date) return '';
-    const d = new Date(date);
-    return d.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    await loadAnalytics();
+    refreshMetrics();
+    refreshZoneData();
   };
 
   const handlePeriodChange = (period) => {
@@ -1066,32 +1044,14 @@ function CreativeAnalytics({ user }) {
               )}
             </div>
             
-            <div className="flex items-center space-x-3">
-              {lastCacheUpdate && (
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-3 w-3 text-gray-500" />
-                  <div className="text-xs text-gray-600">
-                    <span className="font-medium">Кеш обновлен:</span> {formatLastUpdated(lastCacheUpdate)}
-                  </div>
-                </div>
-              )}
-              {!lastCacheUpdate && metricsLastUpdated && (
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-3 w-3 text-blue-500" />
-                  <div className="text-xs text-blue-600">
-                    <span className="font-medium">Загружено:</span> {formatLastUpdated(metricsLastUpdated)}
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={handleRefreshAll}
-                disabled={loading || metricsLoading}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
-                Обновить
-              </button>
-            </div>
+            <button
+              onClick={handleRefreshAll}
+              disabled={loading || metricsLoading}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
+              Обновить
+            </button>
             <button
               onClick={exportReport}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
