@@ -136,4 +136,14 @@
       }
     }
   }
+  },
+  "cacheConfig": {
+    "metricsCache": {
+      "enabled": true,
+      "autoUpdateSchedule": "0 1 * * *",
+      "timezone": "Europe/Kiev",
+      "description": "Автоматическое обновление кеша метрик каждый день в 04:00 по Киеву"
+    }
+  }
+}
 }
