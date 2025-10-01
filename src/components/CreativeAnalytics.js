@@ -1067,8 +1067,19 @@ function CreativeAnalytics({ user }) {
             
             <div className="flex items-center space-x-3">
               {lastCacheUpdate && (
-                <div className="text-xs text-gray-600">
-                  Обновлено: {formatLastUpdated(lastCacheUpdate)}
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-3 w-3 text-gray-500" />
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">Кеш обновлен:</span> {formatLastUpdated(lastCacheUpdate)}
+                  </div>
+                </div>
+              )}
+              {!lastCacheUpdate && metricsLastUpdated && (
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-3 w-3 text-blue-500" />
+                  <div className="text-xs text-blue-600">
+                    <span className="font-medium">Загружено:</span> {formatLastUpdated(metricsLastUpdated)}
+                  </div>
                 </div>
               )}
               <button
