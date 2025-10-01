@@ -1,4 +1,4 @@
-# netlify.toml - Конфигурация для Netlify
+# Создайте/обновите файл: netlify.toml в корне проекта
 
 [build]
   publish = "build"
@@ -11,57 +11,21 @@
 [functions]
   directory = "netlify/functions/"
   included_files = ["netlify/functions/**"]
-  node_bundler = "esbuild"
-  external_node_modules = ["@supabase/supabase-js"]
 
-[functions.environment]
-  NODE_OPTIONS = "--max-old-space-size=4096"
-
-# Настройки для Scheduled Functions
-[functions."auto-update-cache"]
-  schedule = "0 1 * * *"
-
-# Настройки для разработки
-[dev]
-  command = "npm start"
-  port = 3000
-  autoLaunch = false
-  functions = "netlify/functions"
-
-# Переменные окружения для продакшена
-[context.production.environment]
-  NODE_ENV = "production"
-  REACT_APP_ENV = "production"
-
-# Переменные для разработки
-[context.dev.environment]
-  NODE_ENV = "development"
-  REACT_APP_ENV = "development"
-
-# Переменные для deploy preview
-[context.deploy-preview.environment]
-  NODE_ENV = "development"
-  REACT_APP_ENV = "development"
-
-# Переменные для branch deploy
-[context.branch-deploy.environment]
-  NODE_ENV = "development"
-  REACT_APP_ENV = "development"
-
-# Перенаправление API запросов к функциям
+# Настройки для SPA
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Перенаправления для React Router (SPA)
+# Перенаправления для React Router
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   conditions = {Role = ["!robot"]}
 
-# Заголовки безопасности для всех страниц
+# Настройки безопасности
 [[headers]]
   for = "/*"
   [headers.values]
@@ -70,14 +34,13 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Заголовки для API функций
+# Настройки для API функций
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Cache-Control = "no-cache, no-store, must-revalidate"
+    Access-Control-Allow-Headers = "Content-Type"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
 
 # Кэширование статических ресурсов
 [[headers]]
@@ -85,7 +48,9 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Edge Functions для автоматического обновления кеша
-[[edge_functions]]
-  path = "/.netlify/edge-functions/auto-update-cache"
-  function = "auto-update-cache"
+# Настройки для разработки
+[dev]
+  command = "npm start"
+  port = 3000
+  autoLaunch = false
+  functions = "netlify/functions"
