@@ -1748,7 +1748,7 @@ function CreativeAnalytics({ user }) {
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+                  <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
