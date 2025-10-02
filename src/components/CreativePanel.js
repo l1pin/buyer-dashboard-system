@@ -2,7 +2,7 @@
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { creativeService, userService, creativeHistoryService } from '../supabaseClient';
+import { creativeService, userService, creativeHistoryService, metricsAnalyticsService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
