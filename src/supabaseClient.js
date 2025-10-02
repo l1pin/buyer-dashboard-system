@@ -1672,6 +1672,8 @@ export const metricsAnalyticsService = {
       // Данные метрик в правильном формате
       found: true,
       data: {
+        period: cacheData.period || 'all', // ВАЖНО: сохраняем период из кэша
+        fromCache: true,
         raw: {
           leads,
           cost: Number(cost.toFixed(2)),
