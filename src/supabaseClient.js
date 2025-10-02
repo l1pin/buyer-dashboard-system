@@ -1566,15 +1566,49 @@ export const metricsAnalyticsService = {
 
   // Восстановление метрик из кэша с вычислением производных метрик
   reconstructMetricsFromCache(cacheData) {
-    if (!cacheData) return null;
+    if (!cacheData) {
+      console.log('⚠️ reconstructMetricsFromCache: cacheData is null');
+      return null;
+    }
 
-    // Базовые метрики из колонок
+    console.log('📦 Восстановление метрик из кэша:', {
+      creative_id: cacheData.creative_id,
+      video_index: cacheData.video_index,
+      hasLeads: 'leads' in cacheData,
+      hasMetricsData: 'metrics_data' in cacheData,
+      leads: cacheData.leads,
+      article: cacheData.article
+    });
+
+    // КРИТИЧНО: Проверяем СТАРЫЙ формат (metrics_data как JSON)
+    if (cacheData.metrics_data) {
+      console.log('📦 Используем СТАРЫЙ формат кэша (metrics_data JSON)');
+      // Возвращаем старый формат как есть
+      return {
+        creative_id: cacheData.creative_id,
+        article: cacheData.article,
+        video_index: cacheData.video_index,
+        video_title: cacheData.video_title,
+        period: cacheData.period,
+        cached_at: cacheData.cached_at,
+        found: true,
+        data: cacheData.metrics_data,
+        error: null,
+        videoName: cacheData.video_title
+      };
+    }
+
+    // НОВЫЙ формат: Базовые метрики из отдельных колонок
     const leads = Number(cacheData.leads) || 0;
     const cost = Number(cacheData.cost) || 0;
     const clicks = Number(cacheData.clicks) || 0;
     const impressions = Number(cacheData.impressions) || 0;
     const avg_duration = Number(cacheData.avg_duration) || 0;
     const days_count = Number(cacheData.days_count) || 0;
+
+    console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
+      leads, cost, clicks, impressions, avg_duration, days_count
+    });
 
     // Вычисляем производные метрики на клиенте
     const cpl = leads > 0 ? cost / leads : 0;
