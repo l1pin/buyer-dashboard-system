@@ -1544,20 +1544,20 @@ export const metricsAnalyticsService = {
 
   async getBatchMetricsCache(creativeIds, period = 'all') {
     try {
-      console.log('🔍 Запрос батча кэша метрик:', {
+      console.log('🔍 БАТЧЕВЫЙ запрос кэша метрик:', {
         creativeIdsCount: creativeIds?.length,
-        period,
-        firstCreativeId: creativeIds?.[0]
+        period
       });
 
+      // КРИТИЧНО: Убираем select('*') чтобы избежать проблем с JSONB колонками
       const { data, error } = await supabase
         .from('metrics_cache')
-        .select('*')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
         .in('creative_id', creativeIds)
         .eq('period', period);
 
       if (error) {
-        console.error('❌ Ошибка запроса к metrics_cache:', error);
+        console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
         throw error;
       }
       
