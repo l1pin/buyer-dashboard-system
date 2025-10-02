@@ -213,12 +213,15 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log('🔄 Форсированное обновление из API...');
       }
 
-      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш
-      const BATCH_SIZE = 3;
-      const BATCH_DELAY = 500;
+      // ОПТИМИЗИРОВАННАЯ БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш
+      const BATCH_SIZE = 10; // ⚡ Увеличено с 3 до 10
+      const BATCH_DELAY = 100; // ⚡ Уменьшено с 500 до 100мс
       
       const rawMetricsMap = new Map();
       let successCount = 0;
+      const totalBatches = Math.ceil(videosToLoad.length / BATCH_SIZE);
+      
+      console.log(`🚀 Начинаем оптимизированную загрузку: ${videosToLoad.length} видео в ${totalBatches} батчах`);
       
       for (let i = 0; i < videosToLoad.length; i += BATCH_SIZE) {
         if (loadingCancelRef.current) {
@@ -227,18 +230,18 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         }
         
         const batch = videosToLoad.slice(i, i + BATCH_SIZE);
-        console.log(`🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videosToLoad.length / BATCH_SIZE)}: ${batch.length} видео`);
+        const currentBatch = Math.floor(i / BATCH_SIZE) + 1;
+        console.log(`⚡ Батч ${currentBatch}/${totalBatches}: загрузка ${batch.length} видео...`);
         
         const batchResults = await Promise.allSettled(
           batch.map(async (video) => {
             try {
-              // ✅ ИСПРАВЛЕНО: Передаем creativeId и videoIndex для сохранения в кэш
               const result = await MetricsService.getVideoMetricsRaw(
                 video.videoTitle,
-                true, // useCache
-                video.creativeId, // ✅ Передаем creativeId
-                video.videoIndex, // ✅ Передаем videoIndex
-                video.article     // ✅ Передаем article
+                true, // useCache - проверяем кэш перед API
+                video.creativeId,
+                video.videoIndex,
+                video.article
               );
               
               return {
@@ -277,7 +280,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           }
         });
         
-        // Задержка между батчами
+        console.log(`✅ Батч ${currentBatch}/${totalBatches} завершен: ${successCount} успешно из ${i + batch.length}`);
+        
+        // Минимальная задержка между батчами (только если не последний)
         if (i + BATCH_SIZE < videosToLoad.length) {
           await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
         }
