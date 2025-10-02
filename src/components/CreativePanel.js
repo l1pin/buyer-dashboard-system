@@ -156,7 +156,7 @@ function CreativePanel({ user }) {
     getCreativeMetrics,
     refresh: refreshMetrics,
     loadFromCache
-  } = useBatchMetrics(filteredCreatives, false, metricsPeriod);
+  } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 
     stats: aggregatedMetricsStats,
@@ -691,16 +691,8 @@ function CreativePanel({ user }) {
   useEffect(() => {
     loadUsers();
     loadCreatives();
-    loadMetricsFromCache();
     loadLastUpdateTime();
   }, []);
-
-  const loadMetricsFromCache = async () => {
-    console.log('📦 Загрузка метрик из кэша при инициализации...');
-    if (loadFromCache) {
-      await loadFromCache();
-    }
-  };
 
   const loadLastUpdateTime = async () => {
     try {
