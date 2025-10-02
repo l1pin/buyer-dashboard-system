@@ -1479,6 +1479,106 @@ export const metricsAnalyticsService = {
     }
   },
 
+  // Сервис для кэширования метрик
+  async saveMetricsCache(creativeId, videoIndex, videoTitle, metricsData, period = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .upsert([
+          {
+            creative_id: creativeId,
+            video_index: videoIndex,
+            video_title: videoTitle,
+            metrics_data: metricsData,
+            period: period,
+            cached_at: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'creative_id,video_index,period'
+        })
+        .select();
+
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      console.error('Ошибка сохранения кэша метрик:', error);
+      return null;
+    }
+  },
+
+  async getMetricsCache(creativeId, videoIndex, period = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .select('*')
+        .eq('creative_id', creativeId)
+        .eq('video_index', videoIndex)
+        .eq('period', period)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Ошибка получения кэша метрик:', error);
+      return null;
+    }
+  },
+
+  async getBatchMetricsCache(creativeIds, period = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .select('*')
+        .in('creative_id', creativeIds)
+        .eq('period', period);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Ошибка получения батча кэша метрик:', error);
+      return [];
+    }
+  },
+
+  async updateMetricsLastUpdate() {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_last_update')
+        .upsert([
+          {
+            id: 1,
+            last_updated: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'id'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Ошибка обновления времени последнего обновления метрик:', error);
+      return null;
+    }
+  },
+
+  async getMetricsLastUpdate() {
+    try {
+      const { data, error } = await supabase
+        .from('metrics_last_update')
+        .select('last_updated')
+        .eq('id', 1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data?.last_updated || null;
+    } catch (error) {
+      console.error('Ошибка получения времени последнего обновления метрик:', error);
+      return null;
+    }
+  },
+
   async getZoneDataByArticles(articles) {
     try {
       if (!articles || articles.length === 0) {
