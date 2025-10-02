@@ -1,6 +1,8 @@
 // ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ MetricsService.js - МГНОВЕННАЯ клиентская фильтрация
 // Замените содержимое src/services/metricsService.js
 
+import { metricsAnalyticsService } from '../supabaseClient';
+
 const getApiUrl = () => {
   if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
     return '/.netlify/functions/metrics-proxy';
@@ -10,9 +12,6 @@ const getApiUrl = () => {
 
 const METRICS_API_URL = getApiUrl();
 const TIMEZONE = "Europe/Kiev";
-
-// Импортируем метод для работы с кэшем
-import { metricsAnalyticsService } from '../supabaseClient';
 
 export class MetricsService {
   /**
