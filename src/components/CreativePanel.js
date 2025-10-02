@@ -325,23 +325,22 @@ function CreativePanel({ user }) {
 
   // НОВАЯ ФУНКЦИЯ: Получение метрик для конкретного видео
   const getIndividualVideoMetrics = (creative, videoIndex) => {
-    const creativeMetrics = getCreativeMetrics(creative.id);
-    
-    if (!creativeMetrics || creativeMetrics.length === 0 || videoIndex >= creativeMetrics.length) {
+    if (!creative.link_titles || videoIndex >= creative.link_titles.length) {
       return null;
     }
-
-    const metric = creativeMetrics[videoIndex];
     
-    if (!metric.found || !metric.data) {
+    const videoKey = `${creative.id}_${videoIndex}`;
+    const metric = batchMetrics.get(videoKey);
+    
+    if (!metric || !metric.found || !metric.data) {
       return null;
     }
 
     return {
       found: true,
-      videoTitle: creative.link_titles?.[videoIndex] || `Видео ${videoIndex + 1}`,
+      videoTitle: creative.link_titles[videoIndex] || `Видео ${videoIndex + 1}`,
       videoIndex: videoIndex + 1,
-      totalVideos: creativeMetrics.length,
+      totalVideos: creative.link_titles.length,
       data: metric.data
     };
   };
@@ -407,18 +406,27 @@ function CreativePanel({ user }) {
 
   // НОВАЯ ФУНКЦИЯ: Получение всех метрик видео для отображения
   const getAllVideoMetrics = (creative) => {
-    const creativeMetrics = getCreativeMetrics(creative.id);
-    
-    if (!creativeMetrics || creativeMetrics.length === 0) {
+    if (!creative.link_titles || creative.link_titles.length === 0) {
       return [];
     }
-
-    return creativeMetrics.map((metric, index) => ({
-      videoIndex: index,
-      videoTitle: creative.link_titles?.[index] || `Видео ${index + 1}`,
-      found: metric.found,
-      data: metric.found ? metric.data : null
-    }));
+    
+    const videoCount = creative.link_titles.length;
+    const allMetrics = [];
+    
+    // КРИТИЧНО: Создаем массив для ВСЕХ видео, даже если метрик нет
+    for (let index = 0; index < videoCount; index++) {
+      const videoKey = `${creative.id}_${index}`;
+      const metric = batchMetrics.get(videoKey);
+      
+      allMetrics.push({
+        videoIndex: index,
+        videoTitle: creative.link_titles[index] || `Видео ${index + 1}`,
+        found: metric?.found || false,
+        data: metric?.found ? metric.data : null
+      });
+    }
+    
+    return allMetrics;
   };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
