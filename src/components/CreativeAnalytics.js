@@ -134,14 +134,17 @@ function CreativeAnalytics({ user }) {
     });
   }, [analytics.creatives, selectedEditor, selectedPeriod, selectedMonth]);
 
+  const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
+
   const { 
     batchMetrics, 
     loading: metricsLoading, 
     error: metricsError,
     stats: metricsStats,
     getCreativeMetrics,
-    refresh: refreshMetrics 
-  } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
+    refresh: refreshMetrics,
+    loadFromCache
+  } = useBatchMetrics(filteredCreativesByMonth, false, metricsPeriod);
   
   const { 
     stats: aggregatedMetricsStats,
@@ -833,7 +836,25 @@ function CreativeAnalytics({ user }) {
   useEffect(() => {
     loadUsers();
     loadAnalytics();
+    loadMetricsFromCache();
+    loadLastUpdateTime();
   }, []);
+
+  const loadMetricsFromCache = async () => {
+    console.log('📦 Загрузка метрик из кэша при инициализации...');
+    if (loadFromCache) {
+      await loadFromCache();
+    }
+  };
+
+  const loadLastUpdateTime = async () => {
+    try {
+      const lastUpdate = await metricsAnalyticsService.getMetricsLastUpdate();
+      setMetricsLastUpdate(lastUpdate);
+    } catch (error) {
+      console.error('Ошибка загрузки времени последнего обновления:', error);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -902,8 +923,9 @@ function CreativeAnalytics({ user }) {
 
   const handleRefreshAll = async () => {
     await loadAnalytics();
-    refreshMetrics();
-    refreshZoneData();
+    await refreshMetrics();
+    await refreshZoneData();
+    await loadLastUpdateTime();
   };
 
   const handlePeriodChange = (period) => {
@@ -1044,14 +1066,27 @@ function CreativeAnalytics({ user }) {
               )}
             </div>
             
-            <button
-              onClick={handleRefreshAll}
-              disabled={loading || metricsLoading}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
-              Обновить
-            </button>
+            <div className="flex flex-col items-end">
+              <button
+                onClick={handleRefreshAll}
+                disabled={loading || metricsLoading}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
+                Обновить
+              </button>
+              {metricsLastUpdate && (
+                <span className="text-xs text-gray-500 mt-1">
+                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              )}
+            </div>
             <button
               onClick={exportReport}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
