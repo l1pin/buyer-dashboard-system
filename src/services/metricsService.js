@@ -443,19 +443,41 @@ export class MetricsService {
       // Сохраняем в кэш, если указаны параметры
       if (creativeId && videoIndex !== null) {
         try {
-          // Извлекаем артикул из creativeId - нужно передать отдельно
-          // Для этого нужно передавать article в getVideoMetricsRaw
+          console.log(`💾 Сохранение метрик в кэш:`, {
+            creativeId,
+            article: article || videoName,
+            videoIndex,
+            videoName,
+            period: 'all',
+            hasData: !!result.data,
+            dataKeys: result.data ? Object.keys(result.data) : [],
+            rawLeads: result.data?.raw?.leads,
+            rawCost: result.data?.raw?.cost
+          });
+
           await metricsAnalyticsService.saveMetricsCache(
             creativeId,
-            article || videoName, // используем переданный артикул
+            article || videoName,
             videoIndex,
             videoName,
             result.data,
             'all'
           );
-          console.log(`💾 Метрики сохранены в кэш для: ${videoName}`);
+          
+          console.log(`✅ Метрики успешно сохранены в кэш для: ${videoName}`);
+          
+          // Проверяем что сохранилось
+          const checkCache = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
+          console.log(`🔍 Проверка сохраненного кэша:`, {
+            found: !!checkCache,
+            hasMetricsData: !!checkCache?.metrics_data,
+            hasLeads: 'leads' in checkCache,
+            leadsValue: checkCache?.leads,
+            costValue: checkCache?.cost
+          });
+          
         } catch (saveError) {
-          console.warn('⚠️ Не удалось сохранить метрики в кэш:', saveError);
+          console.error('❌ ОШИБКА сохранения метрик в кэш:', saveError);
         }
       }
 
