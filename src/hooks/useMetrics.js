@@ -152,12 +152,24 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         const creativeIds = creatives.map(c => c.id);
         const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
         
+        console.log('📦 Получен кэш из БД:', {
+          count: cachedData?.length || 0,
+          firstItem: cachedData?.[0]
+        });
+        
         if (cachedData && cachedData.length > 0) {
           const rawMetricsMap = new Map();
           let cacheHits = 0;
 
           cachedData.forEach(cache => {
             const videoKey = `${cache.creative_id}_${cache.video_index}`;
+            
+            console.log('🔍 Обработка кэша для videoKey:', videoKey, {
+              found: cache.found,
+              hasData: !!cache.data,
+              data: cache.data
+            });
+            
             // reconstructMetricsFromCache уже возвращает нужную структуру с found, data, error
             if (cache.found && cache.data) {
               rawMetricsMap.set(videoKey, {
