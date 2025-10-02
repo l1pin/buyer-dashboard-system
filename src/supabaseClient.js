@@ -1530,7 +1530,9 @@ export const metricsAnalyticsService = {
       
       // Преобразуем данные из колонок в формат с вычисленными метриками
       if (data) {
-        return this.reconstructMetricsFromCache(data);
+        const reconstructed = this.reconstructMetricsFromCache(data);
+        // Возвращаем только поле data из reconstructed для совместимости
+        return reconstructed;
       }
       
       return null;
@@ -1586,13 +1588,17 @@ export const metricsAnalyticsService = {
     const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
     const formatDuration = (n) => (Number(n) || 0).toFixed(1) + "с";
 
+    // Возвращаем в формате, совместимом с rawMetricsMap
     return {
       creative_id: cacheData.creative_id,
       article: cacheData.article,
       video_index: cacheData.video_index,
       video_title: cacheData.video_title,
       period: cacheData.period,
-      metrics_data: {
+      cached_at: cacheData.cached_at,
+      // Данные метрик в правильном формате
+      found: true,
+      data: {
         raw: {
           leads,
           cost: Number(cost.toFixed(2)),
@@ -1622,7 +1628,8 @@ export const metricsAnalyticsService = {
         fromCache: true,
         cachedAt: cacheData.cached_at
       },
-      cached_at: cacheData.cached_at
+      error: null,
+      videoName: cacheData.video_title
     };
   },
 
