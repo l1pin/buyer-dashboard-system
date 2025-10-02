@@ -690,7 +690,7 @@ function CreativePanel({ user }) {
 
   useEffect(() => {
     loadUsers();
-    loadAnalytics();
+    loadCreatives();
     loadMetricsFromCache();
     loadLastUpdateTime();
   }, []);
