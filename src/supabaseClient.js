@@ -1516,6 +1516,71 @@ export const metricsAnalyticsService = {
     }
   },
 
+  // ⚡ НОВАЯ ФУНКЦИЯ: Батчевое сохранение метрик в кэш
+  async saveBatchMetricsCache(metricsArray) {
+    try {
+      if (!metricsArray || metricsArray.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      console.log(`💾 Батчевое сохранение ${metricsArray.length} метрик в кэш...`);
+
+      // Подготавливаем данные для вставки
+      const dataToInsert = metricsArray
+        .filter(m => m.metricsData?.raw) // Только валидные метрики
+        .map(m => {
+          const rawMetrics = m.metricsData.raw;
+          return {
+            creative_id: m.creativeId,
+            article: m.article,
+            video_index: m.videoIndex,
+            video_title: m.videoTitle,
+            period: m.period || 'all',
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
+            cached_at: new Date().toISOString()
+          };
+        });
+
+      if (dataToInsert.length === 0) {
+        console.log('⚠️ Нет валидных метрик для сохранения');
+        return { success: true, count: 0 };
+      }
+
+      // Сохраняем батчем (максимум 100 за раз)
+      const BATCH_SIZE = 100;
+      let totalSaved = 0;
+
+      for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
+        const batch = dataToInsert.slice(i, i + BATCH_SIZE);
+        
+        const { data, error } = await supabase
+          .from('metrics_cache')
+          .upsert(batch, {
+            onConflict: 'creative_id,video_index,period'
+          });
+
+        if (error) {
+          console.error(`❌ Ошибка сохранения батча ${i}-${i + batch.length}:`, error);
+          continue;
+        }
+
+        totalSaved += batch.length;
+      }
+
+      console.log(`✅ Батчевое сохранение завершено: ${totalSaved} метрик`);
+      return { success: true, count: totalSaved };
+
+    } catch (error) {
+      console.error('❌ Критическая ошибка батчевого сохранения:', error);
+      return { success: false, count: 0, error: error.message };
+    }
+  },
+
   async getMetricsCache(creativeId, videoIndex, period = 'all') {
     try {
       const { data, error } = await supabase
