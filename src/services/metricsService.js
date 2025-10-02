@@ -208,8 +208,17 @@ export class MetricsService {
       };
     }
 
-    // Берем сырые дневные данные
+    // КРИТИЧНО: Если период 'all' И данные из кэша (нет allDailyData), возвращаем как есть
     const allDailyData = rawMetrics.data.allDailyData || rawMetrics.data.dailyData || [];
+    const isFromCache = rawMetrics.data.fromCache || rawMetrics.fromCache;
+    
+    if (targetPeriod === 'all' && allDailyData.length === 0 && isFromCache) {
+      console.log('✅ Данные из кэша для периода "all" - возвращаем без фильтрации');
+      return {
+        found: true,
+        data: rawMetrics.data
+      };
+    }
     
     if (allDailyData.length === 0) {
       return {
