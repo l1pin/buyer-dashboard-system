@@ -924,7 +924,7 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    await loadAnalytics();
+    console.log('🔄 Обновление только метрик и зональных данных...');
     await refreshMetrics();
     await refreshZoneData();
     await loadLastUpdateTime();
