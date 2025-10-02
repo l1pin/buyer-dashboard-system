@@ -147,6 +147,10 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       console.log(`📊 Всего видео для загрузки: ${videosToLoad.length}`);
 
       // Если не форсируем обновление, пытаемся загрузить из кэша
+      const rawMetricsMap = new Map();
+      let cacheHits = 0;
+      const videosToLoadFromApi = []; // Видео которых нет в кэше
+      
       if (!forceRefresh) {
         console.log('📦 Попытка БАТЧЕВОЙ загрузки из кэша...');
         const creativeIds = creatives.map(c => c.id);
@@ -161,9 +165,6 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           });
           
           if (cachedData && cachedData.length > 0) {
-            const rawMetricsMap = new Map();
-            let cacheHits = 0;
-
             // Создаем Map из всех возможных видео для быстрого поиска
             const videosMap = new Map();
             videosToLoad.forEach(video => {
@@ -195,39 +196,53 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
             console.log(`📊 Батчевый кэш: загружено ${cacheHits} из ${videosToLoad.length} видео`);
 
-            if (rawMetricsMap.size > 0) {
+            // Определяем какие видео нужно загрузить из API
+            videosToLoad.forEach(video => {
+              if (!rawMetricsMap.has(video.videoKey)) {
+                videosToLoadFromApi.push(video);
+              }
+            });
+
+            console.log(`🔄 Нужно загрузить из API: ${videosToLoadFromApi.length} видео`);
+
+            // Если все найдено в кэше - возвращаемся
+            if (videosToLoadFromApi.length === 0) {
               setRawBatchMetrics(rawMetricsMap);
               setLastUpdated(new Date());
-              console.log(`✅ Загружено ${cacheHits} метрик из батчевого кэша`);
+              console.log(`✅ Все ${cacheHits} метрик загружены из кэша`);
               setLoading(false);
               return;
             }
+          } else {
+            // Кэш пуст - загружаем все из API
+            videosToLoadFromApi.push(...videosToLoad);
+            console.log('⚠️ Батчевый кэш пуст, загружаем все из API...');
           }
           
-          console.log('⚠️ Батчевый кэш пуст, загружаем из API...');
         } catch (cacheError) {
           console.error('❌ Ошибка батчевой загрузки из кэша:', cacheError);
           console.log('⚠️ Переходим к загрузке из API...');
+          videosToLoadFromApi.push(...videosToLoad);
         }
       } else {
         console.log('🔄 Форсированное обновление из API...');
+        videosToLoadFromApi.push(...videosToLoad);
       }
 
-      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш
+      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш (только для видео которых нет в кэше)
       const BATCH_SIZE = 3;
       const BATCH_DELAY = 500;
       
-      const rawMetricsMap = new Map();
-      let successCount = 0;
+      let successCount = cacheHits; // Начинаем с количества из кэша
       
-      for (let i = 0; i < videosToLoad.length; i += BATCH_SIZE) {
+      for (let i = 0; i < videosToLoadFromApi.length; i += BATCH_SIZE) {
         if (loadingCancelRef.current) {
           console.log('⚠️ Загрузка отменена');
           break;
         }
         
-        const batch = videosToLoad.slice(i, i + BATCH_SIZE);
-        console.log(`🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videosToLoad.length / BATCH_SIZE)}: ${batch.length} видео`);
+        const batch = videosToLoadFromApi.slice(i, i + BATCH_SIZE);
+        console.log(`🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videosToLoadFromApi.length / BATCH_SIZE)}: ${batch.length} видео`);
         
         const batchResults = await Promise.allSettled(
           batch.map(async (video) => {
@@ -278,15 +293,16 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         });
         
         // Задержка между батчами
-        if (i + BATCH_SIZE < videosToLoad.length) {
+        if (i + BATCH_SIZE < videosToLoadFromApi.length) {
           await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
         }
       }
 
       setRawBatchMetrics(rawMetricsMap);
       
-      // ⚡ БАТЧЕВОЕ сохранение в кэш (только успешных метрик)
-      if (successCount > 0 && forceRefresh) {
+      // ⚡ БАТЧЕВОЕ сохранение в кэш (только новых метрик из API)
+      const newMetricsCount = successCount - cacheHits;
+      if (newMetricsCount > 0 && forceRefresh) {
         console.log(`💾 Подготовка к батчевому сохранению ${successCount} метрик...`);
         
         const metricsToSave = [];
@@ -316,7 +332,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       await metricsAnalyticsService.updateMetricsLastUpdate();
       setLastUpdated(new Date());
       
-      console.log(`✅ Загрузка завершена: ${successCount}/${videosToLoad.length} метрик найдено`);
+      console.log(`✅ Загрузка завершена: ${cacheHits} из кэша + ${successCount - cacheHits} из API = ${successCount}/${videosToLoad.length} метрик`);
 
     } catch (err) {
       console.error('❌ Ошибка загрузки:', err);
