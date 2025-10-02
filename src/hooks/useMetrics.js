@@ -32,7 +32,8 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', cre
         videoTitle,
         true, // useCache
         creativeId,
-        videoIndex
+        videoIndex,
+        null // article - пока null, так как в useVideoMetrics нет доступа к article
       );
       
       if (result.found) {
@@ -126,6 +127,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               videosToLoad.push({
                 videoTitle,
                 creativeId: creative.id,
+                article: creative.article, // ✅ Добавляем артикул
                 videoIndex,
                 videoKey: `${creative.id}_${videoIndex}`
               });
@@ -159,13 +161,10 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             if (cache.metrics_data) {
               rawMetricsMap.set(videoKey, {
                 found: true,
-                data: {
-                  ...cache.metrics_data,
-                  fromCache: true,
-                  cachedAt: cache.cached_at
-                },
+                data: cache.metrics_data, // Уже преобразовано методом reconstructMetricsFromCache
                 error: null,
                 videoName: cache.video_title,
+                article: cache.article,
                 creativeId: cache.creative_id,
                 videoIndex: cache.video_index
               });
@@ -211,7 +210,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 video.videoTitle,
                 true, // useCache
                 video.creativeId, // ✅ Передаем creativeId
-                video.videoIndex  // ✅ Передаем videoIndex
+                video.videoIndex, // ✅ Передаем videoIndex
+                video.article     // ✅ Передаем article
               );
               
               return {
