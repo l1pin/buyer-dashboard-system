@@ -355,7 +355,7 @@ export class MetricsService {
   /**
    * ПЕРЕПИСАННЫЙ метод: Получение метрик для конкретного видео - ТОЛЬКО за все время
    */
-  static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null) {
+  static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null, article = null) {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
@@ -443,8 +443,11 @@ export class MetricsService {
       // Сохраняем в кэш, если указаны параметры
       if (creativeId && videoIndex !== null) {
         try {
+          // Извлекаем артикул из creativeId - нужно передать отдельно
+          // Для этого нужно передавать article в getVideoMetricsRaw
           await metricsAnalyticsService.saveMetricsCache(
             creativeId,
+            article || videoName, // используем переданный артикул
             videoIndex,
             videoName,
             result.data,
