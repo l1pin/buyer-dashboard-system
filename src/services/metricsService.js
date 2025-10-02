@@ -11,6 +11,9 @@ const getApiUrl = () => {
 const METRICS_API_URL = getApiUrl();
 const TIMEZONE = "Europe/Kiev";
 
+// Импортируем метод для работы с кэшем
+import { metricsAnalyticsService } from '../supabaseClient';
+
 export class MetricsService {
   /**
    * Построение SQL запроса для получения всех дневных данных по видео - ТОЛЬКО ЗА ВСЕ ВРЕМЯ
@@ -353,13 +356,31 @@ export class MetricsService {
   /**
    * ПЕРЕПИСАННЫЙ метод: Получение метрик для конкретного видео - ТОЛЬКО за все время
    */
-  static async getVideoMetricsRaw(videoName) {
+  static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null) {
     if (!videoName || typeof videoName !== 'string') {
       throw new Error('Название видео обязательно');
     }
 
+    // Проверяем кэш, если разрешено
+    if (useCache && creativeId && videoIndex !== null) {
+      try {
+        const cached = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
+        if (cached && cached.metrics_data) {
+          console.log(`✅ Загружены метрики из кэша для: ${videoName}`);
+          return {
+            found: true,
+            data: cached.metrics_data,
+            fromCache: true,
+            cachedAt: cached.cached_at
+          };
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ Ошибка чтения кэша, загружаем из API:', cacheError);
+      }
+    }
+
     try {
-      console.log(`🔍 Загружаем сырые данные ЗА ВСЕ ВРЕМЯ для: ${videoName}`);
+      console.log(`🔍 Загружаем сырые данные ЗА ВСЕ ВРЕМЯ из API для: ${videoName}`);
       
       // ВСЕГДА получаем данные за ВСЕ время
       const sql = this.buildDetailedSqlForVideo(videoName);
@@ -399,7 +420,7 @@ export class MetricsService {
       
       console.log(`✅ Сырые данные загружены: ${allDailyData.length} дней активности`);
       
-      return {
+      const result = {
         found: true,
         data: {
           raw: metrics,
@@ -416,8 +437,27 @@ export class MetricsService {
             hour: '2-digit',
             minute: '2-digit'
           })
-        }
+        },
+        fromCache: false
       };
+
+      // Сохраняем в кэш, если указаны параметры
+      if (creativeId && videoIndex !== null) {
+        try {
+          await metricsAnalyticsService.saveMetricsCache(
+            creativeId,
+            videoIndex,
+            videoName,
+            result.data,
+            'all'
+          );
+          console.log(`💾 Метрики сохранены в кэш для: ${videoName}`);
+        } catch (saveError) {
+          console.warn('⚠️ Не удалось сохранить метрики в кэш:', saveError);
+        }
+      }
+
+      return result;
     } catch (error) {
       return {
         found: false,
