@@ -150,29 +150,45 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       if (!forceRefresh) {
         console.log('📦 Попытка загрузки из кэша...');
         const creativeIds = creatives.map(c => c.id);
+        console.log('🔑 Creative IDs для загрузки:', creativeIds);
+        
         const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
         
-        console.log('📦 Получен кэш из БД:', {
+        console.log('📦 ПОДРОБНЫЙ результат кэша из БД:', {
+          isArray: Array.isArray(cachedData),
           count: cachedData?.length || 0,
-          firstItem: cachedData?.[0]
+          firstItem: cachedData?.[0],
+          allItems: cachedData
         });
         
         if (cachedData && cachedData.length > 0) {
           const rawMetricsMap = new Map();
           let cacheHits = 0;
+          let cacheErrors = 0;
 
-          cachedData.forEach(cache => {
-            const videoKey = `${cache.creative_id}_${cache.video_index}`;
-            
-            console.log('🔍 Обработка кэша для videoKey:', videoKey, {
-              found: cache.found,
-              hasData: !!cache.data,
-              data: cache.data
+          cachedData.forEach((cache, index) => {
+            console.log(`📋 Обработка кэш записи ${index + 1}/${cachedData.length}:`, {
+              creative_id: cache?.creative_id,
+              video_index: cache?.video_index,
+              video_title: cache?.video_title,
+              found: cache?.found,
+              hasData: !!cache?.data,
+              dataKeys: cache?.data ? Object.keys(cache.data) : [],
+              rawLeads: cache?.data?.raw?.leads,
+              formattedLeads: cache?.data?.formatted?.leads
             });
+
+            if (!cache) {
+              console.warn(`⚠️ Запись ${index} кэша пустая`);
+              cacheErrors++;
+              return;
+            }
+
+            const videoKey = `${cache.creative_id}_${cache.video_index}`;
             
             // reconstructMetricsFromCache уже возвращает нужную структуру с found, data, error
             if (cache.found && cache.data) {
-              rawMetricsMap.set(videoKey, {
+              const metricsEntry = {
                 found: cache.found,
                 data: cache.data,
                 error: cache.error,
@@ -180,22 +196,53 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 article: cache.article,
                 creativeId: cache.creative_id,
                 videoIndex: cache.video_index
-              });
+              };
+              
+              rawMetricsMap.set(videoKey, metricsEntry);
               cacheHits++;
+              
+              console.log(`✅ Добавлена метрика для ${videoKey}:`, {
+                leads: metricsEntry.data?.formatted?.leads,
+                cpl: metricsEntry.data?.formatted?.cpl
+              });
+            } else {
+              console.warn(`⚠️ Пропущена метрика для ${videoKey}:`, {
+                found: cache.found,
+                hasData: !!cache.data,
+                error: cache.error
+              });
+              cacheErrors++;
             }
           });
+
+          console.log(`📊 Итоги обработки кэша: успешно=${cacheHits}, ошибок=${cacheErrors}, всего=${cachedData.length}`);
 
           if (rawMetricsMap.size > 0) {
             setRawBatchMetrics(rawMetricsMap);
             setLastUpdated(new Date());
             console.log(`✅ Загружено ${cacheHits} метрик из кэша`);
-            console.log('📊 Первая метрика из кэша:', Array.from(rawMetricsMap.values())[0]);
+            
+            // Показываем первую метрику для проверки
+            const firstMetric = Array.from(rawMetricsMap.values())[0];
+            console.log('📊 ПРОВЕРКА первой метрики из кэша:', {
+              found: firstMetric?.found,
+              hasData: !!firstMetric?.data,
+              leads: firstMetric?.data?.formatted?.leads,
+              cpl: firstMetric?.data?.formatted?.cpl,
+              cost: firstMetric?.data?.formatted?.cost,
+              fullData: firstMetric
+            });
+            
             setLoading(false);
             return;
+          } else {
+            console.log('⚠️ После обработки кэша нет валидных метрик');
           }
+        } else {
+          console.log('⚠️ Кэш пуст или null');
         }
         
-        console.log('⚠️ Кэш пуст, загружаем из API...');
+        console.log('⚠️ Кэш не содержит данных, загружаем из API...');
       } else {
         console.log('🔄 Форсированное обновление из API...');
       }
