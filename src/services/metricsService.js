@@ -449,21 +449,17 @@ export class MetricsService {
         fromCache: false
       };
 
-      // Сохраняем в кэш, если указаны параметры
+      // Сохраняем в кэш ДВЕ записи: для 'all' и '4days', если указаны параметры
       if (creativeId && videoIndex !== null) {
         try {
-          console.log(`💾 Сохранение метрик в кэш:`, {
+          console.log(`💾 Сохранение метрик в кэш (all + 4days):`, {
             creativeId,
             article: article || videoName,
             videoIndex,
-            videoName,
-            period: 'all',
-            hasData: !!result.data,
-            dataKeys: result.data ? Object.keys(result.data) : [],
-            rawLeads: result.data?.raw?.leads,
-            rawCost: result.data?.raw?.cost
+            videoName
           });
 
+          // Сохраняем кэш для периода 'all'
           await metricsAnalyticsService.saveMetricsCache(
             creativeId,
             article || videoName,
@@ -473,17 +469,43 @@ export class MetricsService {
             'all'
           );
           
-          console.log(`✅ Метрики успешно сохранены в кэш для: ${videoName}`);
+          // Вычисляем и сохраняем кэш для периода '4days'
+          const first4Days = allDailyData.slice(0, 4);
+          if (first4Days.length > 0) {
+            const aggregates4d = this.aggregateDailyData(first4Days);
+            const metrics4d = this.computeDerivedMetrics(aggregates4d);
+            const formatted4d = this.formatMetrics(metrics4d);
+            
+            const result4days = {
+              raw: metrics4d,
+              formatted: formatted4d,
+              dailyData: first4Days,
+              allDailyData: allDailyData,
+              videoName: videoName,
+              period: '4days',
+              updatedAt: new Date().toLocaleString('ru-RU', {
+                timeZone: TIMEZONE,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            };
+            
+            await metricsAnalyticsService.saveMetricsCache(
+              creativeId,
+              article || videoName,
+              videoIndex,
+              videoName,
+              result4days,
+              '4days'
+            );
+            
+            console.log(`✅ Метрики за 4 дня успешно сохранены в кэш`);
+          }
           
-          // Проверяем что сохранилось
-          const checkCache = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
-          console.log(`🔍 Проверка сохраненного кэша:`, {
-            found: !!checkCache,
-            hasMetricsData: !!checkCache?.metrics_data,
-            hasLeads: 'leads' in checkCache,
-            leadsValue: checkCache?.leads,
-            costValue: checkCache?.cost
-          });
+          console.log(`✅ Метрики успешно сохранены в кэш (all + 4days) для: ${videoName}`);
           
         } catch (saveError) {
           console.error('❌ ОШИБКА сохранения метрик в кэш:', saveError);
