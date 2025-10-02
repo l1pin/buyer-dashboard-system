@@ -1617,7 +1617,7 @@ export const metricsAnalyticsService = {
       // КРИТИЧНО: Убираем select('*') чтобы избежать проблем с JSONB колонками
       const { data, error } = await supabase
         .from('metrics_cache')
-        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at, metrics_data')
         .in('creative_id', creativeIds)
         .eq('period', period);
 
