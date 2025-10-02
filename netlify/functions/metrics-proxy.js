@@ -65,9 +65,9 @@ exports.handler = async (event, context) => {
     // URL API метрик
     const API_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
-    // ПРАВИЛЬНАЯ реализация таймаута для fetch
+    // ОПТИМИЗИРОВАННЫЙ таймаут для быстрых запросов
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // ⚡ Уменьшено до 15 секунд
 
     let apiResponse;
     try {
