@@ -148,11 +148,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
       // Если не форсируем обновление, пытаемся загрузить из кэша
       if (!forceRefresh) {
-        console.log('📦 Попытка загрузки из кэша...');
+        console.log(`📦 Попытка загрузки из кэша для периода: ${period}...`);
         const creativeIds = creatives.map(c => c.id);
         console.log('🔑 Creative IDs для загрузки:', creativeIds);
         
-        const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
+        const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, period);
         
         console.log('📦 ПОДРОБНЫЙ результат кэша из БД:', {
           isArray: Array.isArray(cachedData),
@@ -336,8 +336,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
   }, [creatives]);
 
-  // Мгновенная фильтрация
-  const applyPeriodFilter = useCallback((rawMetrics, targetPeriod) => {
+  // Мгновенная фильтрация (или загрузка из кэша для нового периода)
+  const applyPeriodFilter = useCallback(async (rawMetrics, targetPeriod) => {
     if (!rawMetrics || rawMetrics.size === 0) {
       setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
@@ -345,6 +345,46 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
 
     console.log(`⚡ МГНОВЕННАЯ батчевая фильтрация для периода: ${targetPeriod}`);
+    
+    // Сначала пробуем загрузить из кэша для нужного периода
+    const creativeIds = Array.from(new Set(
+      Array.from(rawMetrics.values()).map(m => m.creativeId).filter(Boolean)
+    ));
+    
+    if (creativeIds.length > 0) {
+      console.log(`📦 Попытка загрузить кэш для периода ${targetPeriod}...`);
+      const cachedForPeriod = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, targetPeriod);
+      
+      if (cachedForPeriod && cachedForPeriod.length > 0) {
+        console.log(`✅ Найден кэш для периода ${targetPeriod}: ${cachedForPeriod.length} записей`);
+        
+        // Объединяем кэш с текущими данными
+        const cacheMap = new Map();
+        cachedForPeriod.forEach(cache => {
+          const videoKey = `${cache.creative_id}_${cache.video_index}`;
+          cacheMap.set(videoKey, cache);
+        });
+        
+        // Применяем кэш к rawMetrics
+        const updatedRawMetrics = new Map(rawMetrics);
+        for (const [videoKey, cacheData] of cacheMap) {
+          if (cacheData.found) {
+            updatedRawMetrics.set(videoKey, {
+              found: true,
+              data: cacheData.data,
+              error: null,
+              videoName: cacheData.video_title || cacheData.videoName,
+              creativeId: cacheData.creative_id,
+              videoIndex: cacheData.video_index,
+              fromCache: true
+            });
+          }
+        }
+        
+        // Обновляем rawBatchMetrics для последующих переключений
+        setRawBatchMetrics(updatedRawMetrics);
+      }
+    }
     
     const filteredMap = new Map();
     let successCount = 0;
@@ -361,10 +401,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         continue;
       }
 
-      // КРИТИЧНО: Если период 'all' И данные из кэша, пропускаем фильтрацию
+      // КРИТИЧНО: Если данные из кэша И период совпадает, пропускаем фильтрацию
       const isFromCache = rawMetric.data?.fromCache || rawMetric.fromCache;
-      if (targetPeriod === 'all' && isFromCache) {
-        console.log(`✅ Пропускаем фильтрацию для ${videoKey} - данные из кэша для периода "all"`);
+      const dataPeriod = rawMetric.data?.period;
+      
+      if (isFromCache && dataPeriod === targetPeriod) {
+        console.log(`✅ Используем кэш для ${videoKey} - период ${targetPeriod}`);
         filteredMap.set(videoKey, {
           found: true,
           data: rawMetric.data,
