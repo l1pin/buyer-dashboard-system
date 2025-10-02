@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
+import { metricsAnalyticsService } from '../supabaseClient';
 
 /**
  * Хук для получения метрик одного видео по названию - ПЕРЕПИСАН
