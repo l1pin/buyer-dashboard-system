@@ -87,7 +87,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all') {
 /**
  * ПЕРЕПИСАННЫЙ хук для батчевой загрузки метрик - ОПТИМИЗИРОВАННАЯ батчевая обработка
  */
-export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
+export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   // Сырые данные за все время (загружаются один раз)
   const [rawBatchMetrics, setRawBatchMetrics] = useState(new Map());
   
@@ -103,7 +103,7 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
   // Ссылка для отмены загрузки
   const loadingCancelRef = useRef(false);
 
-  const loadRawBatchMetrics = useCallback(async () => {
+  const loadRawBatchMetrics = useCallback(async (forceRefresh = false) => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
@@ -116,7 +116,50 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     loadingCancelRef.current = false;
 
     try {
-      console.log('🚀 ОПТИМИЗИРОВАННАЯ батчевая загрузка данных...');
+      // Если не форсируем обновление, пытаемся загрузить из кэша
+      if (!forceRefresh) {
+        console.log('📦 Загрузка метрик из кэша...');
+        const creativeIds = creatives.map(c => c.id);
+        const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
+        
+        if (cachedData && cachedData.length > 0) {
+          const rawMetricsMap = new Map();
+          let successCount = 0;
+
+          cachedData.forEach(cache => {
+            const videoKey = `${cache.creative_id}_${cache.video_index}`;
+            if (cache.metrics_data) {
+              rawMetricsMap.set(videoKey, {
+                found: true,
+                data: {
+                  ...cache.metrics_data,
+                  fromCache: true,
+                  cachedAt: cache.cached_at
+                },
+                error: null,
+                videoName: cache.video_title,
+                creativeId: cache.creative_id,
+                videoIndex: cache.video_index
+              });
+              successCount++;
+            }
+          });
+
+          if (rawMetricsMap.size > 0) {
+            setRawBatchMetrics(rawMetricsMap);
+            setLastUpdated(new Date());
+            console.log(`✅ Загружено ${successCount} метрик из кэша`);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        console.log('⚠️ Кэш пуст, загружаем из API...');
+      } else {
+        console.log('🔄 Форсированное обновление из API...');
+      }
+
+      console.log('🚀 ОПТИМИЗИРОВАННАЯ батчевая загрузка данных из API...');
       
       // Собираем все названия видео из всех креативов
       const videoToCreativeMap = new Map();
@@ -225,9 +268,12 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
 
       // Сохраняем сырые данные за все время
       setRawBatchMetrics(rawMetricsMap);
+      
+      // Сохраняем время последнего обновления в БД
+      await metricsAnalyticsService.updateMetricsLastUpdate();
       setLastUpdated(new Date());
       
-      console.log(`✅ ОПТИМИЗИРОВАННАЯ загрузка завершена: ${successCount}/${results.length} метрик найдено`);
+      console.log(`✅ ОПТИМИЗИРОВАННАЯ загрузка завершена: ${successCount}/${results.length} метрик найдено и сохранено в кэш`);
 
     } catch (err) {
       console.error('❌ Ошибка оптимизированной загрузки:', err);
@@ -383,17 +429,18 @@ export function useBatchMetrics(creatives, autoLoad = true, period = 'all') {
     console.log('🔄 Принудительное обновление с оптимизированной загрузкой...');
     loadingCancelRef.current = true; // Отменяем текущую загрузку
     await new Promise(resolve => setTimeout(resolve, 100)); // Ждем отмены
-    await loadRawBatchMetrics();
+    await loadRawBatchMetrics(true); // Передаем true для форсированного обновления
   }, [loadRawBatchMetrics]);
 
   return {
-    batchMetrics: filteredBatchMetrics, // Возвращаем отфильтрованные данные
-    rawBatchMetrics, // Для отладки
-    loading, // Общий статус загрузки
+    batchMetrics: filteredBatchMetrics,
+    rawBatchMetrics,
+    loading,
     error,
     stats,
     lastUpdated,
     refresh,
+    loadFromCache: () => loadRawBatchMetrics(false), // Загрузить из кэша
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
