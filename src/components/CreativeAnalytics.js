@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { creativeService, userService, creativeHistoryService } from '../supabaseClient';
+import { creativeService, userService, creativeHistoryService, metricsAnalyticsService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
