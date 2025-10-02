@@ -189,6 +189,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             setRawBatchMetrics(rawMetricsMap);
             setLastUpdated(new Date());
             console.log(`✅ Загружено ${cacheHits} метрик из кэша`);
+            console.log('📊 Первая метрика из кэша:', Array.from(rawMetricsMap.values())[0]);
             setLoading(false);
             return;
           }
