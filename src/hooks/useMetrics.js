@@ -361,6 +361,23 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         continue;
       }
 
+      // КРИТИЧНО: Если период 'all' И данные из кэша, пропускаем фильтрацию
+      const isFromCache = rawMetric.data?.fromCache || rawMetric.fromCache;
+      if (targetPeriod === 'all' && isFromCache) {
+        console.log(`✅ Пропускаем фильтрацию для ${videoKey} - данные из кэша для периода "all"`);
+        filteredMap.set(videoKey, {
+          found: true,
+          data: rawMetric.data,
+          error: null,
+          videoName: rawMetric.videoName,
+          period: targetPeriod,
+          creativeId: rawMetric.creativeId,
+          videoIndex: rawMetric.videoIndex
+        });
+        successCount++;
+        continue;
+      }
+
       try {
         const filteredResult = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
         
