@@ -158,11 +158,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
           cachedData.forEach(cache => {
             const videoKey = `${cache.creative_id}_${cache.video_index}`;
-            if (cache.metrics_data) {
+            // reconstructMetricsFromCache уже возвращает нужную структуру с found, data, error
+            if (cache.found && cache.data) {
               rawMetricsMap.set(videoKey, {
-                found: true,
-                data: cache.metrics_data, // Уже преобразовано методом reconstructMetricsFromCache
-                error: null,
+                found: cache.found,
+                data: cache.data,
+                error: cache.error,
                 videoName: cache.video_title,
                 article: cache.article,
                 creativeId: cache.creative_id,
