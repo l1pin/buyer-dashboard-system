@@ -144,7 +144,7 @@ function CreativeAnalytics({ user }) {
     getCreativeMetrics,
     refresh: refreshMetrics,
     loadFromCache
-  } = useBatchMetrics(filteredCreativesByMonth, false, metricsPeriod);
+  } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
   
   const { 
     stats: aggregatedMetricsStats,
@@ -836,16 +836,10 @@ function CreativeAnalytics({ user }) {
   useEffect(() => {
     loadUsers();
     loadAnalytics();
-    loadMetricsFromCache();
     loadLastUpdateTime();
   }, []);
 
-  const loadMetricsFromCache = async () => {
-    console.log('📦 Загрузка метрик из кэша при инициализации...');
-    if (loadFromCache) {
-      await loadFromCache();
-    }
-  };
+  // Функция больше не нужна, autoLoad делает это автоматически
 
   const loadLastUpdateTime = async () => {
     try {
