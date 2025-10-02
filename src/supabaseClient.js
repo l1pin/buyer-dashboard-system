@@ -1544,22 +1544,61 @@ export const metricsAnalyticsService = {
 
   async getBatchMetricsCache(creativeIds, period = 'all') {
     try {
+      console.log('🔍 Запрос батча кэша метрик:', {
+        creativeIdsCount: creativeIds?.length,
+        period,
+        firstCreativeId: creativeIds?.[0]
+      });
+
       const { data, error } = await supabase
         .from('metrics_cache')
         .select('*')
         .in('creative_id', creativeIds)
         .eq('period', period);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Ошибка запроса к metrics_cache:', error);
+        throw error;
+      }
+      
+      console.log('📦 Получены данные из metrics_cache:', {
+        isArray: Array.isArray(data),
+        count: data?.length || 0,
+        firstItemKeys: data?.[0] ? Object.keys(data[0]) : [],
+        firstItem: data?.[0]
+      });
       
       // Преобразуем каждую запись из колонок в формат с вычисленными метриками
       if (data && data.length > 0) {
-        return data.map(cache => this.reconstructMetricsFromCache(cache));
+        console.log(`🔄 Преобразуем ${data.length} записей кэша через reconstructMetricsFromCache...`);
+        
+        const reconstructed = data.map((cache, index) => {
+          console.log(`📋 Преобразование записи ${index + 1}:`, {
+            creative_id: cache.creative_id,
+            video_index: cache.video_index,
+            leads: cache.leads,
+            cost: cache.cost
+          });
+          
+          const result = this.reconstructMetricsFromCache(cache);
+          
+          console.log(`✅ Результат преобразования ${index + 1}:`, {
+            found: result?.found,
+            hasData: !!result?.data,
+            leads: result?.data?.formatted?.leads
+          });
+          
+          return result;
+        });
+        
+        console.log(`✅ Батч преобразован: ${reconstructed.length} записей`);
+        return reconstructed;
       }
       
+      console.log('⚠️ Нет данных в кэше для преобразования');
       return [];
     } catch (error) {
-      console.error('Ошибка получения батча кэша метрик:', error);
+      console.error('❌ Критическая ошибка получения батча кэша метрик:', error);
       return [];
     }
   },
@@ -1571,21 +1610,34 @@ export const metricsAnalyticsService = {
       return null;
     }
 
-    console.log('📦 ДЕТАЛЬНОЕ восстановление метрик из кэша:', {
+    console.log('📦 Восстановление метрик из кэша:', {
       creative_id: cacheData.creative_id,
       video_index: cacheData.video_index,
-      video_title: cacheData.video_title,
-      article: cacheData.article,
-      period: cacheData.period,
       hasLeads: 'leads' in cacheData,
       hasMetricsData: 'metrics_data' in cacheData,
-      leadsValue: cacheData.leads,
-      costValue: cacheData.cost,
-      clicksValue: cacheData.clicks,
-      impressionsValue: cacheData.impressions
+      leads: cacheData.leads,
+      article: cacheData.article
     });
 
-    // КРИТИЧНО: Проверяем формат данных
+    // КРИТИЧНО: Проверяем СТАРЫЙ формат (metrics_data как JSON)
+    if (cacheData.metrics_data) {
+      console.log('📦 Используем СТАРЫЙ формат кэша (metrics_data JSON)');
+      // Возвращаем старый формат как есть
+      return {
+        creative_id: cacheData.creative_id,
+        article: cacheData.article,
+        video_index: cacheData.video_index,
+        video_title: cacheData.video_title,
+        period: cacheData.period,
+        cached_at: cacheData.cached_at,
+        found: true,
+        data: cacheData.metrics_data,
+        error: null,
+        videoName: cacheData.video_title
+      };
+    }
+
+    // НОВЫЙ формат: Базовые метрики из отдельных колонок
     const leads = Number(cacheData.leads) || 0;
     const cost = Number(cacheData.cost) || 0;
     const clicks = Number(cacheData.clicks) || 0;
@@ -1593,14 +1645,9 @@ export const metricsAnalyticsService = {
     const avg_duration = Number(cacheData.avg_duration) || 0;
     const days_count = Number(cacheData.days_count) || 0;
 
-    console.log('📊 Численные значения метрик:', {
+    console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
       leads, cost, clicks, impressions, avg_duration, days_count
     });
-
-    // Проверяем что есть хоть какие-то данные
-    if (leads === 0 && cost === 0 && clicks === 0 && impressions === 0) {
-      console.warn('⚠️ Все метрики равны нулю, возможно данные не сохранились');
-    }
 
     // Вычисляем производные метрики на клиенте
     const cpl = leads > 0 ? cost / leads : 0;
@@ -1614,13 +1661,15 @@ export const metricsAnalyticsService = {
     const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
     const formatDuration = (n) => (Number(n) || 0).toFixed(1) + "с";
 
-    const result = {
+    // Возвращаем в формате, совместимом с rawMetricsMap
+    return {
       creative_id: cacheData.creative_id,
       article: cacheData.article,
       video_index: cacheData.video_index,
       video_title: cacheData.video_title,
       period: cacheData.period,
       cached_at: cacheData.cached_at,
+      // Данные метрик в правильном формате
       found: true,
       data: {
         raw: {
@@ -1655,15 +1704,6 @@ export const metricsAnalyticsService = {
       error: null,
       videoName: cacheData.video_title
     };
-
-    console.log('✅ Метрики восстановлены из кэша:', {
-      found: result.found,
-      hasData: !!result.data,
-      leads: result.data?.formatted?.leads,
-      cpl: result.data?.formatted?.cpl
-    });
-
-    return result;
   },
 
   async updateMetricsLastUpdate() {
