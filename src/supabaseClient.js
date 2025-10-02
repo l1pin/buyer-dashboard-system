@@ -1480,17 +1480,27 @@ export const metricsAnalyticsService = {
   },
 
   // Сервис для кэширования метрик
-  async saveMetricsCache(creativeId, videoIndex, videoTitle, metricsData, period = 'all') {
+  async saveMetricsCache(creativeId, article, videoIndex, videoTitle, metricsData, period = 'all') {
     try {
+      // Извлекаем только базовые метрики из metricsData
+      const rawMetrics = metricsData.raw || metricsData;
+      
       const { data, error } = await supabase
         .from('metrics_cache')
         .upsert([
           {
             creative_id: creativeId,
+            article: article,
             video_index: videoIndex,
             video_title: videoTitle,
-            metrics_data: metricsData,
             period: period,
+            // Базовые метрики в отдельных колонках
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
             cached_at: new Date().toISOString()
           }
         ], {
@@ -1517,7 +1527,13 @@ export const metricsAnalyticsService = {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      return data;
+      
+      // Преобразуем данные из колонок в формат с вычисленными метриками
+      if (data) {
+        return this.reconstructMetricsFromCache(data);
+      }
+      
+      return null;
     } catch (error) {
       console.error('Ошибка получения кэша метрик:', error);
       return null;
@@ -1533,11 +1549,81 @@ export const metricsAnalyticsService = {
         .eq('period', period);
 
       if (error) throw error;
-      return data || [];
+      
+      // Преобразуем каждую запись из колонок в формат с вычисленными метриками
+      if (data && data.length > 0) {
+        return data.map(cache => this.reconstructMetricsFromCache(cache));
+      }
+      
+      return [];
     } catch (error) {
       console.error('Ошибка получения батча кэша метрик:', error);
       return [];
     }
+  },
+
+  // Восстановление метрик из кэша с вычислением производных метрик
+  reconstructMetricsFromCache(cacheData) {
+    if (!cacheData) return null;
+
+    // Базовые метрики из колонок
+    const leads = Number(cacheData.leads) || 0;
+    const cost = Number(cacheData.cost) || 0;
+    const clicks = Number(cacheData.clicks) || 0;
+    const impressions = Number(cacheData.impressions) || 0;
+    const avg_duration = Number(cacheData.avg_duration) || 0;
+    const days_count = Number(cacheData.days_count) || 0;
+
+    // Вычисляем производные метрики на клиенте
+    const cpl = leads > 0 ? cost / leads : 0;
+    const ctr_percent = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const cpm = impressions > 0 ? (cost / impressions) * 1000 : 0;
+
+    // Форматируем метрики
+    const formatInt = (n) => String(Math.round(Number(n) || 0));
+    const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
+    const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
+    const formatDuration = (n) => (Number(n) || 0).toFixed(1) + "с";
+
+    return {
+      creative_id: cacheData.creative_id,
+      article: cacheData.article,
+      video_index: cacheData.video_index,
+      video_title: cacheData.video_title,
+      period: cacheData.period,
+      metrics_data: {
+        raw: {
+          leads,
+          cost: Number(cost.toFixed(2)),
+          clicks,
+          impressions,
+          avg_duration: Number(avg_duration.toFixed(2)),
+          days_count,
+          cpl: Number(cpl.toFixed(2)),
+          ctr_percent: Number(ctr_percent.toFixed(2)),
+          cpc: Number(cpc.toFixed(2)),
+          cpm: Number(cpm.toFixed(2))
+        },
+        formatted: {
+          leads: formatInt(leads),
+          cpl: formatMoney(cpl),
+          cost: formatMoney(cost),
+          ctr: formatPercent(ctr_percent),
+          cpc: formatMoney(cpc),
+          cpm: formatMoney(cpm),
+          clicks: formatInt(clicks),
+          impressions: formatInt(impressions),
+          avg_duration: formatDuration(avg_duration),
+          days: formatInt(days_count) + " дн."
+        },
+        videoName: cacheData.video_title,
+        period: cacheData.period,
+        fromCache: true,
+        cachedAt: cacheData.cached_at
+      },
+      cached_at: cacheData.cached_at
+    };
   },
 
   async updateMetricsLastUpdate() {
