@@ -1335,8 +1335,7 @@ function CreativePanel({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log(`🔄 Полное обновление данных (период: ${metricsPeriod})`);
-    await loadCreatives();
+    console.log(`🔄 Обновление только метрик и зональных данных (период: ${metricsPeriod})`);
     await refreshMetrics();
     await refreshZoneData();
     await loadLastUpdateTime();
