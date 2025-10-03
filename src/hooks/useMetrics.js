@@ -221,7 +221,20 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           
         } catch (cacheError) {
           console.error('❌ Ошибка батчевой загрузки из кэша:', cacheError);
-          console.log('⚠️ Переходим к загрузке из API...');
+          
+          // Если НЕ форсированное обновление - возвращаем пустой результат, не загружаем из API
+          if (!forceRefresh) {
+            console.log('⚠️ Ошибка кэша без форсированного обновления - возвращаем пустой результат');
+            setRawBatchMetrics(new Map());
+            setFilteredBatchMetrics(new Map());
+            setStats({ total: 0, found: 0, notFound: 0 });
+            setError('Ошибка загрузки кэша метрик. Нажмите "Обновить" для загрузки из API.');
+            setLoading(false);
+            return;
+          }
+          
+          // При форсированном обновлении - загружаем все из API
+          console.log('⚠️ Ошибка кэша при форсированном обновлении - загружаем из API...');
           videosToLoadFromApi.push(...videosToLoad);
         }
       } else {
