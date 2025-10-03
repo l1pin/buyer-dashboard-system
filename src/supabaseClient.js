@@ -1588,7 +1588,7 @@ export const metricsAnalyticsService = {
         .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
         .eq('creative_id', creativeId)
         .eq('video_index', videoIndex)
-        .eq('period', 'all') // В кэше всегда период 'all'
+        .eq('period', period) // Загружаем для ЗАПРОШЕННОГО периода
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -1619,7 +1619,7 @@ export const metricsAnalyticsService = {
         .from('metrics_cache')
         .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
         .in('creative_id', creativeIds)
-        .eq('period', 'all'); // В кэше всегда период 'all'
+        .eq('period', period); // Загружаем для ЗАПРОШЕННОГО периода
 
       if (error) {
         console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
