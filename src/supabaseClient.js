@@ -1710,8 +1710,10 @@ export const metricsAnalyticsService = {
     // Возвращаем в формате, совместимом с rawMetricsMap
     return {
       creative_id: cacheData.creative_id,
+      creativeId: cacheData.creative_id,
       article: cacheData.article,
       video_index: cacheData.video_index,
+      videoIndex: cacheData.video_index,
       video_title: cacheData.video_title,
       period: cacheData.period,
       cached_at: cacheData.cached_at,
