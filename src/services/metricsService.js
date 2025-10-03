@@ -59,6 +59,12 @@ export class MetricsService {
       }
 
       const data = await response.json();
+      
+      console.log(`📥 Получен ответ от API:`, {
+        isArray: Array.isArray(data),
+        length: Array.isArray(data) ? data.length : 'not array',
+        firstItem: Array.isArray(data) && data.length > 0 ? data[0] : null
+      });
       const elapsed = Date.now() - startTime;
 
       // Логируем метаданные
@@ -114,11 +120,28 @@ export class MetricsService {
       });
     });
 
+    console.log(`📦 Группировка результатов: ${data.length} записей, ${videoNames.length} видео`);
+    
+    // Логируем первую запись чтобы понять структуру
+    if (data.length > 0) {
+      console.log('📋 Пример записи из API:', {
+        keys: Object.keys(data[0]),
+        sample: data[0]
+      });
+    }
+
     // Группируем данные
-    data.forEach(row => {
+    let processedCount = 0;
+    data.forEach((row, index) => {
       const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration } = row;
       
+      if (!video_name) {
+        console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
+        return;
+      }
+      
       if (!grouped.has(video_name)) {
+        console.log(`➕ Добавляем новое видео: ${video_name}`);
         grouped.set(video_name, {
           videoName: video_name,
           daily: [],
@@ -130,6 +153,7 @@ export class MetricsService {
 
       const entry = grouped.get(video_name);
       entry.found = true;
+      processedCount++;
 
       const metrics = {
         date: adv_date,
@@ -148,6 +172,13 @@ export class MetricsService {
         entry.total = metrics;
       }
     });
+
+    console.log(`✅ Обработано ${processedCount} записей`);
+    
+    // Логируем статистику
+    const foundCount = Array.from(grouped.values()).filter(v => v.found).length;
+    const notFoundCount = grouped.size - foundCount;
+    console.log(`📊 Статистика: найдено ${foundCount}, не найдено ${notFoundCount} из ${grouped.size} видео`);
 
     return Array.from(grouped.values());
   }
