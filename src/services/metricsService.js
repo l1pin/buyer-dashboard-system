@@ -1,5 +1,5 @@
-// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ MetricsService.js - МГНОВЕННАЯ клиентская фильтрация
-// Замените содержимое src/services/metricsService.js
+// src/services/metricsService.js - БАТЧЕВАЯ ВЕРСИЯ
+// Использует новый оптимизированный API с чанкингом на сервере
 
 import { metricsAnalyticsService } from '../supabaseClient';
 
@@ -15,191 +15,298 @@ const TIMEZONE = "Europe/Kiev";
 
 export class MetricsService {
   /**
-   * Построение SQL запроса для получения всех дневных данных по видео - ТОЛЬКО ЗА ВСЕ ВРЕМЯ
+   * НОВЫЙ БАТЧЕВЫЙ МЕТОД: Загрузка метрик для множества видео одним запросом
    */
-  static buildDetailedSqlForVideo(videoName) {
-    const escapedVideoName = this.sqlEscapeLiteral(videoName);
-    
-    return `
-      SELECT
-        adv_date,
-        COALESCE(SUM(valid), 0) AS leads,
-        COALESCE(SUM(cost), 0) AS cost,
-        COALESCE(SUM(clicks_on_link_tracker), 0) AS clicks,
-        COALESCE(SUM(showed), 0) AS impressions,
-        COALESCE(AVG(average_time_on_video), 0) AS avg_duration
-      FROM ads_collection
-      WHERE video_name='${escapedVideoName}'
-        AND (cost > 0 OR valid > 0 OR showed > 0 OR clicks_on_link_tracker > 0)
-      GROUP BY adv_date
-      ORDER BY adv_date ASC
-    `;
-  }
+  static async getBatchVideoMetrics(videoNames, options = {}) {
+    const {
+      dateFrom = null,
+      dateTo = null,
+      kind = 'daily_first4_total', // daily | first4 | total | daily_first4_total
+      useCache = true
+    } = options;
 
-  /**
-   * Экранирование строки для SQL
-   */
-  static sqlEscapeLiteral(str) {
-    return String(str).replace(/'/g, "''");
-  }
-
-  /**
-   * Отправка запроса к API базы данных через Netlify прокси
-   */
-  static async fetchFromDatabase(sql) {
-    if (!/^(\s*select\b)/i.test(sql)) {
-      throw new Error("Разрешены только SELECT-запросы.");
+    if (!videoNames || videoNames.length === 0) {
+      console.warn('⚠️ getBatchVideoMetrics: пустой массив videoNames');
+      return { success: false, results: [] };
     }
 
-    const options = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({ sql }),
-    };
+    console.log(`🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}`);
 
     try {
-      console.log('📡 Отправка запроса к прокси:', METRICS_API_URL);
-      
-      const response = await fetch(METRICS_API_URL, options);
-      
+      // Отправляем один запрос с массивом имён
+      const requestBody = {
+        video_names: videoNames,
+        kind: kind
+      };
+
+      if (dateFrom) requestBody.date_from = dateFrom;
+      if (dateTo) requestBody.date_to = dateTo;
+
+      const startTime = Date.now();
+
+      const response = await fetch(METRICS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage;
-        
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorJson.details || `HTTP ${response.status}`;
-          
-          // Детальное логирование для отладки
-          console.error('❌ Ошибка от прокси:', {
-            status: response.status,
-            error: errorJson.error,
-            details: errorJson.details,
-            type: errorJson.type
-          });
-        } catch {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          console.error('❌ Ошибка от прокси (не JSON):', response.status, errorText.substring(0, 200));
-        }
-        
-        // Более дружелюбные сообщения для пользователя
-        if (response.status === 502) {
-          throw new Error('API метрик временно недоступен. Попробуйте позже.');
-        } else if (response.status === 504) {
-          throw new Error('Превышено время ожидания. Попробуйте обновить данные.');
-        } else if (response.status === 500) {
-          throw new Error('Внутренняя ошибка сервера метрик.');
-        } else {
-          throw new Error(errorMessage);
-        }
+        throw new Error(`API error ${response.status}: ${errorText}`);
       }
 
-      const text = await response.text();
-      if (!text || !text.trim()) {
-        console.log('⚠️ Пустой ответ от API');
-        return [];
-      }
+      const data = await response.json();
+      const elapsed = Date.now() - startTime;
 
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        console.error('❌ Неверный JSON:', e.message, text.substring(0, 200));
-        throw new Error("Неверный ответ от API метрик");
-      }
+      // Логируем метаданные
+      const cacheStatus = response.headers.get('X-Cache');
+      const chunksProcessed = response.headers.get('X-Chunks-Processed');
+      const totalRecords = response.headers.get('X-Total-Records');
 
-      if (json && typeof json === "object" && json.error) {
-        console.error('❌ Ошибка в ответе API:', json.error);
-        throw new Error("Ошибка API: " + (json.details || json.error));
-      }
-
-      return Array.isArray(json) ? json : [];
-      
-    } catch (error) {
-      // Обработка ошибок сети
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        console.error('🌐 Ошибка сети:', error);
-        throw new Error('Не удается подключиться к сервису метрик. Проверьте интернет-соединение.');
-      }
-      
-      console.error('❌ Ошибка fetchFromDatabase:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Нормализация подробного ответа базы данных к массиву дней
-   */
-  static normalizeDetailedRows(dbResponse) {
-    if (!dbResponse || dbResponse.length === 0) {
-      return [];
-    }
-
-    let normalizedRows = [];
-
-    // Случай A: массив объектов
-    if (typeof dbResponse[0] === "object" && !Array.isArray(dbResponse[0])) {
-      normalizedRows = dbResponse.map(row => ({
-        date: row.adv_date,
-        leads: Number(row.leads) || 0,
-        cost: Number(row.cost) || 0,
-        clicks: Number(row.clicks) || 0,
-        impressions: Number(row.impressions) || 0,
-        avg_duration: Number(row.avg_duration) || 0
-      }));
-    } else {
-      // Случай B: [headers, ...rows]
-      const headers = dbResponse[0];
-      const dataRows = dbResponse.slice(1);
-      
-      normalizedRows = dataRows.map(row => {
-        const map = {};
-        headers.forEach((h, i) => (map[h] = row[i]));
-        
-        return {
-          date: map.adv_date,
-          leads: Number(map.leads) || 0,
-          cost: Number(map.cost) || 0,
-          clicks: Number(map.clicks) || 0,
-          impressions: Number(map.impressions) || 0,
-          avg_duration: Number(map.avg_duration) || 0
-        };
+      console.log(`✅ БАТЧЕВАЯ загрузка завершена за ${elapsed}ms:`, {
+        cache: cacheStatus,
+        chunks: chunksProcessed,
+        records: totalRecords || data.length,
+        videosRequested: videoNames.length
       });
-    }
 
-    // Сортируем по дате (первые дни сначала)
-    normalizedRows.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    return normalizedRows;
+      // Группируем результаты по video_name и kind
+      const resultsByVideo = this._groupBatchResults(data, videoNames);
+
+      return {
+        success: true,
+        results: resultsByVideo,
+        metadata: {
+          elapsed,
+          cache: cacheStatus,
+          chunks: chunksProcessed,
+          records: data.length
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка батчевой загрузки:', error);
+      return {
+        success: false,
+        error: error.message,
+        results: []
+      };
+    }
   }
 
   /**
-   * КЛЮЧЕВОЙ МЕТОД: Клиентская фильтрация данных по периоду - МГНОВЕННО
+   * Группировка результатов по видео и типу (daily/first4/total)
    */
-  static filterDataByPeriod(dailyData, period) {
-    if (!dailyData || dailyData.length === 0) {
-      return [];
-    }
+  static _groupBatchResults(data, videoNames) {
+    const grouped = new Map();
 
-    if (period === 'all') {
-      return dailyData;
-    }
+    // Инициализируем для всех запрошенных видео
+    videoNames.forEach(name => {
+      grouped.set(name, {
+        videoName: name,
+        daily: [],
+        first4: null,
+        total: null,
+        found: false
+      });
+    });
 
-    if (period === '4days') {
-      // Берем первые N дней, где N <= 4 (может быть 1, 2, 3 или 4 дня)
-      const daysToTake = Math.min(4, dailyData.length);
-      return dailyData.slice(0, daysToTake);
-    }
+    // Группируем данные
+    data.forEach(row => {
+      const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration } = row;
+      
+      if (!grouped.has(video_name)) {
+        grouped.set(video_name, {
+          videoName: video_name,
+          daily: [],
+          first4: null,
+          total: null,
+          found: false
+        });
+      }
 
-    // Добавьте другие периоды если нужно
-    return dailyData;
+      const entry = grouped.get(video_name);
+      entry.found = true;
+
+      const metrics = {
+        date: adv_date,
+        leads: Number(leads) || 0,
+        cost: Number(cost) || 0,
+        clicks: Number(clicks) || 0,
+        impressions: Number(impressions) || 0,
+        avg_duration: Number(avg_duration) || 0
+      };
+
+      if (kind === 'daily') {
+        entry.daily.push(metrics);
+      } else if (kind === 'first4') {
+        entry.first4 = metrics;
+      } else if (kind === 'total') {
+        entry.total = metrics;
+      }
+    });
+
+    return Array.from(grouped.values());
   }
 
   /**
-   * НОВЫЙ МЕТОД: Клиентская фильтрация уже загруженных метрик по периоду
+   * Получение метрик для одного видео (обёртка над батчевым методом)
+   */
+  static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null, article = null) {
+    if (!videoName || typeof videoName !== 'string') {
+      throw new Error('Название видео обязательно');
+    }
+
+    // Проверяем кэш Supabase
+    if (useCache && creativeId && videoIndex !== null) {
+      try {
+        const cached = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
+        if (cached && cached.metrics_data) {
+          console.log(`✅ Загружены метрики из кэша Supabase для: ${videoName}`);
+          return {
+            found: true,
+            data: cached.metrics_data,
+            fromCache: true,
+            cachedAt: cached.cached_at
+          };
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ Ошибка чтения кэша, загружаем из API:', cacheError);
+      }
+    }
+
+    try {
+      console.log(`🔍 Загружаем метрики через батчевый API для: ${videoName}`);
+      
+      // Используем батчевый метод для одного видео
+      const batchResult = await this.getBatchVideoMetrics([videoName], {
+        kind: 'daily_first4_total',
+        useCache: true
+      });
+
+      if (!batchResult.success || batchResult.results.length === 0) {
+        return {
+          found: false,
+          error: batchResult.error || 'Не найдено в базе данных'
+        };
+      }
+
+      const videoData = batchResult.results[0];
+      
+      if (!videoData.found || !videoData.daily || videoData.daily.length === 0) {
+        return {
+          found: false,
+          error: 'Нет данных активности'
+        };
+      }
+
+      // Преобразуем к старому формату для совместимости
+      const allDailyData = videoData.daily.map(d => ({
+        date: d.date,
+        leads: d.leads,
+        cost: d.cost,
+        clicks: d.clicks,
+        impressions: d.impressions,
+        avg_duration: d.avg_duration
+      }));
+
+      // Вычисляем метрики для "all"
+      const aggregatesAll = this.aggregateDailyData(allDailyData);
+      const metricsAll = this.computeDerivedMetrics(aggregatesAll);
+      const formattedAll = this.formatMetrics(metricsAll);
+
+      const result = {
+        found: true,
+        data: {
+          raw: metricsAll,
+          formatted: formattedAll,
+          allDailyData: allDailyData,
+          dailyData: allDailyData,
+          videoName: videoName,
+          period: 'all',
+          updatedAt: new Date().toLocaleString('ru-RU', {
+            timeZone: TIMEZONE,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        },
+        fromCache: false
+      };
+
+      // Сохраняем в кэш Supabase
+      if (creativeId && videoIndex !== null) {
+        try {
+          console.log(`💾 Сохранение метрик в кэш (все время)`);
+
+          // Период "all"
+          await metricsAnalyticsService.saveMetricsCache(
+            creativeId,
+            article || videoName,
+            videoIndex,
+            videoName,
+            result.data,
+            'all'
+          );
+
+          // Период "4days" (если есть first4 в батчевом результате)
+          if (videoData.first4) {
+            const first4Metrics = {
+              leads: videoData.first4.leads,
+              cost: videoData.first4.cost,
+              clicks: videoData.first4.clicks,
+              impressions: videoData.first4.impressions,
+              avg_duration: videoData.first4.avg_duration,
+              days_count: Math.min(4, allDailyData.length)
+            };
+
+            const derivedFirst4 = this.computeDerivedMetrics(first4Metrics);
+            const formattedFirst4 = this.formatMetrics(derivedFirst4);
+
+            const data4Days = {
+              raw: derivedFirst4,
+              formatted: formattedFirst4,
+              allDailyData: allDailyData.slice(0, 4),
+              dailyData: allDailyData.slice(0, 4),
+              videoName: videoName,
+              period: '4days',
+              updatedAt: result.data.updatedAt
+            };
+
+            await metricsAnalyticsService.saveMetricsCache(
+              creativeId,
+              article || videoName,
+              videoIndex,
+              videoName,
+              data4Days,
+              '4days'
+            );
+
+            console.log(`✅ Метрики "4 дня" сохранены в кэш`);
+          }
+
+        } catch (saveError) {
+          console.error('❌ Ошибка сохранения в кэш:', saveError);
+        }
+      }
+
+      return result;
+
+    } catch (error) {
+      return {
+        found: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Клиентская фильтрация по периоду (без новых запросов к API)
    */
   static filterRawMetricsByPeriod(rawMetrics, targetPeriod) {
     if (!rawMetrics || !rawMetrics.found || !rawMetrics.data) {
@@ -209,22 +316,21 @@ export class MetricsService {
       };
     }
 
-    // КРИТИЧНО: Если данные из кэша для НУЖНОГО периода, возвращаем как есть
+    // Если данные из кэша для нужного периода, возвращаем как есть
     const isFromCache = rawMetrics.data?.fromCache || rawMetrics.fromCache;
     const cachedPeriod = rawMetrics.data?.period || rawMetrics.period;
     
     if (isFromCache && cachedPeriod === targetPeriod) {
-      console.log(`✅ Данные из кэша для периода "${targetPeriod}" - возвращаем без фильтрации`);
+      console.log(`✅ Данные из кэша для периода "${targetPeriod}"`);
       return {
         found: true,
         data: {
           ...rawMetrics.data,
-          period: targetPeriod // Убеждаемся что период правильный
+          period: targetPeriod
         }
       };
     }
     
-    // Если период не совпадает, пробуем фильтровать
     const allDailyData = rawMetrics.data.allDailyData || rawMetrics.data.dailyData || [];
     
     if (allDailyData.length === 0) {
@@ -234,7 +340,7 @@ export class MetricsService {
       };
     }
 
-    // МГНОВЕННАЯ фильтрация на клиенте
+    // Мгновенная фильтрация на клиенте
     const filteredData = this.filterDataByPeriod(allDailyData, targetPeriod);
     
     if (filteredData.length === 0) {
@@ -244,10 +350,8 @@ export class MetricsService {
       };
     }
 
-    // Агрегируем отфильтрованные данные
     const aggregates = this.aggregateDailyData(filteredData);
     
-    // Проверяем что есть хоть какая-то активность
     if (aggregates.leads === 0 && aggregates.cost === 0 && 
         aggregates.clicks === 0 && aggregates.impressions === 0) {
       return {
@@ -264,8 +368,8 @@ export class MetricsService {
       data: {
         raw: metrics,
         formatted: formatted,
-        dailyData: filteredData, // Отфильтрованные дневные данные
-        allDailyData: allDailyData, // Сохраняем оригинальные данные для повторной фильтрации
+        dailyData: filteredData,
+        allDailyData: allDailyData,
         period: targetPeriod,
         updatedAt: new Date().toLocaleString('ru-RU', {
           timeZone: TIMEZONE,
@@ -280,7 +384,27 @@ export class MetricsService {
   }
 
   /**
-   * Агрегирование дневных данных в общие метрики
+   * Фильтрация дневных данных по периоду
+   */
+  static filterDataByPeriod(dailyData, period) {
+    if (!dailyData || dailyData.length === 0) {
+      return [];
+    }
+
+    if (period === 'all') {
+      return dailyData;
+    }
+
+    if (period === '4days') {
+      const daysToTake = Math.min(4, dailyData.length);
+      return dailyData.slice(0, daysToTake);
+    }
+
+    return dailyData;
+  }
+
+  /**
+   * Агрегирование дневных данных
    */
   static aggregateDailyData(dailyData) {
     if (!dailyData || dailyData.length === 0) {
@@ -346,7 +470,7 @@ export class MetricsService {
   }
 
   /**
-   * Форматирование метрик для отображения
+   * Форматирование метрик
    */
   static formatMetrics(metrics) {
     const formatInt = (n) => String(Math.round(Number(n) || 0));
@@ -369,318 +493,52 @@ export class MetricsService {
   }
 
   /**
-   * ПЕРЕПИСАННЫЙ метод: Получение метрик для конкретного видео - ТОЛЬКО за все время
-   */
-  static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null, article = null) {
-    if (!videoName || typeof videoName !== 'string') {
-      throw new Error('Название видео обязательно');
-    }
-
-    // Проверяем кэш, если разрешено
-    if (useCache && creativeId && videoIndex !== null) {
-      try {
-        const cached = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
-        if (cached && cached.metrics_data) {
-          console.log(`✅ Загружены метрики из кэша для: ${videoName}`);
-          return {
-            found: true,
-            data: cached.metrics_data,
-            fromCache: true,
-            cachedAt: cached.cached_at
-          };
-        }
-      } catch (cacheError) {
-        console.warn('⚠️ Ошибка чтения кэша, загружаем из API:', cacheError);
-      }
-    }
-
-    try {
-      console.log(`🔍 Загружаем сырые данные ЗА ВСЕ ВРЕМЯ из API для: ${videoName}`);
-      
-      // ВСЕГДА получаем данные за ВСЕ время
-      const sql = this.buildDetailedSqlForVideo(videoName);
-      const dbResponse = await this.fetchFromDatabase(sql);
-      
-      if (!dbResponse || dbResponse.length === 0) {
-        return {
-          found: false,
-          error: 'Не найдено в базе данных'
-        };
-      }
-
-      // Нормализуем подробные данные по дням
-      const allDailyData = this.normalizeDetailedRows(dbResponse);
-      
-      if (allDailyData.length === 0) {
-        return {
-          found: false,
-          error: 'Нет данных активности'
-        };
-      }
-
-      // Агрегируем данные за ВСЕ время для проверки активности
-      const aggregates = this.aggregateDailyData(allDailyData);
-      
-      // Проверяем что есть хоть какая-то активность
-      if (aggregates.leads === 0 && aggregates.cost === 0 && 
-          aggregates.clicks === 0 && aggregates.impressions === 0) {
-        return {
-          found: false,
-          error: 'Нет активности за всё время'
-        };
-      }
-      
-      const metrics = this.computeDerivedMetrics(aggregates);
-      const formatted = this.formatMetrics(metrics);
-      
-      console.log(`✅ Сырые данные загружены: ${allDailyData.length} дней активности`);
-      
-      const result = {
-        found: true,
-        data: {
-          raw: metrics,
-          formatted: formatted,
-          allDailyData: allDailyData, // КЛЮЧЕВОЕ: сохраняем ВСЕ дневные данные для фильтрации
-          dailyData: allDailyData, // По умолчанию показываем все дни
-          videoName: videoName,
-          period: 'all', // Сырые данные всегда за все время
-          updatedAt: new Date().toLocaleString('ru-RU', {
-            timeZone: TIMEZONE,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        fromCache: false
-      };
-
-      // Сохраняем в кэш, если указаны параметры
-      if (creativeId && videoIndex !== null) {
-        try {
-          console.log(`💾 Сохранение метрик в кэш (все время):`, {
-            creativeId,
-            article: article || videoName,
-            videoIndex,
-            videoName,
-            period: 'all',
-            hasData: !!result.data,
-            rawLeads: result.data?.raw?.leads,
-            rawCost: result.data?.raw?.cost
-          });
-
-          // Сохраняем период "все время"
-          await metricsAnalyticsService.saveMetricsCache(
-            creativeId,
-            article || videoName,
-            videoIndex,
-            videoName,
-            result.data,
-            'all'
-          );
-          
-          console.log(`✅ Метрики "все время" сохранены в кэш для: ${videoName}`);
-          
-          // 🆕 СОХРАНЯЕМ ТАКЖЕ ПЕРИОД "4 ДНЯ" (до 4 дней включительно)
-          if (allDailyData.length > 0) {
-            const daysToTake = Math.min(4, allDailyData.length);
-            console.log(`💾 Сохранение метрик "4 дня" в кэш (${daysToTake} ${daysToTake === 1 ? 'день' : daysToTake < 5 ? 'дня' : 'дней'})...`);
-            
-            // Берем первые N дней, где N <= 4
-            const first4Days = allDailyData.slice(0, daysToTake);
-            const aggregates4Days = this.aggregateDailyData(first4Days);
-            
-            // Проверяем что есть активность
-            if (aggregates4Days.leads > 0 || aggregates4Days.cost > 0 || 
-                aggregates4Days.clicks > 0 || aggregates4Days.impressions > 0) {
-              
-              const metrics4Days = this.computeDerivedMetrics(aggregates4Days);
-              const formatted4Days = this.formatMetrics(metrics4Days);
-              
-              const data4Days = {
-                raw: metrics4Days,
-                formatted: formatted4Days,
-                allDailyData: first4Days,
-                dailyData: first4Days,
-                videoName: videoName,
-                period: '4days',
-                updatedAt: new Date().toLocaleString('ru-RU', {
-                  timeZone: TIMEZONE,
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              };
-              
-              await metricsAnalyticsService.saveMetricsCache(
-                creativeId,
-                article || videoName,
-                videoIndex,
-                videoName,
-                data4Days,
-                '4days'
-              );
-              
-              console.log(`✅ Метрики "4 дня" сохранены в кэш для: ${videoName} (${daysToTake} ${daysToTake === 1 ? 'день' : daysToTake < 5 ? 'дня' : 'дней'} активности)`);
-            } else {
-              console.log(`⚠️ Нет активности за период "4 дня" для: ${videoName}`);
-            }
-          } else {
-            console.log(`⚠️ Нет дневных данных для сохранения "4 дня" для: ${videoName}`);
-          }
-          
-        } catch (saveError) {
-          console.error('❌ ОШИБКА сохранения метрик в кэш:', saveError);
-        }
-      }
-
-      return result;
-    } catch (error) {
-      return {
-        found: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * УСТАРЕВШИЙ метод - больше не используется для избежания запросов
-   */
-  static async getVideoMetrics(videoName, period = 'all') {
-    console.warn('⚠️ getVideoMetrics используется напрямую - используйте getVideoMetricsRaw + filterRawMetricsByPeriod');
-    
-    // Для обратной совместимости
-    const rawResult = await this.getVideoMetricsRaw(videoName);
-    
-    if (!rawResult.found) {
-      return rawResult;
-    }
-
-    return this.filterRawMetricsByPeriod(rawResult, period);
-  }
-
-  /**
-   * ПЕРЕПИСАННЫЙ метод: Батчевая загрузка - ТОЛЬКО за все время
-   */
-  static async getBatchVideoMetricsRaw(videoNames) {
-    if (!Array.isArray(videoNames)) {
-      throw new Error('videoNames должен быть массивом');
-    }
-
-    console.log(`🚀 Батчевая загрузка сырых данных для ${videoNames.length} видео`);
-
-    const results = await Promise.allSettled(
-      videoNames.map(async (videoName, index) => {
-        try {
-          // Небольшая задержка между запросами чтобы не перегружать прокси
-          if (index > 0 && index % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } else if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          
-          // ВАЖНО: получаем только сырые данные за ВСЕ время
-          const result = await this.getVideoMetricsRaw(videoName);
-          
-          return {
-            videoName,
-            ...result
-          };
-        } catch (error) {
-          return {
-            videoName,
-            found: false,
-            error: error.message
-          };
-        }
-      })
-    );
-
-    const finalResults = results.map((result, index) => ({
-      videoName: videoNames[index],
-      ...(result.status === 'fulfilled' ? result.value : {
-        found: false,
-        error: 'Неизвестная ошибка при обработке'
-      })
-    }));
-
-    console.log(`✅ Батчевая загрузка завершена: ${finalResults.filter(r => r.found).length}/${finalResults.length} успешно`);
-
-    return finalResults;
-  }
-
-  /**
-   * УСТАРЕВШИЙ метод - больше не используется
-   */
-  static async getBatchVideoMetrics(videoNames, period = 'all') {
-    console.warn('⚠️ getBatchVideoMetrics используется с периодом - используйте getBatchVideoMetricsRaw + клиентскую фильтрацию');
-    
-    // Для обратной совместимости
-    const rawResults = await this.getBatchVideoMetricsRaw(videoNames);
-    
-    if (period === 'all') {
-      return rawResults;
-    }
-
-    // Применяем фильтрацию ко всем результатам
-    return rawResults.map(rawResult => {
-      if (!rawResult.found) {
-        return {
-          ...rawResult,
-          period
-        };
-      }
-
-      const filtered = this.filterRawMetricsByPeriod(rawResult, period);
-      return {
-        videoName: rawResult.videoName,
-        period,
-        ...filtered
-      };
-    });
-  }
-
-  /**
-   * Извлечение имени файла без расширения (если нужно)
-   */
-  static extractVideoName(fileName) {
-    if (!fileName) return '';
-    
-    // Убираем расширения видео файлов
-    const cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-    return cleanName.trim();
-  }
-
-  /**
    * Проверка статуса API
    */
   static async checkApiStatus() {
     try {
-      const testSql = "SELECT 1 as test LIMIT 1";
-      const result = await this.fetchFromDatabase(testSql);
+      const response = await fetch(METRICS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          video_names: ['test_api_status_check']
+        })
+      });
       
-      if (result && Array.isArray(result)) {
+      if (response.ok) {
         return { available: true, message: 'API работает корректно' };
       } else {
-        return { available: true, message: 'API доступен, но результат неожиданный' };
+        return { 
+          available: false, 
+          message: `API вернул статус ${response.status}`
+        };
       }
     } catch (error) {
       return { 
         available: false, 
         error: error.message,
-        message: 'API недоступен или работает некорректно'
+        message: 'API недоступен'
       };
     }
   }
 
   /**
-   * Получить URL API для отладки
+   * Получить URL API
    */
   static getApiUrl() {
     return METRICS_API_URL;
+  }
+
+  /**
+   * Извлечение имени файла без расширения
+   */
+  static extractVideoName(fileName) {
+    if (!fileName) return '';
+    const cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+    return cleanName.trim();
   }
 }
 
