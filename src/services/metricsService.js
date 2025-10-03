@@ -208,17 +208,20 @@ export class MetricsService {
       };
     }
 
-    // КРИТИЧНО: Если период 'all' И данные из кэша (нет allDailyData), возвращаем как есть
-    const allDailyData = rawMetrics.data.allDailyData || rawMetrics.data.dailyData || [];
+    // КРИТИЧНО: Если данные из кэша для НУЖНОГО периода, возвращаем как есть
     const isFromCache = rawMetrics.data.fromCache || rawMetrics.fromCache;
+    const cachedPeriod = rawMetrics.data.period || rawMetrics.period;
     
-    if (targetPeriod === 'all' && allDailyData.length === 0 && isFromCache) {
-      console.log('✅ Данные из кэша для периода "all" - возвращаем без фильтрации');
+    if (isFromCache && cachedPeriod === targetPeriod) {
+      console.log(`✅ Данные из кэша для периода "${targetPeriod}" - возвращаем без фильтрации`);
       return {
         found: true,
         data: rawMetrics.data
       };
     }
+    
+    // Если период не совпадает, пробуем фильтровать
+    const allDailyData = rawMetrics.data.allDailyData || rawMetrics.data.dailyData || [];
     
     if (allDailyData.length === 0) {
       return {
