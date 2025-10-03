@@ -1615,11 +1615,17 @@ export const metricsAnalyticsService = {
       });
 
       // КРИТИЧНО: Убираем select('*') чтобы избежать проблем с JSONB колонками
-      const { data, error } = await supabase
+      let query = supabase
         .from('metrics_cache')
         .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at, metrics_data')
-        .in('creative_id', creativeIds)
-        .eq('period', period);
+        .in('creative_id', creativeIds);
+      
+      // Фильтруем по периоду только если это не 'all'
+      if (period !== 'all') {
+        query = query.eq('period', period);
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
