@@ -1,98 +1,12 @@
-// ИСПРАВЛЕННЫЕ хуки для метрик - с правильным сохранением в кэш
-// Замените содержимое src/hooks/useMetrics.js
+// src/hooks/useMetrics.js - БАТЧЕВАЯ ВЕРСИЯ
+// Использует новый оптимизированный API с минимумом HTTP-запросов
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
 import { metricsAnalyticsService } from '../supabaseClient';
 
 /**
- * Хук для получения метрик одного видео по названию
- */
-export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', creativeId = null, videoIndex = null) {
-  const [rawMetrics, setRawMetrics] = useState(null);
-  const [filteredMetrics, setFilteredMetrics] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(null);
-
-  // Загрузка сырых данных - ТОЛЬКО один раз
-  const loadRawMetrics = useCallback(async () => {
-    if (!videoTitle || videoTitle.startsWith('Видео ')) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      console.log(`🔍 Загружаем сырые метрики для: ${videoTitle}`);
-      
-      // ✅ ИСПРАВЛЕНО: Передаем creativeId и videoIndex для сохранения в кэш
-      const result = await MetricsService.getVideoMetricsRaw(
-        videoTitle,
-        true, // useCache
-        creativeId,
-        videoIndex,
-        null // article - пока null, так как в useVideoMetrics нет доступа к article
-      );
-      
-      if (result.found) {
-        setRawMetrics(result);
-        setLastUpdated(new Date());
-        setError('');
-        console.log(`✅ Сырые метрики загружены для: ${videoTitle}`);
-      } else {
-        setError(result.error || 'Метрики не найдены');
-        setRawMetrics(null);
-      }
-    } catch (err) {
-      setError('Ошибка загрузки: ' + err.message);
-      setRawMetrics(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [videoTitle, creativeId, videoIndex]);
-
-  // Мгновенная фильтрация на клиенте при смене периода
-  const applyFilter = useCallback((rawData, targetPeriod) => {
-    if (!rawData || !rawData.found) {
-      setFilteredMetrics(null);
-      return;
-    }
-
-    console.log(`⚡ МГНОВЕННАЯ фильтрация для ${videoTitle}: ${targetPeriod}`);
-    
-    const filtered = MetricsService.filterRawMetricsByPeriod(rawData, targetPeriod);
-    setFilteredMetrics(filtered);
-  }, [videoTitle]);
-
-  useEffect(() => {
-    if (autoLoad && videoTitle) {
-      loadRawMetrics();
-    }
-  }, [videoTitle, autoLoad, loadRawMetrics]);
-
-  useEffect(() => {
-    if (rawMetrics) {
-      applyFilter(rawMetrics, period);
-    } else {
-      setFilteredMetrics(null);
-    }
-  }, [rawMetrics, period, applyFilter]);
-
-  return {
-    metrics: filteredMetrics?.found ? filteredMetrics.data : null,
-    loading,
-    error: filteredMetrics?.found === false ? filteredMetrics.error : error,
-    lastUpdated,
-    refresh: loadRawMetrics,
-    hasMetrics: filteredMetrics?.found || false,
-    period: period
-  };
-}
-
-/**
- * ✅ ИСПРАВЛЕННЫЙ хук для батчевой загрузки метрик
+ * Хук для батчевой загрузки метрик (оптимизированный)
  */
 export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const [rawBatchMetrics, setRawBatchMetrics] = useState(new Map());
@@ -103,6 +17,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
   const loadingCancelRef = useRef(false);
 
+  /**
+   * ОПТИМИЗИРОВАННАЯ батчевая загрузка - ОДИН запрос для всех видео
+   */
   const loadRawBatchMetrics = useCallback(async (forceRefresh = false, targetPeriod = null) => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
@@ -116,20 +33,23 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     loadingCancelRef.current = false;
 
     try {
-      console.log(`🚀 Загрузка метрик для ${creatives.length} креативов...`);
+      console.log(`🚀 БАТЧЕВАЯ загрузка метрик для ${creatives.length} креативов...`);
 
-      // Собираем все видео с их creativeId и videoIndex
+      // Собираем все видео с метаданными
       const videosToLoad = [];
+      const videoMap = new Map(); // videoKey -> metadata
+
       creatives.forEach(creative => {
         if (creative.link_titles && creative.link_titles.length > 0) {
           creative.link_titles.forEach((videoTitle, videoIndex) => {
             if (videoTitle && !videoTitle.startsWith('Видео ')) {
-              videosToLoad.push({
+              const videoKey = `${creative.id}_${videoIndex}`;
+              videosToLoad.push(videoTitle);
+              videoMap.set(videoKey, {
                 videoTitle,
                 creativeId: creative.id,
-                article: creative.article, // ✅ Добавляем артикул
-                videoIndex,
-                videoKey: `${creative.id}_${videoIndex}`
+                article: creative.article,
+                videoIndex
               });
             }
           });
@@ -137,7 +57,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       });
 
       if (videosToLoad.length === 0) {
-        setError('Нет доступных названий видео для поиска метрик');
+        setError('Нет доступных названий видео');
         setRawBatchMetrics(new Map());
         setFilteredBatchMetrics(new Map());
         setStats({ total: 0, found: 0, notFound: 0 });
@@ -146,241 +66,195 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
       console.log(`📊 Всего видео для загрузки: ${videosToLoad.length}`);
 
-      // Если не форсируем обновление, пытаемся загрузить из кэша
+      // Шаг 1: Проверяем кэш Supabase для периода "all"
       const rawMetricsMap = new Map();
-      let cacheHits = 0;
-      const videosToLoadFromApi = []; // Видео которых нет в кэше
+      const videosToLoadFromApi = [];
       
       if (!forceRefresh) {
-        const periodToLoad = targetPeriod || period;
-        console.log(`📦 Попытка БАТЧЕВОЙ загрузки из кэша (период: ${periodToLoad})...`);
+        console.log(`📦 Проверка кэша Supabase для периода "all"...`);
         const creativeIds = creatives.map(c => c.id);
-        console.log('🔑 Creative IDs для батчевой загрузки:', creativeIds.length);
         
         try {
-          // Загружаем из кэша для ЗАПРОШЕННОГО периода
-          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, periodToLoad);
-          
-          console.log('📦 Результат батчевого кэша:', {
-            isArray: Array.isArray(cachedData),
-            count: cachedData?.length || 0
-          });
+          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
           
           if (cachedData && cachedData.length > 0) {
-            // Создаем Map из всех возможных видео для быстрого поиска
-            const videosMap = new Map();
-            videosToLoad.forEach(video => {
-              videosMap.set(video.videoKey, video);
-            });
-
-            // Обрабатываем кэшированные данные
-            cachedData.forEach((cache) => {
-              if (!cache || !cache.creative_id) return;
-
-              const videoKey = `${cache.creative_id}_${cache.video_index}`;
-              const videoInfo = videosMap.get(videoKey);
-              
-              if (!videoInfo) return; // Пропускаем если видео не в текущем списке
-
-              if (cache.found && cache.data) {
+            console.log(`📦 Найдено в кэше: ${cachedData.length} записей`);
+            
+            cachedData.forEach(cache => {
+              if (cache && cache.found && cache.data) {
+                const videoKey = `${cache.creative_id}_${cache.video_index}`;
                 rawMetricsMap.set(videoKey, {
-                  found: cache.found,
+                  found: true,
                   data: cache.data,
-                  error: cache.error,
+                  error: null,
                   videoName: cache.video_title,
-                  article: cache.article,
                   creativeId: cache.creative_id,
-                  videoIndex: cache.video_index
+                  videoIndex: cache.video_index,
+                  fromCache: true
                 });
-                cacheHits++;
               }
             });
 
-            console.log(`📊 Батчевый кэш: загружено ${cacheHits} из ${videosToLoad.length} видео`);
-
-            // Определяем какие видео нужно загрузить из API
-            videosToLoad.forEach(video => {
-              if (!rawMetricsMap.has(video.videoKey)) {
-                videosToLoadFromApi.push(video);
+            // Определяем какие видео НЕ нашлись в кэше
+            videoMap.forEach((metadata, videoKey) => {
+              if (!rawMetricsMap.has(videoKey)) {
+                videosToLoadFromApi.push(metadata.videoTitle);
               }
             });
 
-            console.log(`🔄 Нужно загрузить из API: ${videosToLoadFromApi.length} видео`);
+            console.log(`✅ Из кэша: ${rawMetricsMap.size}, нужно загрузить из API: ${videosToLoadFromApi.length}`);
 
-            // Если все найдено в кэше - возвращаемся
+            // Если всё в кэше - возвращаемся
             if (videosToLoadFromApi.length === 0) {
               setRawBatchMetrics(rawMetricsMap);
               setLastUpdated(new Date());
-              console.log(`✅ Все ${cacheHits} метрик загружены из кэша`);
+              console.log(`✅ Все ${rawMetricsMap.size} метрик из кэша`);
               setLoading(false);
               return;
             }
           } else {
-            // Кэш пуст - загружаем все из API
+            console.log('⚠️ Кэш пуст, загружаем все из API');
             videosToLoadFromApi.push(...videosToLoad);
-            console.log('⚠️ Батчевый кэш пуст, загружаем все из API...');
           }
           
         } catch (cacheError) {
-          console.error('❌ Ошибка батчевой загрузки из кэша:', cacheError);
-          console.error('📋 Детали ошибки:', cacheError.message, cacheError.code);
+          console.error('❌ Ошибка чтения кэша:', cacheError);
           
-          // КРИТИЧНО: Если это НЕ форсированное обновление - НЕ загружаем из API
           if (!forceRefresh) {
-            console.log('⚠️ Ошибка кэша при автозагрузке - возвращаем пустой результат БЕЗ запросов к API');
+            console.log('⚠️ Автозагрузка: возвращаем пустой результат при ошибке кэша');
             setRawBatchMetrics(new Map());
             setFilteredBatchMetrics(new Map());
             setStats({ total: 0, found: 0, notFound: 0 });
-            setError(`Ошибка загрузки кэша: ${cacheError.message}. Нажмите "Обновить" для загрузки из API.`);
+            setError(`Ошибка кэша: ${cacheError.message}. Нажмите "Обновить" для загрузки.`);
             setLoading(false);
             return;
           }
           
-          // При форсированном обновлении - загружаем все из API
-          console.log('⚠️ Ошибка кэша при форсированном обновлении - загружаем ВСЕ из API...');
-          videosToLoadFromApi.length = 0; // Очищаем массив
           videosToLoadFromApi.push(...videosToLoad);
         }
       } else {
-        console.log('🔄 Форсированное обновление - загружаем ВСЕ из API...');
-        videosToLoadFromApi.length = 0; // Очищаем массив
+        console.log('🔄 Форсированное обновление - загружаем ВСЕ из API');
         videosToLoadFromApi.push(...videosToLoad);
       }
 
-      // КРИТИЧНО: Если это НЕ форсированное обновление и есть видео без кэша - НЕ загружаем из API
+      // КРИТИЧНО: Если не форсированное обновление и есть видео без кэша - НЕ загружаем
       if (!forceRefresh && videosToLoadFromApi.length > 0) {
-        console.log(`⚠️ Автозагрузка: ${videosToLoadFromApi.length} видео без кэша - НЕ загружаем из API`);
-        console.log(`✅ Возвращаем только ${cacheHits} метрик из кэша`);
+        console.log(`⚠️ Автозагрузка: ${videosToLoadFromApi.length} видео без кэша - НЕ загружаем`);
+        console.log(`✅ Возвращаем только ${rawMetricsMap.size} метрик из кэша`);
         
         setRawBatchMetrics(rawMetricsMap);
         setLastUpdated(new Date());
         setLoading(false);
         
-        if (cacheHits === 0) {
-          setError(`Кэш пуст. Нажмите "Обновить" для загрузки метрик из API.`);
-        } else if (videosToLoadFromApi.length > 0) {
-          setError(`Загружено ${cacheHits} метрик из кэша. ${videosToLoadFromApi.length} видео без кэша. Нажмите "Обновить" для загрузки остальных.`);
+        if (rawMetricsMap.size === 0) {
+          setError(`Кэш пуст. Нажмите "Обновить" для загрузки метрик.`);
+        } else {
+          setError(`Загружено ${rawMetricsMap.size} метрик из кэша. Нажмите "Обновить" для загрузки остальных.`);
         }
         
         return;
       }
-      
-      // Если forceRefresh=false и videosToLoadFromApi пустой - просто возвращаем кэш
-      if (!forceRefresh) {
-        console.log(`✅ Все ${cacheHits} метрик загружены из кэша, запросов к API не было`);
-        setRawBatchMetrics(rawMetricsMap);
-        setLastUpdated(new Date());
-        setLoading(false);
-        return;
-      }
-      
-      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш (только при форсированном обновлении)
-      const BATCH_SIZE = 3;
-      const BATCH_DELAY = 500;
-      
-      let successCount = cacheHits; // Начинаем с количества из кэша
-      
-      for (let i = 0; i < videosToLoadFromApi.length; i += BATCH_SIZE) {
-        if (loadingCancelRef.current) {
-          console.log('⚠️ Загрузка отменена');
-          break;
-        }
-        
-        const batch = videosToLoadFromApi.slice(i, i + BATCH_SIZE);
-        console.log(`🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(videosToLoadFromApi.length / BATCH_SIZE)}: ${batch.length} видео`);
-        
-        const batchResults = await Promise.allSettled(
-          batch.map(async (video) => {
-            try {
-              // ✅ ИСПРАВЛЕНО: Передаем creativeId и videoIndex для сохранения в кэш
-              const result = await MetricsService.getVideoMetricsRaw(
-                video.videoTitle,
-                true, // useCache
-                video.creativeId, // ✅ Передаем creativeId
-                video.videoIndex, // ✅ Передаем videoIndex
-                video.article     // ✅ Передаем article
-              );
-              
-              return {
-                ...video,
-                ...result
-              };
-            } catch (error) {
-              return {
-                ...video,
-                found: false,
-                error: error.message
-              };
-            }
-          })
-        );
-        
-        // Обрабатываем результаты батча
-        batchResults.forEach((result, batchIndex) => {
-          const video = batch[batchIndex];
-          const resultData = result.status === 'fulfilled' ? result.value : {
-            found: false,
-            error: 'Неизвестная ошибка'
-          };
-          
-          rawMetricsMap.set(video.videoKey, {
-            found: resultData.found,
-            data: resultData.data,
-            error: resultData.error,
-            videoName: video.videoTitle,
-            creativeId: video.creativeId,
-            videoIndex: video.videoIndex
-          });
 
-          if (resultData.found) {
-            successCount++;
-          }
-        });
+      // Шаг 2: ОДИН БАТЧЕВЫЙ ЗАПРОС для всех видео без кэша
+      if (videosToLoadFromApi.length > 0) {
+        console.log(`🌐 Батчевая загрузка ${videosToLoadFromApi.length} видео из API...`);
         
-        // Задержка между батчами
-        if (i + BATCH_SIZE < videosToLoadFromApi.length) {
-          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+        const batchResult = await MetricsService.getBatchVideoMetrics(videosToLoadFromApi, {
+          kind: 'daily_first4_total',
+          useCache: true
+        });
+
+        if (batchResult.success && batchResult.results) {
+          console.log(`✅ Батчевый запрос выполнен: ${batchResult.results.length} результатов`);
+          
+          // Обрабатываем результаты и добавляем в Map
+          batchResult.results.forEach(videoResult => {
+            // Находим все videoKey для этого videoName
+            videoMap.forEach((metadata, videoKey) => {
+              if (metadata.videoTitle === videoResult.videoName) {
+                if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
+                  // Преобразуем к формату rawMetrics
+                  const allDailyData = videoResult.daily.map(d => ({
+                    date: d.date,
+                    leads: d.leads,
+                    cost: d.cost,
+                    clicks: d.clicks,
+                    impressions: d.impressions,
+                    avg_duration: d.avg_duration
+                  }));
+
+                  const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                  const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                  const formatted = MetricsService.formatMetrics(metrics);
+
+                  rawMetricsMap.set(videoKey, {
+                    found: true,
+                    data: {
+                      raw: metrics,
+                      formatted: formatted,
+                      allDailyData: allDailyData,
+                      dailyData: allDailyData,
+                      videoName: metadata.videoTitle,
+                      period: 'all',
+                      updatedAt: new Date().toISOString()
+                    },
+                    error: null,
+                    videoName: metadata.videoTitle,
+                    creativeId: metadata.creativeId,
+                    videoIndex: metadata.videoIndex,
+                    fromCache: false
+                  });
+                } else {
+                  rawMetricsMap.set(videoKey, {
+                    found: false,
+                    data: null,
+                    error: 'Нет данных',
+                    videoName: metadata.videoTitle,
+                    creativeId: metadata.creativeId,
+                    videoIndex: metadata.videoIndex
+                  });
+                }
+              }
+            });
+          });
+        } else {
+          console.error('❌ Ошибка батчевого запроса:', batchResult.error);
+          setError(`Ошибка API: ${batchResult.error}`);
         }
       }
 
       setRawBatchMetrics(rawMetricsMap);
-      
-      // ⚡ БАТЧЕВОЕ сохранение в кэш (только новых метрик из API)
-      const newMetricsCount = successCount - cacheHits;
-      if (newMetricsCount > 0 && forceRefresh) {
-        console.log(`💾 Подготовка к батчевому сохранению ${successCount} метрик...`);
-        
-        const metricsToSave = [];
-        rawMetricsMap.forEach((metrics, videoKey) => {
-          if (metrics.found && metrics.data) {
-            const [creativeId, videoIndex] = videoKey.split('_');
-            const video = videosToLoad.find(v => v.videoKey === videoKey);
-            if (video) {
-              metricsToSave.push({
-                creativeId: video.creativeId,
-                article: video.article,
-                videoIndex: parseInt(videoIndex),
-                videoTitle: metrics.videoName,
-                metricsData: metrics.data,
-                period: 'all'
-              });
-            }
-          }
-        });
 
-        if (metricsToSave.length > 0) {
-          await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave);
-        }
+      // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase
+      const newMetrics = Array.from(rawMetricsMap.values()).filter(m => 
+        m.found && !m.fromCache && m.data
+      );
+
+      if (newMetrics.length > 0) {
+        console.log(`💾 Батчевое сохранение ${newMetrics.length} метрик в кэш...`);
+        
+        const metricsToSave = newMetrics.map(m => ({
+          creativeId: m.creativeId,
+          article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
+          videoIndex: m.videoIndex,
+          videoTitle: m.videoName,
+          metricsData: m.data,
+          period: 'all'
+        }));
+
+        await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave);
+        console.log(`✅ Батчевое сохранение завершено`);
       }
-      
-      // Сохраняем время последнего обновления
+
+      // Обновляем время последнего обновления
       await metricsAnalyticsService.updateMetricsLastUpdate();
       setLastUpdated(new Date());
       
-      console.log(`✅ Загрузка завершена: ${cacheHits} из кэша + ${successCount - cacheHits} из API = ${successCount}/${videosToLoad.length} метрик`);
+      const successCount = Array.from(rawMetricsMap.values()).filter(m => m.found).length;
+      console.log(`✅ Загрузка завершена: ${successCount}/${videosToLoad.length} метрик`);
 
     } catch (err) {
-      console.error('❌ Ошибка загрузки:', err);
+      console.error('❌ Критическая ошибка загрузки:', err);
       setError('Ошибка загрузки: ' + err.message);
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
@@ -390,7 +264,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
   }, [creatives]);
 
-  // Загрузка для конкретного периода (из кэша или фильтрация)
+  /**
+   * Мгновенная фильтрация на клиенте при смене периода
+   */
   const loadForPeriod = useCallback(async (targetPeriod) => {
     if (!rawBatchMetrics || rawBatchMetrics.size === 0) {
       console.log('⚠️ Нет сырых данных для смены периода');
@@ -399,130 +275,94 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       return;
     }
 
-    console.log(`🔄 Смена периода на: ${targetPeriod}`);
+    console.log(`⚡ МГНОВЕННАЯ фильтрация на клиенте: период "${targetPeriod}"`);
 
-    // Шаг 1: Пытаемся загрузить из кэша для нового периода
-    try {
+    // Попытка загрузить из кэша Supabase для нового периода
+    if (targetPeriod === '4days') {
       const creativeIds = [...new Set(
         Array.from(rawBatchMetrics.keys()).map(key => key.split('_')[0])
       )];
 
-      console.log(`📦 Проверка кэша для периода "${targetPeriod}"...`);
-      const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, targetPeriod);
+      try {
+        console.log(`📦 Проверка кэша для периода "4days"...`);
+        const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, '4days');
 
-      if (cachedData && cachedData.length > 0) {
-        console.log(`✅ Найдено в кэше ${cachedData.length} записей для периода "${targetPeriod}"`);
-        
-        // Создаем Map из кэшированных данных
-        const cachedMap = new Map();
-        let cacheHits = 0;
-
-        cachedData.forEach(cache => {
-          if (cache && cache.found && cache.data) {
-            const videoKey = `${cache.creative_id}_${cache.video_index}`;
-            cachedMap.set(videoKey, {
-              found: true,
-              data: cache.data,
-              error: null,
-              videoName: cache.video_title,
-              period: targetPeriod,
-              creativeId: cache.creative_id,
-              videoIndex: cache.video_index
-            });
-            cacheHits++;
-          }
-        });
-
-        // Если все данные из кэша - используем только их
-        if (cacheHits === rawBatchMetrics.size) {
-          console.log(`✅ ВСЕ метрики загружены из кэша для периода "${targetPeriod}"`);
-          setFilteredBatchMetrics(cachedMap);
-          setStats({
-            total: cacheHits,
-            found: cacheHits,
-            notFound: 0
-          });
-          return;
-        }
-
-        // Если часть из кэша - дополняем фильтрацией
-        console.log(`⚡ ${cacheHits} из кэша, остальные через фильтрацию...`);
-        
-        const filteredMap = new Map(cachedMap);
-        let successCount = cacheHits;
-        let totalCount = 0;
-
-        for (const [videoKey, rawMetric] of rawBatchMetrics) {
-          totalCount++;
+        if (cachedData && cachedData.length > 0) {
+          console.log(`✅ Найдено в кэше ${cachedData.length} записей для "4days"`);
           
-          // Если уже есть в кэше - пропускаем
-          if (filteredMap.has(videoKey)) {
-            continue;
-          }
-
-          if (!rawMetric.found || !rawMetric.data) {
-            filteredMap.set(videoKey, {
-              ...rawMetric,
-              period: targetPeriod
-            });
-            continue;
-          }
-
-          try {
-            const filteredResult = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
-            
-            if (filteredResult.found) {
-              filteredMap.set(videoKey, {
+          const cachedMap = new Map();
+          
+          cachedData.forEach(cache => {
+            if (cache && cache.found && cache.data) {
+              const videoKey = `${cache.creative_id}_${cache.video_index}`;
+              cachedMap.set(videoKey, {
                 found: true,
-                data: filteredResult.data,
+                data: cache.data,
                 error: null,
-                videoName: rawMetric.videoName,
-                period: targetPeriod,
-                creativeId: rawMetric.creativeId,
-                videoIndex: rawMetric.videoIndex
-              });
-              successCount++;
-            } else {
-              filteredMap.set(videoKey, {
-                found: false,
-                data: null,
-                error: filteredResult.error || `Нет данных за период: ${targetPeriod}`,
-                videoName: rawMetric.videoName,
-                period: targetPeriod,
-                creativeId: rawMetric.creativeId,
-                videoIndex: rawMetric.videoIndex
+                videoName: cache.video_title,
+                period: '4days',
+                creativeId: cache.creative_id,
+                videoIndex: cache.video_index,
+                fromCache: true
               });
             }
-          } catch (err) {
-            filteredMap.set(videoKey, {
-              found: false,
-              data: null,
-              error: `Ошибка фильтрации: ${err.message}`,
+          });
+
+          // Если все данные из кэша - используем их
+          if (cachedMap.size === rawBatchMetrics.size) {
+            console.log(`✅ ВСЕ метрики загружены из кэша для "4days"`);
+            setFilteredBatchMetrics(cachedMap);
+            setStats({
+              total: cachedMap.size,
+              found: cachedMap.size,
+              notFound: 0
+            });
+            return;
+          }
+
+          // Дополняем недостающие через фильтрацию
+          console.log(`⚡ ${cachedMap.size} из кэша, остальные через фильтрацию...`);
+          
+          for (const [videoKey, rawMetric] of rawBatchMetrics) {
+            if (cachedMap.has(videoKey)) continue;
+
+            if (!rawMetric.found || !rawMetric.data) {
+              cachedMap.set(videoKey, {
+                ...rawMetric,
+                period: targetPeriod
+              });
+              continue;
+            }
+
+            const filtered = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
+            cachedMap.set(videoKey, {
+              found: filtered.found,
+              data: filtered.data,
+              error: filtered.error,
               videoName: rawMetric.videoName,
               period: targetPeriod,
               creativeId: rawMetric.creativeId,
               videoIndex: rawMetric.videoIndex
             });
           }
+
+          setFilteredBatchMetrics(cachedMap);
+          const successCount = Array.from(cachedMap.values()).filter(m => m.found).length;
+          setStats({
+            total: cachedMap.size,
+            found: successCount,
+            notFound: cachedMap.size - successCount
+          });
+
+          console.log(`✅ Комбинированная загрузка: ${cachedMap.size} метрик`);
+          return;
         }
-
-        setFilteredBatchMetrics(filteredMap);
-        setStats({
-          total: totalCount,
-          found: successCount,
-          notFound: totalCount - successCount
-        });
-
-        console.log(`✅ Комбинированная загрузка завершена: ${cacheHits} из кэша + ${successCount - cacheHits} через фильтрацию = ${successCount}/${totalCount}`);
-        return;
+      } catch (cacheError) {
+        console.warn('⚠️ Ошибка кэша, используем фильтрацию:', cacheError);
       }
-    } catch (cacheError) {
-      console.warn('⚠️ Ошибка проверки кэша, используем фильтрацию:', cacheError);
     }
 
-    // Шаг 2: Если кэш пуст или ошибка - применяем клиентскую фильтрацию
-    console.log(`⚡ Клиентская фильтрация для периода: ${targetPeriod}`);
-    
+    // Клиентская фильтрация для всех метрик
     const filteredMap = new Map();
     let successCount = 0;
     let totalCount = 0;
@@ -538,15 +378,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         continue;
       }
 
-      // КРИТИЧНО: Если данные уже для нужного периода и из кэша - не фильтруем
-      const isFromCache = rawMetric.data?.fromCache || rawMetric.fromCache;
-      const cachedPeriod = rawMetric.data?.period || rawMetric.period;
+      const filtered = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
       
-      if (isFromCache && cachedPeriod === targetPeriod) {
-        console.log(`✅ Пропускаем фильтрацию для ${videoKey} - данные уже для периода "${targetPeriod}"`);
+      if (filtered.found) {
         filteredMap.set(videoKey, {
           found: true,
-          data: rawMetric.data,
+          data: filtered.data,
           error: null,
           videoName: rawMetric.videoName,
           period: targetPeriod,
@@ -554,39 +391,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           videoIndex: rawMetric.videoIndex
         });
         successCount++;
-        continue;
-      }
-
-      try {
-        const filteredResult = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
-        
-        if (filteredResult.found) {
-          filteredMap.set(videoKey, {
-            found: true,
-            data: filteredResult.data,
-            error: null,
-            videoName: rawMetric.videoName,
-            period: targetPeriod,
-            creativeId: rawMetric.creativeId,
-            videoIndex: rawMetric.videoIndex
-          });
-          successCount++;
-        } else {
-          filteredMap.set(videoKey, {
-            found: false,
-            data: null,
-            error: filteredResult.error || `Нет данных за период: ${targetPeriod}`,
-            videoName: rawMetric.videoName,
-            period: targetPeriod,
-            creativeId: rawMetric.creativeId,
-            videoIndex: rawMetric.videoIndex
-          });
-        }
-      } catch (err) {
+      } else {
         filteredMap.set(videoKey, {
           found: false,
           data: null,
-          error: `Ошибка фильтрации: ${err.message}`,
+          error: filtered.error || `Нет данных за период: ${targetPeriod}`,
           videoName: rawMetric.videoName,
           period: targetPeriod,
           creativeId: rawMetric.creativeId,
@@ -605,6 +414,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     console.log(`✅ Клиентская фильтрация завершена: ${successCount}/${totalCount}`);
   }, [rawBatchMetrics]);
 
+  // Автозагрузка
   useEffect(() => {
     if (autoLoad && creatives) {
       loadRawBatchMetrics();
@@ -615,6 +425,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     };
   }, [creatives, autoLoad, loadRawBatchMetrics]);
 
+  // Фильтрация при смене периода
   useEffect(() => {
     if (rawBatchMetrics.size > 0) {
       loadForPeriod(period);
@@ -632,11 +443,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const getCreativeMetrics = useCallback((creativeId) => {
     const creativeMetrics = [];
     
-    // Проходим по ВСЕМ ключам в Map и ищем те, что относятся к этому креативу
     for (const [videoKey, metrics] of filteredBatchMetrics) {
-      // Проверяем, начинается ли ключ с нашего creativeId
       if (videoKey.startsWith(`${creativeId}_`)) {
-        // Извлекаем videoIndex из ключа (формат: "creativeId_videoIndex")
         const videoIndex = parseInt(videoKey.split('_').pop());
         
         if (!isNaN(videoIndex)) {
@@ -648,7 +456,6 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       }
     }
     
-    // Сортируем по videoIndex для правильного порядка
     creativeMetrics.sort((a, b) => a.videoIndex - b.videoIndex);
     
     return creativeMetrics.length > 0 ? creativeMetrics : null;
@@ -689,8 +496,88 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 }
 
 /**
- * Хук для работы с API метрик
+ * Остальные хуки без изменений
  */
+export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', creativeId = null, videoIndex = null) {
+  const [rawMetrics, setRawMetrics] = useState(null);
+  const [filteredMetrics, setFilteredMetrics] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const loadRawMetrics = useCallback(async () => {
+    if (!videoTitle || videoTitle.startsWith('Видео ')) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log(`🔍 Загружаем метрики для: ${videoTitle}`);
+      
+      const result = await MetricsService.getVideoMetricsRaw(
+        videoTitle,
+        true,
+        creativeId,
+        videoIndex,
+        null
+      );
+      
+      if (result.found) {
+        setRawMetrics(result);
+        setLastUpdated(new Date());
+        setError('');
+        console.log(`✅ Метрики загружены для: ${videoTitle}`);
+      } else {
+        setError(result.error || 'Метрики не найдены');
+        setRawMetrics(null);
+      }
+    } catch (err) {
+      setError('Ошибка загрузки: ' + err.message);
+      setRawMetrics(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [videoTitle, creativeId, videoIndex]);
+
+  const applyFilter = useCallback((rawData, targetPeriod) => {
+    if (!rawData || !rawData.found) {
+      setFilteredMetrics(null);
+      return;
+    }
+
+    console.log(`⚡ Фильтрация для ${videoTitle}: ${targetPeriod}`);
+    
+    const filtered = MetricsService.filterRawMetricsByPeriod(rawData, targetPeriod);
+    setFilteredMetrics(filtered);
+  }, [videoTitle]);
+
+  useEffect(() => {
+    if (autoLoad && videoTitle) {
+      loadRawMetrics();
+    }
+  }, [videoTitle, autoLoad, loadRawMetrics]);
+
+  useEffect(() => {
+    if (rawMetrics) {
+      applyFilter(rawMetrics, period);
+    } else {
+      setFilteredMetrics(null);
+    }
+  }, [rawMetrics, period, applyFilter]);
+
+  return {
+    metrics: filteredMetrics?.found ? filteredMetrics.data : null,
+    loading,
+    error: filteredMetrics?.found === false ? filteredMetrics.error : error,
+    lastUpdated,
+    refresh: loadRawMetrics,
+    hasMetrics: filteredMetrics?.found || false,
+    period: period
+  };
+}
+
 export function useMetricsApi() {
   const [apiStatus, setApiStatus] = useState('unknown');
   const [checking, setChecking] = useState(false);
@@ -731,9 +618,6 @@ export function useMetricsApi() {
   };
 }
 
-/**
- * Хук для агрегированной статистики метрик
- */
 export function useMetricsStats(creatives, batchMetricsMap = null) {
   const [stats, setStats] = useState({
     totalLeads: 0,
