@@ -133,11 +133,13 @@ class SQLBuilder {
   }
 
   static _buildDailySQL(valuesClause, dateFilter) {
+    // Преобразуем ('name1'),('name2') в 'name1','name2' для IN clause
+    const inClause = valuesClause
+      .replace(/\(/g, '')
+      .replace(/\)/g, '')
+      .replace(/,\s*\n\s*/g, ',');
+    
     return `
-WITH video_list(name) AS (
-  VALUES 
-    ${valuesClause}
-)
 SELECT 
   'daily' as kind,
   t.video_name,
@@ -148,39 +150,20 @@ SELECT
   COALESCE(SUM(t.showed), 0) AS impressions,
   COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
 FROM ads_collection t
-INNER JOIN video_list v ON v.name = t.video_name
-WHERE (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+WHERE t.video_name IN (${inClause})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
   ${dateFilter}
 GROUP BY t.video_name, t.adv_date
 ORDER BY t.video_name, t.adv_date`;
   }
 
   static _buildFirst4SQL(valuesClause, dateFilter) {
+    const inClause = valuesClause
+      .replace(/\(/g, '')
+      .replace(/\)/g, '')
+      .replace(/,\s*\n\s*/g, ',');
+    
     return `
-WITH video_list(name) AS (
-  VALUES 
-    ${valuesClause}
-),
-daily_data AS (
-  SELECT 
-    t.video_name,
-    t.adv_date,
-    COALESCE(SUM(t.valid), 0) AS leads,
-    COALESCE(SUM(t.cost), 0) AS cost,
-    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
-    COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
-  FROM ads_collection t
-  INNER JOIN video_list v ON v.name = t.video_name
-  WHERE (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
-    ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
-),
-ranked_daily AS (
-  SELECT *,
-    ROW_NUMBER() OVER (PARTITION BY video_name ORDER BY adv_date ASC) as rn
-  FROM daily_data
-)
 SELECT 
   'first4' as kind,
   video_name,
@@ -190,19 +173,7 @@ SELECT
   SUM(clicks) as clicks,
   SUM(impressions) as impressions,
   AVG(avg_duration) as avg_duration
-FROM ranked_daily
-WHERE rn <= 4
-GROUP BY video_name
-ORDER BY video_name`;
-  }
-
-  static _buildTotalSQL(valuesClause, dateFilter) {
-    return `
-WITH video_list(name) AS (
-  VALUES 
-    ${valuesClause}
-),
-daily_data AS (
+FROM (
   SELECT 
     t.video_name,
     t.adv_date,
@@ -210,13 +181,26 @@ daily_data AS (
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
-  INNER JOIN video_list v ON v.name = t.video_name
-  WHERE (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
-)
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+ORDER BY video_name`;
+  }
+
+  static _buildTotalSQL(valuesClause, dateFilter) {
+    const inClause = valuesClause
+      .replace(/\(/g, '')
+      .replace(/\)/g, '')
+      .replace(/,\s*\n\s*/g, ',');
+    
+    return `
 SELECT 
   'total' as kind,
   video_name,
@@ -226,18 +210,7 @@ SELECT
   SUM(clicks) as clicks,
   SUM(impressions) as impressions,
   AVG(avg_duration) as avg_duration
-FROM daily_data
-GROUP BY video_name
-ORDER BY video_name`;
-  }
-
-  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
-    return `
-WITH video_list(name) AS (
-  VALUES 
-    ${valuesClause}
-),
-daily_data AS (
+FROM (
   SELECT 
     t.video_name,
     t.adv_date,
@@ -247,46 +220,76 @@ daily_data AS (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  INNER JOIN video_list v ON v.name = t.video_name
-  WHERE (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
-),
-ranked_daily AS (
-  SELECT *,
-    ROW_NUMBER() OVER (PARTITION BY video_name ORDER BY adv_date ASC) as rn
-  FROM daily_data
-),
-first4_data AS (
+) daily_data
+GROUP BY video_name
+ORDER BY video_name`;
+  }
+
+  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
+    const inClause = valuesClause
+      .replace(/\(/g, '')
+      .replace(/\)/g, '')
+      .replace(/,\s*\n\s*/g, ',');
+    
+    return `
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
+FROM (
   SELECT 
-    video_name,
-    NULL as adv_date,
-    SUM(leads) as leads,
-    SUM(cost) as cost,
-    SUM(clicks) as clicks,
-    SUM(impressions) as impressions,
-    AVG(avg_duration) as avg_duration
-  FROM ranked_daily
-  WHERE rn <= 4
-  GROUP BY video_name
-),
-total_data AS (
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+FROM (
   SELECT 
-    video_name,
-    NULL as adv_date,
-    SUM(leads) as leads,
-    SUM(cost) as cost,
-    SUM(clicks) as clicks,
-    SUM(impressions) as impressions,
-    AVG(avg_duration) as avg_duration
-  FROM daily_data
-  GROUP BY video_name
-)
-SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration FROM daily_data
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
 UNION ALL
-SELECT 'first4' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration FROM first4_data
-UNION ALL
-SELECT 'total' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration FROM total_data
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data2
+GROUP BY video_name
 ORDER BY video_name, kind, adv_date`;
   }
 }
