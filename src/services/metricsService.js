@@ -452,18 +452,18 @@ export class MetricsService {
       // Сохраняем в кэш, если указаны параметры
       if (creativeId && videoIndex !== null) {
         try {
-          console.log(`💾 Сохранение метрик в кэш:`, {
+          console.log(`💾 Сохранение метрик в кэш (все время):`, {
             creativeId,
             article: article || videoName,
             videoIndex,
             videoName,
             period: 'all',
             hasData: !!result.data,
-            dataKeys: result.data ? Object.keys(result.data) : [],
             rawLeads: result.data?.raw?.leads,
             rawCost: result.data?.raw?.cost
           });
 
+          // Сохраняем период "все время"
           await metricsAnalyticsService.saveMetricsCache(
             creativeId,
             article || videoName,
@@ -473,17 +473,56 @@ export class MetricsService {
             'all'
           );
           
-          console.log(`✅ Метрики успешно сохранены в кэш для: ${videoName}`);
+          console.log(`✅ Метрики "все время" сохранены в кэш для: ${videoName}`);
           
-          // Проверяем что сохранилось
-          const checkCache = await metricsAnalyticsService.getMetricsCache(creativeId, videoIndex, 'all');
-          console.log(`🔍 Проверка сохраненного кэша:`, {
-            found: !!checkCache,
-            hasMetricsData: !!checkCache?.metrics_data,
-            hasLeads: 'leads' in checkCache,
-            leadsValue: checkCache?.leads,
-            costValue: checkCache?.cost
-          });
+          // 🆕 СОХРАНЯЕМ ТАКЖЕ ПЕРИОД "4 ДНЯ"
+          if (allDailyData.length >= 4) {
+            console.log(`💾 Сохранение метрик "4 дня" в кэш...`);
+            
+            // Фильтруем первые 4 дня
+            const first4Days = allDailyData.slice(0, 4);
+            const aggregates4Days = this.aggregateDailyData(first4Days);
+            
+            // Проверяем что есть активность
+            if (aggregates4Days.leads > 0 || aggregates4Days.cost > 0 || 
+                aggregates4Days.clicks > 0 || aggregates4Days.impressions > 0) {
+              
+              const metrics4Days = this.computeDerivedMetrics(aggregates4Days);
+              const formatted4Days = this.formatMetrics(metrics4Days);
+              
+              const data4Days = {
+                raw: metrics4Days,
+                formatted: formatted4Days,
+                allDailyData: first4Days,
+                dailyData: first4Days,
+                videoName: videoName,
+                period: '4days',
+                updatedAt: new Date().toLocaleString('ru-RU', {
+                  timeZone: TIMEZONE,
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              };
+              
+              await metricsAnalyticsService.saveMetricsCache(
+                creativeId,
+                article || videoName,
+                videoIndex,
+                videoName,
+                data4Days,
+                '4days'
+              );
+              
+              console.log(`✅ Метрики "4 дня" сохранены в кэш для: ${videoName}`);
+            } else {
+              console.log(`⚠️ Нет активности за первые 4 дня для: ${videoName}`);
+            }
+          } else {
+            console.log(`⚠️ Недостаточно данных для сохранения "4 дня" (дней: ${allDailyData.length})`);
+          }
           
         } catch (saveError) {
           console.error('❌ ОШИБКА сохранения метрик в кэш:', saveError);
