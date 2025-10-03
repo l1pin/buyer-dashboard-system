@@ -225,7 +225,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
       setRawBatchMetrics(rawMetricsMap);
 
-      // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase
+      // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase (период "all" и "4days")
       const newMetrics = Array.from(rawMetricsMap.values()).filter(m => 
         m.found && !m.fromCache && m.data
       );
@@ -233,7 +233,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       if (newMetrics.length > 0) {
         console.log(`💾 Батчевое сохранение ${newMetrics.length} метрик в кэш...`);
         
-        const metricsToSave = newMetrics.map(m => ({
+        // Сохраняем период "all"
+        const metricsToSaveAll = newMetrics.map(m => ({
           creativeId: m.creativeId,
           article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
           videoIndex: m.videoIndex,
@@ -242,8 +243,96 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           period: 'all'
         }));
 
-        await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave);
-        console.log(`✅ Батчевое сохранение завершено`);
+        await metricsAnalyticsService.saveBatchMetricsCache(metricsToSaveAll);
+        console.log(`✅ Период "all" сохранен: ${metricsToSaveAll.length} метрик`);
+
+        // КРИТИЧНО: Сохраняем период "4days"
+        const metricsToSave4Days = [];
+        
+        newMetrics.forEach(m => {
+          const allDailyData = m.data.allDailyData || m.data.dailyData || [];
+          
+          if (allDailyData.length > 0) {
+            // Берем первые 4 дня
+            const first4Days = allDailyData.slice(0, Math.min(4, allDailyData.length));
+            
+            // Агрегируем данные за первые 4 дня
+            const aggregated = {
+              leads: 0,
+              cost: 0,
+              clicks: 0,
+              impressions: 0,
+              duration_sum: 0,
+              days_count: 0
+            };
+            
+            first4Days.forEach(day => {
+              aggregated.leads += day.leads || 0;
+              aggregated.cost += day.cost || 0;
+              aggregated.clicks += day.clicks || 0;
+              aggregated.impressions += day.impressions || 0;
+              aggregated.duration_sum += day.avg_duration || 0;
+              aggregated.days_count += 1;
+            });
+            
+            // Вычисляем производные метрики
+            const avg_duration = aggregated.days_count > 0 ? aggregated.duration_sum / aggregated.days_count : 0;
+            const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
+            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
+            const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
+            const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
+            
+            const raw = {
+              leads: aggregated.leads,
+              cost: Number(aggregated.cost.toFixed(2)),
+              clicks: aggregated.clicks,
+              impressions: aggregated.impressions,
+              avg_duration: Number(avg_duration.toFixed(2)),
+              days_count: aggregated.days_count,
+              cpl: Number(cpl.toFixed(2)),
+              ctr_percent: Number(ctr_percent.toFixed(2)),
+              cpc: Number(cpc.toFixed(2)),
+              cpm: Number(cpm.toFixed(2))
+            };
+            
+            const formatted = {
+              leads: String(Math.round(raw.leads)),
+              cpl: raw.cpl.toFixed(2) + '$',
+              cost: raw.cost.toFixed(2) + '$',
+              ctr: raw.ctr_percent.toFixed(2) + '%',
+              cpc: raw.cpc.toFixed(2) + '$',
+              cpm: raw.cpm.toFixed(2) + '$',
+              clicks: String(Math.round(raw.clicks)),
+              impressions: String(Math.round(raw.impressions)),
+              avg_duration: raw.avg_duration.toFixed(1) + 'с',
+              days: String(raw.days_count) + ' дн.'
+            };
+            
+            const data4Days = {
+              raw: raw,
+              formatted: formatted,
+              allDailyData: first4Days,
+              dailyData: first4Days,
+              videoName: m.videoName,
+              period: '4days',
+              updatedAt: m.data.updatedAt
+            };
+            
+            metricsToSave4Days.push({
+              creativeId: m.creativeId,
+              article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
+              videoIndex: m.videoIndex,
+              videoTitle: m.videoName,
+              metricsData: data4Days,
+              period: '4days'
+            });
+          }
+        });
+        
+        if (metricsToSave4Days.length > 0) {
+          await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave4Days);
+          console.log(`✅ Период "4days" сохранен: ${metricsToSave4Days.length} метрик`);
+        }
       }
 
       // Обновляем время последнего обновления
