@@ -242,7 +242,23 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         videosToLoadFromApi.push(...videosToLoad);
       }
 
-      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш (только для видео которых нет в кэше)
+      // КРИТИЧНО: Если это НЕ форсированное обновление и есть видео без кэша - НЕ загружаем из API
+      if (!forceRefresh && videosToLoadFromApi.length > 0) {
+        console.log(`⚠️ Автозагрузка: ${videosToLoadFromApi.length} видео без кэша - не загружаем из API`);
+        console.log(`✅ Возвращаем ${cacheHits} метрик из кэша`);
+        
+        setRawBatchMetrics(rawMetricsMap);
+        setLastUpdated(new Date());
+        setLoading(false);
+        
+        if (videosToLoadFromApi.length > 0) {
+          setError(`Загружено ${cacheHits} метрик из кэша. ${videosToLoadFromApi.length} видео без кэша. Нажмите "Обновить" для загрузки из API.`);
+        }
+        
+        return;
+      }
+      
+      // БАТЧЕВАЯ ЗАГРУЗКА с сохранением в кэш (только при форсированном обновлении)
       const BATCH_SIZE = 3;
       const BATCH_DELAY = 500;
       
