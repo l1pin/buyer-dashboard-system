@@ -463,6 +463,12 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // ===== ОБРАБОТКА FORCE_REFRESH =====
+    const forceRefresh = requestBody.force_refresh === true;
+    if (forceRefresh) {
+      console.log('🔄 Форсированное обновление - очищаем кэш');
+    }
+
     // ===== ОБРАТНАЯ СОВМЕСТИМОСТЬ: старый формат {sql: "..."} =====
     if (requestBody.sql && !requestBody.video_names) {
       console.log('🔄 Обратная совместимость: старый формат запроса');
@@ -510,16 +516,27 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Проверка кэша
+    // Проверка кэша (пропускаем если forceRefresh)
     const cacheKey = { video_names: video_names.sort(), date_from, date_to, kind };
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      console.log(`💾 Кэш HIT для ${video_names.length} имён`);
-      return {
-        statusCode: 200,
-        headers: { ...headers, 'X-Cache': 'HIT' },
-        body: JSON.stringify(cached)
-      };
+    
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        console.log(`💾 Кэш HIT для ${video_names.length} имён (${cached.length} записей)`);
+        
+        // КРИТИЧНО: Не возвращаем пустой кэш!
+        if (cached.length > 0) {
+          return {
+            statusCode: 200,
+            headers: { ...headers, 'X-Cache': 'HIT' },
+            body: JSON.stringify(cached)
+          };
+        } else {
+          console.log('⚠️ Кэш содержит пустой массив, игнорируем');
+        }
+      }
+    } else {
+      console.log('🔄 Форсированное обновление - пропускаем кэш');
     }
 
     console.log(`📡 Новый запрос: ${video_names.length} имён, kind=${kind}`);
