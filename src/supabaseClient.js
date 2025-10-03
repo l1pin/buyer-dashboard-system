@@ -1585,10 +1585,10 @@ export const metricsAnalyticsService = {
     try {
       const { data, error } = await supabase
         .from('metrics_cache')
-        .select('*')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
         .eq('creative_id', creativeId)
         .eq('video_index', videoIndex)
-        .eq('period', period)
+        .eq('period', 'all') // В кэше всегда период 'all'
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -1614,18 +1614,12 @@ export const metricsAnalyticsService = {
         period
       });
 
-      // КРИТИЧНО: Убираем select('*') чтобы избежать проблем с JSONB колонками
-      let query = supabase
+      // КРИТИЧНО: НЕ используем select('*') из-за JSONB поля metrics_data
+      const { data, error } = await supabase
         .from('metrics_cache')
-        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at, metrics_data')
-        .in('creative_id', creativeIds);
-      
-      // Фильтруем по периоду только если это не 'all'
-      if (period !== 'all') {
-        query = query.eq('period', period);
-      }
-      
-      const { data, error } = await query;
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .in('creative_id', creativeIds)
+        .eq('period', 'all'); // В кэше всегда период 'all'
 
       if (error) {
         console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
@@ -1685,30 +1679,11 @@ export const metricsAnalyticsService = {
       creative_id: cacheData.creative_id,
       video_index: cacheData.video_index,
       hasLeads: 'leads' in cacheData,
-      hasMetricsData: 'metrics_data' in cacheData,
       leads: cacheData.leads,
       article: cacheData.article
     });
 
-    // КРИТИЧНО: Проверяем СТАРЫЙ формат (metrics_data как JSON)
-    if (cacheData.metrics_data) {
-      console.log('📦 Используем СТАРЫЙ формат кэша (metrics_data JSON)');
-      // Возвращаем старый формат как есть
-      return {
-        creative_id: cacheData.creative_id,
-        article: cacheData.article,
-        video_index: cacheData.video_index,
-        video_title: cacheData.video_title,
-        period: cacheData.period,
-        cached_at: cacheData.cached_at,
-        found: true,
-        data: cacheData.metrics_data,
-        error: null,
-        videoName: cacheData.video_title
-      };
-    }
-
-    // НОВЫЙ формат: Базовые метрики из отдельных колонок
+    // Базовые метрики из отдельных колонок
     const leads = Number(cacheData.leads) || 0;
     const cost = Number(cacheData.cost) || 0;
     const clicks = Number(cacheData.clicks) || 0;
