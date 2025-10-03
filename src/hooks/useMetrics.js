@@ -504,25 +504,25 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
   const getCreativeMetrics = useCallback((creativeId) => {
     const creativeMetrics = [];
-    let videoIndex = 0;
     
-    while (true) {
-      const videoKey = `${creativeId}_${videoIndex}`;
-      const metrics = filteredBatchMetrics.get(videoKey);
-      
-      if (metrics) {
-        creativeMetrics.push({
-          videoIndex,
-          ...metrics
-        });
-        videoIndex++;
-      } else if (videoIndex === 0) {
-        break;
-      } else {
-        videoIndex++;
-        if (videoIndex > 10) break;
+    // Проходим по ВСЕМ ключам в Map и ищем те, что относятся к этому креативу
+    for (const [videoKey, metrics] of filteredBatchMetrics) {
+      // Проверяем, начинается ли ключ с нашего creativeId
+      if (videoKey.startsWith(`${creativeId}_`)) {
+        // Извлекаем videoIndex из ключа (формат: "creativeId_videoIndex")
+        const videoIndex = parseInt(videoKey.split('_').pop());
+        
+        if (!isNaN(videoIndex)) {
+          creativeMetrics.push({
+            videoIndex,
+            ...metrics
+          });
+        }
       }
     }
+    
+    // Сортируем по videoIndex для правильного порядка
+    creativeMetrics.sort((a, b) => a.videoIndex - b.videoIndex);
     
     return creativeMetrics.length > 0 ? creativeMetrics : null;
   }, [filteredBatchMetrics]);
