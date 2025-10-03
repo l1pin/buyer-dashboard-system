@@ -661,71 +661,92 @@ function normalizeResults(rawResults) {
 
   console.log('🔄 Нормализация результатов:', {
     rawResultsCount: rawResults?.length,
-    totalRecords: rawResults?.reduce((sum, r) => sum + (r?.length || 0), 0)
+    firstItemType: rawResults?.[0] ? typeof rawResults[0] : 'undefined',
+    firstItemIsArray: rawResults?.[0] ? Array.isArray(rawResults[0]) : false
   });
 
-  rawResults.forEach((result, index) => {
-    console.log(`📦 Результат ${index}:`, {
-      type: typeof result,
-      isArray: Array.isArray(result),
-      length: result?.length,
-      firstItem: result?.[0]
+  if (!rawResults || rawResults.length === 0) {
+    return normalized;
+  }
+
+  // КРИТИЧНО: PHP API возвращает [headers, row1, row2, ...]
+  // После flat() у нас плоский массив где:
+  // - элемент 0: массив headers ["kind", "video_name", ...]
+  // - элементы 1+: массивы данных ["daily", "video1", ...]
+  
+  // Проверяем формат данных
+  const firstItem = rawResults[0];
+  
+  // Случай A: Массив объектов {kind: "daily", video_name: "..."}
+  if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+    console.log('✅ Формат: массив объектов');
+    
+    rawResults.forEach(row => {
+      normalized.push({
+        kind: row.kind || 'daily',
+        video_name: row.video_name,
+        adv_date: row.adv_date || null,
+        leads: Number(row.leads) || 0,
+        cost: Number(row.cost) || 0,
+        clicks: Number(row.clicks) || 0,
+        impressions: Number(row.impressions) || 0,
+        avg_duration: Number(row.avg_duration) || 0
+      });
     });
     
-    if (!result || result.length === 0) return;
-
-    // Случай A: массив объектов
-    if (typeof result[0] === 'object' && !Array.isArray(result[0])) {
-      result.forEach(row => {
-        normalized.push({
-          kind: row.kind || 'daily',
-          video_name: row.video_name,
-          adv_date: row.adv_date || null,
-          leads: Number(row.leads) || 0,
-          cost: Number(row.cost) || 0,
-          clicks: Number(row.clicks) || 0,
-          impressions: Number(row.impressions) || 0,
-          avg_duration: Number(row.avg_duration) || 0
-        });
-      });
-    } 
-    // Случай B: [headers, ...rows]
-    else if (Array.isArray(result[0])) {
-      const headers = result[0];
-      const dataRows = result.slice(1);
+    return normalized;
+  }
+  
+  // Случай B: Плоский массив [headers, row1, row2, ...]
+  if (firstItem && Array.isArray(firstItem)) {
+    console.log('✅ Формат: [headers, ...rows]');
+    
+    // Первый элемент - headers
+    const headers = rawResults[0];
+    console.log('📋 Headers:', headers);
+    
+    // Проверяем что это действительно headers (содержит строки типа "kind", "video_name")
+    const isHeaders = headers.includes('kind') || headers.includes('video_name');
+    
+    if (!isHeaders) {
+      console.error('❌ Первый элемент не похож на headers:', headers);
+      return normalized;
+    }
+    
+    // Остальные элементы - строки данных
+    const dataRows = rawResults.slice(1);
+    console.log(`📊 Обработка ${dataRows.length} строк данных`);
+    
+    dataRows.forEach((row, index) => {
+      if (!Array.isArray(row)) {
+        console.warn(`⚠️ Строка ${index} не массив:`, row);
+        return;
+      }
       
-      dataRows.forEach(row => {
-        const obj = {};
-        headers.forEach((h, i) => (obj[h] = row[i]));
-        
-        normalized.push({
-          kind: obj.kind || 'daily',
-          video_name: obj.video_name,
-          adv_date: obj.adv_date || null,
-          leads: Number(obj.leads) || 0,
-          cost: Number(obj.cost) || 0,
-          clicks: Number(obj.clicks) || 0,
-          impressions: Number(obj.impressions) || 0,
-          avg_duration: Number(obj.avg_duration) || 0
-        });
+      // Создаем объект из headers и row
+      const obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = row[i];
       });
-    }
-  });
-
-  // Сортировка для стабильности
-  normalized.sort((a, b) => {
-    if (a.video_name !== b.video_name) {
-      return a.video_name.localeCompare(b.video_name);
-    }
-    if (a.kind !== b.kind) {
-      const kindOrder = { daily: 1, first4: 2, total: 3 };
-      return (kindOrder[a.kind] || 0) - (kindOrder[b.kind] || 0);
-    }
-    if (a.adv_date && b.adv_date) {
-      return a.adv_date.localeCompare(b.adv_date);
-    }
-    return 0;
-  });
-
+      
+      normalized.push({
+        kind: obj.kind || 'daily',
+        video_name: obj.video_name,
+        adv_date: obj.adv_date || null,
+        leads: Number(obj.leads) || 0,
+        cost: Number(obj.cost) || 0,
+        clicks: Number(obj.clicks) || 0,
+        impressions: Number(obj.impressions) || 0,
+        avg_duration: Number(obj.avg_duration) || 0
+      });
+    });
+    
+    console.log(`✅ Нормализовано ${normalized.length} записей`);
+    return normalized;
+  }
+  
+  console.error('❌ Неизвестный формат данных');
   return normalized;
+
+  // Эта закрывающая скобка уже есть в новом коде выше, удалите старую
 }
