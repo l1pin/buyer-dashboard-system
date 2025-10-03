@@ -152,13 +152,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       const videosToLoadFromApi = []; // Видео которых нет в кэше
       
       if (!forceRefresh) {
-        console.log(`📦 Попытка БАТЧЕВОЙ загрузки из кэша (период: ${metricsPeriod})...`);
+        console.log(`📦 Попытка БАТЧЕВОЙ загрузки из кэша (период: ${period})...`);
         const creativeIds = creatives.map(c => c.id);
         console.log('🔑 Creative IDs для батчевой загрузки:', creativeIds.length);
         
         try {
           // Загружаем из кэша для ТЕКУЩЕГО периода
-          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, metricsPeriod);
+          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, period);
           
           console.log('📦 Результат батчевого кэша:', {
             isArray: Array.isArray(cachedData),
