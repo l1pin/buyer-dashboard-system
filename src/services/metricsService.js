@@ -209,14 +209,17 @@ export class MetricsService {
     }
 
     // КРИТИЧНО: Если данные из кэша для НУЖНОГО периода, возвращаем как есть
-    const isFromCache = rawMetrics.data.fromCache || rawMetrics.fromCache;
-    const cachedPeriod = rawMetrics.data.period || rawMetrics.period;
+    const isFromCache = rawMetrics.data?.fromCache || rawMetrics.fromCache;
+    const cachedPeriod = rawMetrics.data?.period || rawMetrics.period;
     
     if (isFromCache && cachedPeriod === targetPeriod) {
       console.log(`✅ Данные из кэша для периода "${targetPeriod}" - возвращаем без фильтрации`);
       return {
         found: true,
-        data: rawMetrics.data
+        data: {
+          ...rawMetrics.data,
+          period: targetPeriod // Убеждаемся что период правильный
+        }
       };
     }
     
