@@ -103,7 +103,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
   const loadingCancelRef = useRef(false);
 
-  const loadRawBatchMetrics = useCallback(async (forceRefresh = false) => {
+  const loadRawBatchMetrics = useCallback(async (forceRefresh = false, targetPeriod = null) => {
     if (!creatives || creatives.length === 0) {
       setRawBatchMetrics(new Map());
       setFilteredBatchMetrics(new Map());
@@ -152,13 +152,14 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       const videosToLoadFromApi = []; // Видео которых нет в кэше
       
       if (!forceRefresh) {
-        console.log(`📦 Попытка БАТЧЕВОЙ загрузки из кэша (период: ${period})...`);
+        const periodToLoad = targetPeriod || period;
+        console.log(`📦 Попытка БАТЧЕВОЙ загрузки из кэша (период: ${periodToLoad})...`);
         const creativeIds = creatives.map(c => c.id);
         console.log('🔑 Creative IDs для батчевой загрузки:', creativeIds.length);
         
         try {
-          // Загружаем из кэша для ТЕКУЩЕГО периода
-          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, period);
+          // Загружаем из кэша для ЗАПРОШЕННОГО периода
+          const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, periodToLoad);
           
           console.log('📦 Результат батчевого кэша:', {
             isArray: Array.isArray(cachedData),
@@ -389,21 +390,144 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
   }, [creatives]);
 
-  // Мгновенная фильтрация
-  const applyPeriodFilter = useCallback((rawMetrics, targetPeriod) => {
-    if (!rawMetrics || rawMetrics.size === 0) {
+  // Загрузка для конкретного периода (из кэша или фильтрация)
+  const loadForPeriod = useCallback(async (targetPeriod) => {
+    if (!rawBatchMetrics || rawBatchMetrics.size === 0) {
+      console.log('⚠️ Нет сырых данных для смены периода');
       setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
       return;
     }
 
-    console.log(`⚡ МГНОВЕННАЯ батчевая фильтрация для периода: ${targetPeriod}`);
+    console.log(`🔄 Смена периода на: ${targetPeriod}`);
+
+    // Шаг 1: Пытаемся загрузить из кэша для нового периода
+    try {
+      const creativeIds = [...new Set(
+        Array.from(rawBatchMetrics.keys()).map(key => key.split('_')[0])
+      )];
+
+      console.log(`📦 Проверка кэша для периода "${targetPeriod}"...`);
+      const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, targetPeriod);
+
+      if (cachedData && cachedData.length > 0) {
+        console.log(`✅ Найдено в кэше ${cachedData.length} записей для периода "${targetPeriod}"`);
+        
+        // Создаем Map из кэшированных данных
+        const cachedMap = new Map();
+        let cacheHits = 0;
+
+        cachedData.forEach(cache => {
+          if (cache && cache.found && cache.data) {
+            const videoKey = `${cache.creative_id}_${cache.video_index}`;
+            cachedMap.set(videoKey, {
+              found: true,
+              data: cache.data,
+              error: null,
+              videoName: cache.video_title,
+              period: targetPeriod,
+              creativeId: cache.creative_id,
+              videoIndex: cache.video_index
+            });
+            cacheHits++;
+          }
+        });
+
+        // Если все данные из кэша - используем только их
+        if (cacheHits === rawBatchMetrics.size) {
+          console.log(`✅ ВСЕ метрики загружены из кэша для периода "${targetPeriod}"`);
+          setFilteredBatchMetrics(cachedMap);
+          setStats({
+            total: cacheHits,
+            found: cacheHits,
+            notFound: 0
+          });
+          return;
+        }
+
+        // Если часть из кэша - дополняем фильтрацией
+        console.log(`⚡ ${cacheHits} из кэша, остальные через фильтрацию...`);
+        
+        const filteredMap = new Map(cachedMap);
+        let successCount = cacheHits;
+        let totalCount = 0;
+
+        for (const [videoKey, rawMetric] of rawBatchMetrics) {
+          totalCount++;
+          
+          // Если уже есть в кэше - пропускаем
+          if (filteredMap.has(videoKey)) {
+            continue;
+          }
+
+          if (!rawMetric.found || !rawMetric.data) {
+            filteredMap.set(videoKey, {
+              ...rawMetric,
+              period: targetPeriod
+            });
+            continue;
+          }
+
+          try {
+            const filteredResult = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
+            
+            if (filteredResult.found) {
+              filteredMap.set(videoKey, {
+                found: true,
+                data: filteredResult.data,
+                error: null,
+                videoName: rawMetric.videoName,
+                period: targetPeriod,
+                creativeId: rawMetric.creativeId,
+                videoIndex: rawMetric.videoIndex
+              });
+              successCount++;
+            } else {
+              filteredMap.set(videoKey, {
+                found: false,
+                data: null,
+                error: filteredResult.error || `Нет данных за период: ${targetPeriod}`,
+                videoName: rawMetric.videoName,
+                period: targetPeriod,
+                creativeId: rawMetric.creativeId,
+                videoIndex: rawMetric.videoIndex
+              });
+            }
+          } catch (err) {
+            filteredMap.set(videoKey, {
+              found: false,
+              data: null,
+              error: `Ошибка фильтрации: ${err.message}`,
+              videoName: rawMetric.videoName,
+              period: targetPeriod,
+              creativeId: rawMetric.creativeId,
+              videoIndex: rawMetric.videoIndex
+            });
+          }
+        }
+
+        setFilteredBatchMetrics(filteredMap);
+        setStats({
+          total: totalCount,
+          found: successCount,
+          notFound: totalCount - successCount
+        });
+
+        console.log(`✅ Комбинированная загрузка завершена: ${cacheHits} из кэша + ${successCount - cacheHits} через фильтрацию = ${successCount}/${totalCount}`);
+        return;
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ Ошибка проверки кэша, используем фильтрацию:', cacheError);
+    }
+
+    // Шаг 2: Если кэш пуст или ошибка - применяем клиентскую фильтрацию
+    console.log(`⚡ Клиентская фильтрация для периода: ${targetPeriod}`);
     
     const filteredMap = new Map();
     let successCount = 0;
     let totalCount = 0;
 
-    for (const [videoKey, rawMetric] of rawMetrics) {
+    for (const [videoKey, rawMetric] of rawBatchMetrics) {
       totalCount++;
       
       if (!rawMetric.found || !rawMetric.data) {
@@ -414,10 +538,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         continue;
       }
 
-      // КРИТИЧНО: Если период 'all' И данные из кэша, пропускаем фильтрацию
+      // КРИТИЧНО: Если данные уже для нужного периода и из кэша - не фильтруем
       const isFromCache = rawMetric.data?.fromCache || rawMetric.fromCache;
-      if (targetPeriod === 'all' && isFromCache) {
-        console.log(`✅ Пропускаем фильтрацию для ${videoKey} - данные из кэша для периода "all"`);
+      const cachedPeriod = rawMetric.data?.period || rawMetric.period;
+      
+      if (isFromCache && cachedPeriod === targetPeriod) {
+        console.log(`✅ Пропускаем фильтрацию для ${videoKey} - данные уже для периода "${targetPeriod}"`);
         filteredMap.set(videoKey, {
           found: true,
           data: rawMetric.data,
@@ -477,7 +603,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     });
 
     console.log(`✅ Клиентская фильтрация завершена: ${successCount}/${totalCount}`);
-  }, []);
+  }, [rawBatchMetrics]);
 
   useEffect(() => {
     if (autoLoad && creatives) {
@@ -491,12 +617,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
   useEffect(() => {
     if (rawBatchMetrics.size > 0) {
-      applyPeriodFilter(rawBatchMetrics, period);
+      loadForPeriod(period);
     } else {
       setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
     }
-  }, [rawBatchMetrics, period, applyPeriodFilter]);
+  }, [rawBatchMetrics, period, loadForPeriod]);
 
   const getVideoMetrics = useCallback((creativeId, videoIndex) => {
     const videoKey = `${creativeId}_${videoIndex}`;
@@ -542,8 +668,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     console.log('🔄 Принудительное обновление...');
     loadingCancelRef.current = true;
     await new Promise(resolve => setTimeout(resolve, 100));
-    await loadRawBatchMetrics(true);
-  }, [loadRawBatchMetrics]);
+    await loadRawBatchMetrics(true, period);
+  }, [loadRawBatchMetrics, period]);
 
   return {
     batchMetrics: filteredBatchMetrics,
