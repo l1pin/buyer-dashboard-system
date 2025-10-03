@@ -100,10 +100,15 @@ class SQLBuilder {
       throw new Error('videoNames не может быть пустым');
     }
 
+    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
+    console.log('📋 Примеры названий:', videoNames.slice(0, 3));
+
     // VALUES список для video_list CTE
     const valuesClause = videoNames
       .map(name => `('${this.escapeString(name)}')`)
       .join(',\n    ');
+    
+    console.log('📝 VALUES clause (первые 200 символов):', valuesClause.substring(0, 200));
 
     // Фильтр по датам
     let dateFilter = '';
@@ -413,9 +418,19 @@ class WorkerPool {
 
       try {
         console.log(`📊 Обработка чанка ${++processed}/${total}, имён: ${chunk.length}`);
+        console.log('📋 Чанк содержит:', chunk.slice(0, 3));
         
         const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
+        console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
+        console.log('📝 SQL (первые 500 символов):', sql.substring(0, 500));
+        
         const data = await fetchWithRetry(sql);
+        
+        console.log('📥 Результат от БД:', {
+          isArray: Array.isArray(data),
+          length: data?.length,
+          firstItem: data?.[0]
+        });
         
         results.push(data);
         console.log(`✅ Чанк ${processed} выполнен, записей: ${data.length}`);
@@ -491,6 +506,14 @@ exports.handler = async (event, context) => {
 
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
     const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
+
+    console.log('📥 Получен запрос:', {
+      video_names_count: video_names?.length,
+      video_names_sample: video_names?.slice(0, 3),
+      date_from,
+      date_to,
+      kind
+    });
 
     if (!video_names || !Array.isArray(video_names) || video_names.length === 0) {
       return {
@@ -586,7 +609,19 @@ exports.handler = async (event, context) => {
 function normalizeResults(rawResults) {
   const normalized = [];
 
-  rawResults.forEach(result => {
+  console.log('🔄 Нормализация результатов:', {
+    rawResultsCount: rawResults?.length,
+    totalRecords: rawResults?.reduce((sum, r) => sum + (r?.length || 0), 0)
+  });
+
+  rawResults.forEach((result, index) => {
+    console.log(`📦 Результат ${index}:`, {
+      type: typeof result,
+      isArray: Array.isArray(result),
+      length: result?.length,
+      firstItem: result?.[0]
+    });
+    
     if (!result || result.length === 0) return;
 
     // Случай A: массив объектов
