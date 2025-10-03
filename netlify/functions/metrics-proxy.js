@@ -361,11 +361,58 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       }
 
       const text = await response.text();
+      
+      // КРИТИЧНО: Добавляем логирование сырого ответа
+      console.log('📨 Сырой ответ от API:', {
+        length: text?.length,
+        preview: text?.substring(0, 500)
+      });
+      
       if (!text || !text.trim()) {
+        console.log('⚠️ Пустой ответ от API');
         return [];
       }
 
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      
+      // КРИТИЧНО: Логируем распарсенный ответ
+      console.log('📋 Распарсенный ответ:', {
+        type: typeof parsed,
+        isArray: Array.isArray(parsed),
+        keys: typeof parsed === 'object' && !Array.isArray(parsed) ? Object.keys(parsed) : [],
+        length: Array.isArray(parsed) ? parsed.length : undefined,
+        firstItem: Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : undefined
+      });
+      
+      // КРИТИЧНО: Обрабатываем разные форматы ответа от PHP API
+      if (Array.isArray(parsed)) {
+        console.log('✅ Ответ - массив, возвращаем как есть');
+        return parsed;
+      }
+      
+      // Если ответ - объект с полем data
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
+        console.log('✅ Извлекаем массив из поля data');
+        return parsed.data;
+      }
+      
+      // Если ответ - объект с полем results
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.results)) {
+        console.log('✅ Извлекаем массив из поля results');
+        return parsed.results;
+      }
+      
+      // Если это пустой объект
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length === 0) {
+        console.log('⚠️ Пустой объект, возвращаем []');
+        return [];
+      }
+      
+      console.error('❌ Неожиданный формат ответа от API:', {
+        type: typeof parsed,
+        value: parsed
+      });
+      return [];
       
     } catch (error) {
       if (error.name === 'AbortError') {
