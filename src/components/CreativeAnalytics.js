@@ -1506,7 +1506,7 @@ function CreativeAnalytics({ user }) {
               >
                 <div className="flex items-center space-x-2">
                   {selectedEditor === 'all' ? (
-                    <User className="h-4 w-4 text-gray-500" />
+                    <Video className="h-4 w-4 text-gray-500" />
                   ) : (
                     <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                       {getEditorAvatar(selectedEditor) ? (
@@ -1544,7 +1544,7 @@ function CreativeAnalytics({ user }) {
                         selectedEditor === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                       }`}
                     >
-                      <User className="h-5 w-5 mr-3 text-gray-500" />
+                      <Video className="h-5 w-5 mr-3 text-gray-500" />
                       Все монтажеры
                     </button>
                     
