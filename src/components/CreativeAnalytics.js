@@ -65,6 +65,8 @@ function CreativeAnalytics({ user }) {
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [customDateFrom, setCustomDateFrom] = useState(null);
   const [customDateTo, setCustomDateTo] = useState(null);
+  const [tempCustomDateFrom, setTempCustomDateFrom] = useState(null);
+  const [tempCustomDateTo, setTempCustomDateTo] = useState(null);
   const [showPeriodMenu, setShowPeriodMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth1, setCalendarMonth1] = useState(new Date());
@@ -188,20 +190,51 @@ function CreativeAnalytics({ user }) {
 
   // Функции для календаря
   const getPeriodLabel = () => {
+    const formatDate = (date) => {
+      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
+
+    const now = new Date();
+
     switch(selectedPeriod) {
-      case 'today': return 'Сегодня';
-      case 'yesterday': return 'Вчера';
-      case 'this_week': return 'Эта неделя';
-      case 'last_7_days': return 'Последние 7 дней';
-      case 'this_month': return 'Этот месяц';
-      case 'last_month': return 'Последний месяц';
-      case 'custom': 
+      case 'today': {
+        return `${formatDate(now)}`;
+      }
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return `${formatDate(yesterday)}`;
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysToMonday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        return `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
+      }
+      case 'last_7_days': {
+        const last7Start = new Date(now);
+        last7Start.setDate(now.getDate() - 6);
+        return `${formatDate(last7Start)} - ${formatDate(now)}`;
+      }
+      case 'this_month': {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return `${formatDate(monthStart)} - ${formatDate(monthEnd)}`;
+      }
+      case 'last_month': {
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        return `${formatDate(lastMonthStart)} - ${formatDate(lastMonthEnd)}`;
+      }
+      case 'custom': {
         if (customDateFrom && customDateTo) {
-          const from = new Date(customDateFrom);
-          const to = new Date(customDateTo);
-          return `${from.toLocaleDateString('ru-RU')} - ${to.toLocaleDateString('ru-RU')}`;
+          return `${formatDate(customDateFrom)} - ${formatDate(customDateTo)}`;
         }
         return 'Выбрать период';
+      }
       case 'all': return 'Все время';
       default: return 'Выбрать период';
     }
@@ -211,12 +244,17 @@ function CreativeAnalytics({ user }) {
     setSelectedPeriod(period);
     if (period === 'custom') {
       setShowCalendar(true);
+      // Сбрасываем временные даты при открытии календаря
+      setTempCustomDateFrom(customDateFrom);
+      setTempCustomDateTo(customDateTo);
     } else {
       setShowCalendar(false);
       setCustomDateFrom(null);
       setCustomDateTo(null);
+      setTempCustomDateFrom(null);
+      setTempCustomDateTo(null);
+      setShowPeriodMenu(false); // Закрываем меню для обычных периодов
     }
-    setShowPeriodMenu(false);
   };
 
   const getDaysInMonth = (date) => {
@@ -232,34 +270,36 @@ function CreativeAnalytics({ user }) {
 
   const handleDateClick = (date) => {
     if (!selectingDate) {
-      setCustomDateFrom(date);
+      setTempCustomDateFrom(date);
       setSelectingDate(date);
-      setCustomDateTo(null);
+      setTempCustomDateTo(null);
     } else {
       if (date < selectingDate) {
-        setCustomDateFrom(date);
-        setCustomDateTo(selectingDate);
+        setTempCustomDateFrom(date);
+        setTempCustomDateTo(selectingDate);
       } else {
-        setCustomDateTo(date);
+        setTempCustomDateTo(date);
       }
       setSelectingDate(null);
     }
   };
 
   const isDateInRange = (date) => {
-    if (!customDateFrom || !customDateTo) return false;
-    return date >= customDateFrom && date <= customDateTo;
+    if (!tempCustomDateFrom || !tempCustomDateTo) return false;
+    return date >= tempCustomDateFrom && date <= tempCustomDateTo;
   };
 
   const isDateSelected = (date) => {
-    if (!customDateFrom) return false;
-    if (customDateFrom.toDateString() === date.toDateString()) return true;
-    if (customDateTo && customDateTo.toDateString() === date.toDateString()) return true;
+    if (!tempCustomDateFrom) return false;
+    if (tempCustomDateFrom.toDateString() === date.toDateString()) return true;
+    if (tempCustomDateTo && tempCustomDateTo.toDateString() === date.toDateString()) return true;
     return false;
   };
 
   const applyCustomPeriod = () => {
-    if (customDateFrom && customDateTo) {
+    if (tempCustomDateFrom && tempCustomDateTo) {
+      setCustomDateFrom(tempCustomDateFrom);
+      setCustomDateTo(tempCustomDateTo);
       setSelectedPeriod('custom');
       setShowCalendar(false);
       setShowPeriodMenu(false); // Закрываем панель выбора дат
@@ -267,11 +307,10 @@ function CreativeAnalytics({ user }) {
   };
 
   const resetCalendar = () => {
-    setCustomDateFrom(null);
-    setCustomDateTo(null);
+    setTempCustomDateFrom(null);
+    setTempCustomDateTo(null);
     setSelectingDate(null);
     setShowCalendar(false);
-    setSelectedPeriod('all');
   };
 
   const { 
@@ -986,14 +1025,22 @@ function CreativeAnalytics({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
-      // Месячный dropdown ОТКЛЮЧЕН
+      
+      // Закрываем меню периодов при клике вне его
+      const periodMenuContainer = event.target.closest('.period-menu-container');
+      if (!periodMenuContainer && showPeriodMenu) {
+        setShowPeriodMenu(false);
+        // Сбрасываем временные даты если не применили
+        setTempCustomDateFrom(customDateFrom);
+        setTempCustomDateTo(customDateTo);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [showPeriodMenu, customDateFrom, customDateTo]);
 
   const formatKyivTime = (dateString) => {
     try {
@@ -1398,11 +1445,11 @@ function CreativeAnalytics({ user }) {
                       </div>
                       
                       {/* Кнопка применить для custom периода */}
-                      {(customDateFrom || customDateTo) && (
+                      {(tempCustomDateFrom || tempCustomDateTo) && (
                         <div className="flex items-center justify-end mt-4 pt-4 border-t border-gray-200">
                           <button
                             onClick={applyCustomPeriod}
-                            disabled={!customDateFrom || !customDateTo}
+                            disabled={!tempCustomDateFrom || !tempCustomDateTo}
                             className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                           >
                             Применить
