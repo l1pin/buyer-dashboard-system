@@ -63,6 +63,8 @@ function CreativeAnalytics({ user }) {
   const [error, setError] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [selectedEditor, setSelectedEditor] = useState('all');
+  const [selectedBuyer, setSelectedBuyer] = useState('all');
+  const [selectedSearcher, setSelectedSearcher] = useState('all');
   const [customDateFrom, setCustomDateFrom] = useState(null);
   const [customDateTo, setCustomDateTo] = useState(null);
   const [tempCustomDateFrom, setTempCustomDateFrom] = useState(null);
@@ -79,6 +81,8 @@ function CreativeAnalytics({ user }) {
   const [metricsPeriod, setMetricsPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showEditorDropdown, setShowEditorDropdown] = useState(false);
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
+  const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
@@ -107,6 +111,14 @@ function CreativeAnalytics({ user }) {
     
     if (selectedEditor !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.user_id === selectedEditor);
+    }
+    
+    if (selectedBuyer !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+    }
+    
+    if (selectedSearcher !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
     }
     
     const now = new Date();
@@ -185,7 +197,7 @@ function CreativeAnalytics({ user }) {
     }
     
     return creativesToFilter;
-  }, [analytics.creatives, selectedEditor, selectedPeriod, customDateFrom, customDateTo]);
+  }, [analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
@@ -1043,6 +1055,14 @@ function CreativeAnalytics({ user }) {
         setShowEditorDropdown(false);
       }
       
+      if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
+        setShowBuyerDropdown(false);
+      }
+      
+      if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
+        setShowSearcherDropdown(false);
+      }
+      
       // Закрываем меню периодов при клике вне его
       const periodMenuContainer = event.target.closest('.period-menu-container');
       if (!periodMenuContainer && showPeriodMenu) {
@@ -1556,6 +1576,174 @@ function CreativeAnalytics({ user }) {
                           </div>
                         </div>
                         <span className="truncate">{editor.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowBuyerDropdown(!showBuyerDropdown)}
+                className="buyer-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  {selectedBuyer === 'all' ? (
+                    <User className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {getBuyerAvatar(selectedBuyer) ? (
+                        <img
+                          src={getBuyerAvatar(selectedBuyer)}
+                          alt="Buyer"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(selectedBuyer) ? 'hidden' : ''}`}>
+                        <User className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span>{selectedBuyer === 'all' ? 'Все байеры' : getBuyerName(selectedBuyer)}</span>
+                </div>
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showBuyerDropdown && (
+                <div className="buyer-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedBuyer('all');
+                        setShowBuyerDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedBuyer === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <User className="h-5 w-5 mr-3 text-gray-500" />
+                      Все байеры
+                    </button>
+                    
+                    {buyers.map(buyer => (
+                      <button
+                        key={buyer.id}
+                        onClick={() => {
+                          setSelectedBuyer(buyer.id);
+                          setShowBuyerDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedBuyer === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+                          {buyer.avatar_url ? (
+                            <img
+                              src={buyer.avatar_url}
+                              alt={buyer.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                            <User className="h-3 w-3 text-gray-400" />
+                          </div>
+                        </div>
+                        <span className="truncate">{buyer.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowSearcherDropdown(!showSearcherDropdown)}
+                className="searcher-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  {selectedSearcher === 'all' ? (
+                    <Search className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {getSearcherAvatar(selectedSearcher) ? (
+                        <img
+                          src={getSearcherAvatar(selectedSearcher)}
+                          alt="Searcher"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(selectedSearcher) ? 'hidden' : ''}`}>
+                        <Search className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span>{selectedSearcher === 'all' ? 'Все серчеры' : getSearcherName(selectedSearcher)}</span>
+                </div>
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showSearcherDropdown && (
+                <div className="searcher-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedSearcher('all');
+                        setShowSearcherDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedSearcher === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Search className="h-5 w-5 mr-3 text-gray-500" />
+                      Все серчеры
+                    </button>
+                    
+                    {searchers.map(searcher => (
+                      <button
+                        key={searcher.id}
+                        onClick={() => {
+                          setSelectedSearcher(searcher.id);
+                          setShowSearcherDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedSearcher === searcher.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+                          {searcher.avatar_url ? (
+                            <img
+                              src={searcher.avatar_url}
+                              alt={searcher.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                            <Search className="h-3 w-3 text-gray-400" />
+                          </div>
+                        </div>
+                        <span className="truncate">{searcher.name}</span>
                       </button>
                     ))}
                   </div>
