@@ -460,22 +460,48 @@ function CreativeAnalytics({ user }) {
       return null;
     }
 
-    zones.sort((a, b) => b.price - a.price);
+    // КРИТИЧНО: Сортируем от МЕНЬШЕГО к БОЛЬШЕМУ
+    zones.sort((a, b) => a.price - b.price);
 
-    for (const zone of zones) {
-      if (cplValue <= zone.price) {
-        return {
-          zone: zone.zone,
-          name: zone.name,
-          price: zone.price
-        };
+    // ПРАВИЛЬНАЯ логика:
+    // Зеленая: CPL < green_price
+    // Золотая: green_price <= CPL < gold_price
+    // Розовая: gold_price <= CPL < pink_price
+    // Красная: pink_price <= CPL < red_price
+    // Вне зон: CPL >= red_price (возвращаем красную или null)
+
+    // Ищем зону, в которую попадает CPL
+    for (let i = 0; i < zones.length; i++) {
+      const currentZone = zones[i];
+      
+      if (i === 0) {
+        // Первая зона (самая дешевая, обычно зеленая)
+        if (cplValue < currentZone.price) {
+          return {
+            zone: currentZone.zone,
+            name: currentZone.name,
+            price: currentZone.price
+          };
+        }
+      } else {
+        // Остальные зоны: проверяем диапазон между предыдущей и текущей
+        const prevZone = zones[i - 1];
+        if (cplValue >= prevZone.price && cplValue < currentZone.price) {
+          return {
+            zone: currentZone.zone,
+            name: currentZone.name,
+            price: currentZone.price
+          };
+        }
       }
     }
 
+    // Если CPL >= самой дорогой зоны, возвращаем самую дорогую (красную)
+    const mostExpensive = zones[zones.length - 1];
     return {
-      zone: zones[0].zone,
-      name: zones[0].name,
-      price: zones[0].price
+      zone: mostExpensive.zone,
+      name: mostExpensive.name,
+      price: mostExpensive.price
     };
   };
 
