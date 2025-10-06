@@ -61,8 +61,11 @@ function CreativeAnalytics({ user }) {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_week');
   const [selectedEditor, setSelectedEditor] = useState('all');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
   const [metricsPeriod, setMetricsPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -97,20 +100,81 @@ function CreativeAnalytics({ user }) {
     
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    
+    // Вчера
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+    
+    // Эта неделя (понедельник - воскресенье)
+    const dayOfWeek = now.getDay(); // 0 = воскресенье, 1 = понедельник, ...
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // если воскресенье, то 6 дней назад был понедельник
+    const thisWeekStart = new Date(now);
+    thisWeekStart.setDate(now.getDate() - daysToMonday);
+    thisWeekStart.setHours(0, 0, 0, 0);
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+    thisWeekEnd.setHours(23, 59, 59);
+    
+    // Последние 7 дней (включая сегодня)
+    const last7DaysStart = new Date(now);
+    last7DaysStart.setDate(now.getDate() - 6);
+    last7DaysStart.setHours(0, 0, 0, 0);
+    
+    // Этот месяц
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    
+    // Последний месяц (предыдущий)
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
     if (selectedPeriod === 'today') {
-      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= todayStart);
-    } else if (selectedPeriod === 'week') {
-      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= weekStart);
-    } else if (selectedPeriod === 'month') {
-      creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= monthStart);
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= todayStart && createdDate <= todayEnd;
+      });
+    } else if (selectedPeriod === 'yesterday') {
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
+      });
+    } else if (selectedPeriod === 'this_week') {
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
+      });
+    } else if (selectedPeriod === 'last_7_days') {
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= last7DaysStart && createdDate <= todayEnd;
+      });
+    } else if (selectedPeriod === 'this_month') {
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
+      });
+    } else if (selectedPeriod === 'last_month') {
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
+      });
+    } else if (selectedPeriod === 'custom' && customDateFrom && customDateTo) {
+      const customFrom = new Date(customDateFrom);
+      customFrom.setHours(0, 0, 0, 0);
+      const customTo = new Date(customDateTo);
+      customTo.setHours(23, 59, 59);
+      
+      creativesToFilter = creativesToFilter.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate >= customFrom && createdDate <= customTo;
+      });
     }
     
-    // МЕСЯЧНАЯ ФИЛЬТРАЦИЯ ОТКЛЮЧЕНА - возвращаем все отфильтрованные креативы
     return creativesToFilter;
-  }, [analytics.creatives, selectedEditor, selectedPeriod]);
+  }, [analytics.creatives, selectedEditor, selectedPeriod, customDateFrom, customDateTo]);
 
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
@@ -902,7 +966,7 @@ function CreativeAnalytics({ user }) {
   };
 
   const getPeriodButtonText = () => {
-    return metricsPeriod === 'all' ? 'Все время' : '4 дня';
+    return metricsPeriod === 'all' ? 'За все время' : 'Первые 4 дня';
   };
 
   // const availableMonths = getAvailableMonths(); // ОТКЛЮЧЕНО
@@ -1017,14 +1081,68 @@ function CreativeAnalytics({ user }) {
             
             <select
               value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedPeriod(value);
+                if (value === 'custom') {
+                  setShowCalendar(true);
+                } else {
+                  setShowCalendar(false);
+                }
+              }}
               className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="today">Сегодня</option>
-              <option value="week">Неделя</option>
-              <option value="month">Месяц</option>
+              <option value="yesterday">Вчера</option>
+              <option value="this_week">Эта неделя</option>
+              <option value="last_7_days">Последние 7 дней</option>
+              <option value="this_month">Этот месяц</option>
+              <option value="last_month">Последний месяц</option>
+              <option value="custom">Выбрать период...</option>
               <option value="all">Все время</option>
             </select>
+
+            {selectedPeriod === 'custom' && (
+              <div className="flex items-center space-x-2 ml-2">
+                <input
+                  type="date"
+                  value={customDateFrom}
+                  onChange={(e) => setCustomDateFrom(e.target.value)}
+                  className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="От"
+                />
+                <span className="text-gray-500">—</span>
+                <input
+                  type="date"
+                  value={customDateTo}
+                  onChange={(e) => setCustomDateTo(e.target.value)}
+                  className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="До"
+                />
+                <button
+                  onClick={() => {
+                    if (customDateFrom && customDateTo) {
+                      // Применяем фильтр
+                      console.log('Применен кастомный период:', customDateFrom, '-', customDateTo);
+                    }
+                  }}
+                  className="inline-flex items-center px-3 py-1 border border-blue-500 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
+                >
+                  Применить
+                </button>
+                <button
+                  onClick={() => {
+                    setCustomDateFrom('');
+                    setCustomDateTo('');
+                    setSelectedPeriod('all');
+                    setShowCalendar(false);
+                  }}
+                  className="inline-flex items-center px-2 py-1 text-sm text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             <select
               value={selectedEditor}
