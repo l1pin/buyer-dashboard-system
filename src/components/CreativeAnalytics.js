@@ -67,7 +67,7 @@ function CreativeAnalytics({ user }) {
   const [customDateTo, setCustomDateTo] = useState(null);
   const [tempCustomDateFrom, setTempCustomDateFrom] = useState(null);
   const [tempCustomDateTo, setTempCustomDateTo] = useState(null);
-  const [showEditorMenu, setShowEditorMenu] = useState(false);
+  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth1, setCalendarMonth1] = useState(new Date());
   const [calendarMonth2, setCalendarMonth2] = useState(() => {
@@ -238,20 +238,6 @@ function CreativeAnalytics({ user }) {
       case 'all': return 'Все время';
       default: return 'Выбрать период';
     }
-  };
-
-  const getEditorLabel = () => {
-    if (selectedEditor === 'all') {
-      return 'Все монтажеры';
-    }
-    const editor = analytics.editors.find(e => e.id === selectedEditor);
-    return editor ? editor.name : 'Все монтажеры';
-  };
-
-  const getEditorAvatar = (editorId) => {
-    if (editorId === 'all') return null;
-    const editor = analytics.editors.find(e => e.id === editorId);
-    return editor ? editor.avatar_url : null;
   };
 
   const handlePeriodSelect = (period) => {
@@ -1048,19 +1034,13 @@ function CreativeAnalytics({ user }) {
         setTempCustomDateFrom(customDateFrom);
         setTempCustomDateTo(customDateTo);
       }
-      
-      // Закрываем меню монтажеров при клике вне его
-      const editorMenuContainer = event.target.closest('.editor-menu-container');
-      if (!editorMenuContainer && showEditorMenu) {
-        setShowEditorMenu(false);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, showEditorMenu, customDateFrom, customDateTo]);
+  }, [showPeriodMenu, customDateFrom, customDateTo]);
 
   const formatKyivTime = (dateString) => {
     try {
@@ -1482,83 +1462,18 @@ function CreativeAnalytics({ user }) {
               )}
             </div>
 
-            {/* Кнопка выбора монтажера */}
-            <div className="relative editor-menu-container">
-              <button
-                onClick={() => setShowEditorMenu(!showEditorMenu)}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                {selectedEditor !== 'all' && getEditorAvatar(selectedEditor) ? (
-                  <img
-                    src={getEditorAvatar(selectedEditor)}
-                    alt=""
-                    className="w-5 h-5 rounded-full mr-2"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <User className="h-4 w-4 mr-2" />
-                )}
-                {getEditorLabel()}
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </button>
-              
-              {/* Выпадающее меню монтажеров */}
-              {showEditorMenu && (
-                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setSelectedEditor('all');
-                        setShowEditorMenu(false);
-                      }}
-                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                        selectedEditor === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3 flex-shrink-0">
-                        <User className="h-4 w-4 text-gray-500" />
-                      </div>
-                      Все монтажеры
-                    </button>
-                    
-                    <div className="border-t border-gray-200 my-1"></div>
-                    
-                    {analytics.editors.map(editor => (
-                      <button
-                        key={editor.id}
-                        onClick={() => {
-                          setSelectedEditor(editor.id);
-                          setShowEditorMenu(false);
-                        }}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedEditor === editor.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center mr-3 flex-shrink-0">
-                          {editor.avatar_url ? (
-                            <img
-                              src={editor.avatar_url}
-                              alt={editor.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                          ) : null}
-                          <div className={`w-full h-full flex items-center justify-center ${editor.avatar_url ? 'hidden' : ''}`}>
-                            <User className="h-4 w-4 text-gray-400" />
-                          </div>
-                        </div>
-                        <span className="truncate">{editor.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <select
+              value={selectedEditor}
+              onChange={(e) => setSelectedEditor(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Все монтажеры</option>
+              {analytics.editors.map(editor => (
+                <option key={editor.id} value={editor.id}>
+                  {editor.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* API Status */}
