@@ -1748,6 +1748,32 @@ export const metricsAnalyticsService = {
       article: cacheData.article
     });
 
+    // КРИТИЧНО: Проверяем, все ли поля NULL (нет данных)
+    const isAllNull = cacheData.leads === null && 
+                      cacheData.cost === null && 
+                      cacheData.clicks === null && 
+                      cacheData.impressions === null;
+
+    if (isAllNull) {
+      console.log('⚪ Все метрики NULL - возвращаем found: false');
+      // Возвращаем found: false для отображения "—"
+      return {
+        creative_id: cacheData.creative_id,
+        creativeId: cacheData.creative_id,
+        article: cacheData.article,
+        video_index: cacheData.video_index,
+        videoIndex: cacheData.video_index,
+        video_title: cacheData.video_title,
+        period: cacheData.period,
+        cached_at: cacheData.cached_at,
+        found: false,
+        data: null,
+        error: 'Нет данных',
+        videoName: cacheData.video_title,
+        fromCache: true
+      };
+    }
+
     // Базовые метрики из отдельных колонок
     const leads = Number(cacheData.leads) || 0;
     const cost = Number(cacheData.cost) || 0;
