@@ -83,14 +83,28 @@ function SearcherCreativePanel({ user }) {
       setLoading(true);
       setError('');
 
-      console.log('📡 Загрузка креативов для серчера:', user.id);
+      console.log('📡 Загрузка креативов для серчера:', user.id, user.name);
 
       const allCreatives = await creativeService.getAllCreatives();
       
-      // Фильтруем только креативы этого серчера
-      const searcherCreatives = allCreatives.filter(c => c.searcher_id === user.id);
+      // ИСПРАВЛЕНО: Фильтруем креативы по searcher_id (UUID) ИЛИ по searcher (имя)
+      const searcherCreatives = allCreatives.filter(c => {
+        // Проверяем по UUID (новый формат)
+        if (c.searcher_id === user.id) return true;
+        
+        // Проверяем по имени (старый формат)
+        if (c.searcher && user.name && c.searcher.toLowerCase() === user.name.toLowerCase()) return true;
+        
+        return false;
+      });
 
       console.log(`✅ Найдено ${searcherCreatives.length} креативов для серчера`);
+      console.log('Детали фильтрации:', {
+        total: allCreatives.length,
+        filtered: searcherCreatives.length,
+        userId: user.id,
+        userName: user.name
+      });
 
       // Проверяем историю для каждого креатива
       const creativesWithHistorySet = new Set();
