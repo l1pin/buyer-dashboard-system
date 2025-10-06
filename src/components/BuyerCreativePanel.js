@@ -83,28 +83,66 @@ function BuyerCreativePanel({ user }) {
       setLoading(true);
       setError('');
 
-      console.log('📡 Загрузка креативов для байера:', user.id, user.name);
+      console.log('🔍 ============ НАЧАЛО ДИАГНОСТИКИ ============');
+      console.log('👤 Текущий пользователь:', {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        email: user.email
+      });
 
       const allCreatives = await creativeService.getAllCreatives();
-      
-      // ИСПРАВЛЕНО: Фильтруем креативы по buyer_id (UUID) ИЛИ по buyer (имя)
+      console.log(`📦 Всего загружено креативов из БД: ${allCreatives.length}`);
+
+      // Логируем ВСЕ buyer_id из креативов
+      console.log('📋 Все buyer_id в креативах:');
+      allCreatives.forEach((c, index) => {
+        if (c.buyer_id || c.buyer) {
+          console.log(`  [${index}] Креатив "${c.article}":`, {
+            buyer_id: c.buyer_id,
+            buyer: c.buyer,
+            buyer_id_type: typeof c.buyer_id,
+            user_id_type: typeof user.id,
+            matches_by_id: c.buyer_id === user.id,
+            buyer_id_trimmed: c.buyer_id?.trim(),
+            user_id_trimmed: user.id?.trim()
+          });
+        }
+      });
+
+      // Фильтруем креативы
       const buyerCreatives = allCreatives.filter(c => {
-        // Проверяем по UUID (новый формат)
-        if (c.buyer_id === user.id) return true;
+        const matchById = c.buyer_id && user.id && String(c.buyer_id).trim() === String(user.id).trim();
+        const matchByName = c.buyer && user.name && c.buyer.toLowerCase().trim() === user.name.toLowerCase().trim();
         
-        // Проверяем по имени (старый формат)
-        if (c.buyer && user.name && c.buyer.toLowerCase() === user.name.toLowerCase()) return true;
+        if (matchById || matchByName) {
+          console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ для креатива "${c.article}":`, {
+            matchById,
+            matchByName,
+            buyer_id: c.buyer_id,
+            buyer: c.buyer
+          });
+          return true;
+        }
         
         return false;
       });
 
-      console.log(`✅ Найдено ${buyerCreatives.length} креативов для байера`);
-      console.log('Детали фильтрации:', {
-        total: allCreatives.length,
-        filtered: buyerCreatives.length,
-        userId: user.id,
-        userName: user.name
-      });
+      console.log('📊 РЕЗУЛЬТАТ ФИЛЬТРАЦИИ:');
+      console.log(`  ✅ Найдено креативов: ${buyerCreatives.length}`);
+      console.log(`  📋 Общее количество: ${allCreatives.length}`);
+      console.log(`  🎯 Пользователь ID: ${user.id}`);
+      console.log(`  👤 Пользователь имя: ${user.name}`);
+      
+      if (buyerCreatives.length === 0) {
+        console.warn('⚠️ НЕ НАЙДЕНО НИ ОДНОГО КРЕАТИВА!');
+        console.warn('Проверьте:');
+        console.warn('1. Совпадает ли user.id с buyer_id в базе?');
+        console.warn('2. Есть ли лишние пробелы в UUID?');
+        console.warn('3. Правильно ли указан buyer_id в таблице creatives?');
+      }
+
+      console.log('🔍 ============ КОНЕЦ ДИАГНОСТИКИ ============');
 
       // Проверяем историю для каждого креатива
       const creativesWithHistorySet = new Set();
