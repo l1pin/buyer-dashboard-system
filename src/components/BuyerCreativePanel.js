@@ -83,14 +83,28 @@ function BuyerCreativePanel({ user }) {
       setLoading(true);
       setError('');
 
-      console.log('📡 Загрузка креативов для байера:', user.id);
+      console.log('📡 Загрузка креативов для байера:', user.id, user.name);
 
       const allCreatives = await creativeService.getAllCreatives();
       
-      // Фильтруем только креативы этого байера
-      const buyerCreatives = allCreatives.filter(c => c.buyer_id === user.id);
+      // ИСПРАВЛЕНО: Фильтруем креативы по buyer_id (UUID) ИЛИ по buyer (имя)
+      const buyerCreatives = allCreatives.filter(c => {
+        // Проверяем по UUID (новый формат)
+        if (c.buyer_id === user.id) return true;
+        
+        // Проверяем по имени (старый формат)
+        if (c.buyer && user.name && c.buyer.toLowerCase() === user.name.toLowerCase()) return true;
+        
+        return false;
+      });
 
       console.log(`✅ Найдено ${buyerCreatives.length} креативов для байера`);
+      console.log('Детали фильтрации:', {
+        total: allCreatives.length,
+        filtered: buyerCreatives.length,
+        userId: user.id,
+        userName: user.name
+      });
 
       // Проверяем историю для каждого креатива
       const creativesWithHistorySet = new Set();
