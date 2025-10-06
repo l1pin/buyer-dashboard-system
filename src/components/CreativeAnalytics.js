@@ -1202,9 +1202,7 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log('🔄 Полное обновление данных...');
-    clearAnalyticsCache(); // Очищаем кеш аналитики
-    await loadAnalytics(true); // Принудительная загрузка
+    console.log('🔄 Обновление только метрик и зональных данных...');
     await refreshMetrics();
     await refreshZoneData();
     await loadLastUpdateTime();
