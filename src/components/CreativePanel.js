@@ -96,6 +96,8 @@ function CreativePanel({ user }) {
   
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  
+  const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
     work_types: [],
