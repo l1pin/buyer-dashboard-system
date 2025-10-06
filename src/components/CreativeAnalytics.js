@@ -1368,21 +1368,28 @@ function CreativeAnalytics({ user }) {
                             <div className="text-sm font-medium">
                               {calendarMonth1.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                             </div>
-                            <button
-                              onClick={() => {
-                                const next = new Date(calendarMonth1);
-                                next.setMonth(next.getMonth() + 1);
-                                // Проверяем, чтобы левый календарь не был позже правого
-                                if (next <= calendarMonth2) {
-                                  setCalendarMonth1(next);
-                                }
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                              disabled={calendarMonth1.getMonth() === calendarMonth2.getMonth() && 
-                                       calendarMonth1.getFullYear() === calendarMonth2.getFullYear()}
-                            >
-                              <ChevronDown className="h-4 w-4 transform -rotate-90" />
-                            </button>
+                            {(() => {
+                              // Проверяем, есть ли интервал больше 1 месяца
+                              const nextMonth = new Date(calendarMonth1);
+                              nextMonth.setMonth(nextMonth.getMonth() + 1);
+                              const hasGap = (calendarMonth2.getFullYear() - nextMonth.getFullYear()) * 12 + 
+                                           (calendarMonth2.getMonth() - nextMonth.getMonth()) >= 1;
+                              
+                              return hasGap ? (
+                                <button
+                                  onClick={() => {
+                                    const next = new Date(calendarMonth1);
+                                    next.setMonth(next.getMonth() + 1);
+                                    setCalendarMonth1(next);
+                                  }}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  <ChevronDown className="h-4 w-4 transform -rotate-90" />
+                                </button>
+                              ) : (
+                                <div className="w-6"></div>
+                              );
+                            })()}
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 mb-2">
@@ -1432,21 +1439,28 @@ function CreativeAnalytics({ user }) {
                         {/* Второй календарь */}
                         <div>
                           <div className="flex items-center justify-between mb-3">
-                            <button
-                              onClick={() => {
-                                const prev = new Date(calendarMonth2);
-                                prev.setMonth(prev.getMonth() - 1);
-                                // Проверяем, чтобы правый календарь не был раньше левого
-                                if (prev >= calendarMonth1) {
-                                  setCalendarMonth2(prev);
-                                }
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                              disabled={calendarMonth1.getMonth() === calendarMonth2.getMonth() && 
-                                       calendarMonth1.getFullYear() === calendarMonth2.getFullYear()}
-                            >
-                              <ChevronDown className="h-4 w-4 transform rotate-90" />
-                            </button>
+                            {(() => {
+                              // Проверяем, есть ли интервал больше 1 месяца
+                              const prevMonth = new Date(calendarMonth2);
+                              prevMonth.setMonth(prevMonth.getMonth() - 1);
+                              const hasGap = (prevMonth.getFullYear() - calendarMonth1.getFullYear()) * 12 + 
+                                           (prevMonth.getMonth() - calendarMonth1.getMonth()) >= 1;
+                              
+                              return hasGap ? (
+                                <button
+                                  onClick={() => {
+                                    const prev = new Date(calendarMonth2);
+                                    prev.setMonth(prev.getMonth() - 1);
+                                    setCalendarMonth2(prev);
+                                  }}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  <ChevronDown className="h-4 w-4 transform rotate-90" />
+                                </button>
+                              ) : (
+                                <div className="w-6"></div>
+                              );
+                            })()}
                             <div className="text-sm font-medium">
                               {calendarMonth2.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                             </div>
