@@ -2439,7 +2439,7 @@ function CreativeAnalytics({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Монтажер
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2490,10 +2490,10 @@ function CreativeAnalytics({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Trello
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Buyer
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Searcher
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2571,10 +2571,28 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 whitespace-nowrap text-center">
-                              <span className="text-sm text-gray-900 cursor-text select-text">
-                                {creative.editor_name || creative.users?.name || 'Неизвестен'}
-                              </span>
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  {getEditorAvatar(creative.user_id) ? (
+                                    <img
+                                      src={getEditorAvatar(creative.user_id)}
+                                      alt="Editor"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(creative.user_id) ? 'hidden' : ''}`}>
+                                    <User className="h-3 w-3 text-gray-400" />
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                  {creative.editor_name || creative.users?.name || 'Неизвестен'}
+                                </span>
+                              </div>
                             </td>
                             
                             <td className="px-3 py-4 text-sm text-gray-900">
@@ -3112,9 +3130,9 @@ function CreativeAnalytics({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                               {(creative.buyer_id || creative.buyer) ? (
-                                <div className="flex items-center justify-center space-x-2">
+                                <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                     {getBuyerAvatar(creative.buyer_id) ? (
                                       <img
@@ -3140,9 +3158,9 @@ function CreativeAnalytics({ user }) {
                               )}
                             </td>
 
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                               {(creative.searcher_id || creative.searcher) ? (
-                                <div className="flex items-center justify-center space-x-2">
+                                <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                     {getSearcherAvatar(creative.searcher_id) ? (
                                       <img
