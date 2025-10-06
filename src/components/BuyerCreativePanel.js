@@ -90,11 +90,11 @@ function BuyerCreativePanel({ user }) {
         role: user.role
       });
 
-      // ПРЯМОЙ ЗАПРОС к таблице creatives с фильтром по buyer_id
+      // ПРЯМОЙ ЗАПРОС к таблице creatives с фильтром по buyer_id ИЛИ buyer (имя)
       const { data: buyerCreatives, error: fetchError } = await supabase
         .from('creatives')
         .select('*')
-        .eq('buyer_id', user.id)
+        .or(`buyer_id.eq.${user.id},buyer.eq.${user.name}`)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
