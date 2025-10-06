@@ -995,13 +995,26 @@ function CreativePanel({ user }) {
       });
       setShowCreateModal(false);
 
+      // Загружаем креативы
       await loadCreatives();
+      
+      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК И ЗОН ДЛЯ НОВОГО КРЕАТИВА
+      console.log('🚀 Автоматическая загрузка метрик и зон для нового креатива...');
+      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
+      
+      // Загружаем метрики (это обновит все креативы, включая новый)
+      await refreshMetrics();
+      console.log('✅ Метрики загружены');
+      
+      // Загружаем зональные данные
+      await refreshZoneData();
+      console.log('✅ Зональные данные загружены');
       
       const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
       const country = newCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики и зоны загружены автоматически`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
