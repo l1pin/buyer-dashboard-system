@@ -89,13 +89,15 @@ exports.handler = async (event, context) => {
     // Получаем названия видео для батча
     const videoNames = currentBatch.map(v => v.videoTitle);
 
-    // Запрос к metrics-proxy
-    const metricsResponse = await fetch(`${event.headers.host}/.netlify/functions/metrics-proxy`, {
+    // Запрос к metrics-proxy с force_refresh для автообновления
+    const apiUrl = process.env.URL || `https://${event.headers.host}`;
+    const metricsResponse = await fetch(`${apiUrl}/.netlify/functions/metrics-proxy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         video_names: videoNames,
-        kind: 'daily_first4_total'
+        kind: 'daily_first4_total',
+        force_refresh: !isManual // Для автообновления всегда обновляем кэш
       })
     });
 
@@ -217,7 +219,8 @@ exports.handler = async (event, context) => {
       // Есть еще данные - вызываем себя снова
       console.log(`⏩ Запускаем следующий батч (offset: ${nextOffset})`);
       
-      const nextResponse = await fetch(`https://${event.headers.host}/.netlify/functions/metrics-worker`, {
+      const apiUrl = process.env.URL || `https://${event.headers.host}`;
+      const nextResponse = await fetch(`${apiUrl}/.netlify/functions/metrics-worker`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
