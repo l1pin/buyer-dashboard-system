@@ -1393,7 +1393,7 @@ function CreativeAnalytics({ user }) {
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map(day => (
+                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
                               <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
                                 {day}
                               </div>
@@ -1405,7 +1405,10 @@ function CreativeAnalytics({ user }) {
                               const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth1);
                               const days = [];
                               
-                              for (let i = 0; i < startingDayOfWeek; i++) {
+                              // Корректируем startingDayOfWeek для недели, начинающейся с понедельника
+                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+                              
+                              for (let i = 0; i < adjustedStartDay; i++) {
                                 days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
                               }
                               
@@ -1477,7 +1480,7 @@ function CreativeAnalytics({ user }) {
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map(day => (
+                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
                               <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
                                 {day}
                               </div>
@@ -1489,7 +1492,10 @@ function CreativeAnalytics({ user }) {
                               const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth2);
                               const days = [];
                               
-                              for (let i = 0; i < startingDayOfWeek; i++) {
+                              // Корректируем startingDayOfWeek для недели, начинающейся с понедельника
+                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+                              
+                              for (let i = 0; i < adjustedStartDay; i++) {
                                 days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
                               }
                               
