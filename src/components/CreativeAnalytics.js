@@ -61,7 +61,7 @@ function CreativeAnalytics({ user }) {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('this_week');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [customDateFrom, setCustomDateFrom] = useState(null);
   const [customDateTo, setCustomDateTo] = useState(null);
@@ -262,6 +262,7 @@ function CreativeAnalytics({ user }) {
     if (customDateFrom && customDateTo) {
       setSelectedPeriod('custom');
       setShowCalendar(false);
+      setShowPeriodMenu(false); // Закрываем панель выбора дат
     }
   };
 
