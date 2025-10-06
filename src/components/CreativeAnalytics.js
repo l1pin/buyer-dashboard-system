@@ -1463,28 +1463,6 @@ function CreativeAnalytics({ user }) {
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-auto">
 
-      {/* Error Messages */}
-      {error && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {metricsError && (
-        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          Ошибка загрузки метрик: {metricsError}
-        </div>
-      )}
-
-      {zoneDataError && (
-        <div className="mx-6 mt-4 bg-orange-50 border border-orange-200 text-black px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          Ошибка загрузки зональных данных: {zoneDataError}
-        </div>
-      )}
-
       {/* Statistics Cards */}
       {filteredCreativesByMonth.length > 0 && (
         <div className="bg-gray-50 px-6 py-4">
