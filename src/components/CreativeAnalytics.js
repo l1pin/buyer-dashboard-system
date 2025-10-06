@@ -75,8 +75,9 @@ function CreativeAnalytics({ user }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
   
-  const [selectedMonth, setSelectedMonth] = useState(null);
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  // Месячная фильтрация ОТКЛЮЧЕНА
+  // const [selectedMonth, setSelectedMonth] = useState(null);
+  // const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   
 // НОВЫЕ состояния для переключения метрик в той же строке
   const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
@@ -107,32 +108,9 @@ function CreativeAnalytics({ user }) {
       creativesToFilter = creativesToFilter.filter(c => new Date(c.created_at) >= monthStart);
     }
     
-    if (selectedMonth === null) {
-      const currentYear = now.getFullYear();
-      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-      const currentMonthKey = `${currentYear}-${currentMonth}`;
-      
-      return creativesToFilter.filter(creative => {
-        const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (match) {
-          const [_, year, month] = match;
-          const creativeMonthKey = `${year}-${month}`;
-          return creativeMonthKey === currentMonthKey;
-        }
-        return false;
-      });
-    }
-    
-    return creativesToFilter.filter(creative => {
-      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        const [_, year, month] = match;
-        const creativeMonthKey = `${year}-${month}`;
-        return creativeMonthKey === selectedMonth;
-      }
-      return false;
-    });
-  }, [analytics.creatives, selectedEditor, selectedPeriod, selectedMonth]);
+    // МЕСЯЧНАЯ ФИЛЬТРАЦИЯ ОТКЛЮЧЕНА - возвращаем все отфильтрованные креативы
+    return creativesToFilter;
+  }, [analytics.creatives, selectedEditor, selectedPeriod]);
 
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
@@ -635,53 +613,12 @@ function CreativeAnalytics({ user }) {
     return editorZones;
   };
 
-  const getCurrentMonthYear = () => {
-    const now = new Date();
-    const months = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    const month = months[now.getMonth()];
-    const year = now.getFullYear();
-    return `${month}, ${year}`;
-  };
-
-  const getAvailableMonths = () => {
-    if (analytics.creatives.length === 0) return [];
-    
-    const monthsSet = new Set();
-    const months = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    
-    analytics.creatives.forEach(creative => {
-      const match = creative.created_at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        const [_, year, month] = match;
-        const monthIndex = parseInt(month) - 1;
-        const monthYear = `${months[monthIndex]}, ${year}`;
-        const monthKey = `${year}-${month}`;
-        monthsSet.add(JSON.stringify({ display: monthYear, key: monthKey }));
-      }
-    });
-    
-    const monthsList = Array.from(monthsSet)
-      .map(item => JSON.parse(item))
-      .sort((a, b) => b.key.localeCompare(a.key));
-    
-    return monthsList;
-  };
-
-  const getDisplayMonthYear = () => {
-    if (selectedMonth === null) {
-      return getCurrentMonthYear();
-    }
-    
-    const availableMonths = getAvailableMonths();
-    const found = availableMonths.find(m => m.key === selectedMonth);
-    return found ? found.display : getCurrentMonthYear();
-  };
+  // ФУНКЦИИ МЕСЯЦЕВ ОТКЛЮЧЕНЫ
+  /*
+  const getCurrentMonthYear = () => { ... };
+  const getAvailableMonths = () => { ... };
+  const getDisplayMonthYear = () => { ... };
+  */
 
   const showComment = (creative) => {
     setSelectedComment({
@@ -889,9 +826,7 @@ function CreativeAnalytics({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
-      if (!event.target.closest('.month-dropdown') && !event.target.closest('.month-trigger')) {
-        setShowMonthDropdown(false);
-      }
+      // Месячный dropdown ОТКЛЮЧЕН
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -970,7 +905,7 @@ function CreativeAnalytics({ user }) {
     return metricsPeriod === 'all' ? 'Все время' : '4 дня';
   };
 
-  const availableMonths = getAvailableMonths();
+  // const availableMonths = getAvailableMonths(); // ОТКЛЮЧЕНО
   const countryStats = getCountryStats();
   const zoneStats = getZoneStats();
   const editorZoneStats = getEditorZoneStats();
@@ -1001,61 +936,6 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="relative">
-              <button
-                onClick={() => setShowMonthDropdown(!showMonthDropdown)}
-                className="month-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {getDisplayMonthYear()}
-                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showMonthDropdown && availableMonths.length > 0 && (
-                <div className="month-dropdown absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setSelectedMonth(null);
-                        setShowMonthDropdown(false);
-                      }}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedMonth === null ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {getCurrentMonthYear()}
-                    </button>
-                    {availableMonths
-                        .filter(month => {
-                          const now = new Date();
-                          const currentYear = now.getFullYear();
-                          const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-                          const currentMonthKey = `${currentYear}-${currentMonth}`;
-                          return month.key !== currentMonthKey;
-                        })
-                        .map((month) => (
-                          <button
-                            key={month.key}
-                            onClick={() => {
-                              setSelectedMonth(month.key);
-                              setShowMonthDropdown(false);
-                            }}
-                            className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                              selectedMonth === month.key ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
-                            }`}
-                          >
-                            <Calendar className="h-4 w-4 mr-2" />
-                            {month.display}
-                          </button>
-                        ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="relative">
               <button
                 onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
@@ -1809,7 +1689,7 @@ function CreativeAnalytics({ user }) {
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                {getDisplayMonthYear()} - Полная аналитика креативов
+                Полная аналитика креативов
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
