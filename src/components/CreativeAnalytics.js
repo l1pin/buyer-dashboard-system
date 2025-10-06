@@ -2233,9 +2233,34 @@ function CreativeAnalytics({ user }) {
                           .map((editor, index) => (
                             <tr key={index} className="hover:bg-gray-50">
                               <td className="px-4 py-2 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900 truncate">
-                                  {editor.name}
-                                </span>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {(() => {
+                                      const editorData = analytics.editors.find(e => e.name === editor.name);
+                                      const avatarUrl = editorData?.avatar_url;
+                                      return avatarUrl ? (
+                                        <img
+                                          src={avatarUrl}
+                                          alt={editor.name}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null;
+                                    })()}
+                                    <div className={`w-full h-full flex items-center justify-center ${(() => {
+                                      const editorData = analytics.editors.find(e => e.name === editor.name);
+                                      return editorData?.avatar_url ? 'hidden' : '';
+                                    })()}`}>
+                                      <User className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm font-medium text-gray-900 truncate">
+                                    {editor.name}
+                                  </span>
+                                </div>
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <span className="text-sm font-bold text-red-600">
@@ -2356,9 +2381,34 @@ function CreativeAnalytics({ user }) {
                             return (
                               <tr key={index} className="hover:bg-gray-50">
                                 <td className="px-3 py-2 whitespace-nowrap">
-                                  <span className="text-sm font-medium text-gray-900 truncate">
-                                    {editor.name}
-                                  </span>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                      {(() => {
+                                        const editorData = analytics.editors.find(e => e.name === editor.name);
+                                        const avatarUrl = editorData?.avatar_url;
+                                        return avatarUrl ? (
+                                          <img
+                                            src={avatarUrl}
+                                            alt={editor.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                              e.target.style.display = 'none';
+                                              e.target.nextSibling.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null;
+                                      })()}
+                                      <div className={`w-full h-full flex items-center justify-center ${(() => {
+                                        const editorData = analytics.editors.find(e => e.name === editor.name);
+                                        return editorData?.avatar_url ? 'hidden' : '';
+                                      })()}`}>
+                                        <User className="h-3 w-3 text-gray-400" />
+                                      </div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900 truncate">
+                                      {editor.name}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td className="px-2 py-2 text-center">
                                   <span className={`text-xs font-bold px-2 py-1 rounded ${getCOFBadgeColor(editor.totalCOF)}`}>
