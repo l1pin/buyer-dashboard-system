@@ -2504,28 +2504,6 @@ function CreativePanel({ user }) {
             </div>
         </div>
       )}
-      
-      {/* Messages */}
-      {success && (
-        <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          {success}
-        </div>
-      )}
-
-      {metricsError && (
-        <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          Ошибка загрузки метрик: {metricsError}
-        </div>
-      )}
-
-      {zoneDataError && (
-        <div className="mx-6 mt-4 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-md text-sm flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          Ошибка загрузки зональных данных: {zoneDataError}
-        </div>
-      )}
 
       {/* Content */}
       <div className="flex-1 p-6">
