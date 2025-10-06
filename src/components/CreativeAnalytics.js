@@ -41,6 +41,10 @@ import {
 function CreativeAnalytics({ user }) {
   console.log('✅ CreativeAnalytics компонент загружен с полным функционалом');
   
+  // Время жизни кеша в миллисекундах (5 минут)
+  const CACHE_LIFETIME = 5 * 60 * 1000;
+  const CACHE_KEY = 'creatives_analytics_cache';
+  
   const [analytics, setAnalytics] = useState({
     creatives: [],
     editors: [],
@@ -885,8 +889,9 @@ function CreativeAnalytics({ user }) {
       
       console.log('✅ Креатив успешно удален');
       
-      // Перезагружаем аналитику
-      await loadAnalytics();
+      // Очищаем кеш и перезагружаем аналитику
+      clearAnalyticsCache();
+      await loadAnalytics(true);
       
     } catch (error) {
       console.error('❌ Ошибка удаления креатива:', error);
@@ -904,6 +909,54 @@ function CreativeAnalytics({ user }) {
       newExpanded.add(creativeId);
     }
     setExpandedWorkTypes(newExpanded);
+  };
+
+  const saveAnalyticsToCache = (data) => {
+    try {
+      const cacheData = {
+        data: data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      console.log('💾 Данные аналитики сохранены в кеш');
+    } catch (error) {
+      console.error('❌ Ошибка сохранения в кеш:', error);
+    }
+  };
+
+  const loadAnalyticsFromCache = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) {
+        console.log('📭 Кеш аналитики пуст');
+        return null;
+      }
+
+      const cacheData = JSON.parse(cached);
+      const age = Date.now() - cacheData.timestamp;
+      
+      if (age > CACHE_LIFETIME) {
+        console.log('⏰ Кеш аналитики устарел (возраст:', Math.round(age / 1000), 'сек)');
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+
+      console.log('✅ Аналитика загружена из кеша (возраст:', Math.round(age / 1000), 'сек)');
+      return cacheData.data;
+    } catch (error) {
+      console.error('❌ Ошибка чтения кеша аналитики:', error);
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+  };
+
+  const clearAnalyticsCache = () => {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      console.log('🗑️ Кеш аналитики очищен');
+    } catch (error) {
+      console.error('❌ Ошибка очистки кеша:', error);
+    }
   };
 
   const loadUsers = async () => {
@@ -926,12 +979,24 @@ function CreativeAnalytics({ user }) {
     }
   };
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = async (forceRefresh = false) => {
     console.log('🚀 Начинаем загрузку полной аналитики креативов...');
     
     try {
       setLoading(true);
       setError('');
+      
+      // Проверяем кеш, если не принудительное обновление
+      if (!forceRefresh) {
+        const cachedData = loadAnalyticsFromCache();
+        if (cachedData) {
+          setAnalytics(cachedData.analytics);
+          setCreativesWithHistory(new Set(cachedData.creativesWithHistory));
+          console.log('✅ Аналитика загружена из кеша');
+          setLoading(false);
+          return;
+        }
+      }
       
       console.log('📡 Запрос к базе данных...');
       const [creativesData, editorsData] = await Promise.all([
@@ -991,12 +1056,20 @@ function CreativeAnalytics({ user }) {
         creativesWithComments: creativesWithComments
       };
 
-      setAnalytics({
+      const analyticsData = {
         creatives: safeCreatives,
         editors,
         stats,
         workTypeStats: {},
         editorStats: {}
+      };
+
+      setAnalytics(analyticsData);
+
+      // Сохраняем в кеш
+      saveAnalyticsToCache({
+        analytics: analyticsData,
+        creativesWithHistory: Array.from(creativesWithHistorySet)
       });
 
       console.log('✅ Аналитика успешно загружена');
@@ -1129,7 +1202,9 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log('🔄 Обновление только метрик и зональных данных...');
+    console.log('🔄 Полное обновление данных...');
+    clearAnalyticsCache(); // Очищаем кеш аналитики
+    await loadAnalytics(true); // Принудительная загрузка
     await refreshMetrics();
     await refreshZoneData();
     await loadLastUpdateTime();
