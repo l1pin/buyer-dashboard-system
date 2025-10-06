@@ -27,7 +27,10 @@ exports.handler = async (event, context) => {
     console.log(`📝 Создан лог #${logEntry.id}`);
 
     // Запускаем worker
-    const workerUrl = `https://${event.headers.host}/.netlify/functions/metrics-worker`;
+    const apiUrl = process.env.URL || `https://${event.headers.host}`;
+    const workerUrl = `${apiUrl}/.netlify/functions/metrics-worker`;
+    
+    console.log(`🚀 Запуск worker по URL: ${workerUrl}`);
     
     const workerResponse = await fetch(workerUrl, {
       method: 'POST',
