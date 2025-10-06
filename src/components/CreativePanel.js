@@ -48,7 +48,8 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  Filter
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
