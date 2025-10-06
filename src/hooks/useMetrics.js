@@ -202,16 +202,19 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     videoName: metadata.videoTitle,
                     creativeId: metadata.creativeId,
                     videoIndex: metadata.videoIndex,
-                    fromCache: false
+                    fromCache: false,
+                    noData: false
                   });
                 } else {
+                  // КРИТИЧНО: Добавляем запись даже для видео без метрик
                   rawMetricsMap.set(videoKey, {
                     found: false,
                     data: null,
                     error: 'Нет данных',
                     videoName: metadata.videoTitle,
                     creativeId: metadata.creativeId,
-                    videoIndex: metadata.videoIndex
+                    videoIndex: metadata.videoIndex,
+                    noData: true // Флаг отсутствия данных
                   });
                 }
               }
@@ -226,30 +229,54 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       setRawBatchMetrics(rawMetricsMap);
 
       // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase (период "all" и "4days")
-      const newMetrics = Array.from(rawMetricsMap.values()).filter(m => 
-        m.found && !m.fromCache && m.data
+      // Сохраняем ВСЕ метрики, включая видео БЕЗ данных (с NULL)
+      const allMetricsToSave = Array.from(rawMetricsMap.values()).filter(m => 
+        !m.fromCache // Только новые, не из кэша
       );
 
-      if (newMetrics.length > 0) {
-        console.log(`💾 Батчевое сохранение ${newMetrics.length} метрик в кэш...`);
+      if (allMetricsToSave.length > 0) {
+        console.log(`💾 Батчевое сохранение ${allMetricsToSave.length} метрик в кэш (включая видео без данных)...`);
         
-        // Сохраняем период "all"
-        const metricsToSaveAll = newMetrics.map(m => ({
+        // Разделяем на метрики с данными и без данных
+        const metricsWithData = allMetricsToSave.filter(m => m.found && m.data);
+        const metricsWithoutData = allMetricsToSave.filter(m => m.noData);
+
+        console.log(`📊 С данными: ${metricsWithData.length}, без данных: ${metricsWithoutData.length}`);
+        
+        // Сохраняем период "all" для метрик С ДАННЫМИ
+        const metricsToSaveAll = metricsWithData.map(m => ({
           creativeId: m.creativeId,
           article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
           videoIndex: m.videoIndex,
           videoTitle: m.videoName,
           metricsData: m.data,
-          period: 'all'
+          period: 'all',
+          hasData: true
         }));
 
-        await metricsAnalyticsService.saveBatchMetricsCache(metricsToSaveAll);
-        console.log(`✅ Период "all" сохранен: ${metricsToSaveAll.length} метрик`);
+        // Сохраняем период "all" для метрик БЕЗ ДАННЫХ (с NULL)
+        const metricsToSaveAllNoData = metricsWithoutData.map(m => ({
+          creativeId: m.creativeId,
+          article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
+          videoIndex: m.videoIndex,
+          videoTitle: m.videoName,
+          metricsData: null, // NULL для видео без данных
+          period: 'all',
+          hasData: false
+        }));
 
-        // КРИТИЧНО: Сохраняем период "4days"
+        // Объединяем и сохраняем все метрики
+        const allToSave = [...metricsToSaveAll, ...metricsToSaveAllNoData];
+        
+        if (allToSave.length > 0) {
+          await metricsAnalyticsService.saveBatchMetricsCache(allToSave);
+          console.log(`✅ Период "all" сохранен: ${metricsToSaveAll.length} с данными + ${metricsToSaveAllNoData.length} без данных`);
+        }
+
+        // КРИТИЧНО: Сохраняем период "4days" (только для метрик с данными)
         const metricsToSave4Days = [];
         
-        newMetrics.forEach(m => {
+        metricsWithData.forEach(m => {
           const allDailyData = m.data.allDailyData || m.data.dailyData || [];
           
           if (allDailyData.length > 0) {
@@ -329,9 +356,22 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           }
         });
         
-        if (metricsToSave4Days.length > 0) {
-          await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave4Days);
-          console.log(`✅ Период "4days" сохранен: ${metricsToSave4Days.length} метрик`);
+        // Добавляем записи "4days" для видео БЕЗ ДАННЫХ (с NULL)
+        const metricsToSave4DaysNoData = metricsWithoutData.map(m => ({
+          creativeId: m.creativeId,
+          article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
+          videoIndex: m.videoIndex,
+          videoTitle: m.videoName,
+          metricsData: null, // NULL для видео без данных
+          period: '4days',
+          hasData: false
+        }));
+
+        const all4DaysToSave = [...metricsToSave4Days, ...metricsToSave4DaysNoData];
+        
+        if (all4DaysToSave.length > 0) {
+          await metricsAnalyticsService.saveBatchMetricsCache(all4DaysToSave);
+          console.log(`✅ Период "4days" сохранен: ${metricsToSave4Days.length} с данными + ${metricsToSave4DaysNoData.length} без данных`);
         }
       }
 
