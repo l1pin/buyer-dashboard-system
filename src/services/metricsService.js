@@ -109,14 +109,15 @@ export class MetricsService {
   static _groupBatchResults(data, videoNames) {
     const grouped = new Map();
 
-    // Инициализируем для всех запрошенных видео
+    // Инициализируем для всех запрошенных видео - по умолчанию found: false
     videoNames.forEach(name => {
       grouped.set(name, {
         videoName: name,
         daily: [],
         first4: null,
         total: null,
-        found: false
+        found: false,
+        noData: true // Флаг отсутствия данных
       });
     });
 
@@ -153,6 +154,7 @@ export class MetricsService {
 
       const entry = grouped.get(video_name);
       entry.found = true;
+      entry.noData = false; // Данные найдены
       processedCount++;
 
       const metrics = {
