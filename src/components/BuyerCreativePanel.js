@@ -83,107 +83,42 @@ function BuyerCreativePanel({ user }) {
       setLoading(true);
       setError('');
 
-      console.log('🔍 ============ НАЧАЛО ДИАГНОСТИКИ ============');
-      console.log('👤 Текущий пользователь:', {
+      console.log('🔍 ============ ПРЯМОЙ ЗАПРОС ПО buyer_id ============');
+      console.log('👤 Ищем креативы для байера:', {
         id: user.id,
         name: user.name,
-        role: user.role,
-        email: user.email,
-        id_type: typeof user.id,
-        id_length: user.id?.length
+        role: user.role
       });
 
-      const allCreatives = await creativeService.getAllCreatives();
-      console.log(`📦 Всего загружено креативов из БД: ${allCreatives.length}`);
+      // ПРЯМОЙ ЗАПРОС к таблице creatives с фильтром по buyer_id
+      const { data: buyerCreatives, error: fetchError } = await supabase
+        .from('creatives')
+        .select('*')
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false });
 
-      // Логируем ВСЕ buyer_id из креативов
-      console.log('📋 Все buyer_id в креативах:');
-      allCreatives.forEach((c, index) => {
-        if (c.buyer_id || c.buyer) {
-          console.log(`  [${index}] Креатив "${c.article}":`, {
-            buyer_id: c.buyer_id,
-            buyer: c.buyer,
-            buyer_id_type: typeof c.buyer_id,
-            buyer_id_length: c.buyer_id?.length,
-            user_id_type: typeof user.id,
-            user_id_length: user.id?.length,
-            // Новые проверки
-            buyer_id_lower: c.buyer_id ? String(c.buyer_id).trim().toLowerCase() : null,
-            user_id_lower: user.id ? String(user.id).trim().toLowerCase() : null,
-            match_strict: c.buyer_id === user.id,
-            match_string: String(c.buyer_id).trim() === String(user.id).trim(),
-            match_lowercase: String(c.buyer_id).trim().toLowerCase() === String(user.id).trim().toLowerCase()
-          });
-        }
-      });
-
-      // УЛУЧШЕННАЯ ФИЛЬТРАЦИЯ - проверяем с toLowerCase() для UUID
-      const buyerCreatives = allCreatives.filter(c => {
-        // Проверяем по ID (с учетом регистра и пробелов)
-        if (c.buyer_id && user.id) {
-          const buyerId = String(c.buyer_id).trim().toLowerCase();
-          const userId = String(user.id).trim().toLowerCase();
-          
-          if (buyerId === userId) {
-            console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ по ID для креатива "${c.article}":`, {
-              buyer_id_original: c.buyer_id,
-              user_id_original: user.id,
-              buyer_id_normalized: buyerId,
-              user_id_normalized: userId
-            });
-            return true;
-          }
-        }
-        
-        // Резервная проверка по имени
-        if (c.buyer && user.name) {
-          const buyerName = String(c.buyer).toLowerCase().trim();
-          const userName = String(user.name).toLowerCase().trim();
-          
-          if (buyerName === userName) {
-            console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ по имени для креатива "${c.article}":`, {
-              buyer_name: c.buyer,
-              user_name: user.name
-            });
-            return true;
-          }
-        }
-        
-        return false;
-      });
-
-      console.log('📊 РЕЗУЛЬТАТ ФИЛЬТРАЦИИ:');
-      console.log(`  ✅ Найдено креативов: ${buyerCreatives.length}`);
-      console.log(`  📋 Общее количество: ${allCreatives.length}`);
-      console.log(`  🎯 Пользователь ID: ${user.id}`);
-      console.log(`  👤 Пользователь имя: ${user.name}`);
-      
-      if (buyerCreatives.length === 0) {
-        console.warn('⚠️ НЕ НАЙДЕНО НИ ОДНОГО КРЕАТИВА!');
-        console.warn('Возможные причины:');
-        console.warn('1. buyer_id в базе не совпадает с user.id');
-        console.warn('2. buyer_id = NULL для всех креативов');
-        console.warn('3. Проблема с регистром UUID');
-        console.warn('4. Креативы не созданы или удалены');
-        
-        // Показываем примеры buyer_id для диагностики
-        const creativesWithBuyers = allCreatives.filter(c => c.buyer_id).slice(0, 5);
-        if (creativesWithBuyers.length > 0) {
-          console.warn('📋 Примеры buyer_id из базы:');
-          creativesWithBuyers.forEach(c => {
-            console.warn(`  - "${c.article}": ${c.buyer_id}`);
-          });
-          console.warn(`🎯 Ваш user.id: ${user.id}`);
-        } else {
-          console.warn('⚠️ В базе НЕТ креативов с buyer_id!');
-        }
+      if (fetchError) {
+        console.error('❌ Ошибка запроса креативов:', fetchError);
+        throw fetchError;
       }
 
-      console.log('🔍 ============ КОНЕЦ ДИАГНОСТИКИ ============');
+      console.log(`✅ НАЙДЕНО КРЕАТИВОВ: ${buyerCreatives?.length || 0}`);
+      
+      if (buyerCreatives && buyerCreatives.length > 0) {
+        console.log('📋 Первый креатив:', {
+          id: buyerCreatives[0].id,
+          article: buyerCreatives[0].article,
+          buyer_id: buyerCreatives[0].buyer_id,
+          buyer: buyerCreatives[0].buyer,
+          editor_name: buyerCreatives[0].editor_name
+        });
+      }
+
+      const result = buyerCreatives || [];
 
       // Проверяем историю для каждого креатива
       const creativesWithHistorySet = new Set();
-      for (const creative of buyerCreatives) {
+      for (const creative of result) {
         const hasHistory = await creativeHistoryService.hasHistory(creative.id);
         if (hasHistory) {
           creativesWithHistorySet.add(creative.id);
@@ -191,7 +126,9 @@ function BuyerCreativePanel({ user }) {
       }
       setCreativesWithHistory(creativesWithHistorySet);
 
-      setCreatives(buyerCreatives);
+      setCreatives(result);
+      console.log('🔍 ============ КОНЕЦ ЗАПРОСА ============');
+
     } catch (error) {
       console.error('❌ Ошибка загрузки креативов:', error);
       setError('Ошибка загрузки креативов: ' + error.message);
