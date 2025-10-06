@@ -1360,7 +1360,6 @@ function CreativeAnalytics({ user }) {
                                 const prev = new Date(calendarMonth1);
                                 prev.setMonth(prev.getMonth() - 1);
                                 setCalendarMonth1(prev);
-                                setCalendarMonth2(calendarMonth1);
                               }}
                               className="p-1 hover:bg-gray-200 rounded"
                             >
@@ -1369,7 +1368,21 @@ function CreativeAnalytics({ user }) {
                             <div className="text-sm font-medium">
                               {calendarMonth1.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                             </div>
-                            <div className="w-6"></div>
+                            <button
+                              onClick={() => {
+                                const next = new Date(calendarMonth1);
+                                next.setMonth(next.getMonth() + 1);
+                                // Проверяем, чтобы левый календарь не был позже правого
+                                if (next <= calendarMonth2) {
+                                  setCalendarMonth1(next);
+                                }
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded"
+                              disabled={calendarMonth1.getMonth() === calendarMonth2.getMonth() && 
+                                       calendarMonth1.getFullYear() === calendarMonth2.getFullYear()}
+                            >
+                              <ChevronDown className="h-4 w-4 transform -rotate-90" />
+                            </button>
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 mb-2">
@@ -1419,7 +1432,21 @@ function CreativeAnalytics({ user }) {
                         {/* Второй календарь */}
                         <div>
                           <div className="flex items-center justify-between mb-3">
-                            <div className="w-6"></div>
+                            <button
+                              onClick={() => {
+                                const prev = new Date(calendarMonth2);
+                                prev.setMonth(prev.getMonth() - 1);
+                                // Проверяем, чтобы правый календарь не был раньше левого
+                                if (prev >= calendarMonth1) {
+                                  setCalendarMonth2(prev);
+                                }
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded"
+                              disabled={calendarMonth1.getMonth() === calendarMonth2.getMonth() && 
+                                       calendarMonth1.getFullYear() === calendarMonth2.getFullYear()}
+                            >
+                              <ChevronDown className="h-4 w-4 transform rotate-90" />
+                            </button>
                             <div className="text-sm font-medium">
                               {calendarMonth2.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                             </div>
@@ -1427,7 +1454,6 @@ function CreativeAnalytics({ user }) {
                               onClick={() => {
                                 const next = new Date(calendarMonth2);
                                 next.setMonth(next.getMonth() + 1);
-                                setCalendarMonth1(calendarMonth2);
                                 setCalendarMonth2(next);
                               }}
                               className="p-1 hover:bg-gray-200 rounded"
