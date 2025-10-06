@@ -1526,9 +1526,12 @@ export const metricsAnalyticsService = {
       console.log(`💾 Батчевое сохранение ${metricsArray.length} метрик в кэш...`);
 
       // Подготавливаем данные для вставки
-      const dataToInsert = metricsArray
-        .filter(m => m.metricsData?.raw) // Только валидные метрики
-        .map(m => {
+      const dataToInsert = metricsArray.map(m => {
+        // Проверяем наличие данных
+        const hasData = m.hasData !== false && m.metricsData?.raw;
+        
+        if (hasData) {
+          // Метрики с данными
           const rawMetrics = m.metricsData.raw;
           return {
             creative_id: m.creativeId,
@@ -1544,7 +1547,24 @@ export const metricsAnalyticsService = {
             days_count: rawMetrics.days_count || 0,
             cached_at: new Date().toISOString()
           };
-        });
+        } else {
+          // Метрики БЕЗ данных - все поля NULL
+          return {
+            creative_id: m.creativeId,
+            article: m.article,
+            video_index: m.videoIndex,
+            video_title: m.videoTitle,
+            period: m.period || 'all',
+            leads: null,
+            cost: null,
+            clicks: null,
+            impressions: null,
+            avg_duration: null,
+            days_count: null,
+            cached_at: new Date().toISOString()
+          };
+        }
+      });
 
       if (dataToInsert.length === 0) {
         console.log('⚠️ Нет валидных метрик для сохранения');
