@@ -1519,21 +1519,41 @@ export const metricsAnalyticsService = {
   // ⚡ НОВАЯ ФУНКЦИЯ: Батчевое сохранение метрик в кэш
   async saveBatchMetricsCache(metricsArray) {
     try {
+      console.log('🔵 saveBatchMetricsCache ВЫЗВАНА');
+      console.log('📦 Входные данные:', {
+        isArray: Array.isArray(metricsArray),
+        length: metricsArray?.length,
+        firstItem: metricsArray?.[0]
+      });
+
       if (!metricsArray || metricsArray.length === 0) {
+        console.log('⚠️ Пустой массив, выход');
         return { success: true, count: 0 };
       }
 
       console.log(`💾 Батчевое сохранение ${metricsArray.length} метрик в кэш...`);
 
       // Подготавливаем данные для вставки
-      const dataToInsert = metricsArray.map(m => {
+      const dataToInsert = [];
+      
+      metricsArray.forEach((m, index) => {
+        console.log(`🔍 Обработка метрики ${index + 1}:`, {
+          creativeId: m.creativeId,
+          videoIndex: m.videoIndex,
+          period: m.period,
+          hasData: m.hasData,
+          hasMetricsData: !!m.metricsData,
+          hasRaw: !!m.metricsData?.raw
+        });
+
         // Проверяем наличие данных
         const hasData = m.hasData !== false && m.metricsData?.raw;
         
         if (hasData) {
+          console.log(`✅ Метрика ${index + 1} С ДАННЫМИ`);
           // Метрики с данными
           const rawMetrics = m.metricsData.raw;
-          return {
+          dataToInsert.push({
             creative_id: m.creativeId,
             article: m.article,
             video_index: m.videoIndex,
@@ -1546,10 +1566,11 @@ export const metricsAnalyticsService = {
             avg_duration: rawMetrics.avg_duration || 0,
             days_count: rawMetrics.days_count || 0,
             cached_at: new Date().toISOString()
-          };
+          });
         } else {
+          console.log(`⚪ Метрика ${index + 1} БЕЗ ДАННЫХ (NULL)`);
           // Метрики БЕЗ данных - все поля NULL
-          return {
+          dataToInsert.push({
             creative_id: m.creativeId,
             article: m.article,
             video_index: m.videoIndex,
@@ -1562,41 +1583,65 @@ export const metricsAnalyticsService = {
             avg_duration: null,
             days_count: null,
             cached_at: new Date().toISOString()
-          };
+          });
         }
       });
 
+      console.log(`📊 Подготовлено к вставке: ${dataToInsert.length} записей`);
+      console.log('📋 Первая запись для вставки:', dataToInsert[0]);
+
       if (dataToInsert.length === 0) {
-        console.log('⚠️ Нет валидных метрик для сохранения');
+        console.log('⚠️ Нет данных для сохранения после подготовки');
         return { success: true, count: 0 };
       }
 
       // Сохраняем батчем (максимум 100 за раз)
       const BATCH_SIZE = 100;
       let totalSaved = 0;
+      let totalErrors = 0;
 
       for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);
+        
+        console.log(`🚀 Отправка батча ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(dataToInsert.length/BATCH_SIZE)}: ${batch.length} записей`);
+        console.log('📋 Первая запись батча:', batch[0]);
         
         const { data, error } = await supabase
           .from('metrics_cache')
           .upsert(batch, {
             onConflict: 'creative_id,video_index,period'
-          });
+          })
+          .select();
 
         if (error) {
-          console.error(`❌ Ошибка сохранения батча ${i}-${i + batch.length}:`, error);
+          console.error(`❌ ОШИБКА сохранения батча ${i}-${i + batch.length}:`, {
+            error: error,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          totalErrors += batch.length;
           continue;
         }
+
+        console.log(`✅ Батч ${Math.floor(i/BATCH_SIZE) + 1} сохранен успешно:`, {
+          inserted: data?.length || batch.length,
+          dataReturned: !!data
+        });
 
         totalSaved += batch.length;
       }
 
-      console.log(`✅ Батчевое сохранение завершено: ${totalSaved} метрик`);
-      return { success: true, count: totalSaved };
+      console.log(`🎉 ИТОГО: Сохранено ${totalSaved} из ${dataToInsert.length}, ошибок: ${totalErrors}`);
+      return { success: true, count: totalSaved, errors: totalErrors };
 
     } catch (error) {
-      console.error('❌ Критическая ошибка батчевого сохранения:', error);
+      console.error('💥 КРИТИЧЕСКАЯ ОШИБКА батчевого сохранения:', {
+        error: error,
+        message: error.message,
+        stack: error.stack
+      });
       return { success: false, count: 0, error: error.message };
     }
   },
