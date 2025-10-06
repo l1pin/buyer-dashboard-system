@@ -239,11 +239,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         
         // Разделяем на метрики с данными и без данных
         const metricsWithData = allMetricsToSave.filter(m => m.found && m.data);
-        const metricsWithoutData = allMetricsToSave.filter(m => m.noData);
+        const metricsWithoutData = allMetricsToSave.filter(m => !m.found || !m.data);
 
         console.log(`📊 С данными: ${metricsWithData.length}, без данных: ${metricsWithoutData.length}`);
         
-        // Сохраняем период "all" для метрик С ДАННЫМИ
+        // === СОХРАНЯЕМ ПЕРИОД "ALL" ===
+        
+        // Метрики С ДАННЫМИ для периода "all"
         const metricsToSaveAll = metricsWithData.map(m => ({
           creativeId: m.creativeId,
           article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
@@ -254,26 +256,28 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           hasData: true
         }));
 
-        // Сохраняем период "all" для метрик БЕЗ ДАННЫХ (с NULL)
+        // Метрики БЕЗ ДАННЫХ для периода "all" (с NULL)
         const metricsToSaveAllNoData = metricsWithoutData.map(m => ({
           creativeId: m.creativeId,
           article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
           videoIndex: m.videoIndex,
           videoTitle: m.videoName,
-          metricsData: null, // NULL для видео без данных
+          metricsData: null,
           period: 'all',
           hasData: false
         }));
 
-        // Объединяем и сохраняем все метрики
-        const allToSave = [...metricsToSaveAll, ...metricsToSaveAllNoData];
+        // Объединяем и сохраняем все метрики периода "all"
+        const allPeriodAll = [...metricsToSaveAll, ...metricsToSaveAllNoData];
         
-        if (allToSave.length > 0) {
-          await metricsAnalyticsService.saveBatchMetricsCache(allToSave);
+        if (allPeriodAll.length > 0) {
+          await metricsAnalyticsService.saveBatchMetricsCache(allPeriodAll);
           console.log(`✅ Период "all" сохранен: ${metricsToSaveAll.length} с данными + ${metricsToSaveAllNoData.length} без данных`);
         }
 
-        // КРИТИЧНО: Сохраняем период "4days" (только для метрик с данными)
+        // === СОХРАНЯЕМ ПЕРИОД "4DAYS" ===
+        
+        // Метрики С ДАННЫМИ для периода "4days"
         const metricsToSave4Days = [];
         
         metricsWithData.forEach(m => {
@@ -351,26 +355,28 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               videoIndex: m.videoIndex,
               videoTitle: m.videoName,
               metricsData: data4Days,
-              period: '4days'
+              period: '4days',
+              hasData: true
             });
           }
         });
-        
-        // Добавляем записи "4days" для видео БЕЗ ДАННЫХ (с NULL)
+
+        // Метрики БЕЗ ДАННЫХ для периода "4days" (с NULL)
         const metricsToSave4DaysNoData = metricsWithoutData.map(m => ({
           creativeId: m.creativeId,
           article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
           videoIndex: m.videoIndex,
           videoTitle: m.videoName,
-          metricsData: null, // NULL для видео без данных
+          metricsData: null,
           period: '4days',
           hasData: false
         }));
 
-        const all4DaysToSave = [...metricsToSave4Days, ...metricsToSave4DaysNoData];
+        // Объединяем и сохраняем все метрики периода "4days"
+        const allPeriod4Days = [...metricsToSave4Days, ...metricsToSave4DaysNoData];
         
-        if (all4DaysToSave.length > 0) {
-          await metricsAnalyticsService.saveBatchMetricsCache(all4DaysToSave);
+        if (allPeriod4Days.length > 0) {
+          await metricsAnalyticsService.saveBatchMetricsCache(allPeriod4Days);
           console.log(`✅ Период "4days" сохранен: ${metricsToSave4Days.length} с данными + ${metricsToSave4DaysNoData.length} без данных`);
         }
       }
