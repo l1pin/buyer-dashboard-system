@@ -333,6 +333,11 @@ class Chunker {
 async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      console.log('🔍 ОТПРАВКА К PHP API:');
+      console.log('  📍 URL:', CONFIG.API_URL);
+      console.log('  📋 SQL длина:', sql?.length, 'байт');
+      console.log('  📋 SQL (первые 200 символов):', sql?.substring(0, 200));
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
 
@@ -350,6 +355,16 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
 
       clearTimeout(timeoutId);
 
+      console.log('📡 Ответ от PHP API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: {
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length')
+        }
+      });
+
       if (!response.ok) {
         // На 502/504 делаем ретрай
         if ((response.status === 502 || response.status === 504) && attempt < retries) {
@@ -360,15 +375,18 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
         }
         
         const errorText = await response.text();
+        console.error('❌ Ошибка от API:', errorText.substring(0, 500));
         throw new Error(`API error ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
       const text = await response.text();
       
-      // КРИТИЧНО: Добавляем логирование сырого ответа
-      console.log('📨 Сырой ответ от API:', {
+      // КРИТИЧНО: Детальное логирование ответа
+      console.log('📨 СЫРОЙ ОТВЕТ от PHP API:', {
         length: text?.length,
-        preview: text?.substring(0, 500)
+        isEmpty: !text || text.trim() === '',
+        preview: text?.substring(0, 1000), // Увеличили до 1000 символов
+        fullText: text // ПОЛНЫЙ текст ответа для диагностики
       });
       
       if (!text || !text.trim()) {
@@ -472,14 +490,17 @@ class WorkerPool {
         
         const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
-        console.log('📝 SQL (первые 500 символов):', sql.substring(0, 500));
+        console.log('📝 ПОЛНЫЙ SQL:', sql); // КРИТИЧНО: логируем ВЕСЬ SQL
         
+        console.log('🌐 Отправка SQL к PHP API...');
         const data = await fetchWithRetry(sql);
         
-        console.log('📥 Результат от БД:', {
+        console.log('📥 ДЕТАЛЬНЫЙ результат от БД:', {
+          type: typeof data,
           isArray: Array.isArray(data),
           length: data?.length,
-          firstItem: data?.[0]
+          firstItem: data?.[0],
+          firstThreeItems: data?.slice(0, 3)
         });
         
         results.push(data);
@@ -557,13 +578,15 @@ exports.handler = async (event, context) => {
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
     const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
 
-    console.log('📥 Получен запрос:', {
-      video_names_count: video_names?.length,
-      video_names_sample: video_names?.slice(0, 3),
-      date_from,
-      date_to,
-      kind
-    });
+    console.log('🔍 ДИАГНОСТИКА ЗАПРОСА:');
+    console.log('  📋 video_names тип:', typeof video_names, 'isArray:', Array.isArray(video_names));
+    console.log('  📋 video_names длина:', video_names?.length);
+    console.log('  📋 Первое название:', video_names?.[0]);
+    console.log('  📋 Второе название:', video_names?.[1]);
+    console.log('  📋 Третье название:', video_names?.[2]);
+    console.log('  📋 date_from:', date_from);
+    console.log('  📋 date_to:', date_to);
+    console.log('  📋 kind:', kind);
 
     if (!video_names || !Array.isArray(video_names) || video_names.length === 0) {
       return {
