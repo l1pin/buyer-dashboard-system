@@ -1253,6 +1253,288 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
           <div className="flex items-center space-x-3">
+            {/* Кнопка выбора периода дат */}
+            <div className="relative period-menu-container">
+              <button
+                onClick={() => setShowPeriodMenu(!showPeriodMenu)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {getPeriodLabel()}
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </button>
+              
+              {/* Выпадающее меню с календарем ВНУТРИ */}
+              {showPeriodMenu && (
+                <div className="absolute left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{width: '850px'}}>
+                  <div className="grid grid-cols-3">
+                    {/* Левая колонка - список периодов */}
+                    <div className="border-r border-gray-200 py-2">
+                      <button
+                        onClick={() => handlePeriodSelect('today')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'today' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Сегодня
+                      </button>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('yesterday')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'yesterday' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Вчера
+                      </button>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('this_week')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'this_week' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Эта неделя
+                      </button>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('last_7_days')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'last_7_days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Последние 7 дней
+                      </button>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('this_month')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'this_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Этот месяц
+                      </button>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('last_month')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'last_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Прошлый месяц
+                      </button>
+                      
+                      <div className="border-t border-gray-200 my-1"></div>
+                      
+                      <button
+                        onClick={() => handlePeriodSelect('all')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Все время
+                      </button>
+                    </div>
+                    
+                    {/* Правая колонка - календарь (2 месяца) */}
+                    <div className="col-span-2 p-4">
+                      <div className="grid grid-cols-2 gap-6">
+                        {/* Первый календарь */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <button
+                              onClick={() => {
+                                const prev = new Date(calendarMonth1);
+                                prev.setMonth(prev.getMonth() - 1);
+                                setCalendarMonth1(prev);
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded"
+                            >
+                              <ChevronDown className="h-4 w-4 transform rotate-90" />
+                            </button>
+                            <div className="text-sm font-medium">
+                              {calendarMonth1.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                            </div>
+                            {(() => {
+                              const nextMonth = new Date(calendarMonth1);
+                              nextMonth.setMonth(nextMonth.getMonth() + 1);
+                              const hasGap = (calendarMonth2.getFullYear() - nextMonth.getFullYear()) * 12 + 
+                                           (calendarMonth2.getMonth() - nextMonth.getMonth()) >= 1;
+                              
+                              return hasGap ? (
+                                <button
+                                  onClick={() => {
+                                    const next = new Date(calendarMonth1);
+                                    next.setMonth(next.getMonth() + 1);
+                                    setCalendarMonth1(next);
+                                  }}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  <ChevronDown className="h-4 w-4 transform -rotate-90" />
+                                </button>
+                              ) : (
+                                <div className="w-6"></div>
+                              );
+                            })()}
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1 mb-2">
+                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
+                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1">
+                            {(() => {
+                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth1);
+                              const days = [];
+                              
+                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+                              
+                              for (let i = 0; i < adjustedStartDay; i++) {
+                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
+                              }
+                              
+                              for (let day = 1; day <= daysInMonth; day++) {
+                                const date = new Date(year, month, day);
+                                const isSelected = isDateSelected(date);
+                                const isInRange = isDateInRange(date);
+                                const isToday = date.toDateString() === new Date().toDateString();
+                                
+                                days.push(
+                                  <button
+                                    key={day}
+                                    onClick={() => handleDateClick(date)}
+                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
+                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
+                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
+                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
+                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
+                                    `}
+                                  >
+                                    {day}
+                                  </button>
+                                );
+                              }
+                              
+                              return days;
+                            })()}
+                          </div>
+                        </div>
+                        
+                        {/* Второй календарь */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            {(() => {
+                              const prevMonth = new Date(calendarMonth2);
+                              prevMonth.setMonth(prevMonth.getMonth() - 1);
+                              const hasGap = (prevMonth.getFullYear() - calendarMonth1.getFullYear()) * 12 + 
+                                           (prevMonth.getMonth() - calendarMonth1.getMonth()) >= 1;
+                              
+                              return hasGap ? (
+                                <button
+                                  onClick={() => {
+                                    const prev = new Date(calendarMonth2);
+                                    prev.setMonth(prev.getMonth() - 1);
+                                    setCalendarMonth2(prev);
+                                  }}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  <ChevronDown className="h-4 w-4 transform rotate-90" />
+                                </button>
+                              ) : (
+                                <div className="w-6"></div>
+                              );
+                            })()}
+                            <div className="text-sm font-medium">
+                              {calendarMonth2.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                            </div>
+                            <button
+                              onClick={() => {
+                                const next = new Date(calendarMonth2);
+                                next.setMonth(next.getMonth() + 1);
+                                setCalendarMonth2(next);
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded"
+                            >
+                              <ChevronDown className="h-4 w-4 transform -rotate-90" />
+                            </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1 mb-2">
+                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
+                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1">
+                            {(() => {
+                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth2);
+                              const days = [];
+                              
+                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+                              
+                              for (let i = 0; i < adjustedStartDay; i++) {
+                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
+                              }
+                              
+                              for (let day = 1; day <= daysInMonth; day++) {
+                                const date = new Date(year, month, day);
+                                const isSelected = isDateSelected(date);
+                                const isInRange = isDateInRange(date);
+                                const isToday = date.toDateString() === new Date().toDateString();
+                                
+                                days.push(
+                                  <button
+                                    key={day}
+                                    onClick={() => handleDateClick(date)}
+                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
+                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
+                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
+                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
+                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
+                                    `}
+                                  >
+                                    {day}
+                                  </button>
+                                );
+                              }
+                              
+                              return days;
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Кнопка применить для custom периода */}
+                      {(tempCustomDateFrom || tempCustomDateTo) && (
+                        <div className="flex items-center justify-end mt-4 pt-4 border-t border-gray-200">
+                          <button
+                            onClick={applyCustomPeriod}
+                            disabled={!tempCustomDateFrom || !tempCustomDateTo}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                          >
+                            Применить
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <button
                 onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
@@ -1365,292 +1647,6 @@ function CreativeAnalytics({ user }) {
             <div className="flex items-center space-x-2">
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-700">Фильтры:</span>
-            </div>
-            
-            {/* Кнопка выбора периода */}
-            <div className="relative period-menu-container">
-              <button
-                onClick={() => setShowPeriodMenu(!showPeriodMenu)}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {getPeriodLabel()}
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </button>
-              
-              {/* Выпадающее меню с календарем ВНУТРИ */}
-              {showPeriodMenu && (
-                <div className="absolute left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{width: '850px'}}>
-                  <div className="grid grid-cols-3">
-                    {/* Левая колонка - список периодов */}
-                    <div className="border-r border-gray-200 py-2">
-                      <button
-                        onClick={() => handlePeriodSelect('today')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'today' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Сегодня
-                      </button>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('yesterday')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'yesterday' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Вчера
-                      </button>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('this_week')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'this_week' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Эта неделя
-                      </button>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('last_7_days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'last_7_days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Последние 7 дней
-                      </button>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('this_month')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'this_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Этот месяц
-                      </button>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('last_month')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'last_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Последний месяц
-                      </button>
-                      
-                      <div className="border-t border-gray-200 my-1"></div>
-                      
-                      <button
-                        onClick={() => handlePeriodSelect('all')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Все время
-                      </button>
-                    </div>
-                    
-                    {/* Правая колонка - календарь (2 месяца) */}
-                    <div className="col-span-2 p-4">
-                      <div className="grid grid-cols-2 gap-6">
-                        {/* Первый календарь */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <button
-                              onClick={() => {
-                                const prev = new Date(calendarMonth1);
-                                prev.setMonth(prev.getMonth() - 1);
-                                setCalendarMonth1(prev);
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
-                              <ChevronDown className="h-4 w-4 transform rotate-90" />
-                            </button>
-                            <div className="text-sm font-medium">
-                              {calendarMonth1.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-                            </div>
-                            {(() => {
-                              // Проверяем, есть ли интервал больше 1 месяца
-                              const nextMonth = new Date(calendarMonth1);
-                              nextMonth.setMonth(nextMonth.getMonth() + 1);
-                              const hasGap = (calendarMonth2.getFullYear() - nextMonth.getFullYear()) * 12 + 
-                                           (calendarMonth2.getMonth() - nextMonth.getMonth()) >= 1;
-                              
-                              return hasGap ? (
-                                <button
-                                  onClick={() => {
-                                    const next = new Date(calendarMonth1);
-                                    next.setMonth(next.getMonth() + 1);
-                                    setCalendarMonth1(next);
-                                  }}
-                                  className="p-1 hover:bg-gray-200 rounded"
-                                >
-                                  <ChevronDown className="h-4 w-4 transform -rotate-90" />
-                                </button>
-                              ) : (
-                                <div className="w-6"></div>
-                              );
-                            })()}
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-1">
-                            {(() => {
-                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth1);
-                              const days = [];
-                              
-                              // Корректируем startingDayOfWeek для недели, начинающейся с понедельника
-                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
-                              
-                              for (let i = 0; i < adjustedStartDay; i++) {
-                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
-                              }
-                              
-                              for (let day = 1; day <= daysInMonth; day++) {
-                                const date = new Date(year, month, day);
-                                const isSelected = isDateSelected(date);
-                                const isInRange = isDateInRange(date);
-                                const isToday = date.toDateString() === new Date().toDateString();
-                                
-                                days.push(
-                                  <button
-                                    key={day}
-                                    onClick={() => handleDateClick(date)}
-                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
-                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
-                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
-                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
-                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
-                                    `}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              }
-                              
-                              return days;
-                            })()}
-                          </div>
-                        </div>
-                        
-                        {/* Второй календарь */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            {(() => {
-                              // Проверяем, есть ли интервал больше 1 месяца
-                              const prevMonth = new Date(calendarMonth2);
-                              prevMonth.setMonth(prevMonth.getMonth() - 1);
-                              const hasGap = (prevMonth.getFullYear() - calendarMonth1.getFullYear()) * 12 + 
-                                           (prevMonth.getMonth() - calendarMonth1.getMonth()) >= 1;
-                              
-                              return hasGap ? (
-                                <button
-                                  onClick={() => {
-                                    const prev = new Date(calendarMonth2);
-                                    prev.setMonth(prev.getMonth() - 1);
-                                    setCalendarMonth2(prev);
-                                  }}
-                                  className="p-1 hover:bg-gray-200 rounded"
-                                >
-                                  <ChevronDown className="h-4 w-4 transform rotate-90" />
-                                </button>
-                              ) : (
-                                <div className="w-6"></div>
-                              );
-                            })()}
-                            <div className="text-sm font-medium">
-                              {calendarMonth2.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-                            </div>
-                            <button
-                              onClick={() => {
-                                const next = new Date(calendarMonth2);
-                                next.setMonth(next.getMonth() + 1);
-                                setCalendarMonth2(next);
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
-                              <ChevronDown className="h-4 w-4 transform -rotate-90" />
-                            </button>
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-1">
-                            {(() => {
-                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth2);
-                              const days = [];
-                              
-                              // Корректируем startingDayOfWeek для недели, начинающейся с понедельника
-                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
-                              
-                              for (let i = 0; i < adjustedStartDay; i++) {
-                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
-                              }
-                              
-                              for (let day = 1; day <= daysInMonth; day++) {
-                                const date = new Date(year, month, day);
-                                const isSelected = isDateSelected(date);
-                                const isInRange = isDateInRange(date);
-                                const isToday = date.toDateString() === new Date().toDateString();
-                                
-                                days.push(
-                                  <button
-                                    key={day}
-                                    onClick={() => handleDateClick(date)}
-                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
-                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
-                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
-                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
-                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
-                                    `}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              }
-                              
-                              return days;
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Кнопка применить для custom периода */}
-                      {(tempCustomDateFrom || tempCustomDateTo) && (
-                        <div className="flex items-center justify-end mt-4 pt-4 border-t border-gray-200">
-                          <button
-                            onClick={applyCustomPeriod}
-                            disabled={!tempCustomDateFrom || !tempCustomDateTo}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                          >
-                            Применить
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="relative">
