@@ -666,22 +666,37 @@ function normalizeResults(rawResults) {
   });
 
   if (!rawResults || rawResults.length === 0) {
+    console.log('⚠️ normalizeResults: пустой массив результатов');
     return normalized;
   }
 
-  // КРИТИЧНО: PHP API возвращает [headers, row1, row2, ...]
-  // После flat() у нас плоский массив где:
-  // - элемент 0: массив headers ["kind", "video_name", ...]
-  // - элементы 1+: массивы данных ["daily", "video1", ...]
-  
-  // Проверяем формат данных
+  // КРИТИЧНО: Логируем первые 3 элемента для диагностики
+  console.log('🔍 ДИАГНОСТИКА: Первые 3 элемента rawResults:');
+  for (let i = 0; i < Math.min(3, rawResults.length); i++) {
+    console.log(`  [${i}]:`, {
+      type: typeof rawResults[i],
+      isArray: Array.isArray(rawResults[i]),
+      value: rawResults[i],
+      keys: typeof rawResults[i] === 'object' && !Array.isArray(rawResults[i]) 
+        ? Object.keys(rawResults[i]) 
+        : 'not an object'
+    });
+  }
+
   const firstItem = rawResults[0];
   
   // Случай A: Массив объектов {kind: "daily", video_name: "..."}
   if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
-    console.log('✅ Формат: массив объектов');
+    console.log('✅ ФОРМАТ A: Массив объектов');
+    console.log('📋 Пример объекта:', firstItem);
     
-    rawResults.forEach(row => {
+    let processedCount = 0;
+    rawResults.forEach((row, index) => {
+      if (!row.video_name) {
+        console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
+        return;
+      }
+      
       normalized.push({
         kind: row.kind || 'daily',
         video_name: row.video_name,
@@ -692,31 +707,95 @@ function normalizeResults(rawResults) {
         impressions: Number(row.impressions) || 0,
         avg_duration: Number(row.avg_duration) || 0
       });
+      processedCount++;
     });
     
+    console.log(`✅ Формат A: обработано ${processedCount} объектов`);
     return normalized;
   }
   
-  // Случай B: Плоский массив [headers, row1, row2, ...]
+  // Случай B: Массив массивов [[headers], [row1], [row2], ...]
   if (firstItem && Array.isArray(firstItem)) {
-    console.log('✅ Формат: [headers, ...rows]');
+    console.log('✅ ФОРМАТ B: Массив массивов');
     
-    // Первый элемент - headers
-    const headers = rawResults[0];
-    console.log('📋 Headers:', headers);
+    // КРИТИЧНО: Проверяем, все ли элементы - массивы
+    const allArrays = rawResults.every(item => Array.isArray(item));
+    console.log('🔍 Все элементы - массивы?', allArrays);
     
-    // Проверяем что это действительно headers (содержит строки типа "kind", "video_name")
-    const isHeaders = headers.includes('kind') || headers.includes('video_name');
-    
-    if (!isHeaders) {
-      console.error('❌ Первый элемент не похож на headers:', headers);
+    if (!allArrays) {
+      console.error('❌ НЕ ВСЕ элементы - массивы!');
+      // Пробуем обработать как смешанный формат
       return normalized;
     }
     
-    // Остальные элементы - строки данных
-    const dataRows = rawResults.slice(1);
-    console.log(`📊 Обработка ${dataRows.length} строк данных`);
+    // Первый массив должен быть headers
+    const headers = rawResults[0];
+    console.log('📋 HEADERS:', headers);
+    console.log('📋 HEADERS тип:', typeof headers, 'длина:', headers?.length);
     
+    // Проверяем наличие обязательных полей
+    const hasVideoName = headers.includes('video_name');
+    const hasKind = headers.includes('kind');
+    
+    console.log('🔍 Проверка headers:', {
+      hasVideoName,
+      hasKind,
+      headers
+    });
+    
+    if (!hasVideoName && !hasKind) {
+      console.error('❌ Headers не содержат обязательных полей!');
+      // Возможно, это не headers, а данные
+      console.log('🔍 Пробуем интерпретировать все элементы как данные (без headers)');
+      
+      // Предполагаем фиксированный порядок колонок: [kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration]
+      const assumedHeaders = ['kind', 'video_name', 'adv_date', 'leads', 'cost', 'clicks', 'impressions', 'avg_duration'];
+      
+      rawResults.forEach((row, index) => {
+        if (!Array.isArray(row)) {
+          console.warn(`⚠️ Строка ${index} не массив:`, row);
+          return;
+        }
+        
+        const obj = {};
+        assumedHeaders.forEach((header, i) => {
+          obj[header] = row[i];
+        });
+        
+        if (!obj.video_name) {
+          console.warn(`⚠️ Строка ${index} не содержит video_name после маппинга:`, obj);
+          return;
+        }
+        
+        normalized.push({
+          kind: obj.kind || 'daily',
+          video_name: obj.video_name,
+          adv_date: obj.adv_date || null,
+          leads: Number(obj.leads) || 0,
+          cost: Number(obj.cost) || 0,
+          clicks: Number(obj.clicks) || 0,
+          impressions: Number(obj.impressions) || 0,
+          avg_duration: Number(obj.avg_duration) || 0
+        });
+      });
+      
+      console.log(`✅ Формат B (без headers): обработано ${normalized.length} строк`);
+      return normalized;
+    }
+    
+    // Стандартная обработка с headers
+    const dataRows = rawResults.slice(1);
+    console.log(`📊 Обработка ${dataRows.length} строк данных после headers`);
+    
+    if (dataRows.length === 0) {
+      console.warn('⚠️ Нет строк данных после headers!');
+      return normalized;
+    }
+    
+    // Логируем первую строку данных
+    console.log('📋 Первая строка данных:', dataRows[0]);
+    
+    let processedCount = 0;
     dataRows.forEach((row, index) => {
       if (!Array.isArray(row)) {
         console.warn(`⚠️ Строка ${index} не массив:`, row);
@@ -729,6 +808,16 @@ function normalizeResults(rawResults) {
         obj[header] = row[i];
       });
       
+      // КРИТИЧНО: Проверяем наличие video_name
+      if (!obj.video_name) {
+        console.warn(`⚠️ Строка ${index} не содержит video_name:`, {
+          row,
+          obj,
+          headers
+        });
+        return;
+      }
+      
       normalized.push({
         kind: obj.kind || 'daily',
         video_name: obj.video_name,
@@ -739,14 +828,13 @@ function normalizeResults(rawResults) {
         impressions: Number(obj.impressions) || 0,
         avg_duration: Number(obj.avg_duration) || 0
       });
+      processedCount++;
     });
     
-    console.log(`✅ Нормализовано ${normalized.length} записей`);
+    console.log(`✅ Формат B: обработано ${processedCount} из ${dataRows.length} строк`);
     return normalized;
   }
   
-  console.error('❌ Неизвестный формат данных');
+  console.error('❌ НЕИЗВЕСТНЫЙ ФОРМАТ! Первый элемент:', firstItem);
   return normalized;
-
-  // Эта закрывающая скобка уже есть в новом коде выше, удалите старую
 }
