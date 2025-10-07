@@ -101,14 +101,18 @@ class SQLBuilder {
     }
 
     console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
-    console.log('📋 Примеры названий:', videoNames.slice(0, 3));
+    console.log('📋 ВСЕ названия видео:');
+    videoNames.forEach((name, i) => {
+      console.log(`  [${i}]: "${name}"`);
+    });
 
     // VALUES список для video_list CTE
     const valuesClause = videoNames
       .map(name => `('${this.escapeString(name)}')`)
       .join(',\n    ');
     
-    console.log('📝 VALUES clause (первые 200 символов):', valuesClause.substring(0, 200));
+    console.log('📝 ПОЛНЫЙ VALUES clause:');
+    console.log(valuesClause);
 
     // Фильтр по датам
     let dateFilter = '';
@@ -138,6 +142,9 @@ class SQLBuilder {
       .replace(/\(/g, '')
       .replace(/\)/g, '')
       .replace(/,\s*\n\s*/g, ',');
+    
+    console.log('📋 IN clause для daily:');
+    console.log(inClause);
     
     return `
 SELECT 
