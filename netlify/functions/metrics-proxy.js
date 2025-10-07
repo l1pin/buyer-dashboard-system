@@ -137,11 +137,10 @@ class SQLBuilder {
   }
 
   static _buildDailySQL(valuesClause, dateFilter) {
-    // Преобразуем ('name1'),('name2') в 'name1','name2' для IN clause
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    // НЕ используем replace - он удаляет скобки из названий видео!
+    // Вместо этого извлекаем названия из VALUES и формируем IN напрямую
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     console.log('📋 IN clause для daily:');
     console.log(inClause);
@@ -165,10 +164,8 @@ ORDER BY t.video_name, t.adv_date`;
   }
 
   static _buildFirst4SQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 
@@ -202,10 +199,8 @@ ORDER BY video_name`;
   }
 
   static _buildTotalSQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 
@@ -237,10 +232,8 @@ ORDER BY video_name`;
   }
 
   static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
