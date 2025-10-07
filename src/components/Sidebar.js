@@ -13,19 +13,17 @@ import {
   BarChart3,
   Activity,
   Search,
-  FileText,
-  TrendingUp
+  FileText
 } from 'lucide-react';
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
-    // Секции для Team Lead
     {
       id: 'table',
-      label: 'Управление таблицами',
-      icon: Database,
+      label: user?.role === 'teamlead' ? 'Управление таблицами' : 'Рабочая таблица',
+      icon: user?.role === 'teamlead' ? Database : Table,
       show: user?.role === 'teamlead'
     },
     {
@@ -33,6 +31,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       label: 'Пользователи',
       icon: Users,
       show: user?.role === 'teamlead'
+    },
+    {
+      id: 'creatives',
+      label: 'Креативы',
+      icon: Video,
+      show: user?.role === 'editor'
     },
     {
       id: 'analytics',
@@ -46,28 +50,6 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       icon: Activity,
       show: user?.role === 'teamlead'
     },
-    // Секция для Editor
-    {
-      id: 'creatives',
-      label: 'Креативы',
-      icon: Video,
-      show: user?.role === 'editor'
-    },
-    // Секция для Media Buyer
-    {
-      id: 'buyer-creatives',
-      label: 'Мои креативы',
-      icon: TrendingUp,
-      show: user?.role === 'buyer'
-    },
-    // Секция для Search Manager
-    {
-      id: 'searcher-creatives',
-      label: 'Мои креативы',
-      icon: Search,
-      show: user?.role === 'search_manager'
-    },
-    // Настройки доступны всем
     {
       id: 'settings',
       label: 'Настройки',
@@ -102,7 +84,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'teamlead':
         return <Shield className="h-5 w-5 text-gray-600" />;
       case 'buyer':
-        return <TrendingUp className="h-5 w-5 text-gray-600" />;
+        return <Users className="h-5 w-5 text-gray-600" />;
       case 'editor':
         return <Monitor className="h-5 w-5 text-gray-600" />;
       case 'search_manager':
