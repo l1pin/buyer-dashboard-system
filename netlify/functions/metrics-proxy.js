@@ -493,11 +493,17 @@ class WorkerPool {
 
       try {
         console.log(`📊 Обработка чанка ${++processed}/${total}, имён: ${chunk.length}`);
-        console.log('📋 Чанк содержит:', chunk.slice(0, 3));
+        console.log('📋 ВСЕ названия в чанке:');
+        chunk.forEach((name, idx) => {
+          console.log(`  [${idx}]: "${name}"`);
+        });
         
         const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
-        console.log('📝 ПОЛНЫЙ SQL:', sql); // КРИТИЧНО: логируем ВЕСЬ SQL
+        console.log('=====================================');
+        console.log('📝 ПОЛНЫЙ SQL:');
+        console.log(sql);
+        console.log('=====================================');
         
         console.log('🌐 Отправка SQL к PHP API...');
         const data = await fetchWithRetry(sql);
