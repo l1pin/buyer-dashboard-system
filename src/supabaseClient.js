@@ -1068,11 +1068,12 @@ export const creativeService = {
     try {
       console.log('📡 Запрос к таблице creatives...');
       
-      // ИСПРАВЛЕНО: Убран JOIN который отбрасывал записи без user_id в таблице users
-      // Используем editor_name который уже есть в таблице creatives
       const { data, error } = await supabase
         .from('creatives')
-        .select('*')
+        .select(`
+          *,
+          users!creatives_user_id_fkey(name, email)
+        `)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -1096,9 +1097,8 @@ export const creativeService = {
           work_types: result[0].work_types,
           cof_rating: result[0].cof_rating,
           editor_name: result[0].editor_name,
-          buyer_id: result[0].buyer_id,
-          buyer: result[0].buyer,
-          hasComment: !!result[0].comment
+          hasComment: !!result[0].comment,
+          hasUsers: !!result[0].users
         });
       }
       
