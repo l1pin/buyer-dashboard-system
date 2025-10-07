@@ -124,22 +124,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Роуты для Team Lead */}
         <Route path="/admin/tables" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/admin/users" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/workspace/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        
-        {/* Роуты для Editor */}
-        <Route path="/workspace/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        
-        {/* Роуты для Media Buyer */}
-        <Route path="/workspace/buyer-creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        
-        {/* Роуты для Search Manager */}
-        <Route path="/workspace/searcher-creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        
-        {/* Общие роуты */}
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Navigate to="/settings" replace />} />
