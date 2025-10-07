@@ -109,7 +109,14 @@ export class MetricsService {
   static _groupBatchResults(data, videoNames) {
     const grouped = new Map();
 
-    // Инициализируем для всех запрошенных видео - по умолчанию found: false
+    console.log(`🔍 ДИАГНОСТИКА _groupBatchResults:`, {
+      dataCount: data?.length,
+      videoNamesCount: videoNames?.length,
+      dataType: typeof data,
+      isArray: Array.isArray(data)
+    });
+
+    // Инициализируем для всех запрошенных видео
     videoNames.forEach(name => {
       grouped.set(name, {
         videoName: name,
@@ -117,44 +124,76 @@ export class MetricsService {
         first4: null,
         total: null,
         found: false,
-        noData: true // Флаг отсутствия данных
+        noData: true
       });
     });
 
-    console.log(`📦 Группировка результатов: ${data.length} записей, ${videoNames.length} видео`);
+    console.log(`📦 Инициализировано ${grouped.size} видео в Map`);
     
-    // Логируем первую запись чтобы понять структуру
-    if (data.length > 0) {
-      console.log('📋 Пример записи из API:', {
-        keys: Object.keys(data[0]),
-        sample: data[0]
+    if (!data || data.length === 0) {
+      console.warn('⚠️ Нет данных для группировки!');
+      return Array.from(grouped.values());
+    }
+
+    // Детальное логирование первых записей
+    console.log('📋 Первые 3 записи из data:');
+    for (let i = 0; i < Math.min(3, data.length); i++) {
+      console.log(`  [${i}]:`, {
+        video_name: data[i].video_name,
+        kind: data[i].kind,
+        leads: data[i].leads,
+        cost: data[i].cost,
+        allKeys: Object.keys(data[i])
       });
     }
 
+    // Логируем первые 3 видео из videoNames
+    console.log('📋 Первые 3 названия из videoNames:', videoNames.slice(0, 3));
+
     // Группируем данные
     let processedCount = 0;
+    let skippedNoVideoName = 0;
+    let newVideosAdded = 0;
+    
     data.forEach((row, index) => {
       const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration } = row;
       
       if (!video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
+        skippedNoVideoName++;
         return;
       }
       
-      if (!grouped.has(video_name)) {
-        console.log(`➕ Добавляем новое видео: ${video_name}`);
+      // КРИТИЧНО: Проверяем точное совпадение
+      const hasExactMatch = grouped.has(video_name);
+      
+      if (!hasExactMatch) {
+        // Проверяем похожие названия для диагностики
+        const similarNames = videoNames.filter(name => 
+          name.toLowerCase().includes(video_name.toLowerCase()) || 
+          video_name.toLowerCase().includes(name.toLowerCase())
+        );
+        
+        if (similarNames.length > 0) {
+          console.warn(`⚠️ Не найдено точное совпадение для "${video_name}", похожие:`, similarNames);
+        } else {
+          console.warn(`⚠️ Видео "${video_name}" не было в videoNames, добавляем`);
+        }
+        
         grouped.set(video_name, {
           videoName: video_name,
           daily: [],
           first4: null,
           total: null,
-          found: false
+          found: false,
+          noData: true
         });
+        newVideosAdded++;
       }
 
       const entry = grouped.get(video_name);
       entry.found = true;
-      entry.noData = false; // Данные найдены
+      entry.noData = false;
       processedCount++;
 
       const metrics = {
@@ -176,11 +215,22 @@ export class MetricsService {
     });
 
     console.log(`✅ Обработано ${processedCount} записей`);
+    console.log(`⚠️ Пропущено ${skippedNoVideoName} записей без video_name`);
+    console.log(`➕ Добавлено ${newVideosAdded} новых видео (не было в videoNames)`);
     
-    // Логируем статистику
+    // Детальная статистика
     const foundCount = Array.from(grouped.values()).filter(v => v.found).length;
     const notFoundCount = grouped.size - foundCount;
-    console.log(`📊 Статистика: найдено ${foundCount}, не найдено ${notFoundCount} из ${grouped.size} видео`);
+    console.log(`📊 ИТОГОВАЯ СТАТИСТИКА:`);
+    console.log(`  ✅ Найдено: ${foundCount}`);
+    console.log(`  ❌ Не найдено: ${notFoundCount}`);
+    console.log(`  📦 Всего в Map: ${grouped.size}`);
+
+    // Логируем примеры не найденных видео
+    if (notFoundCount > 0) {
+      const notFound = Array.from(grouped.values()).filter(v => !v.found);
+      console.log('❌ Примеры НЕ НАЙДЕННЫХ видео:', notFound.slice(0, 3).map(v => v.videoName));
+    }
 
     return Array.from(grouped.values());
   }
