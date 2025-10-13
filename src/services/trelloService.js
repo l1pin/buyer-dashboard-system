@@ -141,7 +141,7 @@ class TrelloService {
     }
   }
 
-  // Батчевое получение статусов карточек
+  // Батчевое получение статусов карточек (ПАРАЛЛЕЛЬНО)
   async getBatchCardStatuses(trelloLinks) {
     try {
       console.log(`🎯 Батчевый запрос статусов для ${trelloLinks.length} ссылок...`);
@@ -168,36 +168,37 @@ class TrelloService {
       const lists = await this.getBoardLists();
       console.log(`✅ Получено ${lists.length} колонок:`, lists.map(l => l.name));
 
-      // Запрашиваем статусы с задержкой для избежания rate limiting
+      // 🚀 ПАРАЛЛЕЛЬНЫЕ запросы статусов (БЫСТРО!)
+      console.log('⚡ Запуск параллельных запросов...');
+      const startTime = Date.now();
+      
+      const promises = cardIds.map(cardId => 
+        this.getCardStatus(cardId).catch(error => {
+          console.error(`❌ Ошибка получения статуса ${cardId}:`, error);
+          return null;
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      
       const statusMap = new Map();
       let successCount = 0;
       let failCount = 0;
 
-      for (let i = 0; i < cardIds.length; i++) {
-        const cardId = cardIds[i];
+      results.forEach((result, index) => {
+        const cardId = cardIds[index];
         
-        try {
-          const status = await this.getCardStatus(cardId);
-          
-          if (status) {
-            statusMap.set(cardId, status);
-            successCount++;
-          } else {
-            failCount++;
-          }
-          
-          // Задержка между запросами (100ms) для избежания rate limiting
-          if (i < cardIds.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          
-        } catch (error) {
-          console.error(`❌ Ошибка получения статуса ${cardId}:`, error);
+        if (result.status === 'fulfilled' && result.value) {
+          statusMap.set(cardId, result.value);
+          successCount++;
+        } else {
           failCount++;
         }
-      }
+      });
 
-      console.log(`🎉 Батчевый запрос завершен: успешно ${successCount}, ошибок ${failCount}`);
+      const duration = Date.now() - startTime;
+      console.log(`🎉 Батчевый запрос завершен за ${duration}ms: успешно ${successCount}, ошибок ${failCount}`);
+      
       return statusMap;
 
     } catch (error) {
