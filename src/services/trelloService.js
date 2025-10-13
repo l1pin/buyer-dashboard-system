@@ -207,6 +207,84 @@ class TrelloService {
     }
   }
 
+  // Получить последние действия на доске (для отслеживания изменений)
+  async getBoardActions(since = null) {
+    try {
+      const sinceParam = since ? `&since=${since}` : '&limit=100';
+      const url = `${this.baseUrl}/boards/${TRELLO_CONFIG.boardId}/actions?key=${TRELLO_CONFIG.key}&token=${TRELLO_CONFIG.token}&filter=updateCard${sinceParam}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Trello API error: ${response.status}`);
+      }
+
+      const actions = await response.json();
+      
+      // Фильтруем только изменения колонок (listAfter/listBefore)
+      const cardMoves = actions.filter(action => 
+        action.type === 'updateCard' && 
+        action.data.listAfter && 
+        action.data.listBefore &&
+        action.data.listAfter.id !== action.data.listBefore.id
+      );
+
+      return cardMoves;
+    } catch (error) {
+      console.error('Ошибка получения действий доски:', error);
+      return [];
+    }
+  }
+
+  // Проверить изменения конкретных карточек
+  async checkCardsForChanges(cardIds) {
+    try {
+      if (!cardIds || cardIds.length === 0) {
+        return new Map();
+      }
+
+      console.log(`🔍 Проверка изменений для ${cardIds.length} карточек...`);
+      
+      // Получаем последние действия на доске
+      const actions = await this.getBoardActions();
+      
+      // Находим карточки, которые изменились
+      const changedCards = new Set();
+      const changedStatuses = new Map();
+      
+      actions.forEach(action => {
+        const cardId = action.data.card.id;
+        
+        if (cardIds.includes(cardId)) {
+          changedCards.add(cardId);
+          changedStatuses.set(cardId, {
+            listId: action.data.listAfter.id,
+            listName: action.data.listAfter.name,
+            cardName: action.data.card.name,
+            movedAt: new Date(action.date)
+          });
+        }
+      });
+
+      if (changedCards.size > 0) {
+        console.log(`🔔 Обнаружены изменения в ${changedCards.size} карточках:`, Array.from(changedCards));
+        
+        // Обновляем кэш для измененных карточек
+        changedStatuses.forEach((status, cardId) => {
+          this.cardCache.set(cardId, {
+            data: status,
+            timestamp: Date.now()
+          });
+        });
+      }
+
+      return changedStatuses;
+    } catch (error) {
+      console.error('Ошибка проверки изменений карточек:', error);
+      return new Map();
+    }
+  }
+
   // Очистить кэш
   clearCache() {
     this.listCache.clear();
