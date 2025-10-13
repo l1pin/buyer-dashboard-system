@@ -12,7 +12,7 @@ const CONFIG = {
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
   
   // Таймауты и ретраи
-  FETCH_TIMEOUT_MS: 55000,       // 55 секунд на один SQL-запрос (для fuzzy)
+  FETCH_TIMEOUT_MS: 40000,       // 40 секунд на один SQL-запрос (для fuzzy)
   MAX_RETRIES: 1,                // Уменьшили количество повторов (не тратим время)
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
   
@@ -100,35 +100,20 @@ class SQLBuilder {
       original: fileName,
       article: null,
       date: null,
-      format: null,      // НОВОЕ: 4x5, 9x16, 1x1
-      suffix: null,      // НОВОЕ: bp, v, и т.д.
       extension: null,
       hasStructure: false
     };
     
-    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ
+    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ, после - пробел/тире/символ
     const articleMatch = fileName.match(/^([A-Z]\d{4,5})(?=[\s\-–—_])/i);
     if (articleMatch) {
       result.article = articleMatch[1].toUpperCase();
     }
     
-    // ДАТА: 6 цифр между пробелами
+    // ДАТА: 6 цифр МЕЖДУ пробелами (не в начале, не в конце)
     const dateMatch = fileName.match(/\s(\d{6})(?=\s)/);
     if (dateMatch) {
       result.date = dateMatch[1];
-    }
-    
-    // ФОРМАТ: XxY (4x5, 9x16, 1x1 и т.д.) перед расширением
-    const formatMatch = fileName.match(/(\d+x\d+)/i);
-    if (formatMatch) {
-      result.format = formatMatch[1].toLowerCase();
-    }
-    
-    // СУФФИКС: bp, v, _v и т.д. после формата
-    // Паттерн: пробел или _ затем 1-3 буквы перед расширением
-    const suffixMatch = fileName.match(/[\s_](bp|v|_v|v_)[\s\.]?(?=\.[a-z]{3,4}$)/i);
-    if (suffixMatch) {
-      result.suffix = suffixMatch[1].toLowerCase().replace('_', '');
     }
     
     // РАСШИРЕНИЕ
@@ -137,13 +122,13 @@ class SQLBuilder {
       result.extension = extMatch[0].toLowerCase();
     }
     
-    result.hasStructure = !!(result.article && result.date && result.format);
+    result.hasStructure = !!(result.article && result.date);
     
     // ДИАГНОСТИКА
     if (result.hasStructure) {
-      console.log(`✅ Полная структура: ${fileName} → article="${result.article}", date="${result.date}", format="${result.format}", suffix="${result.suffix}"`);
+      console.log(`✅ Структура найдена: ${fileName} → article="${result.article}", date="${result.date}"`);
     } else {
-      console.log(`⚠️ Неполная структура: ${fileName} → article=${result.article}, date=${result.date}, format=${result.format}`);
+      console.log(`⚠️ Структура НЕ найдена: ${fileName} → article=${result.article}, date=${result.date}`);
     }
     
     return result;
@@ -279,21 +264,23 @@ ORDER BY t.video_name, t.adv_date`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
       if (withStructure.length > 0) {
-        // Группируем только по артикулу (быстрее!)
-        const byArticle = new Map();
+        const byDate = new Map();
         
         withStructure.forEach(parsed => {
-          if (!byArticle.has(parsed.article)) {
-            byArticle.set(parsed.article, []);
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
           }
-          byArticle.get(parsed.article).push(parsed);
+          byDate.get(parsed.date).push(parsed.article);
         });
         
-        byArticle.forEach((parsedList, article) => {
-          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
-          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
         });
       }
       
@@ -387,21 +374,23 @@ ORDER BY video_name`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
       if (withStructure.length > 0) {
-        // Группируем только по артикулу (быстрее!)
-        const byArticle = new Map();
+        const byDate = new Map();
         
         withStructure.forEach(parsed => {
-          if (!byArticle.has(parsed.article)) {
-            byArticle.set(parsed.article, []);
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
           }
-          byArticle.get(parsed.article).push(parsed);
+          byDate.get(parsed.date).push(parsed.article);
         });
         
-        byArticle.forEach((parsedList, article) => {
-          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
-          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
         });
       }
       
@@ -493,21 +482,23 @@ ORDER BY video_name`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
       if (withStructure.length > 0) {
-        // Группируем только по артикулу (быстрее!)
-        const byArticle = new Map();
+        const byDate = new Map();
         
         withStructure.forEach(parsed => {
-          if (!byArticle.has(parsed.article)) {
-            byArticle.set(parsed.article, []);
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
           }
-          byArticle.get(parsed.article).push(parsed);
+          byDate.get(parsed.date).push(parsed.article);
         });
         
-        byArticle.forEach((parsedList, article) => {
-          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
-          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
         });
       }
       
