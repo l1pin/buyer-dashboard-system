@@ -299,11 +299,28 @@ export class MetricsService {
   }
 
   /**
-   * Извлечение имени файла без расширения
+   * Извлечение имени файла без расширения и очистка
    */
   static extractVideoName(fileName) {
     if (!fileName) return '';
-    const cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+    
+    // Убираем расширение
+    let cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+    
+    // Убираем окончания типа " (1)", " (2)" и т.д.
+    cleanName = cleanName.replace(/\s*\(\d+\)\s*$/i, '');
+    
+    // Убираем префиксы типа "cropped_original_..."
+    // Ищем первое вхождение артикула (например AN00174, J00056, X00915)
+    const articleMatch = cleanName.match(/[A-Z]\d{5}/);
+    if (articleMatch) {
+      const articleIndex = cleanName.indexOf(articleMatch[0]);
+      if (articleIndex > 0) {
+        // Обрезаем все до артикула
+        cleanName = cleanName.substring(articleIndex);
+      }
+    }
+    
     return cleanName.trim();
   }
 
