@@ -1,20 +1,23 @@
 // src/hooks/useTrelloStatus.js
-// Хук для получения статусов карточек Trello + AUTO-REFRESH
+// Хук для получения статусов карточек Trello + SMART REAL-TIME
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { trelloService } from '../services/trelloService';
 
-export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, refreshInterval = 30000) => {
+export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = true, checkInterval = 5000) => {
   const [statusMap, setStatusMap] = useState(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [changedCards, setChangedCards] = useState(new Set()); // Карточки с изменениями
   const intervalRef = useRef(null);
+  const cardIdsRef = useRef([]);
 
   // Загрузка статусов
   const loadStatuses = useCallback(async (silent = false) => {
     if (!creatives || creatives.length === 0) {
       setStatusMap(new Map());
+      cardIdsRef.current = [];
       return;
     }
 
@@ -31,6 +34,7 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
 
       if (trelloLinks.length === 0) {
         setStatusMap(new Map());
+        cardIdsRef.current = [];
         if (!silent) {
           setLoading(false);
         }
@@ -39,8 +43,6 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
 
       if (!silent) {
         console.log(`🔄 Загрузка статусов Trello для ${trelloLinks.length} карточек...`);
-      } else {
-        console.log(`🔄 [Фоновое обновление] Загрузка статусов Trello для ${trelloLinks.length} карточек...`);
       }
 
       // Получаем статусы батчем
@@ -52,15 +54,21 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
 
       // Создаем Map: trello_link -> status
       const newStatusMap = new Map();
+      const cardIds = [];
+      
       creatives.forEach(creative => {
         if (creative.trello_link) {
           const cardId = trelloService.extractCardId(creative.trello_link);
-          if (cardId && statuses.has(cardId)) {
-            newStatusMap.set(creative.trello_link, statuses.get(cardId));
+          if (cardId) {
+            cardIds.push(cardId);
+            if (statuses.has(cardId)) {
+              newStatusMap.set(creative.trello_link, statuses.get(cardId));
+            }
           }
         }
       });
 
+      cardIdsRef.current = cardIds;
       setStatusMap(newStatusMap);
       setLastUpdate(new Date());
     } catch (err) {
@@ -73,6 +81,51 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
     }
   }, [creatives]);
 
+  // 🔥 SMART REAL-TIME: Проверка изменений и обновление только измененных карточек
+  const checkForChanges = useCallback(async () => {
+    if (!cardIdsRef.current || cardIdsRef.current.length === 0) {
+      return;
+    }
+
+    try {
+      // Проверяем изменения
+      const changedStatuses = await trelloService.checkCardsForChanges(cardIdsRef.current);
+      
+      if (changedStatuses.size > 0) {
+        console.log(`⚡ REAL-TIME UPDATE: Обнаружены изменения в ${changedStatuses.size} карточках`);
+        
+        // Обновляем статусы только для измененных карточек
+        setStatusMap(prevMap => {
+          const newMap = new Map(prevMap);
+          
+          creatives.forEach(creative => {
+            if (creative.trello_link) {
+              const cardId = trelloService.extractCardId(creative.trello_link);
+              if (cardId && changedStatuses.has(cardId)) {
+                newMap.set(creative.trello_link, changedStatuses.get(cardId));
+              }
+            }
+          });
+          
+          return newMap;
+        });
+
+        // Помечаем измененные карточки для анимации
+        const changed = new Set(changedStatuses.keys());
+        setChangedCards(changed);
+        
+        // Убираем пометку через 3 секунды
+        setTimeout(() => {
+          setChangedCards(new Set());
+        }, 3000);
+
+        setLastUpdate(new Date());
+      }
+    } catch (err) {
+      console.error('Ошибка проверки изменений:', err);
+    }
+  }, [creatives]);
+
   // Автозагрузка при монтировании
   useEffect(() => {
     if (autoLoad) {
@@ -80,31 +133,37 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
     }
   }, [autoLoad, loadStatuses]);
 
-  // 🔥 AUTO-REFRESH: Автоматическое обновление каждые N секунд
+  // 🔥 SMART POLLING: Проверка изменений каждые N секунд
   useEffect(() => {
-    if (autoRefresh && creatives && creatives.length > 0) {
-      console.log(`⏰ Включен auto-refresh Trello статусов каждые ${refreshInterval / 1000} секунд`);
+    if (realtimeUpdates && creatives && creatives.length > 0) {
+      console.log(`⚡ Включен SMART REAL-TIME для Trello (проверка каждые ${checkInterval / 1000} сек)`);
       
       intervalRef.current = setInterval(() => {
-        console.log('🔄 Auto-refresh Trello статусов...');
-        loadStatuses(true); // silent = true (без лоадера)
-      }, refreshInterval);
+        checkForChanges();
+      }, checkInterval);
 
       return () => {
         if (intervalRef.current) {
-          console.log('⏹️ Auto-refresh Trello статусов остановлен');
+          console.log('⏹️ SMART REAL-TIME остановлен');
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
       };
     }
-  }, [autoRefresh, refreshInterval, loadStatuses, creatives]);
+  }, [realtimeUpdates, checkInterval, checkForChanges, creatives]);
 
   // Получить статус для конкретного креатива
   const getStatus = useCallback((trelloLink) => {
     if (!trelloLink) return null;
     return statusMap.get(trelloLink) || null;
   }, [statusMap]);
+
+  // Проверить, изменилась ли карточка недавно
+  const isCardChanged = useCallback((trelloLink) => {
+    if (!trelloLink) return false;
+    const cardId = trelloService.extractCardId(trelloLink);
+    return cardId ? changedCards.has(cardId) : false;
+  }, [changedCards]);
 
   // Обновить статусы вручную
   const refresh = useCallback(() => {
@@ -117,7 +176,9 @@ export const useTrelloStatus = (creatives, autoLoad = true, autoRefresh = true, 
     loading,
     error,
     lastUpdate,
+    changedCards,
     getStatus,
+    isCardChanged,
     refresh
   };
 };
