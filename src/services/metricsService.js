@@ -309,6 +309,9 @@ export class MetricsService {
       article: null,
       date: null,
       extension: null,
+      aspectRatio: null,
+      hasBP: false,
+      suffix: null,
       hasStructure: false
     };
     
@@ -324,6 +327,23 @@ export class MetricsService {
       result.date = dateMatch[1];
     }
     
+    // ASPECT RATIO: 4x5, 9x16, 4 x 5, 9 х 16 (с учетом х/x кириллицы/латиницы и пробелов)
+    const aspectMatch = fileName.match(/(\d+)\s*[xхXХ]\s*(\d+)/i);
+    if (aspectMatch) {
+      result.aspectRatio = `${aspectMatch[1]}x${aspectMatch[2]}`;
+    }
+    
+    // BEST PRACTICES
+    result.hasBP = /\bbp\b/i.test(fileName);
+    
+    // SUFFIX: всё после даты (для точного сравнения)
+    if (result.date) {
+      const suffixMatch = fileName.match(new RegExp(`${result.date}(.+?)(\\.\\w+)?$`));
+      if (suffixMatch) {
+        result.suffix = suffixMatch[1].trim();
+      }
+    }
+    
     // РАСШИРЕНИЕ
     const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
     if (extMatch) {
@@ -333,6 +353,60 @@ export class MetricsService {
     result.hasStructure = !!(result.article && result.date);
     
     return result;
+  }
+
+  /**
+   * Вычисляет степень похожести двух названий видео (0-100%)
+   */
+  static calculateVideoSimilarity(localName, dbName) {
+    const local = this.parseVideoStructure(localName);
+    const db = this.parseVideoStructure(dbName);
+    
+    if (!local || !db) return 0;
+    
+    let score = 0;
+    
+    // 1. Артикул должен совпадать ТОЧНО (40 баллов)
+    if (local.article === db.article) {
+      score += 40;
+    } else {
+      return 0;
+    }
+    
+    // 2. Дата должна совпадать ТОЧНО (30 баллов)
+    if (local.date === db.date) {
+      score += 30;
+    } else {
+      return 0;
+    }
+    
+    // 3. Aspect Ratio (15 баллов)
+    if (local.aspectRatio && db.aspectRatio) {
+      if (local.aspectRatio === db.aspectRatio) {
+        score += 15;
+      }
+    } else if (!local.aspectRatio && !db.aspectRatio) {
+      score += 15;
+    }
+    
+    // 4. Best Practices (10 баллов)
+    if (local.hasBP === db.hasBP) {
+      score += 10;
+    }
+    
+    // 5. Suffix (остаток названия) (5 баллов)
+    if (local.suffix && db.suffix) {
+      const localSuffix = local.suffix.toLowerCase().replace(/\s+/g, ' ').trim();
+      const dbSuffix = db.suffix.toLowerCase().replace(/\s+/g, ' ').trim();
+      
+      if (localSuffix === dbSuffix) {
+        score += 5;
+      } else if (localSuffix.includes(dbSuffix) || dbSuffix.includes(localSuffix)) {
+        score += 3;
+      }
+    }
+    
+    return score;
   }
 
   /**
