@@ -12,8 +12,8 @@ const CONFIG = {
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
   
   // Таймауты и ретраи
-  FETCH_TIMEOUT_MS: 25000,       // 25 секунд на один SQL-запрос (увеличено для fuzzy)
-  MAX_RETRIES: 2,                // Количество повторов при ошибках
+  FETCH_TIMEOUT_MS: 40000,       // 40 секунд на один SQL-запрос (для fuzzy)
+  MAX_RETRIES: 1,                // Уменьшили количество повторов (не тратим время)
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
   
   // Кэширование
@@ -123,6 +123,13 @@ class SQLBuilder {
     }
     
     result.hasStructure = !!(result.article && result.date);
+    
+    // ДИАГНОСТИКА
+    if (result.hasStructure) {
+      console.log(`✅ Структура найдена: ${fileName} → article="${result.article}", date="${result.date}"`);
+    } else {
+      console.log(`⚠️ Структура НЕ найдена: ${fileName} → article=${result.article}, date=${result.date}`);
+    }
     
     return result;
   }
