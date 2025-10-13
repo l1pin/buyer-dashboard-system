@@ -85,6 +85,48 @@ class SQLBuilder {
     return String(str).replace(/'/g, "''");
   }
 
+  /**
+   * НОВАЯ ФУНКЦИЯ: Парсинг структуры названия видео
+   * Извлекает артикул, дату, расширение
+   * Примеры:
+   * - Y02026 Набор для лепки 150825 VovaK 4x5.mp4
+   * - Y01452-Мягкая игрушка 300925 Daria 4x5.mp4
+   * - C01850 PL - Набір мисок (2шт.) 110925 DimaP v9_16.mp4
+   */
+  static parseVideoStructure(fileName) {
+    if (!fileName) return null;
+    
+    const result = {
+      original: fileName,
+      article: null,
+      date: null,
+      extension: null,
+      hasStructure: false
+    };
+    
+    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ, после - пробел/тире/символ
+    const articleMatch = fileName.match(/^([A-Z]\d{4,5})(?=[\s\-–—_])/i);
+    if (articleMatch) {
+      result.article = articleMatch[1].toUpperCase();
+    }
+    
+    // ДАТА: 6 цифр МЕЖДУ пробелами (не в начале, не в конце)
+    const dateMatch = fileName.match(/\s(\d{6})(?=\s)/);
+    if (dateMatch) {
+      result.date = dateMatch[1];
+    }
+    
+    // РАСШИРЕНИЕ
+    const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
+    if (extMatch) {
+      result.extension = extMatch[0].toLowerCase();
+    }
+    
+    result.hasStructure = !!(result.article && result.date);
+    
+    return result;
+  }
+
   static estimateSQLSize(videoNames, dateFrom, dateTo, kind) {
     // Оценка размера SQL-запроса в байтах
     const baseQuery = 1500; // Базовый шаблон SQL
@@ -206,7 +248,7 @@ ORDER BY t.video_name, t.adv_date`;
         const cleanName = name.replace(/^'|'$/g, '');
         const parsed = this.parseVideoStructure(cleanName);
         
-        if (parsed.hasStructure) {
+        if (parsed && parsed.hasStructure) {
           withStructure.push(parsed);
         } else {
           withoutStructure.push(cleanName);
@@ -217,7 +259,6 @@ ORDER BY t.video_name, t.adv_date`;
       
       // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
       if (withStructure.length > 0) {
-        // Группируем по дате для оптимизации
         const byDate = new Map();
         
         withStructure.forEach(parsed => {
@@ -228,7 +269,6 @@ ORDER BY t.video_name, t.adv_date`;
         });
         
         byDate.forEach((articles, date) => {
-          // Артикул префиксом (индекс!) + дата с пробелами (точнее!)
           const articleConditions = articles.map(art =>
             `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
           ).join(' OR ');
@@ -237,7 +277,7 @@ ORDER BY t.video_name, t.adv_date`;
         });
       }
       
-      // ПРИОРИТЕТ 2: Видео без структуры - fallback (медленно)
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
       if (withoutStructure.length > 0) {
         const namesByLetter = new Map();
         
@@ -318,7 +358,7 @@ ORDER BY video_name`;
         const cleanName = name.replace(/^'|'$/g, '');
         const parsed = this.parseVideoStructure(cleanName);
         
-        if (parsed.hasStructure) {
+        if (parsed && parsed.hasStructure) {
           withStructure.push(parsed);
         } else {
           withoutStructure.push(cleanName);
@@ -426,7 +466,7 @@ ORDER BY video_name`;
         const cleanName = name.replace(/^'|'$/g, '');
         const parsed = this.parseVideoStructure(cleanName);
         
-        if (parsed.hasStructure) {
+        if (parsed && parsed.hasStructure) {
           withStructure.push(parsed);
         } else {
           withoutStructure.push(cleanName);
