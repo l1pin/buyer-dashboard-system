@@ -376,7 +376,7 @@ function CreativeAnalytics({ user }) {
     getStatus: getTrelloStatus,
     isCardChanged: isTrelloCardChanged,
     refresh: refreshTrello
-  } = useTrelloStatus(filteredCreativesByMonth, true, true, 5000); // autoLoad, realtimeUpdates, checkInterval (5 сек)
+  } = useTrelloStatus(filteredCreativesByMonth, true, true); // autoLoad, realtimeUpdates (СИНХРОННО!)
 
   const workTypeValues = {
     'Монтаж _Video': 1,
