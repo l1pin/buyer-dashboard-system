@@ -303,19 +303,35 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       // ============================================
       // ЭТАП 3: FUZZY-ПОИСК для видео БЕЗ метрик
       // ============================================
+      console.log('🔍 ПРОВЕРКА: forceRefresh =', forceRefresh);
       if (forceRefresh) {
         const videosWithoutMetrics = [];
         const videoMapForFuzzy = new Map();
 
+        console.log('🔍 Начинаем поиск видео без метрик...');
+        console.log('🔍 Всего видео в videoMap:', videoMap.size);
+        console.log('🔍 Всего метрик в rawMetricsMap:', rawMetricsMap.size);
+
         videoMap.forEach((metadata, videoKey) => {
           const hasMetrics = rawMetricsMap.has(videoKey) && rawMetricsMap.get(videoKey).found;
+          
+          console.log(`🔍 Видео "${metadata.videoTitle}":`, {
+            videoKey,
+            hasInMap: rawMetricsMap.has(videoKey),
+            found: rawMetricsMap.has(videoKey) ? rawMetricsMap.get(videoKey).found : 'N/A',
+            hasMetrics
+          });
           
           if (!hasMetrics) {
             // Обрезаем расширение
             const videoNameWithoutExt = MetricsService.extractVideoName(metadata.videoTitle);
             
+            console.log(`🔍 ОБРАБОТКА: "${metadata.videoTitle}"`);
+            console.log(`   -> Без расширения: "${videoNameWithoutExt}"`);
+            console.log(`   -> Отличается? ${videoNameWithoutExt !== metadata.videoTitle}`);
+            
             if (videoNameWithoutExt && videoNameWithoutExt !== metadata.videoTitle) {
-              console.log(`🔍 Добавляем для fuzzy-поиска: "${metadata.videoTitle}" -> "${videoNameWithoutExt}"`);
+              console.log(`✅ ДОБАВЛЯЕМ для fuzzy-поиска: "${metadata.videoTitle}" -> "${videoNameWithoutExt}"`);
               videosWithoutMetrics.push(videoNameWithoutExt);
               videoMapForFuzzy.set(videoNameWithoutExt, {
                 ...metadata,
@@ -326,27 +342,63 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           }
         });
 
+        console.log(`📊 ИТОГО для fuzzy-поиска: ${videosWithoutMetrics.length} видео`);
+        console.log(`📋 Список для fuzzy:`, videosWithoutMetrics);
+
         if (videosWithoutMetrics.length > 0) {
-          console.log(`🔍 Запускаем FUZZY-поиск для ${videosWithoutMetrics.length} видео без метрик...`);
+          console.log(`🔍 ========================================`);
+          console.log(`🔍 ЗАПУСКАЕМ FUZZY-ПОИСК для ${videosWithoutMetrics.length} видео`);
+          console.log(`🔍 ========================================`);
 
           const fuzzyResult = await MetricsService.getFuzzyVideoMetrics(videosWithoutMetrics, {
             kind: 'daily_first4_total',
             useCache: false
           });
 
+          console.log(`📥 РЕЗУЛЬТАТ FUZZY:`, {
+            success: fuzzyResult.success,
+            hasResults: !!fuzzyResult.results,
+            resultsLength: fuzzyResult.results?.length || 0,
+            error: fuzzyResult.error
+          });
+
           if (fuzzyResult.success && fuzzyResult.results && fuzzyResult.results.length > 0) {
-            console.log(`✅ Fuzzy-поиск нашел ${fuzzyResult.results.length} результатов`);
+            console.log(`✅ ========================================`);
+            console.log(`✅ Fuzzy-поиск НАШЕЛ ${fuzzyResult.results.length} результатов!`);
+            console.log(`✅ ========================================`);
+            
+            console.log('📋 ВСЕ результаты fuzzy:');
+            fuzzyResult.results.forEach((r, i) => {
+              console.log(`  [${i}] "${r.videoName}" - found: ${r.found}, daily: ${r.daily?.length || 0}`);
+            });
 
             fuzzyResult.results.forEach(videoResult => {
+              console.log(`\n🔍 Обработка результата: "${videoResult.videoName}"`);
               // Ищем соответствие по обрезанному названию
               let matchedMetadata = null;
               let matchedKey = null;
 
+              console.log(`   Ищем совпадение среди ${videoMapForFuzzy.size} видео без метрик...`);
+              
               videoMapForFuzzy.forEach((metadata, fuzzyName) => {
-                if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
+                const match1 = videoResult.videoName.includes(fuzzyName);
+                const match2 = fuzzyName.includes(videoResult.videoName);
+                
+                console.log(`     Проверка "${fuzzyName}":`);
+                console.log(`       - result включает fuzzy? ${match1}`);
+                console.log(`       - fuzzy включает result? ${match2}`);
+                
+                if (match1 || match2) {
+                  console.log(`     ✅ СОВПАДЕНИЕ НАЙДЕНО!`);
                   matchedMetadata = metadata;
                   matchedKey = metadata.videoKey;
                 }
+              });
+
+              console.log(`   Результат поиска:`, {
+                foundMatch: !!matchedMetadata,
+                videoKey: matchedKey,
+                originalTitle: matchedMetadata?.originalTitle
               });
 
               if (matchedMetadata && matchedKey) {
