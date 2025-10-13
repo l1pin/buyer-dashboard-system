@@ -13,6 +13,8 @@ import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
+import { useTrelloStatus } from '../hooks/useTrelloStatus';
+import TrelloStatus from './TrelloStatus';
 import { 
   Plus, 
   X, 
@@ -255,6 +257,14 @@ function CreativePanel({ user }) {
     getZonePricesString,
     refresh: refreshZoneData
   } = useZoneData(filteredCreatives, true);
+
+  const {
+    statusMap: trelloStatusMap,
+    loading: trelloLoading,
+    error: trelloError,
+    getStatus: getTrelloStatus,
+    refresh: refreshTrello
+  } = useTrelloStatus(filteredCreatives, true);
 
   const workTypes = [
     'Монтаж _Video',
@@ -1506,9 +1516,10 @@ function CreativePanel({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log(`🔄 Обновление только метрик и зональных данных (период: ${metricsPeriod})`);
+    console.log(`🔄 Обновление метрик, зональных данных и статусов Trello (период: ${metricsPeriod})`);
     await refreshMetrics();
     await refreshZoneData();
+    await refreshTrello();
     await loadLastUpdateTime();
   };
 
@@ -3222,25 +3233,12 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-  {creative.trello_link ? (
-    <div className="space-y-2">
-      <div>
-        <a
-          href={creative.trello_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <ExternalLink className="h-3 w-3 mr-1" />
-          Карточка
-        </a>
-      </div>
-      
-    </div>
-  ) : (
-    <span className="text-gray-400 cursor-text select-text">—</span>
-  )}
-</td>
+                              <TrelloStatus 
+                                trelloLink={creative.trello_link}
+                                status={getTrelloStatus(creative.trello_link)}
+                                loading={trelloLoading}
+                              />
+                            </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               {(creative.buyer_id || creative.buyer) ? (
