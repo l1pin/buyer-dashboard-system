@@ -1,17 +1,18 @@
 // src/hooks/useTrelloStatus.js
-// Хук для получения статусов карточек Trello + SMART REAL-TIME
+// Хук для получения статусов карточек Trello + СИНХРОННЫЕ обновления
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { trelloService } from '../services/trelloService';
+import { trelloSyncTimer } from '../utils/syncTimer';
 
-export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = true, checkInterval = 5000) => {
+export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = true) => {
   const [statusMap, setStatusMap] = useState(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [changedCards, setChangedCards] = useState(new Set()); // Карточки с изменениями
-  const intervalRef = useRef(null);
+  const [changedCards, setChangedCards] = useState(new Set());
   const cardIdsRef = useRef([]);
+  const callbackRef = useRef(null);
 
   // Загрузка статусов
   const loadStatuses = useCallback(async (silent = false) => {
@@ -81,18 +82,20 @@ export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = tr
     }
   }, [creatives]);
 
-  // 🔥 SMART REAL-TIME: Проверка изменений и обновление только измененных карточек
+  // 🔥 СИНХРОННАЯ проверка изменений
   const checkForChanges = useCallback(async () => {
     if (!cardIdsRef.current || cardIdsRef.current.length === 0) {
       return;
     }
 
     try {
+      console.log('🔍 [SYNC] Проверка изменений Trello...');
+      
       // Проверяем изменения
       const changedStatuses = await trelloService.checkCardsForChanges(cardIdsRef.current);
       
       if (changedStatuses.size > 0) {
-        console.log(`⚡ REAL-TIME UPDATE: Обнаружены изменения в ${changedStatuses.size} карточках`);
+        console.log(`⚡ [SYNC] REAL-TIME UPDATE: Обнаружены изменения в ${changedStatuses.size} карточках`);
         
         // Обновляем статусы только для измененных карточек
         setStatusMap(prevMap => {
@@ -120,9 +123,11 @@ export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = tr
         }, 3000);
 
         setLastUpdate(new Date());
+      } else {
+        console.log('✅ [SYNC] Изменений не обнаружено');
       }
     } catch (err) {
-      console.error('Ошибка проверки изменений:', err);
+      console.error('❌ [SYNC] Ошибка проверки изменений:', err);
     }
   }, [creatives]);
 
@@ -133,24 +138,33 @@ export const useTrelloStatus = (creatives, autoLoad = true, realtimeUpdates = tr
     }
   }, [autoLoad, loadStatuses]);
 
-  // 🔥 SMART POLLING: Проверка изменений каждые N секунд
+  // 🔥 СИНХРОННЫЕ обновления через глобальный таймер
   useEffect(() => {
     if (realtimeUpdates && creatives && creatives.length > 0) {
-      console.log(`⚡ Включен SMART REAL-TIME для Trello (проверка каждые ${checkInterval / 1000} сек)`);
+      console.log('⏰ [SYNC] Подключение к синхронизированному таймеру...');
       
-      intervalRef.current = setInterval(() => {
+      // Создаем callback для проверки изменений
+      callbackRef.current = () => {
         checkForChanges();
-      }, checkInterval);
+      };
+      
+      // Подписываемся на глобальный таймер
+      trelloSyncTimer.subscribe(callbackRef.current);
+      
+      // Запускаем таймер (если еще не запущен)
+      if (!trelloSyncTimer.isRunning) {
+        trelloSyncTimer.start();
+      }
 
       return () => {
-        if (intervalRef.current) {
-          console.log('⏹️ SMART REAL-TIME остановлен');
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+        if (callbackRef.current) {
+          console.log('⏹️ [SYNC] Отключение от синхронизированного таймера');
+          trelloSyncTimer.unsubscribe(callbackRef.current);
+          callbackRef.current = null;
         }
       };
     }
-  }, [realtimeUpdates, checkInterval, checkForChanges, creatives]);
+  }, [realtimeUpdates, checkForChanges, creatives]);
 
   // Получить статус для конкретного креатива
   const getStatus = useCallback((trelloLink) => {
