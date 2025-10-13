@@ -95,12 +95,12 @@ class SQLBuilder {
     return baseQuery + (videoNames.length * perName) + dateFilter + kindOverhead;
   }
 
-  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily') {
+  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily', fuzzySearch = false) {
     if (!videoNames || videoNames.length === 0) {
       throw new Error('videoNames не может быть пустым');
     }
 
-    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
+    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind, 'fuzzy:', fuzzySearch);
     console.log('📋 ВСЕ названия видео:');
     videoNames.forEach((name, i) => {
       console.log(`  [${i}]: "${name}"`);
@@ -123,23 +123,49 @@ class SQLBuilder {
 
     // Выбираем шаблон SQL в зависимости от kind
     if (kind === 'daily_first4_total') {
-      return this._buildDailyFirst4TotalSQL(valuesClause, dateFilter);
+      return this._buildDailyFirst4TotalSQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'daily') {
-      return this._buildDailySQL(valuesClause, dateFilter);
+      return this._buildDailySQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'first4') {
-      return this._buildFirst4SQL(valuesClause, dateFilter);
+      return this._buildFirst4SQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'total') {
-      return this._buildTotalSQL(valuesClause, dateFilter);
+      return this._buildTotalSQL(valuesClause, dateFilter, fuzzySearch);
     } else {
       // По умолчанию - daily
-      return this._buildDailySQL(valuesClause, dateFilter);
+      return this._buildDailySQL(valuesClause, dateFilter, fuzzySearch);
     }
   }
 
-  static _buildDailySQL(valuesClause, dateFilter) {
+  static _buildDailySQL(valuesClause, dateFilter, fuzzySearch = false) {
     // НЕ используем replace - он удаляет скобки из названий видео!
     // Вместо этого извлекаем названия из VALUES и формируем IN напрямую
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    
+    if (fuzzySearch) {
+      // Для fuzzy search используем LIKE с OR
+      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      
+      console.log('🔍 LIKE clause для daily (fuzzy):');
+      console.log(likeConditions);
+      
+      return `
+SELECT 
+  'daily' as kind,
+  t.video_name,
+  t.adv_date,
+  COALESCE(SUM(t.valid), 0) AS leads,
+  COALESCE(SUM(t.cost), 0) AS cost,
+  COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+  COALESCE(SUM(t.showed), 0) AS impressions,
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+FROM ads_collection t
+WHERE (${likeConditions})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  ${dateFilter}
+GROUP BY t.video_name, t.adv_date
+ORDER BY t.video_name, t.adv_date`;
+    }
+    
     const inClause = names.join(',');
     
     console.log('📋 IN clause для daily:');
@@ -163,9 +189,17 @@ GROUP BY t.video_name, t.adv_date
 ORDER BY t.video_name, t.adv_date`;
   }
 
-  static _buildFirst4SQL(valuesClause, dateFilter) {
+  static _buildFirst4SQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      whereClause = `(${likeConditions})`;
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 
@@ -188,7 +222,7 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -198,9 +232,17 @@ GROUP BY video_name
 ORDER BY video_name`;
   }
 
-  static _buildTotalSQL(valuesClause, dateFilter) {
+  static _buildTotalSQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      whereClause = `(${likeConditions})`;
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 
@@ -222,7 +264,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -231,9 +273,17 @@ GROUP BY video_name
 ORDER BY video_name`;
   }
 
-  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
+  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      whereClause = `(${likeConditions})`;
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
@@ -247,7 +297,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -265,7 +315,7 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -284,7 +334,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -491,7 +541,7 @@ class WorkerPool {
           console.log(`  [${idx}]: "${name}"`);
         });
         
-        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
+        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, requestBody.fuzzy_search || false);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
         console.log('=====================================');
         console.log('📝 ПОЛНЫЙ SQL:');
@@ -582,7 +632,7 @@ exports.handler = async (event, context) => {
     }
 
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
-    const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
+    const { video_names, date_from, date_to, kind = 'daily', fuzzy_search = false } = requestBody;
 
     console.log('🔍 ДИАГНОСТИКА ЗАПРОСА:');
     console.log('  📋 video_names тип:', typeof video_names, 'isArray:', Array.isArray(video_names));
