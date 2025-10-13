@@ -262,9 +262,10 @@ function CreativePanel({ user }) {
     statusMap: trelloStatusMap,
     loading: trelloLoading,
     error: trelloError,
+    lastUpdate: trelloLastUpdate,
     getStatus: getTrelloStatus,
     refresh: refreshTrello
-  } = useTrelloStatus(filteredCreatives, true);
+  } = useTrelloStatus(filteredCreatives, true, true, 30000); // autoLoad, autoRefresh, refreshInterval (30 сек)
 
   const workTypes = [
     'Монтаж _Video',
@@ -1629,12 +1630,12 @@ function CreativePanel({ user }) {
       {/* Информационная панель с временем обновления */}
       <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
             {metricsLastUpdate && (
-              <>
+              <div className="flex items-center space-x-2">
                 <Clock className="h-3 w-3 text-gray-400" />
                 <span className="text-xs text-gray-500">
-                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
+                  Метрики: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
@@ -1642,7 +1643,22 @@ function CreativePanel({ user }) {
                     minute: '2-digit'
                   })}
                 </span>
-              </>
+              </div>
+            )}
+            
+            {trelloLastUpdate && (
+              <div className="flex items-center space-x-2">
+                <svg className="h-3 w-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M21 0H3C1.343 0 0 1.343 0 3v18c0 1.656 1.343 3 3 3h18c1.656 0 3-1.344 3-3V3c0-1.657-1.344-3-3-3zM10.44 18.18c0 .795-.645 1.44-1.44 1.44H4.56c-.795 0-1.44-.646-1.44-1.44V4.56c0-.795.645-1.44 1.44-1.44H9c.795 0 1.44.645 1.44 1.44v13.62zm9.44-6.36c0 .795-.645 1.44-1.44 1.44H14c-.795 0-1.44-.645-1.44-1.44V4.56c0-.795.645-1.44 1.44-1.44h4.44c.795 0 1.44.645 1.44 1.44v7.26z"/>
+                </svg>
+                <span className="text-xs text-gray-500">
+                  Trello: {new Date(trelloLastUpdate).toLocaleString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </span>
+              </div>
             )}
           </div>
         </div>
