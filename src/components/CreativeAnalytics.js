@@ -90,6 +90,7 @@ function CreativeAnalytics({ user }) {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
+  const [deletingCreative, setDeletingCreative] = useState(null);
   
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
@@ -108,7 +109,6 @@ function CreativeAnalytics({ user }) {
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [deletingCreative, setDeletingCreative] = useState(null);
 
   const filteredCreativesByMonth = useMemo(() => {
     let creativesToFilter = analytics.creatives;
@@ -875,7 +875,7 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleDeleteCreative = async (creative) => {
-    const confirmMessage = `Вы уверены, что хотите удалить креатив "${creative.article}"?\n\nЭто действие нельзя отменить!`;
+    const confirmMessage = `Вы уверены, что хотите удалить креатив "${creative.article}"?\n\nБудут удалены:\n• Креатив\n• История изменений\n• Кэш метрик\n\nЭто действие нельзя отменить!`;
     
     if (!window.confirm(confirmMessage)) {
       return;
@@ -883,6 +883,7 @@ function CreativeAnalytics({ user }) {
 
     try {
       setDeletingCreative(creative.id);
+      setError(''); // Очищаем предыдущие ошибки
       console.log('🗑️ Удаление креатива:', creative.id, creative.article);
       
       await creativeService.deleteCreative(creative.id);
@@ -893,9 +894,13 @@ function CreativeAnalytics({ user }) {
       clearAnalyticsCache();
       await loadAnalytics(true);
       
+      // Показываем успешное уведомление
+      alert(`Креатив "${creative.article}" успешно удален!`);
+      
     } catch (error) {
       console.error('❌ Ошибка удаления креатива:', error);
       setError(`Ошибка удаления креатива: ${error.message}`);
+      alert(`Не удалось удалить креатив: ${error.message}`);
     } finally {
       setDeletingCreative(null);
     }
