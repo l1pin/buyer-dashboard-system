@@ -267,7 +267,7 @@ function CreativePanel({ user }) {
     getStatus: getTrelloStatus,
     isCardChanged: isTrelloCardChanged,
     refresh: refreshTrello
-  } = useTrelloStatus(filteredCreatives, true, true, 5000); // autoLoad, realtimeUpdates, checkInterval (5 сек)
+  } = useTrelloStatus(filteredCreatives, true, true); // autoLoad, realtimeUpdates (СИНХРОННО!)
 
   const workTypes = [
     'Монтаж _Video',
