@@ -12,7 +12,7 @@ const CONFIG = {
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
   
   // Таймауты и ретраи
-  FETCH_TIMEOUT_MS: 40000,       // 40 секунд на один SQL-запрос (для fuzzy)
+  FETCH_TIMEOUT_MS: 55000,       // 55 секунд на один SQL-запрос (для fuzzy)
   MAX_RETRIES: 1,                // Уменьшили количество повторов (не тратим время)
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
   
@@ -279,40 +279,21 @@ ORDER BY t.video_name, t.adv_date`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата + формат) - ТОЧНО
+      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
       if (withStructure.length > 0) {
-        // Группируем по уникальной комбинации: артикул_дата_формат_суффикс
-        const byUnique = new Map();
+        // Группируем только по артикулу (быстрее!)
+        const byArticle = new Map();
         
         withStructure.forEach(parsed => {
-          // Создаём уникальный ключ с учётом ВСЕХ параметров
-          const uniqueKey = `${parsed.article}_${parsed.date}_${parsed.format}_${parsed.suffix || 'none'}`;
-          
-          if (!byUnique.has(uniqueKey)) {
-            byUnique.set(uniqueKey, []);
+          if (!byArticle.has(parsed.article)) {
+            byArticle.set(parsed.article, []);
           }
-          byUnique.get(uniqueKey).push(parsed);
+          byArticle.get(parsed.article).push(parsed);
         });
         
-        byUnique.forEach((parsedList, uniqueKey) => {
-          // Берём первый элемент (все в группе одинаковые)
-          const parsed = parsedList[0];
-          
-          // Строим точное условие с учётом формата
-          let condition = `(t.video_name LIKE '${this.escapeString(parsed.article)}%' AND t.video_name LIKE '% ${this.escapeString(parsed.date)} %'`;
-          
-          // Добавляем формат (ОБЯЗАТЕЛЬНО)
-          if (parsed.format) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.format)}%'`;
-          }
-          
-          // Добавляем суффикс если есть
-          if (parsed.suffix) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.suffix)}%'`;
-          }
-          
-          condition += ')';
-          conditions.push(condition);
+        byArticle.forEach((parsedList, article) => {
+          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
+          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
         });
       }
       
@@ -406,40 +387,21 @@ ORDER BY video_name`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата + формат) - ТОЧНО
+      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
       if (withStructure.length > 0) {
-        // Группируем по уникальной комбинации: артикул_дата_формат_суффикс
-        const byUnique = new Map();
+        // Группируем только по артикулу (быстрее!)
+        const byArticle = new Map();
         
         withStructure.forEach(parsed => {
-          // Создаём уникальный ключ с учётом ВСЕХ параметров
-          const uniqueKey = `${parsed.article}_${parsed.date}_${parsed.format}_${parsed.suffix || 'none'}`;
-          
-          if (!byUnique.has(uniqueKey)) {
-            byUnique.set(uniqueKey, []);
+          if (!byArticle.has(parsed.article)) {
+            byArticle.set(parsed.article, []);
           }
-          byUnique.get(uniqueKey).push(parsed);
+          byArticle.get(parsed.article).push(parsed);
         });
         
-        byUnique.forEach((parsedList, uniqueKey) => {
-          // Берём первый элемент (все в группе одинаковые)
-          const parsed = parsedList[0];
-          
-          // Строим точное условие с учётом формата
-          let condition = `(t.video_name LIKE '${this.escapeString(parsed.article)}%' AND t.video_name LIKE '% ${this.escapeString(parsed.date)} %'`;
-          
-          // Добавляем формат (ОБЯЗАТЕЛЬНО)
-          if (parsed.format) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.format)}%'`;
-          }
-          
-          // Добавляем суффикс если есть
-          if (parsed.suffix) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.suffix)}%'`;
-          }
-          
-          condition += ')';
-          conditions.push(condition);
+        byArticle.forEach((parsedList, article) => {
+          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
+          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
         });
       }
       
@@ -531,40 +493,21 @@ ORDER BY video_name`;
       
       const conditions = [];
       
-      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата + формат) - ТОЧНО
+      // ПРИОРИТЕТ 1: Видео со структурой - УПРОЩЕННЫЙ поиск (только артикул префиксом)
       if (withStructure.length > 0) {
-        // Группируем по уникальной комбинации: артикул_дата_формат_суффикс
-        const byUnique = new Map();
+        // Группируем только по артикулу (быстрее!)
+        const byArticle = new Map();
         
         withStructure.forEach(parsed => {
-          // Создаём уникальный ключ с учётом ВСЕХ параметров
-          const uniqueKey = `${parsed.article}_${parsed.date}_${parsed.format}_${parsed.suffix || 'none'}`;
-          
-          if (!byUnique.has(uniqueKey)) {
-            byUnique.set(uniqueKey, []);
+          if (!byArticle.has(parsed.article)) {
+            byArticle.set(parsed.article, []);
           }
-          byUnique.get(uniqueKey).push(parsed);
+          byArticle.get(parsed.article).push(parsed);
         });
         
-        byUnique.forEach((parsedList, uniqueKey) => {
-          // Берём первый элемент (все в группе одинаковые)
-          const parsed = parsedList[0];
-          
-          // Строим точное условие с учётом формата
-          let condition = `(t.video_name LIKE '${this.escapeString(parsed.article)}%' AND t.video_name LIKE '% ${this.escapeString(parsed.date)} %'`;
-          
-          // Добавляем формат (ОБЯЗАТЕЛЬНО)
-          if (parsed.format) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.format)}%'`;
-          }
-          
-          // Добавляем суффикс если есть
-          if (parsed.suffix) {
-            condition += ` AND t.video_name LIKE '%${this.escapeString(parsed.suffix)}%'`;
-          }
-          
-          condition += ')';
-          conditions.push(condition);
+        byArticle.forEach((parsedList, article) => {
+          // Простое условие - только префикс артикула (БЫСТРО - использует индекс!)
+          conditions.push(`t.video_name LIKE '${this.escapeString(article)}%'`);
         });
       }
       
