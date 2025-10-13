@@ -372,9 +372,11 @@ function CreativeAnalytics({ user }) {
     loading: trelloLoading,
     error: trelloError,
     lastUpdate: trelloLastUpdate,
+    changedCards: trelloChangedCards,
     getStatus: getTrelloStatus,
+    isCardChanged: isTrelloCardChanged,
     refresh: refreshTrello
-  } = useTrelloStatus(filteredCreativesByMonth, true, true, 30000); // autoLoad, autoRefresh, refreshInterval (30 сек)
+  } = useTrelloStatus(filteredCreativesByMonth, true, true, 5000); // autoLoad, realtimeUpdates, checkInterval (5 сек)
 
   const workTypeValues = {
     'Монтаж _Video': 1,
@@ -3325,6 +3327,7 @@ function CreativeAnalytics({ user }) {
                                 trelloLink={creative.trello_link}
                                 status={getTrelloStatus(creative.trello_link)}
                                 loading={trelloLoading}
+                                isChanged={isTrelloCardChanged(creative.trello_link)}
                               />
                             </td>
 
