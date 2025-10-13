@@ -347,8 +347,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
         if (videosForFuzzyBatch.length > 0) {
           // Разбиваем на оптимальные батчи по 100 видео (было 20)
-          const FUZZY_CHUNK_SIZE = 100;
-          const FUZZY_PARALLEL = 3; // Параллельная обработка 3 чанков
+          const FUZZY_CHUNK_SIZE = 30;
+          const FUZZY_PARALLEL = 2; // Параллельная обработка 3 чанков
           const fuzzyChunks = [];
           
           for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
