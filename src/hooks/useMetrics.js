@@ -389,83 +389,71 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                       return;
                     }
 
-                    // Собираем ВСЕ возможные совпадения по артикулу+дате
-                    const candidateEntries = [];
+                    let matchedEntries = [];
                     
+                    // УЛУЧШЕННОЕ совпадение: проверяем и артикул, и дату
                     fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                      // Проверяем включение в обе стороны
                       if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
-                        candidateEntries.push(...entries);
+                        console.log(`🔗 Найдено совпадение: "${videoResult.videoName}" ↔ "${fuzzyName}"`);
+                        matchedEntries = entries;
                       }
                     });
                     
                     // Если не нашли - пробуем по структуре
-                    if (candidateEntries.length === 0) {
+                    if (matchedEntries.length === 0) {
                       const resultParsed = MetricsService.parseVideoStructure(videoResult.videoName);
                       
                       if (resultParsed && resultParsed.hasStructure) {
                         fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                          // Проверяем совпадение артикула
                           if (fuzzyName === resultParsed.article || videoResult.videoName.startsWith(fuzzyName)) {
-                            candidateEntries.push(...entries);
+                            console.log(`🎯 Найдено по артикулу: "${videoResult.videoName}" → "${fuzzyName}"`);
+                            matchedEntries = entries;
                           }
                         });
                       }
                     }
 
-                    // КРИТИЧНО: Для каждого кандидата вычисляем similarity
-                    if (candidateEntries.length > 0) {
-                      candidateEntries.forEach(entry => {
-                        const similarity = MetricsService.calculateVideoSimilarity(
-                          entry.originalTitle,
-                          videoResult.videoName
-                        );
-                        
-                        console.log(`🔍 Similarity: "${entry.originalTitle}" ↔ "${videoResult.videoName}" = ${similarity}%`);
-                        
-                        // Используем метрики только если similarity >= 70%
-                        if (similarity >= 70) {
-                          const allDailyData = videoResult.daily.map(d => ({
-                            date: d.date,
-                            leads: d.leads,
-                            cost: d.cost,
-                            clicks: d.clicks,
-                            impressions: d.impressions,
-                            avg_duration: d.avg_duration
-                          }));
+                    if (matchedEntries.length > 0) {
+                      matchedEntries.forEach(entry => {
+                        const allDailyData = videoResult.daily.map(d => ({
+                          date: d.date,
+                          leads: d.leads,
+                          cost: d.cost,
+                          clicks: d.clicks,
+                          impressions: d.impressions,
+                          avg_duration: d.avg_duration
+                        }));
 
-                          const aggregates = MetricsService.aggregateDailyData(allDailyData);
-                          const metrics = MetricsService.computeDerivedMetrics(aggregates);
-                          const formatted = MetricsService.formatMetrics(metrics);
+                        const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                        const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                        const formatted = MetricsService.formatMetrics(metrics);
 
-                          updates.push({
-                            videoKey: entry.videoKey,
+                        updates.push({
+                          videoKey: entry.videoKey,
+                          data: {
+                            found: true,
                             data: {
-                              found: true,
-                              data: {
-                                raw: metrics,
-                                formatted: formatted,
-                                allDailyData: allDailyData,
-                                dailyData: allDailyData,
-                                videoName: entry.originalTitle,
-                                period: 'all',
-                                updatedAt: new Date().toISOString(),
-                                fuzzyMatch: true,
-                                similarity: similarity
-                              },
-                              error: null,
+                              raw: metrics,
+                              formatted: formatted,
+                              allDailyData: allDailyData,
+                              dailyData: allDailyData,
                               videoName: entry.originalTitle,
-                              creativeId: entry.metadata.creativeId,
-                              videoIndex: entry.metadata.videoIndex,
-                              fromCache: false,
-                              fuzzyMatch: true,
-                              similarity: similarity
-                            }
-                          });
+                              period: 'all',
+                              updatedAt: new Date().toISOString(),
+                              fuzzyMatch: true
+                            },
+                            error: null,
+                            videoName: entry.originalTitle,
+                            creativeId: entry.metadata.creativeId,
+                            videoIndex: entry.metadata.videoIndex,
+                            fromCache: false,
+                            fuzzyMatch: true
+                          }
+                        });
 
-                          chunkFoundCount++;
-                          console.log(`✅ Применены метрики для "${entry.originalTitle}" (similarity: ${similarity}%)`);
-                        } else {
-                          console.log(`⚠️ Пропущено из-за низкой похожести: ${similarity}% < 70%`);
-                        }
+                        chunkFoundCount++;
                       });
                     }
                   });
