@@ -19,9 +19,29 @@ class TrelloService {
   extractCardId(trelloLink) {
     if (!trelloLink) return null;
     
-    // Формат: https://trello.com/c/ABC123/название
-    const match = trelloLink.match(/trello\.com\/c\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
+    const link = trelloLink.trim();
+    
+    // Поддерживаем разные форматы:
+    // https://trello.com/c/ABC123/название
+    // https://trello.com/c/ABC123
+    // trello.com/c/ABC123/название
+    // trello.com/c/ABC123
+    const patterns = [
+      /trello\.com\/c\/([a-zA-Z0-9]+)/i,
+      /\/c\/([a-zA-Z0-9]+)/,
+      /^([a-zA-Z0-9]{8,})$/  // Просто ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = link.match(pattern);
+      if (match) {
+        console.log(`✅ Извлечен ID карточки: ${match[1]} из ${link}`);
+        return match[1];
+      }
+    }
+    
+    console.warn(`⚠️ Не удалось извлечь ID из ссылки: ${link}`);
+    return null;
   }
 
   // Получить все колонки доски
@@ -58,31 +78,52 @@ class TrelloService {
   // Получить статус одной карточки
   async getCardStatus(cardId) {
     try {
+      if (!cardId) {
+        console.warn('⚠️ getCardStatus: cardId пустой');
+        return null;
+      }
+
       // Проверяем кэш
       const cached = this.cardCache.get(cardId);
       if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
+        console.log(`📦 Статус карточки ${cardId} из кэша`);
         return cached.data;
       }
 
+      console.log(`🔄 Запрос статуса карточки ${cardId}...`);
       const url = `${this.baseUrl}/cards/${cardId}?key=${TRELLO_CONFIG.key}&token=${TRELLO_CONFIG.token}&fields=idList,name`;
       const response = await fetch(url);
       
       if (!response.ok) {
         if (response.status === 404) {
-          return null; // Карточка не найдена
+          console.warn(`⚠️ Карточка ${cardId} не найдена (404)`);
+          return null;
         }
+        if (response.status === 401) {
+          console.error('❌ Ошибка авторизации Trello API (401) - проверьте ключ и токен');
+          return null;
+        }
+        console.error(`❌ Trello API error ${response.status} для карточки ${cardId}`);
         throw new Error(`Trello API error: ${response.status}`);
       }
 
       const card = await response.json();
+      console.log(`✅ Получены данные карточки ${cardId}:`, {
+        name: card.name,
+        listId: card.idList
+      });
       
       // Получаем название колонки
       const lists = await this.getBoardLists();
       const list = lists.find(l => l.id === card.idList);
       
+      if (!list) {
+        console.warn(`⚠️ Колонка ${card.idList} не найдена для карточки ${cardId}`);
+      }
+      
       const status = {
         listId: card.idList,
-        listName: list ? list.name : 'Неизвестно',
+        listName: list ? list.name : 'Неизвестная колонка',
         cardName: card.name
       };
 
@@ -92,9 +133,10 @@ class TrelloService {
         timestamp: Date.now()
       });
 
+      console.log(`✅ Статус карточки ${cardId}: ${status.listName}`);
       return status;
     } catch (error) {
-      console.error(`Ошибка получения статуса карточки ${cardId}:`, error);
+      console.error(`❌ Критическая ошибка получения статуса карточки ${cardId}:`, error);
       return null;
     }
   }
@@ -102,42 +144,64 @@ class TrelloService {
   // Батчевое получение статусов карточек
   async getBatchCardStatuses(trelloLinks) {
     try {
+      console.log(`🎯 Батчевый запрос статусов для ${trelloLinks.length} ссылок...`);
+
       const cardIds = trelloLinks
-        .map(link => this.extractCardId(link))
+        .map(link => {
+          const id = this.extractCardId(link);
+          if (!id) {
+            console.warn(`⚠️ Не удалось извлечь ID из: ${link}`);
+          }
+          return id;
+        })
         .filter(id => id !== null);
 
+      console.log(`✅ Извлечено ${cardIds.length} валидных ID карточек из ${trelloLinks.length} ссылок`);
+
       if (cardIds.length === 0) {
+        console.warn('⚠️ Нет валидных ID карточек для запроса');
         return new Map();
       }
 
       // Получаем колонки один раз
+      console.log('📋 Получение списка колонок...');
       const lists = await this.getBoardLists();
-      const listMap = new Map(lists.map(l => [l.id, l.name]));
+      console.log(`✅ Получено ${lists.length} колонок:`, lists.map(l => l.name));
 
-      // Запрашиваем статусы параллельно
-      const statusPromises = cardIds.map(async (cardId) => {
+      // Запрашиваем статусы с задержкой для избежания rate limiting
+      const statusMap = new Map();
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < cardIds.length; i++) {
+        const cardId = cardIds[i];
+        
         try {
           const status = await this.getCardStatus(cardId);
-          return { cardId, status };
+          
+          if (status) {
+            statusMap.set(cardId, status);
+            successCount++;
+          } else {
+            failCount++;
+          }
+          
+          // Задержка между запросами (100ms) для избежания rate limiting
+          if (i < cardIds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
         } catch (error) {
-          console.error(`Ошибка получения статуса ${cardId}:`, error);
-          return { cardId, status: null };
+          console.error(`❌ Ошибка получения статуса ${cardId}:`, error);
+          failCount++;
         }
-      });
+      }
 
-      const results = await Promise.all(statusPromises);
-
-      // Формируем Map: cardId -> status
-      const statusMap = new Map();
-      results.forEach(({ cardId, status }) => {
-        if (status) {
-          statusMap.set(cardId, status);
-        }
-      });
-
+      console.log(`🎉 Батчевый запрос завершен: успешно ${successCount}, ошибок ${failCount}`);
       return statusMap;
+
     } catch (error) {
-      console.error('Ошибка батчевого получения статусов:', error);
+      console.error('❌ Критическая ошибка батчевого получения статусов:', error);
       return new Map();
     }
   }
