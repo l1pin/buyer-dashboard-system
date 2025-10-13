@@ -198,33 +198,77 @@ ORDER BY t.video_name, t.adv_date`;
     
     let whereClause;
     if (fuzzySearch) {
-      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
-      const namesByLetter = new Map();
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
       
       names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        const articleMatch = cleanName.match(/^[A-Z]/);
-        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        const parsed = this.parseVideoStructure(cleanName);
         
-        if (!namesByLetter.has(letter)) {
-          namesByLetter.set(letter, []);
-        }
-        namesByLetter.get(letter).push(cleanName);
-      });
-      
-      const letterConditions = [];
-      
-      namesByLetter.forEach((namesGroup, letter) => {
-        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
-        
-        if (letter !== 'OTHER') {
-          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        if (parsed.hasStructure) {
+          withStructure.push(parsed);
         } else {
-          letterConditions.push(`(${likeList})`);
+          withoutStructure.push(cleanName);
         }
       });
       
-      whereClause = letterConditions.join(' OR ');
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        // Группируем по дате для оптимизации
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          // Артикул префиксом (индекс!) + дата с пробелами (точнее!)
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback (медленно)
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
@@ -266,33 +310,75 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
-      const namesByLetter = new Map();
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
       
       names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        const articleMatch = cleanName.match(/^[A-Z]/);
-        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        const parsed = this.parseVideoStructure(cleanName);
         
-        if (!namesByLetter.has(letter)) {
-          namesByLetter.set(letter, []);
-        }
-        namesByLetter.get(letter).push(cleanName);
-      });
-      
-      const letterConditions = [];
-      
-      namesByLetter.forEach((namesGroup, letter) => {
-        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
-        
-        if (letter !== 'OTHER') {
-          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        if (parsed.hasStructure) {
+          withStructure.push(parsed);
         } else {
-          letterConditions.push(`(${likeList})`);
+          withoutStructure.push(cleanName);
         }
       });
       
-      whereClause = letterConditions.join(' OR ');
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
@@ -332,33 +418,75 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
-      const namesByLetter = new Map();
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
       
       names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        const articleMatch = cleanName.match(/^[A-Z]/);
-        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        const parsed = this.parseVideoStructure(cleanName);
         
-        if (!namesByLetter.has(letter)) {
-          namesByLetter.set(letter, []);
-        }
-        namesByLetter.get(letter).push(cleanName);
-      });
-      
-      const letterConditions = [];
-      
-      namesByLetter.forEach((namesGroup, letter) => {
-        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
-        
-        if (letter !== 'OTHER') {
-          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        if (parsed.hasStructure) {
+          withStructure.push(parsed);
         } else {
-          letterConditions.push(`(${likeList})`);
+          withoutStructure.push(cleanName);
         }
       });
       
-      whereClause = letterConditions.join(' OR ');
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
