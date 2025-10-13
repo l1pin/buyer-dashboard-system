@@ -308,6 +308,8 @@ export class MetricsService {
       original: fileName,
       article: null,
       date: null,
+      format: null,      // НОВОЕ: 4x5, 9x16, 1x1
+      suffix: null,      // НОВОЕ: bp, v, и т.д.
       extension: null,
       hasStructure: false
     };
@@ -324,13 +326,25 @@ export class MetricsService {
       result.date = dateMatch[1];
     }
     
+    // ФОРМАТ: XxY (4x5, 9x16, 1x1 и т.д.)
+    const formatMatch = fileName.match(/(\d+x\d+)/i);
+    if (formatMatch) {
+      result.format = formatMatch[1].toLowerCase();
+    }
+    
+    // СУФФИКС: bp, v и т.д.
+    const suffixMatch = fileName.match(/[\s_](bp|v|_v|v_)[\s\.]?(?=\.[a-z]{3,4}$)/i);
+    if (suffixMatch) {
+      result.suffix = suffixMatch[1].toLowerCase().replace('_', '');
+    }
+    
     // РАСШИРЕНИЕ
     const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
     if (extMatch) {
       result.extension = extMatch[0].toLowerCase();
     }
     
-    result.hasStructure = !!(result.article && result.date);
+    result.hasStructure = !!(result.article && result.date && result.format);
     
     return result;
   }
