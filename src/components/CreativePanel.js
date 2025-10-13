@@ -263,9 +263,11 @@ function CreativePanel({ user }) {
     loading: trelloLoading,
     error: trelloError,
     lastUpdate: trelloLastUpdate,
+    changedCards: trelloChangedCards,
     getStatus: getTrelloStatus,
+    isCardChanged: isTrelloCardChanged,
     refresh: refreshTrello
-  } = useTrelloStatus(filteredCreatives, true, true, 30000); // autoLoad, autoRefresh, refreshInterval (30 сек)
+  } = useTrelloStatus(filteredCreatives, true, true, 5000); // autoLoad, realtimeUpdates, checkInterval (5 сек)
 
   const workTypes = [
     'Монтаж _Video',
@@ -3253,6 +3255,7 @@ function CreativePanel({ user }) {
                                 trelloLink={creative.trello_link}
                                 status={getTrelloStatus(creative.trello_link)}
                                 loading={trelloLoading}
+                                isChanged={isTrelloCardChanged(creative.trello_link)}
                               />
                             </td>
 
