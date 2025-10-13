@@ -1138,19 +1138,56 @@ export const creativeService = {
   },
 
   async deleteCreative(creativeId) {
-    console.log('🗑️ Удаление креатива:', creativeId);
+    try {
+      console.log('🗑️ Начинаем удаление креатива:', creativeId);
 
-    const { error } = await supabase
-      .from('creatives')
-      .delete()
-      .eq('id', creativeId);
-    
-    if (error) {
-      console.error('❌ Ошибка удаления креатива:', error);
+      // Шаг 1: Удаляем историю изменений креатива
+      console.log('📜 Удаление истории креатива...');
+      const { error: historyError } = await supabase
+        .from('creative_history')
+        .delete()
+        .eq('creative_id', creativeId);
+      
+      if (historyError) {
+        console.error('⚠️ Ошибка удаления истории креатива:', historyError);
+        // Продолжаем даже если истории нет
+      } else {
+        console.log('✅ История креатива удалена');
+      }
+
+      // Шаг 2: Удаляем кэш метрик креатива
+      console.log('💾 Удаление кэша метрик...');
+      const { error: cacheError } = await supabase
+        .from('metrics_cache')
+        .delete()
+        .eq('creative_id', creativeId);
+      
+      if (cacheError) {
+        console.error('⚠️ Ошибка удаления кэша метрик:', cacheError);
+        // Продолжаем даже если кэша нет
+      } else {
+        console.log('✅ Кэш метрик удален');
+      }
+
+      // Шаг 3: Удаляем сам креатив
+      console.log('🎬 Удаление креатива...');
+      const { error: creativeError } = await supabase
+        .from('creatives')
+        .delete()
+        .eq('id', creativeId);
+      
+      if (creativeError) {
+        console.error('❌ Ошибка удаления креатива:', creativeError);
+        throw new Error(`Не удалось удалить креатив: ${creativeError.message}`);
+      }
+
+      console.log('✅ Креатив полностью удален из системы');
+      return { success: true };
+
+    } catch (error) {
+      console.error('❌ Критическая ошибка удаления креатива:', error);
       throw error;
     }
-
-    console.log('✅ Креатив удален');
   },
 
   subscribeToUserCreatives(userId, callback) {
