@@ -3,6 +3,8 @@ import { supabase, creativeService, userService, creativeHistoryService, metrics
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
+import { useTrelloStatus } from '../hooks/useTrelloStatus';
+import TrelloStatus from './TrelloStatus';
 import { 
   BarChart3,
   Users,
@@ -364,6 +366,14 @@ function CreativeAnalytics({ user }) {
     getZonePricesString,
     refresh: refreshZoneData
   } = useZoneData(filteredCreativesByMonth, true);
+
+  const {
+    statusMap: trelloStatusMap,
+    loading: trelloLoading,
+    error: trelloError,
+    getStatus: getTrelloStatus,
+    refresh: refreshTrello
+  } = useTrelloStatus(filteredCreativesByMonth, true);
 
   const workTypeValues = {
     'Монтаж _Video': 1,
@@ -1257,9 +1267,10 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleRefreshAll = async () => {
-    console.log('🔄 Обновление только метрик и зональных данных...');
+    console.log('🔄 Обновление метрик, зональных данных и статусов Trello...');
     await refreshMetrics();
     await refreshZoneData();
+    await refreshTrello();
     await loadLastUpdateTime();
   };
 
@@ -3294,23 +3305,11 @@ function CreativeAnalytics({ user }) {
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {creative.trello_link ? (
-                                <div className="space-y-2">
-                                  <div>
-                                    
-                                     <a href={creative.trello_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                    >
-                                      <ExternalLink className="h-3 w-3 mr-1" />
-                                      Карточка
-                                    </a>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 cursor-text select-text">—</span>
-                              )}
+                              <TrelloStatus 
+                                trelloLink={creative.trello_link}
+                                status={getTrelloStatus(creative.trello_link)}
+                                loading={trelloLoading}
+                              />
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
