@@ -875,15 +875,6 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleDeleteCreative = async (creative) => {
-    // Проверяем текущего пользователя
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    console.log('👤 Текущий пользователь:', {
-      id: currentUser?.id,
-      email: currentUser?.email,
-      role: currentUser?.user_metadata?.role
-    });
-    console.log('🎬 Креатив создан пользователем:', creative.user_id);
-
     const confirmMessage = `Вы уверены, что хотите удалить креатив "${creative.article}"?\n\nБудут удалены:\n• Креатив\n• История изменений\n• Кэш метрик\n\nЭто действие нельзя отменить!`;
     
     if (!window.confirm(confirmMessage)) {
@@ -892,19 +883,69 @@ function CreativeAnalytics({ user }) {
 
     try {
       setDeletingCreative(creative.id);
-      setError(''); // Очищаем предыдущие ошибки
+      setError('');
       console.log('🗑️ Удаление креатива:', creative.id, creative.article);
       
+      // Удаляем из базы данных
       await creativeService.deleteCreative(creative.id);
       
-      console.log('✅ Креатив успешно удален');
+      console.log('✅ Креатив успешно удален из БД');
       
-      // Очищаем кеш и перезагружаем аналитику
+      // 🚀 МОМЕНТАЛЬНО обновляем UI - удаляем креатив из состояния
+      setAnalytics(prevAnalytics => {
+        // Фильтруем креативы, исключая удаленный
+        const updatedCreatives = prevAnalytics.creatives.filter(c => c.id !== creative.id);
+        
+        // Пересчитываем статистику
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const todayCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= todayStart);
+        const weekCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= weekStart);
+
+        const calculateCreativeCOF = (creative) => {
+          if (typeof creative.cof_rating === 'number') {
+            return creative.cof_rating;
+          }
+          return calculateCOF(creative.work_types || []);
+        };
+
+        const totalCOF = updatedCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+        const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+        const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+        const avgCOF = updatedCreatives.length > 0 ? totalCOF / updatedCreatives.length : 0;
+
+        const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
+
+        return {
+          ...prevAnalytics,
+          creatives: updatedCreatives,
+          stats: {
+            ...prevAnalytics.stats,
+            totalCreatives: updatedCreatives.length,
+            todayCreatives: todayCreatives.length,
+            weekCreatives: weekCreatives.length,
+            totalCOF: totalCOF,
+            avgCOF: avgCOF,
+            todayCOF: todayCOF,
+            weekCOF: weekCOF,
+            creativesWithComments: creativesWithComments
+          }
+        };
+      });
+
+      // Удаляем из creativesWithHistory если был там
+      setCreativesWithHistory(prev => {
+        const updated = new Set(prev);
+        updated.delete(creative.id);
+        return updated;
+      });
+      
+      // Очищаем кеш аналитики
       clearAnalyticsCache();
-      await loadAnalytics(true);
       
-      // Показываем успешное уведомление
-      alert(`Креатив "${creative.article}" успешно удален!`);
+      console.log('✅ UI обновлен моментально');
       
     } catch (error) {
       console.error('❌ Ошибка удаления креатива:', error);
