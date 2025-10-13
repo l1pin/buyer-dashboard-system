@@ -198,11 +198,33 @@ ORDER BY t.video_name, t.adv_date`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => {
+      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
+      const namesByLetter = new Map();
+      
+      names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        return `t.video_name LIKE '%${cleanName}%'`;
-      }).join(' OR ');
-      whereClause = `(${likeConditions})`;
+        const articleMatch = cleanName.match(/^[A-Z]/);
+        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        
+        if (!namesByLetter.has(letter)) {
+          namesByLetter.set(letter, []);
+        }
+        namesByLetter.get(letter).push(cleanName);
+      });
+      
+      const letterConditions = [];
+      
+      namesByLetter.forEach((namesGroup, letter) => {
+        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+        
+        if (letter !== 'OTHER') {
+          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        } else {
+          letterConditions.push(`(${likeList})`);
+        }
+      });
+      
+      whereClause = letterConditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
@@ -244,11 +266,33 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => {
+      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
+      const namesByLetter = new Map();
+      
+      names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        return `t.video_name LIKE '%${cleanName}%'`;
-      }).join(' OR ');
-      whereClause = `(${likeConditions})`;
+        const articleMatch = cleanName.match(/^[A-Z]/);
+        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        
+        if (!namesByLetter.has(letter)) {
+          namesByLetter.set(letter, []);
+        }
+        namesByLetter.get(letter).push(cleanName);
+      });
+      
+      const letterConditions = [];
+      
+      namesByLetter.forEach((namesGroup, letter) => {
+        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+        
+        if (letter !== 'OTHER') {
+          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        } else {
+          letterConditions.push(`(${likeList})`);
+        }
+      });
+      
+      whereClause = letterConditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
@@ -288,11 +332,33 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => {
+      // ОПТИМИЗАЦИЯ: Группируем по первой букве артикула
+      const namesByLetter = new Map();
+      
+      names.forEach(name => {
         const cleanName = name.replace(/^'|'$/g, '');
-        return `t.video_name LIKE '%${cleanName}%'`;
-      }).join(' OR ');
-      whereClause = `(${likeConditions})`;
+        const articleMatch = cleanName.match(/^[A-Z]/);
+        const letter = articleMatch ? articleMatch[0] : 'OTHER';
+        
+        if (!namesByLetter.has(letter)) {
+          namesByLetter.set(letter, []);
+        }
+        namesByLetter.get(letter).push(cleanName);
+      });
+      
+      const letterConditions = [];
+      
+      namesByLetter.forEach((namesGroup, letter) => {
+        const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+        
+        if (letter !== 'OTHER') {
+          letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+        } else {
+          letterConditions.push(`(${likeList})`);
+        }
+      });
+      
+      whereClause = letterConditions.join(' OR ');
     } else {
       const inClause = names.join(',');
       whereClause = `t.video_name IN (${inClause})`;
