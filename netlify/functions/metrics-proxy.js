@@ -509,7 +509,7 @@ class WorkerPool {
     this.concurrency = concurrency;
   }
 
-  async processChunks(chunks, dateFrom, dateTo, kind) {
+  async processChunks(chunks, dateFrom, dateTo, kind, fuzzySearch = false) {
     const results = [];
     const queue = [...chunks];
     let processed = 0;
@@ -518,7 +518,7 @@ class WorkerPool {
 
     const workers = [];
     for (let i = 0; i < this.concurrency; i++) {
-      workers.push(this._worker(queue, dateFrom, dateTo, kind, results, processed, chunks.length));
+      workers.push(this._worker(queue, dateFrom, dateTo, kind, results, processed, chunks.length, fuzzySearch));
     }
 
     await Promise.allSettled(workers);
@@ -529,7 +529,7 @@ class WorkerPool {
     return results.flat();
   }
 
-  async _worker(queue, dateFrom, dateTo, kind, results, processed, total) {
+  async _worker(queue, dateFrom, dateTo, kind, results, processed, total, fuzzySearch = false) {
     while (queue.length > 0) {
       const chunk = queue.shift();
       if (!chunk) break;
@@ -541,7 +541,7 @@ class WorkerPool {
           console.log(`  [${idx}]: "${name}"`);
         });
         
-        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, requestBody.fuzzy_search || false);
+        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, fuzzySearch);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
         console.log('=====================================');
         console.log('📝 ПОЛНЫЙ SQL:');
@@ -699,7 +699,7 @@ exports.handler = async (event, context) => {
 
     // Обрабатываем через пул воркеров
     const pool = new WorkerPool(CONFIG.PARALLEL_CHUNKS);
-    const results = await pool.processChunks(chunks, date_from, date_to, kind);
+    const results = await pool.processChunks(chunks, date_from, date_to, kind, fuzzy_search);
 
     // Нормализуем результаты
     const normalizedResults = normalizeResults(results);
