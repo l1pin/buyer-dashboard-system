@@ -319,9 +319,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             let searchName = null;
             
             if (parsed && parsed.hasStructure) {
-              // Есть структура - используем артикул + формат для уникальности
-              searchName = `${parsed.article}_${parsed.format}${parsed.suffix ? '_' + parsed.suffix : ''}`;
-              console.log(`🎯 Fuzzy поиск (уникально): ${metadata.videoTitle} → ${searchName}`);
+              // Есть структура - используем ТОЛЬКО артикул для упрощения SQL
+              searchName = parsed.article;
+              console.log(`🎯 Fuzzy поиск: ${metadata.videoTitle} → article="${searchName}" (формат="${parsed.format}", суффикс="${parsed.suffix}")`);
             } else {
               // Нет структуры - используем старый метод (имя без расширения)
               searchName = MetricsService.extractVideoName(metadata.videoTitle);
@@ -347,8 +347,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
         if (videosForFuzzyBatch.length > 0) {
           // Разбиваем на оптимальные батчи по 100 видео (было 20)
-          const FUZZY_CHUNK_SIZE = 30;
-          const FUZZY_PARALLEL = 2; // Параллельная обработка 3 чанков
+          const FUZZY_CHUNK_SIZE = 100;
+          const FUZZY_PARALLEL = 3; // Параллельная обработка 3 чанков
           const fuzzyChunks = [];
           
           for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
@@ -391,29 +391,53 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
                     let matchedEntries = [];
                     
-                    // ТОЧНОЕ совпадение по структуре (артикул + формат + суффикс)
+                    // Парсим результат из БД
                     const resultParsed = MetricsService.parseVideoStructure(videoResult.videoName);
                     
+                    console.log(`🔍 Обработка результата из БД: "${videoResult.videoName}"`);
+                    
                     if (resultParsed && resultParsed.hasStructure) {
-                      const resultKey = `${resultParsed.article}_${resultParsed.format}${resultParsed.suffix ? '_' + resultParsed.suffix : ''}`;
+                      console.log(`  └─ Структура БД: article=${resultParsed.article}, format=${resultParsed.format}, suffix=${resultParsed.suffix}`);
+                      
+                      // ТОЧНОЕ совпадение: артикул + формат + суффикс
+                      fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                        // Парсим оригинальное название
+                        const firstEntry = entries[0];
+                        const originalParsed = MetricsService.parseVideoStructure(firstEntry.originalTitle);
+                        
+                        if (originalParsed && originalParsed.hasStructure) {
+                          // Сравниваем ВСЕ поля
+                          const articleMatch = originalParsed.article === resultParsed.article;
+                          const formatMatch = originalParsed.format === resultParsed.format;
+                          const suffixMatch = (originalParsed.suffix || 'none') === (resultParsed.suffix || 'none');
+                          
+                          if (articleMatch && formatMatch && suffixMatch) {
+                            console.log(`  └─ ✅ ТОЧНОЕ совпадение найдено: "${firstEntry.originalTitle}"`);
+                            matchedEntries = entries;
+                          } else {
+                            console.log(`  └─ ⚠️ Частичное: art=${articleMatch}, fmt=${formatMatch}, sfx=${suffixMatch} для "${firstEntry.originalTitle}"`);
+                          }
+                        }
+                      });
+                    }
+                    
+                    // Fallback: если не нашли - пробуем по включению
+                    if (matchedEntries.length === 0) {
+                      console.log(`  └─ 🔄 Пробуем fallback поиск по включению...`);
                       
                       fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                        // ТОЧНОЕ совпадение по ключу (артикул_формат_суффикс)
-                        if (fuzzyName === resultKey) {
-                          console.log(`✅ ТОЧНОЕ совпадение: "${videoResult.videoName}" = "${fuzzyName}"`);
+                        const firstEntry = entries[0];
+                        if (videoResult.videoName.includes(firstEntry.originalTitle) || 
+                            firstEntry.originalTitle.includes(videoResult.videoName)) {
+                          console.log(`  └─ 🔗 Найдено по включению: "${firstEntry.originalTitle}"`);
                           matchedEntries = entries;
                         }
                       });
                     }
                     
-                    // Fallback: если не нашли точно - пробуем включение
                     if (matchedEntries.length === 0) {
-                      fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                        if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
-                          console.log(`⚠️ Частичное совпадение: "${videoResult.videoName}" ↔ "${fuzzyName}"`);
-                          matchedEntries = entries;
-                        }
-                      });
+                      console.log(`  └─ ❌ Совпадений не найдено для "${videoResult.videoName}"`);
+                      return;
                     }
 
                     if (matchedEntries.length > 0) {
