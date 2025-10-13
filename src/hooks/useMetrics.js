@@ -313,15 +313,28 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           const hasMetrics = rawMetricsMap.has(videoKey) && rawMetricsMap.get(videoKey).found;
           
           if (!hasMetrics) {
-            const videoNameWithoutExt = MetricsService.extractVideoName(metadata.videoTitle);
+            // НОВАЯ ЛОГИКА: Используем parseVideoStructure вместо extractVideoName
+            const parsed = MetricsService.parseVideoStructure(metadata.videoTitle);
             
-            if (videoNameWithoutExt && videoNameWithoutExt !== metadata.videoTitle) {
-              videosForFuzzyBatch.push(videoNameWithoutExt);
+            let searchName = null;
+            
+            if (parsed && parsed.hasStructure) {
+              // Есть структура - используем только артикул (быстрее!)
+              searchName = parsed.article;
+              console.log(`🎯 Fuzzy поиск по артикулу: ${metadata.videoTitle} → ${searchName}`);
+            } else {
+              // Нет структуры - используем старый метод (имя без расширения)
+              searchName = MetricsService.extractVideoName(metadata.videoTitle);
+              console.log(`📝 Fuzzy поиск по имени: ${metadata.videoTitle} → ${searchName}`);
+            }
+            
+            if (searchName && searchName !== metadata.videoTitle) {
+              videosForFuzzyBatch.push(searchName);
               
-              if (!fuzzyToOriginalMap.has(videoNameWithoutExt)) {
-                fuzzyToOriginalMap.set(videoNameWithoutExt, []);
+              if (!fuzzyToOriginalMap.has(searchName)) {
+                fuzzyToOriginalMap.set(searchName, []);
               }
-              fuzzyToOriginalMap.get(videoNameWithoutExt).push({
+              fuzzyToOriginalMap.get(searchName).push({
                 videoKey,
                 originalTitle: metadata.videoTitle,
                 metadata
@@ -333,9 +346,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log(`📊 CHUNKED FUZZY: ${videosForFuzzyBatch.length} видео без метрик`);
 
         if (videosForFuzzyBatch.length > 0) {
-          // Разбиваем на МАЛЕНЬКИЕ батчи для избежания timeout
-          const FUZZY_CHUNK_SIZE = 30; // Уменьшили с 100 до 30
-          const FUZZY_PARALLEL = 2; // Уменьшили с 3 до 2 параллельных запросов
+          // Разбиваем на оптимальные батчи по 100 видео (было 20)
+          const FUZZY_CHUNK_SIZE = 100;
+          const FUZZY_PARALLEL = 3; // Параллельная обработка 3 чанков
           const fuzzyChunks = [];
           
           for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
@@ -378,11 +391,29 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
                     let matchedEntries = [];
                     
+                    // УЛУЧШЕННОЕ совпадение: проверяем и артикул, и дату
                     fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                      if (videoResult.videoName.includes(fuzzyName)) {
+                      // Проверяем включение в обе стороны
+                      if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
+                        console.log(`🔗 Найдено совпадение: "${videoResult.videoName}" ↔ "${fuzzyName}"`);
                         matchedEntries = entries;
                       }
                     });
+                    
+                    // Если не нашли - пробуем по структуре
+                    if (matchedEntries.length === 0) {
+                      const resultParsed = MetricsService.parseVideoStructure(videoResult.videoName);
+                      
+                      if (resultParsed && resultParsed.hasStructure) {
+                        fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                          // Проверяем совпадение артикула
+                          if (fuzzyName === resultParsed.article || videoResult.videoName.startsWith(fuzzyName)) {
+                            console.log(`🎯 Найдено по артикулу: "${videoResult.videoName}" → "${fuzzyName}"`);
+                            matchedEntries = entries;
+                          }
+                        });
+                      }
+                    }
 
                     if (matchedEntries.length > 0) {
                       matchedEntries.forEach(entry => {
