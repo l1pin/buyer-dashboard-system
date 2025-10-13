@@ -142,8 +142,12 @@ class SQLBuilder {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
     
     if (fuzzySearch) {
-      // Для fuzzy search используем LIKE с OR
-      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      // Для fuzzy search используем LIKE с % с обеих сторон
+      const likeConditions = names.map(name => {
+        // Убираем кавычки из имени и добавляем % с обеих сторон
+        const cleanName = name.replace(/^'|'$/g, '');
+        return `t.video_name LIKE '%${cleanName}%'`;
+      }).join(' OR ');
       
       console.log('🔍 LIKE clause для daily (fuzzy):');
       console.log(likeConditions);
@@ -194,7 +198,10 @@ ORDER BY t.video_name, t.adv_date`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      const likeConditions = names.map(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        return `t.video_name LIKE '%${cleanName}%'`;
+      }).join(' OR ');
       whereClause = `(${likeConditions})`;
     } else {
       const inClause = names.join(',');
@@ -237,7 +244,10 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      const likeConditions = names.map(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        return `t.video_name LIKE '%${cleanName}%'`;
+      }).join(' OR ');
       whereClause = `(${likeConditions})`;
     } else {
       const inClause = names.join(',');
@@ -278,7 +288,10 @@ ORDER BY video_name`;
     
     let whereClause;
     if (fuzzySearch) {
-      const likeConditions = names.map(name => `t.video_name LIKE ${name}`).join(' OR ');
+      const likeConditions = names.map(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        return `t.video_name LIKE '%${cleanName}%'`;
+      }).join(' OR ');
       whereClause = `(${likeConditions})`;
     } else {
       const inClause = names.join(',');
