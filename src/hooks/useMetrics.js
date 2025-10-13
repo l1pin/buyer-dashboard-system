@@ -319,9 +319,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             let searchName = null;
             
             if (parsed && parsed.hasStructure) {
-              // Есть структура - используем только артикул (быстрее!)
-              searchName = parsed.article;
-              console.log(`🎯 Fuzzy поиск по артикулу: ${metadata.videoTitle} → ${searchName}`);
+              // Есть структура - используем артикул + формат для уникальности
+              searchName = `${parsed.article}_${parsed.format}${parsed.suffix ? '_' + parsed.suffix : ''}`;
+              console.log(`🎯 Fuzzy поиск (уникально): ${metadata.videoTitle} → ${searchName}`);
             } else {
               // Нет структуры - используем старый метод (имя без расширения)
               searchName = MetricsService.extractVideoName(metadata.videoTitle);
@@ -391,28 +391,29 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
                     let matchedEntries = [];
                     
-                    // УЛУЧШЕННОЕ совпадение: проверяем и артикул, и дату
-                    fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                      // Проверяем включение в обе стороны
-                      if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
-                        console.log(`🔗 Найдено совпадение: "${videoResult.videoName}" ↔ "${fuzzyName}"`);
-                        matchedEntries = entries;
-                      }
-                    });
+                    // ТОЧНОЕ совпадение по структуре (артикул + формат + суффикс)
+                    const resultParsed = MetricsService.parseVideoStructure(videoResult.videoName);
                     
-                    // Если не нашли - пробуем по структуре
-                    if (matchedEntries.length === 0) {
-                      const resultParsed = MetricsService.parseVideoStructure(videoResult.videoName);
+                    if (resultParsed && resultParsed.hasStructure) {
+                      const resultKey = `${resultParsed.article}_${resultParsed.format}${resultParsed.suffix ? '_' + resultParsed.suffix : ''}`;
                       
-                      if (resultParsed && resultParsed.hasStructure) {
-                        fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                          // Проверяем совпадение артикула
-                          if (fuzzyName === resultParsed.article || videoResult.videoName.startsWith(fuzzyName)) {
-                            console.log(`🎯 Найдено по артикулу: "${videoResult.videoName}" → "${fuzzyName}"`);
-                            matchedEntries = entries;
-                          }
-                        });
-                      }
+                      fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                        // ТОЧНОЕ совпадение по ключу (артикул_формат_суффикс)
+                        if (fuzzyName === resultKey) {
+                          console.log(`✅ ТОЧНОЕ совпадение: "${videoResult.videoName}" = "${fuzzyName}"`);
+                          matchedEntries = entries;
+                        }
+                      });
+                    }
+                    
+                    // Fallback: если не нашли точно - пробуем включение
+                    if (matchedEntries.length === 0) {
+                      fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                        if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
+                          console.log(`⚠️ Частичное совпадение: "${videoResult.videoName}" ↔ "${fuzzyName}"`);
+                          matchedEntries = entries;
+                        }
+                      });
                     }
 
                     if (matchedEntries.length > 0) {
