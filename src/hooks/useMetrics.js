@@ -333,9 +333,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log(`📊 CHUNKED FUZZY: ${videosForFuzzyBatch.length} видео без метрик`);
 
         if (videosForFuzzyBatch.length > 0) {
-          // Разбиваем на оптимальные батчи по 100 видео (было 20)
-          const FUZZY_CHUNK_SIZE = 100;
-          const FUZZY_PARALLEL = 3; // Параллельная обработка 3 чанков
+          // Разбиваем на МАЛЕНЬКИЕ батчи для избежания timeout
+          const FUZZY_CHUNK_SIZE = 30; // Уменьшили с 100 до 30
+          const FUZZY_PARALLEL = 2; // Уменьшили с 3 до 2 параллельных запросов
           const fuzzyChunks = [];
           
           for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
