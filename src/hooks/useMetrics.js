@@ -307,7 +307,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         const videosForFuzzyBatch = [];
         const fuzzyToOriginalMap = new Map();
 
-        console.log('🔍 Сканируем видео без метрик для CHUNKED fuzzy-поиска...');
+        console.log('🔍 Сканируем видео без метрик для ОПТИМИЗИРОВАННОГО fuzzy-поиска...');
 
         videoMap.forEach((metadata, videoKey) => {
           const hasMetrics = rawMetricsMap.has(videoKey) && rawMetricsMap.get(videoKey).found;
@@ -333,8 +333,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log(`📊 CHUNKED FUZZY: ${videosForFuzzyBatch.length} видео без метрик`);
 
         if (videosForFuzzyBatch.length > 0) {
-          // Разбиваем на МАЛЕНЬКИЕ батчи по 20 видео
-          const FUZZY_CHUNK_SIZE = 20;
+          // Разбиваем на оптимальные батчи по 100 видео (было 20)
+          const FUZZY_CHUNK_SIZE = 100;
+          const FUZZY_PARALLEL = 3; // Параллельная обработка 3 чанков
           const fuzzyChunks = [];
           
           for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
@@ -342,95 +343,120 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           }
 
           console.log(`🚀 ========================================`);
-          console.log(`🚀 ЗАПУСК CHUNKED FUZZY: ${fuzzyChunks.length} чанков по ~${FUZZY_CHUNK_SIZE} видео`);
+          console.log(`🚀 ОПТИМИЗИРОВАННЫЙ FUZZY: ${fuzzyChunks.length} чанков по ~${FUZZY_CHUNK_SIZE} видео`);
+          console.log(`🚀 Параллелизм: ${FUZZY_PARALLEL} чанка одновременно`);
           console.log(`🚀 ========================================`);
 
           let totalFoundCount = 0;
 
-          // ПОСЛЕДОВАТЕЛЬНО обрабатываем каждый чанк
-          for (let chunkIndex = 0; chunkIndex < fuzzyChunks.length; chunkIndex++) {
-            const chunk = fuzzyChunks[chunkIndex];
+          // ПАРАЛЛЕЛЬНАЯ обработка чанков группами
+          for (let i = 0; i < fuzzyChunks.length; i += FUZZY_PARALLEL) {
+            const batchChunks = fuzzyChunks.slice(i, i + FUZZY_PARALLEL);
             
-            console.log(`🔍 Чанк ${chunkIndex + 1}/${fuzzyChunks.length}: ${chunk.length} видео`);
+            console.log(`🔍 Группа чанков ${Math.floor(i/FUZZY_PARALLEL) + 1}/${Math.ceil(fuzzyChunks.length/FUZZY_PARALLEL)}: обработка ${batchChunks.length} чанков параллельно`);
 
-            try {
-              const fuzzyBatchResult = await MetricsService.getFuzzyVideoMetrics(chunk, {
-                kind: 'daily_first4_total',
-                useCache: false
-              });
-
-              if (fuzzyBatchResult.success && fuzzyBatchResult.results && fuzzyBatchResult.results.length > 0) {
-                console.log(`✅ Чанк ${chunkIndex + 1}: найдено ${fuzzyBatchResult.results.length} результатов`);
+            // Запускаем чанки ПАРАЛЛЕЛЬНО
+            const chunkPromises = batchChunks.map(async (chunk, batchIdx) => {
+              const globalIdx = i + batchIdx;
+              
+              try {
+                console.log(`  └─ Чанк ${globalIdx + 1}/${fuzzyChunks.length}: ${chunk.length} видео`);
                 
-                let chunkFoundCount = 0;
+                const fuzzyBatchResult = await MetricsService.getFuzzyVideoMetrics(chunk, {
+                  kind: 'daily_first4_total',
+                  useCache: false
+                });
 
-                fuzzyBatchResult.results.forEach(videoResult => {
-                  if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
-                    return;
-                  }
+                if (fuzzyBatchResult.success && fuzzyBatchResult.results && fuzzyBatchResult.results.length > 0) {
+                  let chunkFoundCount = 0;
+                  const updates = [];
 
-                  let matchedEntries = [];
-                  
-                  fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                    if (videoResult.videoName.includes(fuzzyName)) {
-                      matchedEntries = entries;
+                  fuzzyBatchResult.results.forEach(videoResult => {
+                    if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
+                      return;
+                    }
+
+                    let matchedEntries = [];
+                    
+                    fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                      if (videoResult.videoName.includes(fuzzyName)) {
+                        matchedEntries = entries;
+                      }
+                    });
+
+                    if (matchedEntries.length > 0) {
+                      matchedEntries.forEach(entry => {
+                        const allDailyData = videoResult.daily.map(d => ({
+                          date: d.date,
+                          leads: d.leads,
+                          cost: d.cost,
+                          clicks: d.clicks,
+                          impressions: d.impressions,
+                          avg_duration: d.avg_duration
+                        }));
+
+                        const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                        const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                        const formatted = MetricsService.formatMetrics(metrics);
+
+                        updates.push({
+                          videoKey: entry.videoKey,
+                          data: {
+                            found: true,
+                            data: {
+                              raw: metrics,
+                              formatted: formatted,
+                              allDailyData: allDailyData,
+                              dailyData: allDailyData,
+                              videoName: entry.originalTitle,
+                              period: 'all',
+                              updatedAt: new Date().toISOString(),
+                              fuzzyMatch: true
+                            },
+                            error: null,
+                            videoName: entry.originalTitle,
+                            creativeId: entry.metadata.creativeId,
+                            videoIndex: entry.metadata.videoIndex,
+                            fromCache: false,
+                            fuzzyMatch: true
+                          }
+                        });
+
+                        chunkFoundCount++;
+                      });
                     }
                   });
 
-                  if (matchedEntries.length > 0) {
-                    matchedEntries.forEach(entry => {
-                      const allDailyData = videoResult.daily.map(d => ({
-                        date: d.date,
-                        leads: d.leads,
-                        cost: d.cost,
-                        clicks: d.clicks,
-                        impressions: d.impressions,
-                        avg_duration: d.avg_duration
-                      }));
+                  return { success: true, updates, chunkFoundCount, chunkIdx: globalIdx + 1 };
+                } else {
+                  return { success: true, updates: [], chunkFoundCount: 0, chunkIdx: globalIdx + 1 };
+                }
 
-                      const aggregates = MetricsService.aggregateDailyData(allDailyData);
-                      const metrics = MetricsService.computeDerivedMetrics(aggregates);
-                      const formatted = MetricsService.formatMetrics(metrics);
+              } catch (chunkError) {
+                console.error(`  └─ ❌ Ошибка чанка ${globalIdx + 1}:`, chunkError.message);
+                return { success: false, error: chunkError.message, chunkIdx: globalIdx + 1 };
+              }
+            });
 
-                      rawMetricsMap.set(entry.videoKey, {
-                        found: true,
-                        data: {
-                          raw: metrics,
-                          formatted: formatted,
-                          allDailyData: allDailyData,
-                          dailyData: allDailyData,
-                          videoName: entry.originalTitle,
-                          period: 'all',
-                          updatedAt: new Date().toISOString(),
-                          fuzzyMatch: true
-                        },
-                        error: null,
-                        videoName: entry.originalTitle,
-                        creativeId: entry.metadata.creativeId,
-                        videoIndex: entry.metadata.videoIndex,
-                        fromCache: false,
-                        fuzzyMatch: true
-                      });
+            // Ждём завершения всех параллельных чанков
+            const results = await Promise.all(chunkPromises);
 
-                      chunkFoundCount++;
-                      totalFoundCount++;
-                    });
-                  }
+            // Применяем результаты
+            results.forEach(result => {
+              if (result.success && result.updates) {
+                result.updates.forEach(update => {
+                  rawMetricsMap.set(update.videoKey, update.data);
                 });
-
-                console.log(`✅ Чанк ${chunkIndex + 1}: применено ${chunkFoundCount} метрик`);
-              } else {
-                console.log(`⚠️ Чанк ${chunkIndex + 1}: ничего не найдено`);
+                totalFoundCount += result.chunkFoundCount;
+                if (result.chunkFoundCount > 0) {
+                  console.log(`  └─ ✅ Чанк ${result.chunkIdx}: найдено ${result.chunkFoundCount} метрик`);
+                }
               }
+            });
 
-              // Небольшая задержка между чанками чтобы не перегрузить сервер
-              if (chunkIndex < fuzzyChunks.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-              }
-
-            } catch (chunkError) {
-              console.error(`❌ Ошибка чанка ${chunkIndex + 1}:`, chunkError.message);
-              // Продолжаем со следующим чанком
+            // Задержка только между ГРУППАМИ чанков (уменьшили с 500ms до 100ms)
+            if (i + FUZZY_PARALLEL < fuzzyChunks.length) {
+              await new Promise(resolve => setTimeout(resolve, 100));
             }
           }
 
