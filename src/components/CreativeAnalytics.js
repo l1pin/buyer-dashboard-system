@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { creativeService, userService, creativeHistoryService, metricsAnalyticsService } from '../supabaseClient';
+import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
@@ -875,6 +875,15 @@ function CreativeAnalytics({ user }) {
   };
 
   const handleDeleteCreative = async (creative) => {
+    // Проверяем текущего пользователя
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    console.log('👤 Текущий пользователь:', {
+      id: currentUser?.id,
+      email: currentUser?.email,
+      role: currentUser?.user_metadata?.role
+    });
+    console.log('🎬 Креатив создан пользователем:', creative.user_id);
+
     const confirmMessage = `Вы уверены, что хотите удалить креатив "${creative.article}"?\n\nБудут удалены:\n• Креатив\n• История изменений\n• Кэш метрик\n\nЭто действие нельзя отменить!`;
     
     if (!window.confirm(confirmMessage)) {
