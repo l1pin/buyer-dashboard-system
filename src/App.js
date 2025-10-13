@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+import { supabaseTrelloService } from './services/supabaseTrelloService';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 
@@ -28,6 +29,20 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // 🚀 Инициализация Trello синхронизации через Supabase
+  useEffect(() => {
+    console.log('🚀 Инициализация Supabase Trello Service...');
+    
+    // Инициализируем сервис (выборы лидера + синхронизация)
+    supabaseTrelloService.initialize();
+    
+    // Cleanup при закрытии приложения/вкладки
+    return () => {
+      console.log('🧹 Cleanup Supabase Trello Service...');
+      supabaseTrelloService.cleanup();
+    };
   }, []);
 
   const fetchUserProfile = async (userId) => {
