@@ -301,13 +301,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       }
 
       // ============================================
-      // ЭТАП 3: БАТЧЕВЫЙ FUZZY-ПОИСК для видео БЕЗ метрик
+      // ЭТАП 3: CHUNKED FUZZY-ПОИСК для видео БЕЗ метрик
       // ============================================
       if (forceRefresh) {
         const videosForFuzzyBatch = [];
-        const fuzzyToOriginalMap = new Map(); // fuzzyName -> [videoKey, originalTitle, metadata]
+        const fuzzyToOriginalMap = new Map();
 
-        console.log('🔍 Сканируем видео без метрик для БАТЧЕВОГО fuzzy-поиска...');
+        console.log('🔍 Сканируем видео без метрик для CHUNKED fuzzy-поиска...');
 
         videoMap.forEach((metadata, videoKey) => {
           const hasMetrics = rawMetricsMap.has(videoKey) && rawMetricsMap.get(videoKey).found;
@@ -318,7 +318,6 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             if (videoNameWithoutExt && videoNameWithoutExt !== metadata.videoTitle) {
               videosForFuzzyBatch.push(videoNameWithoutExt);
               
-              // Сохраняем маппинг: очищенное название -> оригинальные данные
               if (!fuzzyToOriginalMap.has(videoNameWithoutExt)) {
                 fuzzyToOriginalMap.set(videoNameWithoutExt, []);
               }
@@ -327,98 +326,117 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 originalTitle: metadata.videoTitle,
                 metadata
               });
-              
-              console.log(`🔍 Добавлено: "${metadata.videoTitle}" -> "${videoNameWithoutExt}"`);
             }
           }
         });
 
-        console.log(`📊 БАТЧЕВЫЙ FUZZY: ${videosForFuzzyBatch.length} видео без метрик`);
+        console.log(`📊 CHUNKED FUZZY: ${videosForFuzzyBatch.length} видео без метрик`);
 
         if (videosForFuzzyBatch.length > 0) {
+          // Разбиваем на МАЛЕНЬКИЕ батчи по 20 видео
+          const FUZZY_CHUNK_SIZE = 20;
+          const fuzzyChunks = [];
+          
+          for (let i = 0; i < videosForFuzzyBatch.length; i += FUZZY_CHUNK_SIZE) {
+            fuzzyChunks.push(videosForFuzzyBatch.slice(i, i + FUZZY_CHUNK_SIZE));
+          }
+
           console.log(`🚀 ========================================`);
-          console.log(`🚀 ЗАПУСК БАТЧЕВОГО FUZZY для ${videosForFuzzyBatch.length} видео`);
+          console.log(`🚀 ЗАПУСК CHUNKED FUZZY: ${fuzzyChunks.length} чанков по ~${FUZZY_CHUNK_SIZE} видео`);
           console.log(`🚀 ========================================`);
 
-          const fuzzyBatchResult = await MetricsService.getFuzzyVideoMetrics(videosForFuzzyBatch, {
-            kind: 'daily_first4_total',
-            useCache: false
-          });
+          let totalFoundCount = 0;
 
-          console.log(`📥 Результат батчевого fuzzy:`, {
-            success: fuzzyBatchResult.success,
-            resultsCount: fuzzyBatchResult.results?.length || 0,
-            error: fuzzyBatchResult.error
-          });
-
-          if (fuzzyBatchResult.success && fuzzyBatchResult.results && fuzzyBatchResult.results.length > 0) {
-            console.log(`✅ НАЙДЕНО ${fuzzyBatchResult.results.length} результатов через BATCH FUZZY!`);
+          // ПОСЛЕДОВАТЕЛЬНО обрабатываем каждый чанк
+          for (let chunkIndex = 0; chunkIndex < fuzzyChunks.length; chunkIndex++) {
+            const chunk = fuzzyChunks[chunkIndex];
             
-            let foundCount = 0;
-            
-            // Обрабатываем каждый результат из API
-            fuzzyBatchResult.results.forEach(videoResult => {
-              if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
-                return;
-              }
+            console.log(`🔍 Чанк ${chunkIndex + 1}/${fuzzyChunks.length}: ${chunk.length} видео`);
 
-              // Ищем соответствие по имени из БД API
-              let matchedEntries = [];
-              
-              fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
-                // Проверяем совпадение (результат из БД содержит наше искомое имя)
-                if (videoResult.videoName.includes(fuzzyName)) {
-                  matchedEntries = entries;
-                  console.log(`✅ Совпадение! БД: "${videoResult.videoName}" содержит "${fuzzyName}"`);
-                }
+            try {
+              const fuzzyBatchResult = await MetricsService.getFuzzyVideoMetrics(chunk, {
+                kind: 'daily_first4_total',
+                useCache: false
               });
 
-              if (matchedEntries.length > 0) {
-                // Применяем метрики ко ВСЕМ совпавшим видео (могут быть дубликаты)
-                matchedEntries.forEach(entry => {
-                  const allDailyData = videoResult.daily.map(d => ({
-                    date: d.date,
-                    leads: d.leads,
-                    cost: d.cost,
-                    clicks: d.clicks,
-                    impressions: d.impressions,
-                    avg_duration: d.avg_duration
-                  }));
+              if (fuzzyBatchResult.success && fuzzyBatchResult.results && fuzzyBatchResult.results.length > 0) {
+                console.log(`✅ Чанк ${chunkIndex + 1}: найдено ${fuzzyBatchResult.results.length} результатов`);
+                
+                let chunkFoundCount = 0;
 
-                  const aggregates = MetricsService.aggregateDailyData(allDailyData);
-                  const metrics = MetricsService.computeDerivedMetrics(aggregates);
-                  const formatted = MetricsService.formatMetrics(metrics);
+                fuzzyBatchResult.results.forEach(videoResult => {
+                  if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
+                    return;
+                  }
 
-                  rawMetricsMap.set(entry.videoKey, {
-                    found: true,
-                    data: {
-                      raw: metrics,
-                      formatted: formatted,
-                      allDailyData: allDailyData,
-                      dailyData: allDailyData,
-                      videoName: entry.originalTitle,
-                      period: 'all',
-                      updatedAt: new Date().toISOString(),
-                      fuzzyMatch: true
-                    },
-                    error: null,
-                    videoName: entry.originalTitle,
-                    creativeId: entry.metadata.creativeId,
-                    videoIndex: entry.metadata.videoIndex,
-                    fromCache: false,
-                    fuzzyMatch: true
+                  let matchedEntries = [];
+                  
+                  fuzzyToOriginalMap.forEach((entries, fuzzyName) => {
+                    if (videoResult.videoName.includes(fuzzyName)) {
+                      matchedEntries = entries;
+                    }
                   });
 
-                  foundCount++;
-                  console.log(`✅ Метрики применены: "${entry.originalTitle}"`);
-                });
-              }
-            });
+                  if (matchedEntries.length > 0) {
+                    matchedEntries.forEach(entry => {
+                      const allDailyData = videoResult.daily.map(d => ({
+                        date: d.date,
+                        leads: d.leads,
+                        cost: d.cost,
+                        clicks: d.clicks,
+                        impressions: d.impressions,
+                        avg_duration: d.avg_duration
+                      }));
 
-            console.log(`✅ ИТОГО найдено через BATCH FUZZY: ${foundCount} видео`);
-          } else {
-            console.log(`⚠️ Batch fuzzy не нашел результатов`);
+                      const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                      const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                      const formatted = MetricsService.formatMetrics(metrics);
+
+                      rawMetricsMap.set(entry.videoKey, {
+                        found: true,
+                        data: {
+                          raw: metrics,
+                          formatted: formatted,
+                          allDailyData: allDailyData,
+                          dailyData: allDailyData,
+                          videoName: entry.originalTitle,
+                          period: 'all',
+                          updatedAt: new Date().toISOString(),
+                          fuzzyMatch: true
+                        },
+                        error: null,
+                        videoName: entry.originalTitle,
+                        creativeId: entry.metadata.creativeId,
+                        videoIndex: entry.metadata.videoIndex,
+                        fromCache: false,
+                        fuzzyMatch: true
+                      });
+
+                      chunkFoundCount++;
+                      totalFoundCount++;
+                    });
+                  }
+                });
+
+                console.log(`✅ Чанк ${chunkIndex + 1}: применено ${chunkFoundCount} метрик`);
+              } else {
+                console.log(`⚠️ Чанк ${chunkIndex + 1}: ничего не найдено`);
+              }
+
+              // Небольшая задержка между чанками чтобы не перегрузить сервер
+              if (chunkIndex < fuzzyChunks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+
+            } catch (chunkError) {
+              console.error(`❌ Ошибка чанка ${chunkIndex + 1}:`, chunkError.message);
+              // Продолжаем со следующим чанком
+            }
           }
+
+          console.log(`✅ ========================================`);
+          console.log(`✅ ИТОГО найдено через CHUNKED FUZZY: ${totalFoundCount} видео`);
+          console.log(`✅ ========================================`);
         }
       }
 
