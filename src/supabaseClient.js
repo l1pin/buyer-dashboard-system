@@ -1141,47 +1141,90 @@ export const creativeService = {
     try {
       console.log('🗑️ Начинаем удаление креатива:', creativeId);
 
+      // Сначала проверяем, существует ли креатив
+      const { data: checkData, error: checkError } = await supabase
+        .from('creatives')
+        .select('id, article')
+        .eq('id', creativeId)
+        .single();
+
+      if (checkError) {
+        console.error('❌ Креатив не найден:', checkError);
+        throw new Error(`Креатив не найден: ${checkError.message}`);
+      }
+
+      console.log('✅ Креатив найден:', checkData);
+
       // Шаг 1: Удаляем историю изменений креатива
       console.log('📜 Удаление истории креатива...');
-      const { error: historyError } = await supabase
+      const { data: historyData, error: historyError, count: historyCount } = await supabase
         .from('creative_history')
         .delete()
-        .eq('creative_id', creativeId);
+        .eq('creative_id', creativeId)
+        .select();
       
       if (historyError) {
         console.error('⚠️ Ошибка удаления истории креатива:', historyError);
-        // Продолжаем даже если истории нет
       } else {
-        console.log('✅ История креатива удалена');
+        console.log(`✅ История креатива удалена: ${historyData?.length || 0} записей`);
       }
 
       // Шаг 2: Удаляем кэш метрик креатива
       console.log('💾 Удаление кэша метрик...');
-      const { error: cacheError } = await supabase
+      const { data: cacheData, error: cacheError, count: cacheCount } = await supabase
         .from('metrics_cache')
         .delete()
-        .eq('creative_id', creativeId);
+        .eq('creative_id', creativeId)
+        .select();
       
       if (cacheError) {
         console.error('⚠️ Ошибка удаления кэша метрик:', cacheError);
-        // Продолжаем даже если кэша нет
       } else {
-        console.log('✅ Кэш метрик удален');
+        console.log(`✅ Кэш метрик удален: ${cacheData?.length || 0} записей`);
       }
 
       // Шаг 3: Удаляем сам креатив
-      console.log('🎬 Удаление креатива...');
-      const { error: creativeError } = await supabase
+      console.log('🎬 Удаление креатива из таблицы creatives...');
+      const { data: deletedData, error: creativeError, count: deleteCount } = await supabase
         .from('creatives')
         .delete()
-        .eq('id', creativeId);
+        .eq('id', creativeId)
+        .select();
       
       if (creativeError) {
-        console.error('❌ Ошибка удаления креатива:', creativeError);
+        console.error('❌ ОШИБКА удаления креатива:', {
+          error: creativeError,
+          message: creativeError.message,
+          details: creativeError.details,
+          hint: creativeError.hint,
+          code: creativeError.code
+        });
         throw new Error(`Не удалось удалить креатив: ${creativeError.message}`);
       }
 
-      console.log('✅ Креатив полностью удален из системы');
+      console.log('📊 Результат удаления креатива:', {
+        deletedData: deletedData,
+        deletedCount: deletedData?.length || 0
+      });
+
+      if (!deletedData || deletedData.length === 0) {
+        console.error('⚠️ ВНИМАНИЕ: Запрос выполнен, но ничего не удалено! Проверьте RLS политики!');
+        throw new Error('Креатив не был удален. Возможно, недостаточно прав доступа.');
+      }
+
+      // Проверяем, что креатив действительно удален
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('creatives')
+        .select('id')
+        .eq('id', creativeId)
+        .single();
+
+      if (verifyData) {
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Креатив все еще существует после удаления!');
+        throw new Error('Креатив не был удален из базы данных. Проверьте права доступа.');
+      }
+
+      console.log('✅ Креатив полностью удален из системы и проверка подтвердила удаление');
       return { success: true };
 
     } catch (error) {
