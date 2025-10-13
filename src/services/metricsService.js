@@ -299,8 +299,44 @@ export class MetricsService {
   }
 
   /**
-   * Извлечение имени файла без расширения
-   * НЕ убираем префиксы! Они могут быть в БД, а не в нашей системе
+   * УЛУЧШЕННЫЙ парсинг структуры названия видео
+   */
+  static parseVideoStructure(fileName) {
+    if (!fileName) return null;
+    
+    const result = {
+      original: fileName,
+      article: null,
+      date: null,
+      extension: null,
+      hasStructure: false
+    };
+    
+    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ
+    const articleMatch = fileName.match(/^([A-Z]\d{4,5})(?=[\s\-–—_])/i);
+    if (articleMatch) {
+      result.article = articleMatch[1].toUpperCase();
+    }
+    
+    // ДАТА: 6 цифр между пробелами
+    const dateMatch = fileName.match(/\s(\d{6})(?=\s)/);
+    if (dateMatch) {
+      result.date = dateMatch[1];
+    }
+    
+    // РАСШИРЕНИЕ
+    const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
+    if (extMatch) {
+      result.extension = extMatch[0].toLowerCase();
+    }
+    
+    result.hasStructure = !!(result.article && result.date);
+    
+    return result;
+  }
+
+  /**
+   * Извлечение имени файла без расширения (старая функция)
    */
   static extractVideoName(fileName) {
     if (!fileName) return '';
