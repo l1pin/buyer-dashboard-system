@@ -163,7 +163,9 @@ SELECT
   COALESCE(SUM(t.cost), 0) AS cost,
   COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
   COALESCE(SUM(t.showed), 0) AS impressions,
-  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+  COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+  COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
 FROM ads_collection t
 WHERE t.video_name IN (${inClause})
   AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
@@ -185,7 +187,9 @@ SELECT
   SUM(cost) as cost,
   SUM(clicks) as clicks,
   SUM(impressions) as impressions,
-  AVG(avg_duration) as avg_duration
+  AVG(avg_duration) as avg_duration,
+  SUM(cost_from_sources) as cost_from_sources,
+  SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT 
     t.video_name,
@@ -195,6 +199,8 @@ FROM (
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
   WHERE t.video_name IN (${inClause})
@@ -220,7 +226,9 @@ SELECT
   SUM(cost) as cost,
   SUM(clicks) as clicks,
   SUM(impressions) as impressions,
-  AVG(avg_duration) as avg_duration
+  AVG(avg_duration) as avg_duration,
+  SUM(cost_from_sources) as cost_from_sources,
+  SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT 
     t.video_name,
@@ -229,7 +237,9 @@ FROM (
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
   FROM ads_collection t
   WHERE t.video_name IN (${inClause})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
@@ -245,24 +255,7 @@ ORDER BY video_name`;
     const inClause = names.join(',');
     
     return `
-SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
-FROM (
-  SELECT 
-    t.video_name,
-    t.adv_date,
-    COALESCE(SUM(t.valid), 0) AS leads,
-    COALESCE(SUM(t.cost), 0) AS cost,
-    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
-    COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
-  FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
-    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
-    ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
-) daily_data
-UNION ALL
-SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link 
 FROM (
   SELECT 
     t.video_name,
@@ -272,6 +265,27 @@ FROM (
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
   WHERE t.video_name IN (${inClause})
@@ -282,7 +296,7 @@ FROM (
 WHERE rn <= 4
 GROUP BY video_name
 UNION ALL
-SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT 
     t.video_name,
@@ -291,7 +305,9 @@ FROM (
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
   FROM ads_collection t
   WHERE t.video_name IN (${inClause})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
@@ -318,24 +334,7 @@ ORDER BY video_name, kind, adv_date`;
     // Используем LIKE вместо IN
     if (kind === 'daily_first4_total') {
       return `
-SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
-FROM (
-  SELECT 
-    t.video_name,
-    t.adv_date,
-    COALESCE(SUM(t.valid), 0) AS leads,
-    COALESCE(SUM(t.cost), 0) AS cost,
-    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
-    COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
-  FROM ads_collection t
-  WHERE (${likeConditions})
-    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
-    ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
-) daily_data
-UNION ALL
-SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link 
 FROM (
   SELECT 
     t.video_name,
@@ -345,6 +344,27 @@ FROM (
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
   WHERE (${likeConditions})
@@ -355,7 +375,7 @@ FROM (
 WHERE rn <= 4
 GROUP BY video_name
 UNION ALL
-SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT 
     t.video_name,
@@ -364,7 +384,9 @@ FROM (
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
     COALESCE(SUM(t.showed), 0) AS impressions,
-    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
   FROM ads_collection t
   WHERE (${likeConditions})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
@@ -384,7 +406,9 @@ SELECT
   COALESCE(SUM(t.cost), 0) AS cost,
   COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
   COALESCE(SUM(t.showed), 0) AS impressions,
-  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+  COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+  COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
 FROM ads_collection t
 WHERE (${likeConditions})
   AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
