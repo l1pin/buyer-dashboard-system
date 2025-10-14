@@ -157,8 +157,33 @@ export class MetricsService {
     let skippedNoVideoName = 0;
     let newVideosAdded = 0;
     
+    // 🔥 ДИАГНОСТИКА: Проверяем первую строку из БД API
+    if (data && data.length > 0) {
+      console.log('🔥 ПЕРВАЯ СТРОКА ИЗ БД API:', {
+        video_name: data[0].video_name,
+        kind: data[0].kind,
+        leads: data[0].leads,
+        cost: data[0].cost,
+        cost_from_sources: data[0].cost_from_sources,
+        clicks_on_link: data[0].clicks_on_link,
+        allKeys: Object.keys(data[0])
+      });
+    }
+    
     data.forEach((row, index) => {
       const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link } = row;
+      
+      // 🔥 ДИАГНОСТИКА: Логируем первые 3 строки после деструктуризации
+      if (index < 3) {
+        console.log(`🔥 СТРОКА ${index} ПОСЛЕ ДЕСТРУКТУРИЗАЦИИ:`, {
+          video_name,
+          kind,
+          leads,
+          cost,
+          cost_from_sources,
+          clicks_on_link
+        });
+      }
       
       if (!video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
@@ -208,6 +233,11 @@ export class MetricsService {
         cost_from_sources: Number(cost_from_sources) || 0,
         clicks_on_link: Number(clicks_on_link) || 0
       };
+      
+      // 🔥 ДИАГНОСТИКА: Логируем созданный объект metrics для первых 3 строк
+      if (index < 3) {
+        console.log(`🔥 ОБЪЕКТ METRICS ДЛЯ СТРОКИ ${index}:`, metrics);
+      }
 
       if (kind === 'daily') {
         entry.daily.push(metrics);
@@ -297,11 +327,22 @@ export class MetricsService {
         cost: d.cost,
         clicks: d.clicks,
         impressions: d.impressions,
-        avg_duration: d.avg_duration
+        avg_duration: d.avg_duration,
+        cost_from_sources: d.cost_from_sources || 0,
+        clicks_on_link: d.clicks_on_link || 0
       }));
+      
+      // 🔥 ДИАГНОСТИКА: Проверяем allDailyData
+      console.log('🔥 allDailyData ПЕРВАЯ ЗАПИСЬ:', allDailyData[0]);
 
       // Вычисляем метрики для "all"
       const aggregatesAll = this.aggregateDailyData(allDailyData);
+      
+      // 🔥 ДИАГНОСТИКА: Проверяем aggregatesAll
+      console.log('🔥 aggregatesAll ПОСЛЕ АГРЕГАЦИИ:', {
+        cost_from_sources: aggregatesAll.cost_from_sources,
+        clicks_on_link: aggregatesAll.clicks_on_link
+      });
       const metricsAll = this.computeDerivedMetrics(aggregatesAll);
       const formattedAll = this.formatMetrics(metricsAll);
 
@@ -521,14 +562,24 @@ export class MetricsService {
       days_count: 0
     });
 
-    return {
+    const aggregated = {
       leads: result.leads,
       cost: result.cost,
       clicks: result.clicks,
       impressions: result.impressions,
       avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
-      days_count: result.days_count
+      days_count: result.days_count,
+      cost_from_sources: result.cost_from_sources,
+      clicks_on_link: result.clicks_on_link
     };
+    
+    // 🔥 ДИАГНОСТИКА: Проверяем результат агрегации
+    console.log('🔥 РЕЗУЛЬТАТ aggregateDailyData:', {
+      cost_from_sources: aggregated.cost_from_sources,
+      clicks_on_link: aggregated.clicks_on_link
+    });
+    
+    return aggregated;
   }
 
   /**
