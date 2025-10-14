@@ -1870,32 +1870,49 @@ export const metricsAnalyticsService = {
       // Извлекаем только базовые метрики из metricsData
       const rawMetrics = metricsData.raw || metricsData;
       
+      // 🔥 ДИАГНОСТИКА: Проверяем rawMetrics перед сохранением
+      console.log('🔥 rawMetrics ПЕРЕД СОХРАНЕНИЕМ В SUPABASE:', {
+        creative_id: creativeId,
+        video_title: videoTitle,
+        period: period,
+        cost_from_sources: rawMetrics.cost_from_sources,
+        clicks_on_link: rawMetrics.clicks_on_link,
+        allKeys: Object.keys(rawMetrics)
+      });
+      
+      const dataToSave = {
+        creative_id: creativeId,
+        article: article,
+        video_index: videoIndex,
+        video_title: videoTitle,
+        period: period,
+        // Базовые метрики в отдельных колонках
+        leads: rawMetrics.leads || 0,
+        cost: rawMetrics.cost || 0,
+        clicks: rawMetrics.clicks || 0,
+        impressions: rawMetrics.impressions || 0,
+        avg_duration: rawMetrics.avg_duration || 0,
+        days_count: rawMetrics.days_count || 0,
+        cost_from_sources: rawMetrics.cost_from_sources || 0,
+        clicks_on_link: rawMetrics.clicks_on_link || 0,
+        cached_at: new Date().toISOString()
+      };
+      
+      console.log('🔥 dataToSave ПЕРЕД UPSERT:', {
+        cost_from_sources: dataToSave.cost_from_sources,
+        clicks_on_link: dataToSave.clicks_on_link
+      });
+      
       const { data, error } = await supabase
         .from('metrics_cache')
-        .upsert([
-          {
-            creative_id: creativeId,
-            article: article,
-            video_index: videoIndex,
-            video_title: videoTitle,
-            period: period,
-            // Базовые метрики в отдельных колонках
-            leads: rawMetrics.leads || 0,
-            cost: rawMetrics.cost || 0,
-            clicks: rawMetrics.clicks || 0,
-            impressions: rawMetrics.impressions || 0,
-            avg_duration: rawMetrics.avg_duration || 0,
-            days_count: rawMetrics.days_count || 0,
-            cost_from_sources: rawMetrics.cost_from_sources || 0,
-            clicks_on_link: rawMetrics.clicks_on_link || 0,
-            cached_at: new Date().toISOString()
-          }
-        ], {
+        .upsert([dataToSave], {
           onConflict: 'creative_id,video_index,period'
         })
         .select();
 
       if (error) throw error;
+      
+      console.log('🔥 РЕЗУЛЬТАТ ПОСЛЕ СОХРАНЕНИЯ В SUPABASE:', data);
       return data[0];
     } catch (error) {
       console.error('Ошибка сохранения кэша метрик:', error);
