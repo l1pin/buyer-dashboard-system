@@ -320,17 +320,31 @@ export class MetricsService {
         };
       }
 
+      // 🔥 ДИАГНОСТИКА: Проверяем videoData.daily ДО преобразования
+      console.log('🔥 videoData.daily ПЕРВАЯ ЗАПИСЬ:', {
+        data: videoData.daily[0],
+        allKeys: Object.keys(videoData.daily[0] || {})
+      });
+      
       // Преобразуем к старому формату для совместимости
-      const allDailyData = videoData.daily.map(d => ({
-        date: d.date,
-        leads: d.leads,
-        cost: d.cost,
-        clicks: d.clicks,
-        impressions: d.impressions,
-        avg_duration: d.avg_duration,
-        cost_from_sources: d.cost_from_sources || 0,
-        clicks_on_link: d.clicks_on_link || 0
-      }));
+      const allDailyData = videoData.daily.map(d => {
+        console.log('🔥 ВНУТРИ MAP, d:', {
+          cost_from_sources: d.cost_from_sources,
+          clicks_on_link: d.clicks_on_link,
+          allKeys: Object.keys(d)
+        });
+        
+        return {
+          date: d.date,
+          leads: d.leads,
+          cost: d.cost,
+          clicks: d.clicks,
+          impressions: d.impressions,
+          avg_duration: d.avg_duration,
+          cost_from_sources: d.cost_from_sources || 0,
+          clicks_on_link: d.clicks_on_link || 0
+        };
+      });
       
       // 🔥 ДИАГНОСТИКА: Проверяем allDailyData
       console.log('🔥 allDailyData ПЕРВАЯ ЗАПИСЬ:', allDailyData[0]);
