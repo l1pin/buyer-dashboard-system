@@ -546,20 +546,41 @@ export class MetricsService {
       };
     }
 
-    const result = dailyData.reduce((acc, day) => ({
-      leads: acc.leads + day.leads,
-      cost: acc.cost + day.cost,
-      clicks: acc.clicks + day.clicks,
-      impressions: acc.impressions + day.impressions,
-      duration_sum: acc.duration_sum + (day.avg_duration || 0),
-      days_count: acc.days_count + 1
-    }), {
+    const result = dailyData.reduce((acc, day) => {
+      // 🔥 ДИАГНОСТИКА: Логируем каждый day
+      if (acc.days_count === 0) {
+        console.log('🔥 ПЕРВЫЙ day в reduce:', {
+          cost_from_sources: day.cost_from_sources,
+          clicks_on_link: day.clicks_on_link,
+          allKeys: Object.keys(day)
+        });
+      }
+      
+      return {
+        leads: acc.leads + day.leads,
+        cost: acc.cost + day.cost,
+        clicks: acc.clicks + day.clicks,
+        impressions: acc.impressions + day.impressions,
+        duration_sum: acc.duration_sum + (day.avg_duration || 0),
+        days_count: acc.days_count + 1,
+        cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
+        clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
+      };
+    }, {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
       duration_sum: 0,
-      days_count: 0
+      days_count: 0,
+      cost_from_sources: 0,
+      clicks_on_link: 0
+    });
+    
+    // 🔥 ДИАГНОСТИКА: Проверяем result после reduce
+    console.log('🔥 result ПОСЛЕ reduce:', {
+      cost_from_sources: result.cost_from_sources,
+      clicks_on_link: result.clicks_on_link
     });
 
     const aggregated = {
