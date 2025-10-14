@@ -20,6 +20,9 @@ const CONFIG = {
   CACHE_TTL_MS: 90000,           // 90 секунд TTL для кэша
   CACHE_MAX_SIZE: 100,           // Максимум записей в LRU кэше
   
+  // LIKE поиск
+  MAX_LIKE_NAMES: 100,           // Максимум имён для LIKE запроса
+  
   // API
   API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php'
 };
@@ -95,16 +98,28 @@ class SQLBuilder {
     return baseQuery + (videoNames.length * perName) + dateFilter + kindOverhead;
   }
 
-  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily') {
+  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily', useLike = false) {
     if (!videoNames || videoNames.length === 0) {
       throw new Error('videoNames не может быть пустым');
     }
 
-    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
+    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind, 'useLike:', useLike);
     console.log('📋 ВСЕ названия видео:');
     videoNames.forEach((name, i) => {
       console.log(`  [${i}]: "${name}"`);
     });
+
+    // Фильтр по датам
+    let dateFilter = '';
+    if (dateFrom && dateTo) {
+      dateFilter = `AND t.adv_date >= '${this.escapeString(dateFrom)}' 
+      AND t.adv_date <= '${this.escapeString(dateTo)}'`;
+    }
+
+    // LIKE запрос или обычный IN
+    if (useLike) {
+      return this._buildLikeSQL(videoNames, dateFilter, kind);
+    }
 
     // VALUES список для video_list CTE
     const valuesClause = videoNames
@@ -113,13 +128,6 @@ class SQLBuilder {
     
     console.log('📝 ПОЛНЫЙ VALUES clause:');
     console.log(valuesClause);
-
-    // Фильтр по датам
-    let dateFilter = '';
-    if (dateFrom && dateTo) {
-      dateFilter = `AND t.adv_date >= '${this.escapeString(dateFrom)}' 
-      AND t.adv_date <= '${this.escapeString(dateTo)}'`;
-    }
 
     // Выбираем шаблон SQL в зависимости от kind
     if (kind === 'daily_first4_total') {
@@ -292,6 +300,98 @@ FROM (
 GROUP BY video_name
 ORDER BY video_name, kind, adv_date`;
   }
+
+  static _buildLikeSQL(videoNames, dateFilter, kind) {
+    console.log('🔍 Формирование LIKE SQL для', videoNames.length, 'видео');
+    
+    // Обрезаем расширения и создаем LIKE условия
+    const likeConditions = videoNames.map(name => {
+      // Убираем расширение (.mp4, .mov и т.д.)
+      const nameWithoutExt = name.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+      const escaped = this.escapeString(nameWithoutExt);
+      return `t.video_name LIKE '%${escaped}%'`;
+    }).join(' OR ');
+    
+    console.log('📝 LIKE условия сформированы для', videoNames.length, 'названий');
+    
+    // Используем LIKE вместо IN
+    if (kind === 'daily_first4_total') {
+      return `
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+UNION ALL
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration
+FROM (
+  SELECT 
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data2
+GROUP BY video_name
+ORDER BY video_name, kind, adv_date`;
+    } else {
+      // Для остальных kind - просто daily с LIKE
+      return `
+SELECT 
+  'daily' as kind,
+  t.video_name,
+  t.adv_date,
+  COALESCE(SUM(t.valid), 0) AS leads,
+  COALESCE(SUM(t.cost), 0) AS cost,
+  COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+  COALESCE(SUM(t.showed), 0) AS impressions,
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+FROM ads_collection t
+WHERE (${likeConditions})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  ${dateFilter}
+GROUP BY t.video_name, t.adv_date
+ORDER BY t.video_name, t.adv_date`;
+    }
+  }
 }
 
 // ==================== ЧАНКИНГ ====================
@@ -459,16 +559,16 @@ class WorkerPool {
     this.concurrency = concurrency;
   }
 
-  async processChunks(chunks, dateFrom, dateTo, kind) {
+  async processChunks(chunks, dateFrom, dateTo, kind, useLike = false) {
     const results = [];
     const queue = [...chunks];
     let processed = 0;
 
-    console.log(`🚀 Запуск пула: ${chunks.length} чанков, параллелизм ${this.concurrency}`);
+    console.log(`🚀 Запуск пула: ${chunks.length} чанков, параллелизм ${this.concurrency}, LIKE: ${useLike}`);
 
     const workers = [];
     for (let i = 0; i < this.concurrency; i++) {
-      workers.push(this._worker(queue, dateFrom, dateTo, kind, results, processed, chunks.length));
+      workers.push(this._worker(queue, dateFrom, dateTo, kind, useLike, results, processed, chunks.length));
     }
 
     await Promise.allSettled(workers);
@@ -479,7 +579,7 @@ class WorkerPool {
     return results.flat();
   }
 
-  async _worker(queue, dateFrom, dateTo, kind, results, processed, total) {
+  async _worker(queue, dateFrom, dateTo, kind, useLike, results, processed, total) {
     while (queue.length > 0) {
       const chunk = queue.shift();
       if (!chunk) break;
@@ -491,8 +591,8 @@ class WorkerPool {
           console.log(`  [${idx}]: "${name}"`);
         });
         
-        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
-        console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
+        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, useLike);
+        console.log('🔍 SQL сформирован, длина:', sql.length, 'байт', useLike ? '(LIKE)' : '(IN)');
         console.log('=====================================');
         console.log('📝 ПОЛНЫЙ SQL:');
         console.log(sql);
@@ -582,7 +682,7 @@ exports.handler = async (event, context) => {
     }
 
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
-    const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
+    const { video_names, date_from, date_to, kind = 'daily', use_like = false } = requestBody;
 
     console.log('🔍 ДИАГНОСТИКА ЗАПРОСА:');
     console.log('  📋 video_names тип:', typeof video_names, 'isArray:', Array.isArray(video_names));
@@ -593,6 +693,7 @@ exports.handler = async (event, context) => {
     console.log('  📋 date_from:', date_from);
     console.log('  📋 date_to:', date_to);
     console.log('  📋 kind:', kind);
+    console.log('  📋 use_like:', use_like);
 
     if (!video_names || !Array.isArray(video_names) || video_names.length === 0) {
       return {
@@ -649,7 +750,7 @@ exports.handler = async (event, context) => {
 
     // Обрабатываем через пул воркеров
     const pool = new WorkerPool(CONFIG.PARALLEL_CHUNKS);
-    const results = await pool.processChunks(chunks, date_from, date_to, kind);
+    const results = await pool.processChunks(chunks, date_from, date_to, kind, use_like);
 
     // Нормализуем результаты
     const normalizedResults = normalizeResults(results);
