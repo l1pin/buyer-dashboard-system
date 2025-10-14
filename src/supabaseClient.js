@@ -1970,11 +1970,17 @@ export const metricsAnalyticsService = {
             0
           );
           
-          console.log(`🔥 Метрика ${index + 1} дополнительные поля:`, {
-            cost_from_sources,
-            clicks_on_link,
-            'RAW cost_from_sources': rawMetrics.cost_from_sources,
-            'RAW clicks_on_link': rawMetrics.clicks_on_link
+          console.log(`🔥🔥🔥 Метрика ${index + 1} ПОЛНАЯ ДИАГНОСТИКА:`, {
+            'cost_from_sources (переменная)': cost_from_sources,
+            'clicks_on_link (переменная)': clicks_on_link,
+            'rawMetrics.cost_from_sources': rawMetrics.cost_from_sources,
+            'rawMetrics.clicks_on_link': rawMetrics.clicks_on_link,
+            'rawMetrics["cost_from_sources"]': rawMetrics['cost_from_sources'],
+            'rawMetrics["clicks_on_link"]': rawMetrics['clicks_on_link'],
+            'typeof cost_from_sources': typeof cost_from_sources,
+            'typeof clicks_on_link': typeof clicks_on_link,
+            'ВСЕ КЛЮЧИ rawMetrics': Object.keys(rawMetrics),
+            'ВЕСЬ rawMetrics': rawMetrics
           });
           
           dataToInsert.push({
@@ -2032,7 +2038,13 @@ export const metricsAnalyticsService = {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);
         
         console.log(`🚀 Отправка батча ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(dataToInsert.length/BATCH_SIZE)}: ${batch.length} записей`);
-        console.log('📋 Первая запись батча:', batch[0]);
+        console.log('🔥🔥🔥 ПЕРВАЯ ЗАПИСЬ БАТЧА ПЕРЕД UPSERT:', {
+          'batch[0]': batch[0],
+          'batch[0].cost_from_sources': batch[0]?.cost_from_sources,
+          'batch[0].clicks_on_link': batch[0]?.clicks_on_link,
+          'typeof cost_from_sources': typeof batch[0]?.cost_from_sources,
+          'typeof clicks_on_link': typeof batch[0]?.clicks_on_link
+        });
         
         const { data, error } = await supabase
           .from('metrics_cache')
