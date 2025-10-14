@@ -646,7 +646,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               clicks: 0,
               impressions: 0,
               duration_sum: 0,
-              days_count: 0
+              days_count: 0,
+              cost_from_sources: 0,
+              clicks_on_link: 0
             };
             
             first4Days.forEach(day => {
@@ -656,6 +658,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               aggregated.impressions += day.impressions || 0;
               aggregated.duration_sum += day.avg_duration || 0;
               aggregated.days_count += 1;
+              aggregated.cost_from_sources += day.cost_from_sources || 0;
+              aggregated.clicks_on_link += day.clicks_on_link || 0;
             });
             
             // Вычисляем производные метрики
