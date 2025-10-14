@@ -157,17 +157,23 @@ export class MetricsService {
     let skippedNoVideoName = 0;
     let newVideosAdded = 0;
     
-    // 🔥 ДИАГНОСТИКА: Проверяем первую строку из БД API
+    // 🔥 ДИАГНОСТИКА: Проверяем первые 5 строк из БД API
     if (data && data.length > 0) {
-      console.log('🔥 ПЕРВАЯ СТРОКА ИЗ БД API:', {
-        video_name: data[0].video_name,
-        kind: data[0].kind,
-        leads: data[0].leads,
-        cost: data[0].cost,
-        cost_from_sources: data[0].cost_from_sources,
-        clicks_on_link: data[0].clicks_on_link,
-        allKeys: Object.keys(data[0])
-      });
+      console.log('🔥🔥🔥 ПЕРВЫЕ 5 СТРОК ИЗ БД API:');
+      for (let i = 0; i < Math.min(5, data.length); i++) {
+        console.log(`Строка ${i}:`, {
+          video_name: data[i].video_name,
+          kind: data[i].kind,
+          date: data[i].adv_date,
+          leads: data[i].leads,
+          cost: data[i].cost,
+          cost_from_sources: data[i].cost_from_sources,
+          clicks_on_link: data[i].clicks_on_link,
+          'RAW cost_from_sources': data[i]['cost_from_sources'],
+          'RAW clicks_on_link': data[i]['clicks_on_link']
+        });
+      }
+      console.log('🔥🔥🔥 ВСЕ КЛЮЧИ ПЕРВОЙ СТРОКИ:', Object.keys(data[0]));
     }
     
     data.forEach((row, index) => {
