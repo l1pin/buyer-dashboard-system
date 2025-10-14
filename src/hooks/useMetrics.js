@@ -229,15 +229,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
                   // Преобразуем к формату rawMetrics
                   const allDailyData = videoResult.daily.map(d => ({
-  date: d.date,
-  valid: d.valid,
-  cost: d.cost,
-  clicks_on_link_tracker: d.clicks_on_link_tracker,
-  showed: d.showed,
-  average_time_on_video: d.average_time_on_video,
-  cost_from_sources: d.cost_from_sources,
-  clicks_on_link: d.clicks_on_link
-}));
+                    date: d.date,
+                    leads: d.leads,
+                    cost: d.cost,
+                    clicks: d.clicks,
+                    impressions: d.impressions,
+                    avg_duration: d.avg_duration
+                  }));
 
                   const aggregates = MetricsService.aggregateDailyData(allDailyData);
                   const metrics = MetricsService.computeDerivedMetrics(aggregates);
@@ -353,90 +351,58 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           });
           
           try {
-            // 🔥 КОНФИГУРАЦИЯ ПАРАЛЛЕЛЬНЫХ LIKE ЗАПРОСОВ
-            const LIKE_BATCH_SIZE = 20;           // Размер одного батча (видео)
-            const PARALLEL_LIKE_REQUESTS = 2;     // Количество параллельных запросов
-            
-            console.log(`⚙️ Конфигурация LIKE:`, {
-              batchSize: LIKE_BATCH_SIZE,
-              parallelRequests: PARALLEL_LIKE_REQUESTS,
-              totalVideos: videosWithoutMetrics.length
-            });
-            
-            // Разбиваем на батчи
+            // 🔥 ЧАНКИНГ: Разбиваем на батчи по 5 видео
+            const LIKE_BATCH_SIZE = 5;
             const likeChunks = [];
+            
             for (let i = 0; i < videosWithoutMetrics.length; i += LIKE_BATCH_SIZE) {
               likeChunks.push(videosWithoutMetrics.slice(i, i + LIKE_BATCH_SIZE));
             }
             
-            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ~${LIKE_BATCH_SIZE} видео`);
-            likeChunks.forEach((chunk, idx) => {
-              console.log(`  Батч ${idx + 1}: ${chunk.length} видео`);
-            });
+            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ${LIKE_BATCH_SIZE} видео`);
             
             // Собираем все результаты
             const allLikeResults = [];
             
-            // 🔥 ПАРАЛЛЕЛЬНАЯ ОБРАБОТКА БАТЧЕЙ
-            for (let roundStart = 0; roundStart < likeChunks.length; roundStart += PARALLEL_LIKE_REQUESTS) {
-              const roundEnd = Math.min(roundStart + PARALLEL_LIKE_REQUESTS, likeChunks.length);
-              const roundChunks = likeChunks.slice(roundStart, roundEnd);
-              const roundNumber = Math.floor(roundStart / PARALLEL_LIKE_REQUESTS) + 1;
-              const totalRounds = Math.ceil(likeChunks.length / PARALLEL_LIKE_REQUESTS);
+            for (let chunkIndex = 0; chunkIndex < likeChunks.length; chunkIndex++) {
+              const chunk = likeChunks[chunkIndex];
               
-              console.log('═══════════════════════════════════════════════');
-              console.log(`🔄 РАУНД ${roundNumber}/${totalRounds}: запускаем ${roundChunks.length} батчей параллельно`);
-              console.log('═══════════════════════════════════════════════');
+              console.log('─────────────────────────────────────────────');
+              console.log(`🔄 LIKE батч ${chunkIndex + 1}/${likeChunks.length}: ${chunk.length} видео`);
+              console.log('📋 Видео в батче:', chunk);
               
-              // Создаем промисы для параллельных запросов
-              const roundPromises = roundChunks.map((chunk, localIdx) => {
-                const globalIdx = roundStart + localIdx;
-                
-                console.log(`🚀 Запуск батча ${globalIdx + 1}/${likeChunks.length}: ${chunk.length} видео`);
-                console.log(`   Видео:`, chunk.slice(0, 3), chunk.length > 3 ? `...и еще ${chunk.length - 3}` : '');
-                
-                return MetricsService.getBatchVideoMetrics(chunk, {
+              try {
+                const likeBatchResult = await MetricsService.getBatchVideoMetrics(chunk, {
                   kind: 'daily_first4_total',
                   useCache: false,
                   useLike: true
-                })
-                  .then(result => {
-                    console.log(`✅ Батч ${globalIdx + 1} завершен:`, {
-                      success: result.success,
-                      resultsCount: result.results?.length || 0,
-                      error: result.error
-                    });
-                    return { success: true, batchIndex: globalIdx, result };
-                  })
-                  .catch(error => {
-                    console.error(`❌ Батч ${globalIdx + 1} упал:`, error.message);
-                    return { success: false, batchIndex: globalIdx, error: error.message };
-                  });
-              });
-              
-              // Ждем завершения всех параллельных запросов раунда
-              console.log(`⏳ Ожидание завершения ${roundPromises.length} параллельных запросов...`);
-              const roundResults = await Promise.all(roundPromises);
-              
-              // Обрабатываем результаты раунда
-              roundResults.forEach(({ success, batchIndex, result, error }) => {
-                if (success && result.success && result.results) {
-                  allLikeResults.push(...result.results);
-                  console.log(`✅ Раунд ${roundNumber}, батч ${batchIndex + 1}: добавлено ${result.results.length} результатов`);
+                });
+                
+                console.log(`📥 Батч ${chunkIndex + 1} завершен:`, {
+                  success: likeBatchResult.success,
+                  resultsCount: likeBatchResult.results?.length,
+                  error: likeBatchResult.error
+                });
+                
+                if (likeBatchResult.success && likeBatchResult.results) {
+                  allLikeResults.push(...likeBatchResult.results);
+                  console.log(`✅ Батч ${chunkIndex + 1}: добавлено ${likeBatchResult.results.length} результатов`);
                 } else {
-                  console.warn(`⚠️ Раунд ${roundNumber}, батч ${batchIndex + 1}: ${error || 'нет результатов'}`);
+                  console.warn(`⚠️ Батч ${chunkIndex + 1}: ошибка или нет результатов`);
                 }
-              });
-              
-              console.log(`🎯 Раунд ${roundNumber} завершен. Собрано результатов: ${allLikeResults.length}`);
-              
-              // Задержка между раундами (если не последний раунд)
-              if (roundEnd < likeChunks.length) {
-                console.log('⏳ Задержка 1 секунда перед следующим раундом...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Задержка между батчами (500ms)
+                if (chunkIndex < likeChunks.length - 1) {
+                  console.log('⏳ Задержка 500ms перед следующим батчем...');
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+              } catch (chunkError) {
+                console.error(`❌ Ошибка батча ${chunkIndex + 1}:`, chunkError.message);
+                // Продолжаем со следующим батчем
               }
             }
-              
+            
             console.log('═══════════════════════════════════════════════');
             console.log(`🎯 LIKE поиск завершен: всего найдено ${allLikeResults.length} результатов`);
             console.log('═══════════════════════════════════════════════');
@@ -524,15 +490,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 
                 // Преобразуем к формату rawMetrics
                 const allDailyData = videoResult.daily.map(d => ({
-  date: d.date,
-  valid: d.valid,
-  cost: d.cost,
-  clicks_on_link_tracker: d.clicks_on_link_tracker,
-  showed: d.showed,
-  average_time_on_video: d.average_time_on_video,
-  cost_from_sources: d.cost_from_sources,
-  clicks_on_link: d.clicks_on_link
-}));
+                  date: d.date,
+                  leads: d.leads,
+                  cost: d.cost,
+                  clicks: d.clicks,
+                  impressions: d.impressions,
+                  avg_duration: d.avg_duration
+                }));
 
                 const aggregates = MetricsService.aggregateDailyData(allDailyData);
                 const metrics = MetricsService.computeDerivedMetrics(aggregates);
@@ -650,9 +614,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               clicks: 0,
               impressions: 0,
               duration_sum: 0,
-              days_count: 0,
-              cost_from_sources: 0,
-              clicks_on_link: 0
+              days_count: 0
             };
             
             first4Days.forEach(day => {
@@ -662,16 +624,14 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               aggregated.impressions += day.impressions || 0;
               aggregated.duration_sum += day.avg_duration || 0;
               aggregated.days_count += 1;
-              aggregated.cost_from_sources += day.cost_from_sources || 0;
-              aggregated.clicks_on_link += day.clicks_on_link || 0;
             });
             
-            // Вычисляем производные метрики (НОВЫЕ ФОРМУЛЫ!)
+            // Вычисляем производные метрики
             const avg_duration = aggregated.days_count > 0 ? aggregated.duration_sum / aggregated.days_count : 0;
             const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
-            const cpc = aggregated.clicks_on_link > 0 ? aggregated.cost_from_sources / aggregated.clicks_on_link : 0;
-            const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
+            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
+            const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
+            const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
             
             const raw = {
               leads: aggregated.leads,
@@ -680,8 +640,6 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               impressions: aggregated.impressions,
               avg_duration: Number(avg_duration.toFixed(2)),
               days_count: aggregated.days_count,
-              cost_from_sources: Number(aggregated.cost_from_sources.toFixed(2)),
-              clicks_on_link: aggregated.clicks_on_link,
               cpl: Number(cpl.toFixed(2)),
               ctr_percent: Number(ctr_percent.toFixed(2)),
               cpc: Number(cpc.toFixed(2)),
@@ -1172,10 +1130,10 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
         
         if (metrics && metrics.found && metrics.data) {
           const data = metrics.data.raw;
-          totalLeads += data.valid || 0;
+          totalLeads += data.leads || 0;
           totalCost += data.cost || 0;
-          totalClicks += data.clicks_on_link_tracker || 0;
-          totalImpressions += data.showed || 0;
+          totalClicks += data.clicks || 0;
+          totalImpressions += data.impressions || 0;
           totalDays += data.days_count || 0;
           videosWithMetrics++;
           creativeHasMetrics = true;
