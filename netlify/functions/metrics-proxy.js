@@ -12,8 +12,8 @@ const CONFIG = {
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
   
   // Таймауты и ретраи
-  FETCH_TIMEOUT_MS: 15000,       // 15 секунд на один SQL-запрос
-  MAX_RETRIES: 2,                // Количество повторов при ошибках
+  FETCH_TIMEOUT_MS: 40000,       // 40 секунд на один SQL-запрос (для fuzzy)
+  MAX_RETRIES: 1,                // Уменьшили количество повторов (не тратим время)
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
   
   // Кэширование
@@ -85,6 +85,55 @@ class SQLBuilder {
     return String(str).replace(/'/g, "''");
   }
 
+  /**
+   * НОВАЯ ФУНКЦИЯ: Парсинг структуры названия видео
+   * Извлекает артикул, дату, расширение
+   * Примеры:
+   * - Y02026 Набор для лепки 150825 VovaK 4x5.mp4
+   * - Y01452-Мягкая игрушка 300925 Daria 4x5.mp4
+   * - C01850 PL - Набір мисок (2шт.) 110925 DimaP v9_16.mp4
+   */
+  static parseVideoStructure(fileName) {
+    if (!fileName) return null;
+    
+    const result = {
+      original: fileName,
+      article: null,
+      date: null,
+      extension: null,
+      hasStructure: false
+    };
+    
+    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ, после - пробел/тире/символ
+    const articleMatch = fileName.match(/^([A-Z]\d{4,5})(?=[\s\-–—_])/i);
+    if (articleMatch) {
+      result.article = articleMatch[1].toUpperCase();
+    }
+    
+    // ДАТА: 6 цифр МЕЖДУ пробелами (не в начале, не в конце)
+    const dateMatch = fileName.match(/\s(\d{6})(?=\s)/);
+    if (dateMatch) {
+      result.date = dateMatch[1];
+    }
+    
+    // РАСШИРЕНИЕ
+    const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
+    if (extMatch) {
+      result.extension = extMatch[0].toLowerCase();
+    }
+    
+    result.hasStructure = !!(result.article && result.date);
+    
+    // ДИАГНОСТИКА
+    if (result.hasStructure) {
+      console.log(`✅ Структура найдена: ${fileName} → article="${result.article}", date="${result.date}"`);
+    } else {
+      console.log(`⚠️ Структура НЕ найдена: ${fileName} → article=${result.article}, date=${result.date}`);
+    }
+    
+    return result;
+  }
+
   static estimateSQLSize(videoNames, dateFrom, dateTo, kind) {
     // Оценка размера SQL-запроса в байтах
     const baseQuery = 1500; // Базовый шаблон SQL
@@ -95,12 +144,12 @@ class SQLBuilder {
     return baseQuery + (videoNames.length * perName) + dateFilter + kindOverhead;
   }
 
-  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily') {
+  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily', fuzzySearch = false) {
     if (!videoNames || videoNames.length === 0) {
       throw new Error('videoNames не может быть пустым');
     }
 
-    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
+    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind, 'fuzzy:', fuzzySearch);
     console.log('📋 ВСЕ названия видео:');
     videoNames.forEach((name, i) => {
       console.log(`  [${i}]: "${name}"`);
@@ -123,23 +172,53 @@ class SQLBuilder {
 
     // Выбираем шаблон SQL в зависимости от kind
     if (kind === 'daily_first4_total') {
-      return this._buildDailyFirst4TotalSQL(valuesClause, dateFilter);
+      return this._buildDailyFirst4TotalSQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'daily') {
-      return this._buildDailySQL(valuesClause, dateFilter);
+      return this._buildDailySQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'first4') {
-      return this._buildFirst4SQL(valuesClause, dateFilter);
+      return this._buildFirst4SQL(valuesClause, dateFilter, fuzzySearch);
     } else if (kind === 'total') {
-      return this._buildTotalSQL(valuesClause, dateFilter);
+      return this._buildTotalSQL(valuesClause, dateFilter, fuzzySearch);
     } else {
       // По умолчанию - daily
-      return this._buildDailySQL(valuesClause, dateFilter);
+      return this._buildDailySQL(valuesClause, dateFilter, fuzzySearch);
     }
   }
 
-  static _buildDailySQL(valuesClause, dateFilter) {
+  static _buildDailySQL(valuesClause, dateFilter, fuzzySearch = false) {
     // НЕ используем replace - он удаляет скобки из названий видео!
     // Вместо этого извлекаем названия из VALUES и формируем IN напрямую
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    
+    if (fuzzySearch) {
+      // Для fuzzy search используем LIKE с % с обеих сторон
+      const likeConditions = names.map(name => {
+        // Убираем кавычки из имени и добавляем % с обеих сторон
+        const cleanName = name.replace(/^'|'$/g, '');
+        return `t.video_name LIKE '%${cleanName}%'`;
+      }).join(' OR ');
+      
+      console.log('🔍 LIKE clause для daily (fuzzy):');
+      console.log(likeConditions);
+      
+      return `
+SELECT 
+  'daily' as kind,
+  t.video_name,
+  t.adv_date,
+  COALESCE(SUM(t.valid), 0) AS leads,
+  COALESCE(SUM(t.cost), 0) AS cost,
+  COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+  COALESCE(SUM(t.showed), 0) AS impressions,
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
+FROM ads_collection t
+WHERE (${likeConditions})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  ${dateFilter}
+GROUP BY t.video_name, t.adv_date
+ORDER BY t.video_name, t.adv_date`;
+    }
+    
     const inClause = names.join(',');
     
     console.log('📋 IN clause для daily:');
@@ -163,9 +242,84 @@ GROUP BY t.video_name, t.adv_date
 ORDER BY t.video_name, t.adv_date`;
   }
 
-  static _buildFirst4SQL(valuesClause, dateFilter) {
+  static _buildFirst4SQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
+      
+      names.forEach(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        const parsed = this.parseVideoStructure(cleanName);
+        
+        if (parsed && parsed.hasStructure) {
+          withStructure.push(parsed);
+        } else {
+          withoutStructure.push(cleanName);
+        }
+      });
+      
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 
@@ -188,7 +342,7 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -198,9 +352,84 @@ GROUP BY video_name
 ORDER BY video_name`;
   }
 
-  static _buildTotalSQL(valuesClause, dateFilter) {
+  static _buildTotalSQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
+      
+      names.forEach(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        const parsed = this.parseVideoStructure(cleanName);
+        
+        if (parsed && parsed.hasStructure) {
+          withStructure.push(parsed);
+        } else {
+          withoutStructure.push(cleanName);
+        }
+      });
+      
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 
@@ -222,7 +451,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -231,9 +460,84 @@ GROUP BY video_name
 ORDER BY video_name`;
   }
 
-  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
+  static _buildDailyFirst4TotalSQL(valuesClause, dateFilter, fuzzySearch = false) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
-    const inClause = names.join(',');
+    
+    let whereClause;
+    if (fuzzySearch) {
+      // УМНЫЙ КАСКАДНЫЙ ПОИСК по структуре видео
+      const withStructure = [];
+      const withoutStructure = [];
+      
+      names.forEach(name => {
+        const cleanName = name.replace(/^'|'$/g, '');
+        const parsed = this.parseVideoStructure(cleanName);
+        
+        if (parsed && parsed.hasStructure) {
+          withStructure.push(parsed);
+        } else {
+          withoutStructure.push(cleanName);
+        }
+      });
+      
+      const conditions = [];
+      
+      // ПРИОРИТЕТ 1: Видео со структурой (артикул + дата) - БЫСТРО
+      if (withStructure.length > 0) {
+        const byDate = new Map();
+        
+        withStructure.forEach(parsed => {
+          if (!byDate.has(parsed.date)) {
+            byDate.set(parsed.date, []);
+          }
+          byDate.get(parsed.date).push(parsed.article);
+        });
+        
+        byDate.forEach((articles, date) => {
+          const articleConditions = articles.map(art =>
+            `(t.video_name LIKE '${this.escapeString(art)}%' AND t.video_name LIKE '% ${this.escapeString(date)} %')`
+          ).join(' OR ');
+          
+          conditions.push(`(${articleConditions})`);
+        });
+      }
+      
+      // ПРИОРИТЕТ 2: Видео без структуры - fallback
+      if (withoutStructure.length > 0) {
+        const namesByLetter = new Map();
+        
+        withoutStructure.forEach(cleanName => {
+          const articleMatch = cleanName.match(/^[A-Z]/);
+          const letter = articleMatch ? articleMatch[0] : 'OTHER';
+          
+          if (!namesByLetter.has(letter)) {
+            namesByLetter.set(letter, []);
+          }
+          namesByLetter.get(letter).push(cleanName);
+        });
+        
+        const letterConditions = [];
+        
+        namesByLetter.forEach((namesGroup, letter) => {
+          const likeList = namesGroup.map(n => `t.video_name LIKE '%${n}%'`).join(' OR ');
+          
+          if (letter !== 'OTHER') {
+            letterConditions.push(`(t.video_name LIKE '${letter}%' AND (${likeList}))`);
+          } else {
+            letterConditions.push(`(${likeList})`);
+          }
+        });
+        
+        if (letterConditions.length > 0) {
+          conditions.push(`(${letterConditions.join(' OR ')})`);
+        }
+      }
+      
+      whereClause = conditions.join(' OR ');
+    } else {
+      const inClause = names.join(',');
+      whereClause = `t.video_name IN (${inClause})`;
+    }
     
     return `
 SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
@@ -247,7 +551,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -265,7 +569,7 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -284,7 +588,7 @@ FROM (
     COALESCE(SUM(t.showed), 0) AS impressions,
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration
   FROM ads_collection t
-  WHERE t.video_name IN (${inClause})
+  WHERE ${whereClause}
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
   GROUP BY t.video_name, t.adv_date
@@ -459,7 +763,7 @@ class WorkerPool {
     this.concurrency = concurrency;
   }
 
-  async processChunks(chunks, dateFrom, dateTo, kind) {
+  async processChunks(chunks, dateFrom, dateTo, kind, fuzzySearch = false) {
     const results = [];
     const queue = [...chunks];
     let processed = 0;
@@ -468,7 +772,7 @@ class WorkerPool {
 
     const workers = [];
     for (let i = 0; i < this.concurrency; i++) {
-      workers.push(this._worker(queue, dateFrom, dateTo, kind, results, processed, chunks.length));
+      workers.push(this._worker(queue, dateFrom, dateTo, kind, results, processed, chunks.length, fuzzySearch));
     }
 
     await Promise.allSettled(workers);
@@ -479,7 +783,7 @@ class WorkerPool {
     return results.flat();
   }
 
-  async _worker(queue, dateFrom, dateTo, kind, results, processed, total) {
+  async _worker(queue, dateFrom, dateTo, kind, results, processed, total, fuzzySearch = false) {
     while (queue.length > 0) {
       const chunk = queue.shift();
       if (!chunk) break;
@@ -491,7 +795,7 @@ class WorkerPool {
           console.log(`  [${idx}]: "${name}"`);
         });
         
-        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
+        const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, fuzzySearch);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
         console.log('=====================================');
         console.log('📝 ПОЛНЫЙ SQL:');
@@ -582,7 +886,7 @@ exports.handler = async (event, context) => {
     }
 
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
-    const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
+    const { video_names, date_from, date_to, kind = 'daily', fuzzy_search = false } = requestBody;
 
     console.log('🔍 ДИАГНОСТИКА ЗАПРОСА:');
     console.log('  📋 video_names тип:', typeof video_names, 'isArray:', Array.isArray(video_names));
@@ -649,7 +953,7 @@ exports.handler = async (event, context) => {
 
     // Обрабатываем через пул воркеров
     const pool = new WorkerPool(CONFIG.PARALLEL_CHUNKS);
-    const results = await pool.processChunks(chunks, date_from, date_to, kind);
+    const results = await pool.processChunks(chunks, date_from, date_to, kind, fuzzy_search);
 
     // Нормализуем результаты
     const normalizedResults = normalizeResults(results);
