@@ -1866,56 +1866,40 @@ export const metricsAnalyticsService = {
 
   // Сервис для кэширования метрик
   async saveMetricsCache(creativeId, article, videoIndex, videoTitle, metricsData, period = 'all') {
-  try {
-    // Извлекаем только базовые метрики из metricsData
-    const rawMetrics = metricsData.raw || metricsData;
-    
-    console.log('💾 Сохранение метрик в кэш:', {
-      creativeId,
-      videoIndex,
-      period,
-      rawMetrics: {
-        leads: rawMetrics.leads,
-        cost: rawMetrics.cost,
-        clicks: rawMetrics.clicks,
-        impressions: rawMetrics.impressions
-      }
-    });
-    
-    const { data, error } = await supabase
-      .from('metrics_cache')
-      .upsert([
-        {
-          creative_id: creativeId,
-          article: article,
-          video_index: videoIndex,
-          video_title: videoTitle,
-          period: period,
-          // ПРАВИЛЬНЫЙ маппинг: новые колонки БД <- старые поля из rawMetrics
-          valid: rawMetrics.leads || rawMetrics.valid || 0,
-          cost: rawMetrics.cost || 0,
-          clicks_on_link_tracker: rawMetrics.clicks || rawMetrics.clicks_on_link_tracker || 0,
-          showed: rawMetrics.impressions || rawMetrics.showed || 0,
-          average_time_on_video: rawMetrics.avg_duration || rawMetrics.average_time_on_video || 0,
-          days_count: rawMetrics.days_count || 0,
-          cost_from_sources: rawMetrics.cost_from_sources || 0,
-          clicks_on_link: rawMetrics.clicks_on_link || 0,
-          cached_at: new Date().toISOString()
-        }
-      ], {
-        onConflict: 'creative_id,video_index,period'
-      })
-      .select();
+    try {
+      // Извлекаем только базовые метрики из metricsData
+      const rawMetrics = metricsData.raw || metricsData;
+      
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .upsert([
+          {
+            creative_id: creativeId,
+            article: article,
+            video_index: videoIndex,
+            video_title: videoTitle,
+            period: period,
+            // Базовые метрики в отдельных колонках
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
+            cached_at: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'creative_id,video_index,period'
+        })
+        .select();
 
-    if (error) throw error;
-    
-    console.log('✅ Метрики сохранены:', data[0]);
-    return data[0];
-  } catch (error) {
-    console.error('❌ Ошибка сохранения кэша метрик:', error);
-    return null;
-  }
-},
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      console.error('Ошибка сохранения кэша метрик:', error);
+      return null;
+    }
+  },
 
   // ⚡ НОВАЯ ФУНКЦИЯ: Батчевое сохранение метрик в кэш
   async saveBatchMetricsCache(metricsArray) {
@@ -1955,40 +1939,36 @@ export const metricsAnalyticsService = {
           // Метрики с данными
           const rawMetrics = m.metricsData.raw;
           dataToInsert.push({
-  creative_id: m.creativeId,
-  article: m.article,
-  video_index: m.videoIndex,
-  video_title: m.videoTitle,
-  period: m.period || 'all',
-  valid: rawMetrics.leads || rawMetrics.valid || 0,
-  cost: rawMetrics.cost || 0,
-  clicks_on_link_tracker: rawMetrics.clicks || rawMetrics.clicks_on_link_tracker || 0,
-  showed: rawMetrics.impressions || rawMetrics.showed || 0,
-  average_time_on_video: rawMetrics.avg_duration || rawMetrics.average_time_on_video || 0,
-  days_count: rawMetrics.days_count || 0,
-  cost_from_sources: rawMetrics.cost_from_sources || 0,
-  clicks_on_link: rawMetrics.clicks_on_link || 0,
-  cached_at: new Date().toISOString()
-});
+            creative_id: m.creativeId,
+            article: m.article,
+            video_index: m.videoIndex,
+            video_title: m.videoTitle,
+            period: m.period || 'all',
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
+            cached_at: new Date().toISOString()
+          });
         } else {
           console.log(`⚪ Метрика ${index + 1} БЕЗ ДАННЫХ (NULL)`);
           // Метрики БЕЗ данных - все поля NULL
           dataToInsert.push({
-  creative_id: m.creativeId,
-  article: m.article,
-  video_index: m.videoIndex,
-  video_title: m.videoTitle,
-  period: m.period || 'all',
-  valid: null,
-  cost: null,
-  clicks_on_link_tracker: null,
-  showed: null,
-  average_time_on_video: null,
-  days_count: null,
-  cost_from_sources: null,
-  clicks_on_link: null,
-  cached_at: new Date().toISOString()
-});
+            creative_id: m.creativeId,
+            article: m.article,
+            video_index: m.videoIndex,
+            video_title: m.videoTitle,
+            period: m.period || 'all',
+            leads: null,
+            cost: null,
+            clicks: null,
+            impressions: null,
+            avg_duration: null,
+            days_count: null,
+            cached_at: new Date().toISOString()
+          });
         }
       });
 
@@ -2054,12 +2034,12 @@ export const metricsAnalyticsService = {
   async getMetricsCache(creativeId, videoIndex, period = 'all') {
     try {
       const { data, error } = await supabase
-  .from('metrics_cache')
-  .select('creative_id, article, video_index, video_title, period, valid, cost, clicks_on_link_tracker, showed, average_time_on_video, days_count, cost_from_sources, clicks_on_link, cached_at')
-  .eq('creative_id', creativeId)
-  .eq('video_index', videoIndex)
-  .eq('period', period)
-  .single();
+        .from('metrics_cache')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .eq('creative_id', creativeId)
+        .eq('video_index', videoIndex)
+        .eq('period', period) // Загружаем для ЗАПРОШЕННОГО периода
+        .single();
 
       if (error && error.code !== 'PGRST116') throw error;
       
@@ -2086,10 +2066,10 @@ export const metricsAnalyticsService = {
 
       // КРИТИЧНО: НЕ используем select('*') из-за JSONB поля metrics_data
       const { data, error } = await supabase
-  .from('metrics_cache')
-  .select('creative_id, article, video_index, video_title, period, valid, cost, clicks_on_link_tracker, showed, average_time_on_video, days_count, cost_from_sources, clicks_on_link, cached_at')
-  .in('creative_id', creativeIds)
-  .eq('period', period); // Загружаем для ЗАПРОШЕННОГО периода
+        .from('metrics_cache')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .in('creative_id', creativeIds)
+        .eq('period', period); // Загружаем для ЗАПРОШЕННОГО периода
 
       if (error) {
         console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
@@ -2154,10 +2134,10 @@ export const metricsAnalyticsService = {
     });
 
     // КРИТИЧНО: Проверяем, все ли поля NULL (нет данных)
-    const isAllNull = cacheData.valid === null && 
-                  cacheData.cost === null && 
-                  cacheData.clicks_on_link_tracker === null && 
-                  cacheData.showed === null;
+    const isAllNull = cacheData.leads === null && 
+                      cacheData.cost === null && 
+                      cacheData.clicks === null && 
+                      cacheData.impressions === null;
 
     if (isAllNull) {
       console.log('⚪ Все метрики NULL - возвращаем found: false');
@@ -2180,24 +2160,22 @@ export const metricsAnalyticsService = {
     }
 
     // Базовые метрики из отдельных колонок
-    const valid = Number(cacheData.valid) || 0;
-const cost = Number(cacheData.cost) || 0;
-const clicks_on_link_tracker = Number(cacheData.clicks_on_link_tracker) || 0;
-const showed = Number(cacheData.showed) || 0;
-const average_time_on_video = Number(cacheData.average_time_on_video) || 0;
-const days_count = Number(cacheData.days_count) || 0;
-const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
-const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
+    const leads = Number(cacheData.leads) || 0;
+    const cost = Number(cacheData.cost) || 0;
+    const clicks = Number(cacheData.clicks) || 0;
+    const impressions = Number(cacheData.impressions) || 0;
+    const avg_duration = Number(cacheData.avg_duration) || 0;
+    const days_count = Number(cacheData.days_count) || 0;
 
     console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
-      valid, cost, clicks_on_link_tracker, showed, average_time_on_video, days_count
+      leads, cost, clicks, impressions, avg_duration, days_count
     });
 
-    // Вычисляем производные метрики на клиенте (НОВЫЕ ФОРМУЛЫ!)
-    const cpl = valid > 0 ? cost / valid : 0;
-const ctr_percent = showed > 0 ? (clicks_on_link / showed) * 100 : 0;
-const cpc = clicks_on_link > 0 ? cost_from_sources / clicks_on_link : 0;
-const cpm = showed > 0 ? (cost_from_sources / showed) * 1000 : 0;
+    // Вычисляем производные метрики на клиенте
+    const cpl = leads > 0 ? cost / leads : 0;
+    const ctr_percent = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const cpm = impressions > 0 ? (cost / impressions) * 1000 : 0;
 
     // Форматируем метрики
     const formatInt = (n) => String(Math.round(Number(n) || 0));
@@ -2219,31 +2197,29 @@ const cpm = showed > 0 ? (cost_from_sources / showed) * 1000 : 0;
       found: true,
       data: {
         raw: {
-  valid,
-  cost: Number(cost.toFixed(2)),
-  clicks_on_link_tracker,
-  showed,
-  average_time_on_video: Number(average_time_on_video.toFixed(2)),
-  days_count,
-  cost_from_sources: Number(cost_from_sources.toFixed(2)),
-  clicks_on_link,
-  cpl: Number(cpl.toFixed(2)),
-  ctr_percent: Number(ctr_percent.toFixed(2)),
-  cpc: Number(cpc.toFixed(2)),
-  cpm: Number(cpm.toFixed(2))
-},
-formatted: {
-  leads: formatInt(valid),
-  cpl: formatMoney(cpl),
-  cost: formatMoney(cost),
-  ctr: formatPercent(ctr_percent),
-  cpc: formatMoney(cpc),
-  cpm: formatMoney(cpm),
-  clicks: formatInt(clicks_on_link_tracker),
-  impressions: formatInt(showed),
-  avg_duration: formatDuration(average_time_on_video),
-  days: formatInt(days_count) + " дн."
-},
+          leads,
+          cost: Number(cost.toFixed(2)),
+          clicks,
+          impressions,
+          avg_duration: Number(avg_duration.toFixed(2)),
+          days_count,
+          cpl: Number(cpl.toFixed(2)),
+          ctr_percent: Number(ctr_percent.toFixed(2)),
+          cpc: Number(cpc.toFixed(2)),
+          cpm: Number(cpm.toFixed(2))
+        },
+        formatted: {
+          leads: formatInt(leads),
+          cpl: formatMoney(cpl),
+          cost: formatMoney(cost),
+          ctr: formatPercent(ctr_percent),
+          cpc: formatMoney(cpc),
+          cpm: formatMoney(cpm),
+          clicks: formatInt(clicks),
+          impressions: formatInt(impressions),
+          avg_duration: formatDuration(avg_duration),
+          days: formatInt(days_count) + " дн."
+        },
         videoName: cacheData.video_title,
         period: cacheData.period,
         fromCache: true,
