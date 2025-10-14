@@ -351,58 +351,90 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           });
           
           try {
-            // 🔥 ЧАНКИНГ: Разбиваем на батчи по 5 видео
-            const LIKE_BATCH_SIZE = 5;
-            const likeChunks = [];
+            // 🔥 КОНФИГУРАЦИЯ ПАРАЛЛЕЛЬНЫХ LIKE ЗАПРОСОВ
+            const LIKE_BATCH_SIZE = 20;           // Размер одного батча (видео)
+            const PARALLEL_LIKE_REQUESTS = 2;     // Количество параллельных запросов
             
+            console.log(`⚙️ Конфигурация LIKE:`, {
+              batchSize: LIKE_BATCH_SIZE,
+              parallelRequests: PARALLEL_LIKE_REQUESTS,
+              totalVideos: videosWithoutMetrics.length
+            });
+            
+            // Разбиваем на батчи
+            const likeChunks = [];
             for (let i = 0; i < videosWithoutMetrics.length; i += LIKE_BATCH_SIZE) {
               likeChunks.push(videosWithoutMetrics.slice(i, i + LIKE_BATCH_SIZE));
             }
             
-            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ${LIKE_BATCH_SIZE} видео`);
+            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ~${LIKE_BATCH_SIZE} видео`);
+            likeChunks.forEach((chunk, idx) => {
+              console.log(`  Батч ${idx + 1}: ${chunk.length} видео`);
+            });
             
             // Собираем все результаты
             const allLikeResults = [];
             
-            for (let chunkIndex = 0; chunkIndex < likeChunks.length; chunkIndex++) {
-              const chunk = likeChunks[chunkIndex];
+            // 🔥 ПАРАЛЛЕЛЬНАЯ ОБРАБОТКА БАТЧЕЙ
+            for (let roundStart = 0; roundStart < likeChunks.length; roundStart += PARALLEL_LIKE_REQUESTS) {
+              const roundEnd = Math.min(roundStart + PARALLEL_LIKE_REQUESTS, likeChunks.length);
+              const roundChunks = likeChunks.slice(roundStart, roundEnd);
+              const roundNumber = Math.floor(roundStart / PARALLEL_LIKE_REQUESTS) + 1;
+              const totalRounds = Math.ceil(likeChunks.length / PARALLEL_LIKE_REQUESTS);
               
-              console.log('─────────────────────────────────────────────');
-              console.log(`🔄 LIKE батч ${chunkIndex + 1}/${likeChunks.length}: ${chunk.length} видео`);
-              console.log('📋 Видео в батче:', chunk);
+              console.log('═══════════════════════════════════════════════');
+              console.log(`🔄 РАУНД ${roundNumber}/${totalRounds}: запускаем ${roundChunks.length} батчей параллельно`);
+              console.log('═══════════════════════════════════════════════');
               
-              try {
-                const likeBatchResult = await MetricsService.getBatchVideoMetrics(chunk, {
+              // Создаем промисы для параллельных запросов
+              const roundPromises = roundChunks.map((chunk, localIdx) => {
+                const globalIdx = roundStart + localIdx;
+                
+                console.log(`🚀 Запуск батча ${globalIdx + 1}/${likeChunks.length}: ${chunk.length} видео`);
+                console.log(`   Видео:`, chunk.slice(0, 3), chunk.length > 3 ? `...и еще ${chunk.length - 3}` : '');
+                
+                return MetricsService.getBatchVideoMetrics(chunk, {
                   kind: 'daily_first4_total',
                   useCache: false,
                   useLike: true
-                });
-                
-                console.log(`📥 Батч ${chunkIndex + 1} завершен:`, {
-                  success: likeBatchResult.success,
-                  resultsCount: likeBatchResult.results?.length,
-                  error: likeBatchResult.error
-                });
-                
-                if (likeBatchResult.success && likeBatchResult.results) {
-                  allLikeResults.push(...likeBatchResult.results);
-                  console.log(`✅ Батч ${chunkIndex + 1}: добавлено ${likeBatchResult.results.length} результатов`);
+                })
+                  .then(result => {
+                    console.log(`✅ Батч ${globalIdx + 1} завершен:`, {
+                      success: result.success,
+                      resultsCount: result.results?.length || 0,
+                      error: result.error
+                    });
+                    return { success: true, batchIndex: globalIdx, result };
+                  })
+                  .catch(error => {
+                    console.error(`❌ Батч ${globalIdx + 1} упал:`, error.message);
+                    return { success: false, batchIndex: globalIdx, error: error.message };
+                  });
+              });
+              
+              // Ждем завершения всех параллельных запросов раунда
+              console.log(`⏳ Ожидание завершения ${roundPromises.length} параллельных запросов...`);
+              const roundResults = await Promise.all(roundPromises);
+              
+              // Обрабатываем результаты раунда
+              roundResults.forEach(({ success, batchIndex, result, error }) => {
+                if (success && result.success && result.results) {
+                  allLikeResults.push(...result.results);
+                  console.log(`✅ Раунд ${roundNumber}, батч ${batchIndex + 1}: добавлено ${result.results.length} результатов`);
                 } else {
-                  console.warn(`⚠️ Батч ${chunkIndex + 1}: ошибка или нет результатов`);
+                  console.warn(`⚠️ Раунд ${roundNumber}, батч ${batchIndex + 1}: ${error || 'нет результатов'}`);
                 }
-                
-                // Задержка между батчами (500ms)
-                if (chunkIndex < likeChunks.length - 1) {
-                  console.log('⏳ Задержка 500ms перед следующим батчем...');
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                }
-                
-              } catch (chunkError) {
-                console.error(`❌ Ошибка батча ${chunkIndex + 1}:`, chunkError.message);
-                // Продолжаем со следующим батчем
+              });
+              
+              console.log(`🎯 Раунд ${roundNumber} завершен. Собрано результатов: ${allLikeResults.length}`);
+              
+              // Задержка между раундами (если не последний раунд)
+              if (roundEnd < likeChunks.length) {
+                console.log('⏳ Задержка 1 секунда перед следующим раундом...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
               }
             }
-            
+              
             console.log('═══════════════════════════════════════════════');
             console.log(`🎯 LIKE поиск завершен: всего найдено ${allLikeResults.length} результатов`);
             console.log('═══════════════════════════════════════════════');
