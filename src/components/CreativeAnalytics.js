@@ -1019,7 +1019,8 @@ function CreativeAnalytics({ user }) {
   // Загрузка статусов Trello карточек
   const loadTrelloStatuses = async () => {
     try {
-      console.log('📋 Загрузка статусов Trello...');
+      console.log('🟢 loadTrelloStatuses СТАРТ');
+      console.log('📊 analytics.creatives:', analytics.creatives?.length || 0);
       
       // Получаем списки
       const lists = await trelloService.getAllLists();
@@ -1028,21 +1029,32 @@ function CreativeAnalytics({ user }) {
       
       // Получаем статусы для ВСЕХ креативов (не только filtered)
       const creativeIds = analytics.creatives.map(c => c.id);
-      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов...`);
+      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов`);
+      console.log('🆔 Первые 3 ID:', creativeIds.slice(0, 3));
       
       if (creativeIds.length > 0) {
         const statusMap = await trelloService.getBatchCardStatuses(creativeIds);
+        
+        console.log('🟡 ПЕРЕД setTrelloStatuses, размер Map:', statusMap.size);
+        
         setTrelloStatuses(statusMap);
-        console.log(`✅ Загружено ${statusMap.size} статусов Trello карточек`);
+        
+        console.log('🟢 ПОСЛЕ setTrelloStatuses');
+        console.log(`✅ Установлено ${statusMap.size} статусов в состояние`);
         
         // Выводим пример для отладки
         if (statusMap.size > 0) {
-          const firstStatus = Array.from(statusMap.values())[0];
-          console.log('📦 Пример статуса:', firstStatus);
+          const firstEntry = Array.from(statusMap.entries())[0];
+          console.log('📦 Первая пара [ID, статус]:', firstEntry);
         }
+      } else {
+        console.warn('⚠️ НЕТ креативов для загрузки статусов!');
       }
+      
+      console.log('🏁 loadTrelloStatuses ЗАВЕРШЕН');
     } catch (error) {
       console.error('❌ Ошибка загрузки Trello статусов:', error);
+      console.error('Stack:', error.stack);
     }
   };
 
@@ -1050,11 +1062,29 @@ function CreativeAnalytics({ user }) {
 
   // Получить название списка для креатива
   const getTrelloListName = (creativeId) => {
+    // Временное логирование для первого креатива
+    const isFirstCall = !window.__trelloDebugCalled;
+    if (isFirstCall) {
+      window.__trelloDebugCalled = true;
+      console.log('🔴 getTrelloListName ПЕРВЫЙ ВЫЗОВ');
+      console.log('📊 trelloStatuses.size:', trelloStatuses.size);
+      console.log('🆔 Ищем creativeId:', creativeId);
+      console.log('🗺️ Все ключи Map:', Array.from(trelloStatuses.keys()));
+    }
+    
     const status = trelloStatuses.get(creativeId);
+    
     if (!status) {
-      // console.log(`⚠️ Нет статуса для креатива ${creativeId}`);
+      if (isFirstCall) {
+        console.log('❌ Статус НЕ НАЙДЕН для', creativeId);
+      }
       return '—';
     }
+    
+    if (isFirstCall) {
+      console.log('✅ Статус НАЙДЕН:', status);
+    }
+    
     return status.list_name || '—';
   };
 
@@ -1204,7 +1234,6 @@ function CreativeAnalytics({ user }) {
     loadUsers();
     loadAnalytics();
     loadLastUpdateTime();
-    loadTrelloStatuses();
     
     // Подписка на изменения статусов Trello в реальном времени
     const subscription = trelloService.subscribeToCardStatuses((payload) => {
@@ -1229,6 +1258,18 @@ function CreativeAnalytics({ user }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Отдельный useEffect для загрузки Trello статусов ПОСЛЕ загрузки аналитики
+  useEffect(() => {
+    console.log('🔵 useEffect для Trello, analytics.creatives:', analytics.creatives?.length);
+    
+    if (analytics.creatives && analytics.creatives.length > 0) {
+      console.log('🟢 Запускаем loadTrelloStatuses...');
+      loadTrelloStatuses();
+    } else {
+      console.log('⚠️ analytics.creatives пуст, ждем...');
+    }
+  }, [analytics.creatives]);
 
   // Функция больше не нужна, autoLoad делает это автоматически
 
