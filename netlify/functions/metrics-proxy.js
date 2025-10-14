@@ -855,6 +855,24 @@ function normalizeResults(rawResults) {
         return;
       }
       
+      // 🔥🔥🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА
+      const cost_from_sources_raw = row.cost_from_sources;
+      const clicks_on_link_raw = row.clicks_on_link;
+      const cost_from_sources_converted = Number(cost_from_sources_raw) || 0;
+      const clicks_on_link_converted = Number(clicks_on_link_raw) || 0;
+      
+      if (processedCount < 3) {
+        console.log(`🔥🔥🔥 NETLIFY NORMALIZE ROW ${processedCount}:`, {
+          'row.cost_from_sources (RAW)': cost_from_sources_raw,
+          'row.clicks_on_link (RAW)': clicks_on_link_raw,
+          'typeof cost_from_sources': typeof cost_from_sources_raw,
+          'typeof clicks_on_link': typeof clicks_on_link_raw,
+          'Number(cost_from_sources)': cost_from_sources_converted,
+          'Number(clicks_on_link)': clicks_on_link_converted,
+          'video_name': row.video_name
+        });
+      }
+      
       normalized.push({
         kind: row.kind || 'daily',
         video_name: row.video_name,
@@ -864,8 +882,8 @@ function normalizeResults(rawResults) {
         clicks: Number(row.clicks) || 0,
         impressions: Number(row.impressions) || 0,
         avg_duration: Number(row.avg_duration) || 0,
-        cost_from_sources: Number(row.cost_from_sources) || 0,
-        clicks_on_link: Number(row.clicks_on_link) || 0
+        cost_from_sources: cost_from_sources_converted,
+        clicks_on_link: clicks_on_link_converted
       });
       processedCount++;
     });
