@@ -1279,6 +1279,100 @@ export const creativeService = {
   }
 };
 
+// Сервис для работы со статусами карточек Trello
+export const trelloService = {
+  // Получить статус карточки для креатива
+  async getCardStatus(creativeId) {
+    try {
+      const { data, error } = await supabase
+        .from('trello_card_statuses')
+        .select('*')
+        .eq('creative_id', creativeId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Ошибка получения статуса Trello карточки:', error);
+      return null;
+    }
+  },
+
+  // Получить статусы для нескольких креативов
+  async getBatchCardStatuses(creativeIds) {
+    try {
+      const { data, error } = await supabase
+        .from('trello_card_statuses')
+        .select('*')
+        .in('creative_id', creativeIds);
+
+      if (error) throw error;
+      
+      // Преобразуем в Map для быстрого доступа
+      const statusMap = new Map();
+      (data || []).forEach(status => {
+        statusMap.set(status.creative_id, status);
+      });
+      
+      return statusMap;
+    } catch (error) {
+      console.error('Ошибка получения батча статусов Trello:', error);
+      return new Map();
+    }
+  },
+
+  // Получить все списки (колонки) доски
+  async getAllLists() {
+    try {
+      const { data, error } = await supabase
+        .from('trello_lists')
+        .select('*')
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Ошибка получения списков Trello:', error);
+      return [];
+    }
+  },
+
+  // Подписаться на изменения статусов карточек
+  subscribeToCardStatuses(callback) {
+    return supabase
+      .channel('trello_card_statuses_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trello_card_statuses'
+        },
+        callback
+      )
+      .subscribe();
+  },
+
+  // Вызов функции настройки Trello webhook
+  async setupTrelloWebhook() {
+    try {
+      const response = await fetch('/.netlify/functions/trello-setup', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Setup failed');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Ошибка настройки Trello webhook:', error);
+      throw error;
+    }
+  }
+};
+
 export const metricsAnalyticsService = {
   async uploadMetrics(metricsData) {
     try {
