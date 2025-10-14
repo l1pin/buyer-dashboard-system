@@ -3249,8 +3249,14 @@ function CreativeAnalytics({ user }) {
                                 </div>
                               ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                  <span 
+                                    className="font-bold text-sm cursor-text select-text text-black relative group"
+                                    title={`Cost from sources: ${currentDisplayData.metrics.data.raw.cost_from_sources?.toFixed(2)}$`}
+                                  >
                                     {currentDisplayData.metrics.data.formatted.cost}
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                      Cost from sources: {currentDisplayData.metrics.data.raw.cost_from_sources?.toFixed(2)}$
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -3261,8 +3267,14 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span 
+                                            className="font-bold text-sm cursor-text select-text text-black relative group"
+                                            title={`Cost from sources: ${videoMetric.data.raw.cost_from_sources?.toFixed(2)}$`}
+                                          >
                                             {videoMetric.data.formatted.cost}
+                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                              Cost from sources: {videoMetric.data.raw.cost_from_sources?.toFixed(2)}$
+                                            </span>
                                           </span>
                                         ) : (
                                           <span className="text-gray-400 text-sm cursor-text select-text">—</span>
@@ -3283,8 +3295,14 @@ function CreativeAnalytics({ user }) {
                                 </div>
                               ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                  <span 
+                                    className="font-bold text-sm cursor-text select-text text-black relative group"
+                                    title={`Clicks on link: ${currentDisplayData.metrics.data.raw.clicks_on_link}`}
+                                  >
                                     {currentDisplayData.metrics.data.formatted.clicks}
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                      Clicks on link: {currentDisplayData.metrics.data.raw.clicks_on_link}
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -3295,8 +3313,14 @@ function CreativeAnalytics({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black">
+                                          <span 
+                                            className="font-bold text-sm cursor-text select-text text-black relative group"
+                                            title={`Clicks on link: ${videoMetric.data.raw.clicks_on_link}`}
+                                          >
                                             {videoMetric.data.formatted.clicks}
+                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                              Clicks on link: {videoMetric.data.raw.clicks_on_link}
+                                            </span>
                                           </span>
                                         ) : (
                                           <span className="text-gray-400 text-sm cursor-text select-text">—</span>
