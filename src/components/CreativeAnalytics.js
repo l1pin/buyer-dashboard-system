@@ -1026,12 +1026,20 @@ function CreativeAnalytics({ user }) {
       setTrelloLists(lists);
       console.log(`✅ Загружено ${lists.length} списков Trello`);
       
-      // Получаем статусы для всех креативов
-      const creativeIds = filteredCreativesByMonth.map(c => c.id);
+      // Получаем статусы для ВСЕХ креативов (не только filtered)
+      const creativeIds = analytics.creatives.map(c => c.id);
+      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов...`);
+      
       if (creativeIds.length > 0) {
         const statusMap = await trelloService.getBatchCardStatuses(creativeIds);
         setTrelloStatuses(statusMap);
         console.log(`✅ Загружено ${statusMap.size} статусов Trello карточек`);
+        
+        // Выводим пример для отладки
+        if (statusMap.size > 0) {
+          const firstStatus = Array.from(statusMap.values())[0];
+          console.log('📦 Пример статуса:', firstStatus);
+        }
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки Trello статусов:', error);
@@ -1043,7 +1051,10 @@ function CreativeAnalytics({ user }) {
   // Получить название списка для креатива
   const getTrelloListName = (creativeId) => {
     const status = trelloStatuses.get(creativeId);
-    if (!status) return '—';
+    if (!status) {
+      // console.log(`⚠️ Нет статуса для креатива ${creativeId}`);
+      return '—';
+    }
     return status.list_name || '—';
   };
 
@@ -1229,13 +1240,6 @@ function CreativeAnalytics({ user }) {
       console.error('Ошибка загрузки времени последнего обновления:', error);
     }
   };
-
-  // Перезагружаем Trello статусы при изменении фильтров
-  useEffect(() => {
-    if (filteredCreativesByMonth.length > 0) {
-      loadTrelloStatuses();
-    }
-  }, [selectedPeriod, selectedEditor, selectedBuyer, selectedSearcher, customDateFrom, customDateTo]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
