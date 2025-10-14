@@ -5,26 +5,31 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Функция для нормализации URL
+const normalizeUrl = (url) => {
+  if (!url) return '';
+  let normalized = url.split('?')[0].split('#')[0];
+  normalized = normalized.replace(/^https?:\/\//, '');
+  normalized = normalized.replace(/\/$/, '');
+  return normalized.toLowerCase();
+};
+
 exports.handler = async (event, context) => {
-  // Разрешаем CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS'
   };
 
-  // Обработка preflight запроса
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
 
-  // HEAD запрос для верификации webhook (Trello делает это при создании)
   if (event.httpMethod === 'HEAD') {
     console.log('✅ Trello webhook verification HEAD request');
     return { statusCode: 200, headers, body: '' };
   }
 
-  // GET запрос для проверки работоспособности
   if (event.httpMethod === 'GET') {
     console.log('✅ Trello webhook health check');
     return { 
@@ -99,10 +104,9 @@ exports.handler = async (event, context) => {
             onConflict: 'list_id'
           });
 
-        // Находим креативы по trello_card_id ИЛИ по URL
         let updatedCount = 0;
         
-        // Вариант 1: Поиск по trello_card_id
+        // Вариант 1: Обновление по trello_card_id
         const { data: statusByCardId, error: error1 } = await supabase
           .from('trello_card_statuses')
           .update({
@@ -118,18 +122,9 @@ exports.handler = async (event, context) => {
           console.log(`✅ Updated ${statusByCardId.length} status(es) by card ID`);
         }
 
-        // Вариант 2: Поиск по URL в таблице креативов
+        // Вариант 2: Поиск по URL
         if (cardUrl && updatedCount === 0) {
           console.log('🔍 Searching by URL:', cardUrl);
-          
-          // Нормализуем URL из webhook
-          const normalizeUrl = (url) => {
-            if (!url) return '';
-            let normalized = url.split('?')[0].split('#')[0];
-            normalized = normalized.replace(/^https?:\/\//, '');
-            normalized = normalized.replace(/\/$/, '');
-            return normalized.toLowerCase();
-          };
           
           const normalizedCardUrl = normalizeUrl(cardUrl);
           console.log('🔍 Normalized URL:', normalizedCardUrl);
@@ -137,13 +132,13 @@ exports.handler = async (event, context) => {
           // Получаем все креативы с trello_link
           const { data: allCreatives, error: creativesError } = await supabase
             .from('creatives')
-            .select('id, trello_link')
+            .select('id, trello_link, article')
             .not('trello_link', 'is', null);
 
           if (creativesError) {
             console.error('❌ Error fetching creatives:', creativesError);
           } else if (allCreatives && allCreatives.length > 0) {
-            console.log(`📦 Checking ${allCreatives.length} creatives with Trello links`);
+            console.log(`📦 Checking ${allCreatives.length} creatives`);
             
             // Ищем совпадение по нормализованному URL
             const matchedCreatives = allCreatives.filter(creative => {
@@ -154,7 +149,7 @@ exports.handler = async (event, context) => {
             console.log(`📦 Found ${matchedCreatives.length} matching creative(s)`);
             
             for (const creative of matchedCreatives) {
-              console.log(`✅ Updating creative: ${creative.id}`);
+              console.log(`✅ Updating creative: ${creative.article}`);
               
               const { error: upsertError } = await supabase
                 .from('trello_card_statuses')
@@ -170,7 +165,7 @@ exports.handler = async (event, context) => {
 
               if (!upsertError) {
                 updatedCount++;
-                console.log(`✅ Updated status for creative ${creative.id}`);
+                console.log(`✅ Updated status for ${creative.article}`);
               } else {
                 console.error('⚠️ Error upserting status:', upsertError);
               }
@@ -181,14 +176,12 @@ exports.handler = async (event, context) => {
         if (updatedCount > 0) {
           console.log(`✅ Total updated: ${updatedCount} status(es)`);
         } else {
-          console.log(`⚠️ No creative found for card ${cardId} (${cardUrl})`);
+          console.log(`⚠️ No creative found for card ${cardId}`);
         }
       } else if (action.data.listAfter) {
-        // Карточка добавлена в список (создание)
         const listAfter = action.data.listAfter;
         console.log(`➕ Card added to list: ${listAfter.name}`);
         
-        // Обновляем список
         await supabase
           .from('trello_lists')
           .upsert({
@@ -209,7 +202,6 @@ exports.handler = async (event, context) => {
       
       console.log(`➕ New card created: ${card.name} in ${list.name}`);
       
-      // Обновляем список
       await supabase
         .from('trello_lists')
         .upsert({
