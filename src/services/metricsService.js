@@ -177,7 +177,20 @@ export class MetricsService {
     }
     
     data.forEach((row, index) => {
-      const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link } = row;
+      const { 
+        video_name, 
+        kind, 
+        adv_date, 
+        leads, 
+        cost, 
+        clicks, 
+        impressions, 
+        avg_duration 
+      } = row;
+      
+      // КРИТИЧНО: Извлекаем дополнительные поля напрямую из объекта
+      const cost_from_sources = row.cost_from_sources || row['cost_from_sources'] || 0;
+      const clicks_on_link = row.clicks_on_link || row['clicks_on_link'] || 0;
       
       // 🔥 ДИАГНОСТИКА: Логируем первые 3 строки после деструктуризации
       if (index < 3) {
@@ -187,7 +200,9 @@ export class MetricsService {
           leads,
           cost,
           cost_from_sources,
-          clicks_on_link
+          clicks_on_link,
+          'RAW row.cost_from_sources': row.cost_from_sources,
+          'RAW row.clicks_on_link': row.clicks_on_link
         });
       }
       
@@ -329,14 +344,22 @@ export class MetricsService {
       // 🔥 ДИАГНОСТИКА: Проверяем videoData.daily ДО преобразования
       console.log('🔥 videoData.daily ПЕРВАЯ ЗАПИСЬ:', {
         data: videoData.daily[0],
-        allKeys: Object.keys(videoData.daily[0] || {})
+        allKeys: Object.keys(videoData.daily[0] || {}),
+        'RAW cost_from_sources': videoData.daily[0]?.cost_from_sources,
+        'RAW clicks_on_link': videoData.daily[0]?.clicks_on_link
       });
       
       // Преобразуем к старому формату для совместимости
       const allDailyData = videoData.daily.map(d => {
+        // КРИТИЧНО: Извлекаем дополнительные поля напрямую
+        const cost_from_sources = d.cost_from_sources || d['cost_from_sources'] || 0;
+        const clicks_on_link = d.clicks_on_link || d['clicks_on_link'] || 0;
+        
         console.log('🔥 ВНУТРИ MAP, d:', {
-          cost_from_sources: d.cost_from_sources,
-          clicks_on_link: d.clicks_on_link,
+          cost_from_sources: cost_from_sources,
+          clicks_on_link: clicks_on_link,
+          'RAW d.cost_from_sources': d.cost_from_sources,
+          'RAW d.clicks_on_link': d.clicks_on_link,
           allKeys: Object.keys(d)
         });
         
@@ -347,8 +370,8 @@ export class MetricsService {
           clicks: d.clicks,
           impressions: d.impressions,
           avg_duration: d.avg_duration,
-          cost_from_sources: d.cost_from_sources || 0,
-          clicks_on_link: d.clicks_on_link || 0
+          cost_from_sources: cost_from_sources,
+          clicks_on_link: clicks_on_link
         };
       });
       
@@ -567,11 +590,17 @@ export class MetricsService {
     }
 
     const result = dailyData.reduce((acc, day) => {
+      // КРИТИЧНО: Извлекаем дополнительные поля напрямую
+      const cost_from_sources = Number(day.cost_from_sources || day['cost_from_sources'] || 0);
+      const clicks_on_link = Number(day.clicks_on_link || day['clicks_on_link'] || 0);
+      
       // 🔥 ДИАГНОСТИКА: Логируем каждый day
       if (acc.days_count === 0) {
         console.log('🔥 ПЕРВЫЙ day в reduce:', {
-          cost_from_sources: day.cost_from_sources,
-          clicks_on_link: day.clicks_on_link,
+          cost_from_sources: cost_from_sources,
+          clicks_on_link: clicks_on_link,
+          'RAW day.cost_from_sources': day.cost_from_sources,
+          'RAW day.clicks_on_link': day.clicks_on_link,
           allKeys: Object.keys(day)
         });
       }
@@ -583,8 +612,8 @@ export class MetricsService {
         impressions: acc.impressions + day.impressions,
         duration_sum: acc.duration_sum + (day.avg_duration || 0),
         days_count: acc.days_count + 1,
-        cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
-        clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
+        cost_from_sources: acc.cost_from_sources + cost_from_sources,
+        clicks_on_link: acc.clicks_on_link + clicks_on_link
       };
     }, {
       leads: 0,
