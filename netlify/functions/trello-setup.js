@@ -10,6 +10,25 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Функция для нормализации URL
+const normalizeUrl = (url) => {
+  if (!url) return '';
+  
+  // Убираем query параметры и якоря
+  let normalized = url.split('?')[0].split('#')[0];
+  
+  // Убираем протокол
+  normalized = normalized.replace(/^https?:\/\//, '');
+  
+  // Убираем trailing slash
+  normalized = normalized.replace(/\/$/, '');
+  
+  // Приводим к lowercase
+  normalized = normalized.toLowerCase();
+  
+  return normalized;
+};
+
 exports.handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -25,7 +44,7 @@ exports.handler = async (event, context) => {
     console.log('🚀 Starting Trello setup...');
     console.log('📋 Board Short ID:', TRELLO_BOARD_SHORT_ID);
 
-    // 1. Получаем полную информацию о доске (включая полный ID)
+    // 1. Получаем полную информацию о доске
     console.log('🔍 Fetching board info...');
     const boardInfoUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_SHORT_ID}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
     const boardInfoResponse = await fetch(boardInfoUrl);
@@ -37,7 +56,7 @@ exports.handler = async (event, context) => {
     }
     
     const boardInfo = await boardInfoResponse.json();
-    const TRELLO_BOARD_ID = boardInfo.id; // Полный ID доски
+    const TRELLO_BOARD_ID = boardInfo.id;
     
     console.log('✅ Board info:', {
       id: TRELLO_BOARD_ID,
@@ -60,7 +79,7 @@ exports.handler = async (event, context) => {
       const existingWebhooks = await existingWebhooksResponse.json();
       console.log('📋 Existing webhooks:', existingWebhooks.length);
 
-      // 4. Удаляем старые webhooks для этой доски
+      // 4. Удаляем старые webhooks
       for (const webhook of existingWebhooks) {
         if (webhook.idModel === TRELLO_BOARD_ID || webhook.callbackURL === webhookUrl) {
           console.log('🗑️ Deleting old webhook:', webhook.id);
@@ -77,12 +96,6 @@ exports.handler = async (event, context) => {
 
     // 5. Создаем новый webhook
     console.log('📝 Creating new webhook...');
-    console.log('📦 Webhook data:', {
-      idModel: TRELLO_BOARD_ID,
-      callbackURL: webhookUrl,
-      description: 'Buyer Dashboard Webhook'
-    });
-    
     const createWebhookUrl = `https://api.trello.com/1/webhooks?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
     const webhookResponse = await fetch(createWebhookUrl, {
       method: 'POST',
@@ -90,7 +103,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         description: 'Buyer Dashboard Webhook',
         callbackURL: webhookUrl,
-        idModel: TRELLO_BOARD_ID // Используем ПОЛНЫЙ ID
+        idModel: TRELLO_BOARD_ID
       })
     });
 
@@ -101,13 +114,9 @@ exports.handler = async (event, context) => {
     }
 
     const webhook = await webhookResponse.json();
-    console.log('✅ Webhook created:', {
-      id: webhook.id,
-      active: webhook.active,
-      idModel: webhook.idModel
-    });
+    console.log('✅ Webhook created:', webhook.id);
 
-    // 6. Синхронизируем списки (колонки)
+    // 6. Синхронизируем списки
     console.log('📥 Fetching lists...');
     const listsUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_ID}/lists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
     const listsResponse = await fetch(listsUrl);
@@ -119,11 +128,11 @@ exports.handler = async (event, context) => {
     }
     
     const lists = await listsResponse.json();
-    console.log(`📋 Found ${lists.length} lists:`, lists.map(l => l.name));
+    console.log(`📋 Found ${lists.length} lists:`, lists.map(l => l.name).join(', '));
 
     // Сохраняем списки в базу
     for (const list of lists) {
-      const { error: listError } = await supabase
+      await supabase
         .from('trello_lists')
         .upsert({
           list_id: list.id,
@@ -133,10 +142,6 @@ exports.handler = async (event, context) => {
         }, {
           onConflict: 'list_id'
         });
-      
-      if (listError) {
-        console.error('⚠️ Error saving list:', list.name, listError);
-      }
     }
 
     console.log('✅ Lists synced to database');
@@ -158,7 +163,7 @@ exports.handler = async (event, context) => {
     // Получаем все креативы с trello_link
     const { data: creatives, error: creativesError } = await supabase
       .from('creatives')
-      .select('id, trello_link')
+      .select('id, article, trello_link')
       .not('trello_link', 'is', null);
 
     if (creativesError) {
@@ -168,71 +173,39 @@ exports.handler = async (event, context) => {
 
     console.log(`📦 Found ${creatives?.length || 0} creatives with Trello links`);
 
-    // Функция для нормализации URL
-    const normalizeUrl = (url) => {
-      if (!url) return '';
-      
-      // Убираем query параметры
-      let normalized = url.split('?')[0].split('#')[0];
-      
-      // Убираем протокол
-      normalized = normalized.replace(/^https?:\/\//, '');
-      
-      // Убираем trailing slash
-      normalized = normalized.replace(/\/$/, '');
-      
-      // Приводим к lowercase
-      normalized = normalized.toLowerCase();
-      
-      return normalized;
-    };
-
     // Создаем карту карточек по нормализованным URL
     const cardsByNormalizedUrl = new Map();
     
     cards.forEach(card => {
-      // Нормализуем и сохраняем оба варианта URL
       if (card.url) {
         const normalized = normalizeUrl(card.url);
         cardsByNormalizedUrl.set(normalized, card);
-        console.log(`🗺️ Mapped: ${normalized} -> ${card.name}`);
       }
       
       if (card.shortUrl && card.shortUrl !== card.url) {
         const normalized = normalizeUrl(card.shortUrl);
         cardsByNormalizedUrl.set(normalized, card);
-        console.log(`🗺️ Mapped (short): ${normalized} -> ${card.name}`);
       }
     });
 
-    console.log('🗺️ Card URL map created:', {
-      totalCards: cards.length,
-      urlMappings: cardsByUrl.size,
-      shortUrlMappings: cardsByShortUrl.size
-    });
+    console.log(`🗺️ Created URL map with ${cardsByNormalizedUrl.size} entries`);
 
     // Обновляем статусы карточек
     let syncedCount = 0;
     let notFoundCount = 0;
     
     for (const creative of creatives || []) {
-      let trelloUrl = creative.trello_link;
+      const trelloUrl = creative.trello_link;
       
       if (!trelloUrl) continue;
       
       // Нормализуем URL креатива
       const normalizedCreativeUrl = normalizeUrl(trelloUrl);
       
-      console.log(`🔍 Looking for card: ${creative.article}`);
-      console.log(`   Original URL: ${trelloUrl}`);
-      console.log(`   Normalized: ${normalizedCreativeUrl}`);
-      
-      // Ищем карточку по нормализованному URL
+      // Ищем карточку
       const card = cardsByNormalizedUrl.get(normalizedCreativeUrl);
       
       if (card) {
-        console.log(`   ✅ Found: ${card.name}`);
-        
         const list = lists.find(l => l.id === card.idList);
         if (list) {
           const { error: statusError } = await supabase
@@ -248,15 +221,15 @@ exports.handler = async (event, context) => {
             });
           
           if (statusError) {
-            console.error('⚠️ Error syncing status:', statusError);
+            console.error(`⚠️ Error syncing ${creative.article}:`, statusError);
           } else {
             syncedCount++;
-            console.log(`   ✅ Synced to list: ${list.name}`);
+            console.log(`✅ Synced: ${creative.article} -> ${list.name}`);
           }
         }
       } else {
         notFoundCount++;
-        console.log(`   ❌ Card not found`);
+        console.log(`⚠️ Not found: ${creative.article} (${normalizedCreativeUrl})`);
       }
     }
 
