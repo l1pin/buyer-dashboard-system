@@ -1957,6 +1957,26 @@ export const metricsAnalyticsService = {
           console.log(`✅ Метрика ${index + 1} С ДАННЫМИ`);
           // Метрики с данными
           const rawMetrics = m.metricsData.raw;
+          
+          // КРИТИЧНО: Извлекаем дополнительные поля с fallback
+          const cost_from_sources = Number(
+            rawMetrics.cost_from_sources || 
+            rawMetrics['cost_from_sources'] || 
+            0
+          );
+          const clicks_on_link = Number(
+            rawMetrics.clicks_on_link || 
+            rawMetrics['clicks_on_link'] || 
+            0
+          );
+          
+          console.log(`🔥 Метрика ${index + 1} дополнительные поля:`, {
+            cost_from_sources,
+            clicks_on_link,
+            'RAW cost_from_sources': rawMetrics.cost_from_sources,
+            'RAW clicks_on_link': rawMetrics.clicks_on_link
+          });
+          
           dataToInsert.push({
             creative_id: m.creativeId,
             article: m.article,
@@ -1969,8 +1989,8 @@ export const metricsAnalyticsService = {
             impressions: rawMetrics.impressions || 0,
             avg_duration: rawMetrics.avg_duration || 0,
             days_count: rawMetrics.days_count || 0,
-            cost_from_sources: rawMetrics.cost_from_sources || 0,
-            clicks_on_link: rawMetrics.clicks_on_link || 0,
+            cost_from_sources: cost_from_sources,
+            clicks_on_link: clicks_on_link,
             cached_at: new Date().toISOString()
           });
         } else {
