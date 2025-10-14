@@ -239,6 +239,16 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     clicks_on_link: d.clicks_on_link || 0
                   }));
 
+                  // 🔥🔥🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА allDailyData
+                  console.log('🔥🔥🔥 allDailyData ПЕРЕД aggregateDailyData (useMetrics.js строка ~310):', {
+                    'length': allDailyData.length,
+                    'первая запись': allDailyData[0],
+                    'cost_from_sources первой записи': allDailyData[0]?.cost_from_sources,
+                    'clicks_on_link первой записи': allDailyData[0]?.clicks_on_link,
+                    'typeof cost_from_sources': typeof allDailyData[0]?.cost_from_sources,
+                    'typeof clicks_on_link': typeof allDailyData[0]?.clicks_on_link
+                  });
+
                   const aggregates = MetricsService.aggregateDailyData(allDailyData);
                   const metrics = MetricsService.computeDerivedMetrics(aggregates);
                   const formatted = MetricsService.formatMetrics(metrics);
