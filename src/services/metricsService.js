@@ -219,11 +219,11 @@ export class MetricsService {
 
       const metrics = {
         date: adv_date,
-        valid: Number(row.valid) || 0,
+        leads: Number(row.valid) || 0,
         cost: Number(cost) || 0,
-        clicks_on_link_tracker: Number(row.clicks_on_link_tracker) || 0,
-        showed: Number(row.showed) || 0,
-        average_time_on_video: Number(row.average_time_on_video) || 0,
+        clicks: Number(row.clicks_on_link_tracker) || 0,
+        impressions: Number(row.showed) || 0,
+        avg_duration: Number(row.average_time_on_video) || 0,
         cost_from_sources: Number(row.cost_from_sources) || 0,
         clicks_on_link: Number(row.clicks_on_link) || 0,
       };
