@@ -3,7 +3,7 @@ const fetch = require('node-fetch');
 
 const TRELLO_KEY = process.env.TRELLO_API_KEY || 'e83894111117e54746d899c1fc2f7043';
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN || 'ATTAb29683ffc0c87de7b5d1ce766ca8c2d28a61b3c722660564d74dae0a955456aeED83F79A';
-const TRELLO_BOARD_ID = process.env.TRELLO_BOARD_ID || 'JWuFAH6M';
+const TRELLO_BOARD_SHORT_ID = process.env.TRELLO_BOARD_ID || 'JWuFAH6M';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -23,29 +23,66 @@ exports.handler = async (event, context) => {
 
   try {
     console.log('🚀 Starting Trello setup...');
+    console.log('📋 Board Short ID:', TRELLO_BOARD_SHORT_ID);
 
-    // 1. Получаем webhook URL
+    // 1. Получаем полную информацию о доске (включая полный ID)
+    console.log('🔍 Fetching board info...');
+    const boardInfoUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_SHORT_ID}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
+    const boardInfoResponse = await fetch(boardInfoUrl);
+    
+    if (!boardInfoResponse.ok) {
+      const errorText = await boardInfoResponse.text();
+      console.error('❌ Failed to fetch board info:', errorText);
+      throw new Error(`Failed to fetch board info: ${errorText}`);
+    }
+    
+    const boardInfo = await boardInfoResponse.json();
+    const TRELLO_BOARD_ID = boardInfo.id; // Полный ID доски
+    
+    console.log('✅ Board info:', {
+      id: TRELLO_BOARD_ID,
+      name: boardInfo.name,
+      shortLink: boardInfo.shortLink
+    });
+
+    // 2. Получаем webhook URL
     const webhookUrl = `${process.env.URL}/.netlify/functions/trello-webhook`;
     console.log('🔗 Webhook URL:', webhookUrl);
 
-    // 2. Проверяем существующие webhooks
+    // 3. Проверяем существующие webhooks
+    console.log('🔍 Checking existing webhooks...');
     const checkWebhooksUrl = `https://api.trello.com/1/tokens/${TRELLO_TOKEN}/webhooks?key=${TRELLO_KEY}`;
-    const existingWebhooks = await fetch(checkWebhooksUrl).then(r => r.json());
+    const existingWebhooksResponse = await fetch(checkWebhooksUrl);
     
-    console.log('📋 Existing webhooks:', existingWebhooks.length);
+    if (!existingWebhooksResponse.ok) {
+      console.error('⚠️ Failed to check webhooks, continuing anyway...');
+    } else {
+      const existingWebhooks = await existingWebhooksResponse.json();
+      console.log('📋 Existing webhooks:', existingWebhooks.length);
 
-    // 3. Удаляем старые webhooks для этой доски
-    for (const webhook of existingWebhooks) {
-      if (webhook.idModel === TRELLO_BOARD_ID) {
-        console.log('🗑️ Deleting old webhook:', webhook.id);
-        await fetch(`https://api.trello.com/1/webhooks/${webhook.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
-          method: 'DELETE'
-        });
+      // 4. Удаляем старые webhooks для этой доски
+      for (const webhook of existingWebhooks) {
+        if (webhook.idModel === TRELLO_BOARD_ID || webhook.callbackURL === webhookUrl) {
+          console.log('🗑️ Deleting old webhook:', webhook.id);
+          try {
+            await fetch(`https://api.trello.com/1/webhooks/${webhook.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+              method: 'DELETE'
+            });
+          } catch (deleteError) {
+            console.error('⚠️ Failed to delete webhook:', deleteError.message);
+          }
+        }
       }
     }
 
-    // 4. Создаем новый webhook
+    // 5. Создаем новый webhook
     console.log('📝 Creating new webhook...');
+    console.log('📦 Webhook data:', {
+      idModel: TRELLO_BOARD_ID,
+      callbackURL: webhookUrl,
+      description: 'Buyer Dashboard Webhook'
+    });
+    
     const createWebhookUrl = `https://api.trello.com/1/webhooks?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
     const webhookResponse = await fetch(createWebhookUrl, {
       method: 'POST',
@@ -53,7 +90,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         description: 'Buyer Dashboard Webhook',
         callbackURL: webhookUrl,
-        idModel: TRELLO_BOARD_ID
+        idModel: TRELLO_BOARD_ID // Используем ПОЛНЫЙ ID
       })
     });
 
@@ -64,18 +101,29 @@ exports.handler = async (event, context) => {
     }
 
     const webhook = await webhookResponse.json();
-    console.log('✅ Webhook created:', webhook.id);
+    console.log('✅ Webhook created:', {
+      id: webhook.id,
+      active: webhook.active,
+      idModel: webhook.idModel
+    });
 
-    // 5. Синхронизируем списки (колонки)
+    // 6. Синхронизируем списки (колонки)
     console.log('📥 Fetching lists...');
     const listsUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_ID}/lists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-    const lists = await fetch(listsUrl).then(r => r.json());
+    const listsResponse = await fetch(listsUrl);
     
-    console.log(`📋 Found ${lists.length} lists`);
+    if (!listsResponse.ok) {
+      const errorText = await listsResponse.text();
+      console.error('❌ Failed to fetch lists:', errorText);
+      throw new Error(`Failed to fetch lists: ${errorText}`);
+    }
+    
+    const lists = await listsResponse.json();
+    console.log(`📋 Found ${lists.length} lists:`, lists.map(l => l.name));
 
     // Сохраняем списки в базу
     for (const list of lists) {
-      await supabase
+      const { error: listError } = await supabase
         .from('trello_lists')
         .upsert({
           list_id: list.id,
@@ -85,15 +133,26 @@ exports.handler = async (event, context) => {
         }, {
           onConflict: 'list_id'
         });
+      
+      if (listError) {
+        console.error('⚠️ Error saving list:', list.name, listError);
+      }
     }
 
     console.log('✅ Lists synced to database');
 
-    // 6. Синхронизируем карточки
+    // 7. Синхронизируем карточки
     console.log('📥 Fetching cards...');
     const cardsUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-    const cards = await fetch(cardsUrl).then(r => r.json());
+    const cardsResponse = await fetch(cardsUrl);
     
+    if (!cardsResponse.ok) {
+      const errorText = await cardsResponse.text();
+      console.error('❌ Failed to fetch cards:', errorText);
+      throw new Error(`Failed to fetch cards: ${errorText}`);
+    }
+    
+    const cards = await cardsResponse.json();
     console.log(`🎴 Found ${cards.length} cards`);
 
     // Получаем все креативы с trello_link
@@ -111,21 +170,56 @@ exports.handler = async (event, context) => {
 
     // Создаем карту карточек по URL
     const cardsByUrl = new Map();
+    const cardsByShortUrl = new Map();
+    
     cards.forEach(card => {
-      cardsByUrl.set(card.shortUrl, card);
-      cardsByUrl.set(card.url, card);
+      // Полный URL
+      if (card.url) {
+        cardsByUrl.set(card.url, card);
+      }
+      // Короткий URL
+      if (card.shortUrl) {
+        cardsByShortUrl.set(card.shortUrl, card);
+      }
+      // Вариант без протокола
+      if (card.url) {
+        const urlWithoutProtocol = card.url.replace(/^https?:\/\//, '');
+        cardsByUrl.set(urlWithoutProtocol, card);
+      }
+      if (card.shortUrl) {
+        const shortUrlWithoutProtocol = card.shortUrl.replace(/^https?:\/\//, '');
+        cardsByShortUrl.set(shortUrlWithoutProtocol, card);
+      }
+    });
+
+    console.log('🗺️ Card URL map created:', {
+      totalCards: cards.length,
+      urlMappings: cardsByUrl.size,
+      shortUrlMappings: cardsByShortUrl.size
     });
 
     // Обновляем статусы карточек
     let syncedCount = 0;
+    let notFoundCount = 0;
+    
     for (const creative of creatives || []) {
-      const trelloUrl = creative.trello_link;
-      const card = cardsByUrl.get(trelloUrl);
+      let trelloUrl = creative.trello_link;
+      
+      if (!trelloUrl) continue;
+      
+      // Нормализуем URL
+      const normalizedUrl = trelloUrl.replace(/^https?:\/\//, '').trim();
+      
+      // Ищем карточку по разным вариантам URL
+      let card = cardsByUrl.get(trelloUrl) || 
+                 cardsByShortUrl.get(trelloUrl) ||
+                 cardsByUrl.get(normalizedUrl) ||
+                 cardsByShortUrl.get(normalizedUrl);
       
       if (card) {
         const list = lists.find(l => l.id === card.idList);
         if (list) {
-          await supabase
+          const { error: statusError } = await supabase
             .from('trello_card_statuses')
             .upsert({
               creative_id: creative.id,
@@ -137,12 +231,20 @@ exports.handler = async (event, context) => {
               onConflict: 'creative_id'
             });
           
-          syncedCount++;
+          if (statusError) {
+            console.error('⚠️ Error syncing status:', statusError);
+          } else {
+            syncedCount++;
+          }
         }
+      } else {
+        notFoundCount++;
+        console.log('⚠️ Card not found for URL:', trelloUrl);
       }
     }
 
     console.log(`✅ Synced ${syncedCount} card statuses`);
+    console.log(`⚠️ ${notFoundCount} cards not found`);
 
     return {
       statusCode: 200,
@@ -151,12 +253,20 @@ exports.handler = async (event, context) => {
         success: true,
         webhook: {
           id: webhook.id,
-          url: webhookUrl
+          url: webhookUrl,
+          active: webhook.active
+        },
+        board: {
+          id: TRELLO_BOARD_ID,
+          name: boardInfo.name,
+          shortLink: boardInfo.shortLink
         },
         stats: {
           lists: lists.length,
           cards: cards.length,
-          synced: syncedCount
+          synced: syncedCount,
+          notFound: notFoundCount,
+          creativesWithLinks: creatives?.length || 0
         }
       })
     };
@@ -168,7 +278,8 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         error: 'Setup failed',
-        message: error.message
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     };
   }
