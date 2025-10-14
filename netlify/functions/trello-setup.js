@@ -168,27 +168,40 @@ exports.handler = async (event, context) => {
 
     console.log(`📦 Found ${creatives?.length || 0} creatives with Trello links`);
 
-    // Создаем карту карточек по URL
-    const cardsByUrl = new Map();
-    const cardsByShortUrl = new Map();
+    // Функция для нормализации URL
+    const normalizeUrl = (url) => {
+      if (!url) return '';
+      
+      // Убираем query параметры
+      let normalized = url.split('?')[0].split('#')[0];
+      
+      // Убираем протокол
+      normalized = normalized.replace(/^https?:\/\//, '');
+      
+      // Убираем trailing slash
+      normalized = normalized.replace(/\/$/, '');
+      
+      // Приводим к lowercase
+      normalized = normalized.toLowerCase();
+      
+      return normalized;
+    };
+
+    // Создаем карту карточек по нормализованным URL
+    const cardsByNormalizedUrl = new Map();
     
     cards.forEach(card => {
-      // Полный URL
+      // Нормализуем и сохраняем оба варианта URL
       if (card.url) {
-        cardsByUrl.set(card.url, card);
+        const normalized = normalizeUrl(card.url);
+        cardsByNormalizedUrl.set(normalized, card);
+        console.log(`🗺️ Mapped: ${normalized} -> ${card.name}`);
       }
-      // Короткий URL
-      if (card.shortUrl) {
-        cardsByShortUrl.set(card.shortUrl, card);
-      }
-      // Вариант без протокола
-      if (card.url) {
-        const urlWithoutProtocol = card.url.replace(/^https?:\/\//, '');
-        cardsByUrl.set(urlWithoutProtocol, card);
-      }
-      if (card.shortUrl) {
-        const shortUrlWithoutProtocol = card.shortUrl.replace(/^https?:\/\//, '');
-        cardsByShortUrl.set(shortUrlWithoutProtocol, card);
+      
+      if (card.shortUrl && card.shortUrl !== card.url) {
+        const normalized = normalizeUrl(card.shortUrl);
+        cardsByNormalizedUrl.set(normalized, card);
+        console.log(`🗺️ Mapped (short): ${normalized} -> ${card.name}`);
       }
     });
 
@@ -207,16 +220,19 @@ exports.handler = async (event, context) => {
       
       if (!trelloUrl) continue;
       
-      // Нормализуем URL
-      const normalizedUrl = trelloUrl.replace(/^https?:\/\//, '').trim();
+      // Нормализуем URL креатива
+      const normalizedCreativeUrl = normalizeUrl(trelloUrl);
       
-      // Ищем карточку по разным вариантам URL
-      let card = cardsByUrl.get(trelloUrl) || 
-                 cardsByShortUrl.get(trelloUrl) ||
-                 cardsByUrl.get(normalizedUrl) ||
-                 cardsByShortUrl.get(normalizedUrl);
+      console.log(`🔍 Looking for card: ${creative.article}`);
+      console.log(`   Original URL: ${trelloUrl}`);
+      console.log(`   Normalized: ${normalizedCreativeUrl}`);
+      
+      // Ищем карточку по нормализованному URL
+      const card = cardsByNormalizedUrl.get(normalizedCreativeUrl);
       
       if (card) {
+        console.log(`   ✅ Found: ${card.name}`);
+        
         const list = lists.find(l => l.id === card.idList);
         if (list) {
           const { error: statusError } = await supabase
@@ -235,11 +251,12 @@ exports.handler = async (event, context) => {
             console.error('⚠️ Error syncing status:', statusError);
           } else {
             syncedCount++;
+            console.log(`   ✅ Synced to list: ${list.name}`);
           }
         }
       } else {
         notFoundCount++;
-        console.log('⚠️ Card not found for URL:', trelloUrl);
+        console.log(`   ❌ Card not found`);
       }
     }
 
