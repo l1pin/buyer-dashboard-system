@@ -158,19 +158,73 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       // Шаг 2: ОДИН БАТЧЕВЫЙ ЗАПРОС для всех видео без кэша
       if (videosToLoadFromApi.length > 0) {
         console.log(`🌐 Батчевая загрузка ${videosToLoadFromApi.length} видео из API...`);
+        console.log('📋 Примеры названий для загрузки:', videosToLoadFromApi.slice(0, 5));
         
         const batchResult = await MetricsService.getBatchVideoMetrics(videosToLoadFromApi, {
           kind: 'daily_first4_total',
           useCache: true
         });
 
+        console.log('🔍 ДИАГНОСТИКА batchResult:', {
+          success: batchResult.success,
+          resultsCount: batchResult.results?.length,
+          resultsType: typeof batchResult.results,
+          isArray: Array.isArray(batchResult.results),
+          error: batchResult.error
+        });
+
         if (batchResult.success && batchResult.results) {
           console.log(`✅ Батчевый запрос выполнен: ${batchResult.results.length} результатов`);
           
+          // КРИТИЧНО: Логируем первые результаты
+          console.log('📋 Первые 3 результата:');
+          for (let i = 0; i < Math.min(3, batchResult.results.length); i++) {
+            console.log(`  [${i}]:`, {
+              videoName: batchResult.results[i].videoName,
+              found: batchResult.results[i].found,
+              dailyCount: batchResult.results[i].daily?.length,
+              hasFirst4: !!batchResult.results[i].first4,
+              hasTotal: !!batchResult.results[i].total
+            });
+          }
+          
           // Обрабатываем результаты и добавляем в Map
           batchResult.results.forEach(videoResult => {
-            // Находим все videoKey для этого videoName
+            // КРИТИЧНО: Проверяем точность совпадения названий
+            const matchingKeys = [];
+            
             videoMap.forEach((metadata, videoKey) => {
+              // Точное совпадение
+              if (metadata.videoTitle === videoResult.videoName) {
+                matchingKeys.push(videoKey);
+              }
+            });
+            
+            if (matchingKeys.length === 0) {
+              console.warn(`⚠️ Не найдено совпадений для видео "${videoResult.videoName}" в videoMap`);
+              
+              // Ищем похожие для диагностики
+              const similar = [];
+              videoMap.forEach((metadata, videoKey) => {
+                if (metadata.videoTitle.toLowerCase().includes(videoResult.videoName.toLowerCase()) ||
+                    videoResult.videoName.toLowerCase().includes(metadata.videoTitle.toLowerCase())) {
+                  similar.push({ key: videoKey, title: metadata.videoTitle });
+                }
+              });
+              
+              if (similar.length > 0) {
+                console.log(`  Похожие названия:`, similar);
+              }
+              
+              return; // Пропускаем этот результат
+            }
+            
+            console.log(`✅ Найдено ${matchingKeys.length} совпадений для "${videoResult.videoName}"`);
+            
+            // Обрабатываем все совпадения
+            matchingKeys.forEach(videoKey => {
+              const metadata = videoMap.get(videoKey);
+              
               if (metadata.videoTitle === videoResult.videoName) {
                 if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
                   // Преобразуем к формату rawMetrics
@@ -223,6 +277,26 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         } else {
           console.error('❌ Ошибка батчевого запроса:', batchResult.error);
           setError(`Ошибка API: ${batchResult.error}`);
+        }
+      }
+
+      console.log('🔍 ФИНАЛЬНАЯ ДИАГНОСТИКА rawMetricsMap:');
+      console.log(`  📦 Всего записей в Map: ${rawMetricsMap.size}`);
+      console.log(`  ✅ С данными (found=true): ${Array.from(rawMetricsMap.values()).filter(m => m.found).length}`);
+      console.log(`  ❌ Без данных (found=false): ${Array.from(rawMetricsMap.values()).filter(m => !m.found).length}`);
+      
+      // Примеры записей
+      const entries = Array.from(rawMetricsMap.entries());
+      if (entries.length > 0) {
+        console.log('📋 Первые 3 записи в rawMetricsMap:');
+        for (let i = 0; i < Math.min(3, entries.length); i++) {
+          const [key, value] = entries[i];
+          console.log(`  [${key}]:`, {
+            found: value.found,
+            videoName: value.videoName,
+            hasData: !!value.data,
+            leads: value.data?.raw?.leads
+          });
         }
       }
 
