@@ -1399,8 +1399,50 @@ export const trelloService = {
     }
   },
 
-  // Подписаться на изменения статусов карточек
+  // Массовая синхронизация статусов
+  async syncMultipleCreatives(creatives) {
+    console.log(`🔄 Массовая синхронизация ${creatives.length} креативов...`);
+    
+    const results = {
+      success: [],
+      errors: []
+    };
+    
+    for (const creative of creatives) {
+      try {
+        console.log(`📋 Синхронизация ${creative.article}...`);
+        
+        const result = await this.syncSingleCreative(creative.id, creative.trello_link);
+        
+        results.success.push({
+          creativeId: creative.id,
+          article: creative.article,
+          listName: result.listName
+        });
+        
+        console.log(`✅ ${creative.article}: ${result.listName}`);
+        
+        // Задержка между запросами (300ms)
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (error) {
+        console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
+        
+        results.errors.push({
+          creativeId: creative.id,
+          article: creative.article,
+          error: error.message
+        });
+      }
+    }
+    
+    console.log(`🎉 Массовая синхронизация завершена: ${results.success.length} успешно, ${results.errors.length} ошибок`);
+    
+    return results;
+  },
+
   subscribeToCardStatuses(callback) {
+
     return supabase
       .channel('trello_card_statuses_changes')
       .on(
