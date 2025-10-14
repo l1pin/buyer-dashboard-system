@@ -1886,6 +1886,8 @@ export const metricsAnalyticsService = {
             impressions: rawMetrics.impressions || 0,
             avg_duration: rawMetrics.avg_duration || 0,
             days_count: rawMetrics.days_count || 0,
+            cost_from_sources: rawMetrics.cost_from_sources || 0,
+            clicks_on_link: rawMetrics.clicks_on_link || 0,
             cached_at: new Date().toISOString()
           }
         ], {
@@ -1950,6 +1952,8 @@ export const metricsAnalyticsService = {
             impressions: rawMetrics.impressions || 0,
             avg_duration: rawMetrics.avg_duration || 0,
             days_count: rawMetrics.days_count || 0,
+            cost_from_sources: rawMetrics.cost_from_sources || 0,
+            clicks_on_link: rawMetrics.clicks_on_link || 0,
             cached_at: new Date().toISOString()
           });
         } else {
@@ -1967,6 +1971,8 @@ export const metricsAnalyticsService = {
             impressions: null,
             avg_duration: null,
             days_count: null,
+            cost_from_sources: null,
+            clicks_on_link: null,
             cached_at: new Date().toISOString()
           });
         }
@@ -2035,7 +2041,7 @@ export const metricsAnalyticsService = {
     try {
       const { data, error } = await supabase
         .from('metrics_cache')
-        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at')
         .eq('creative_id', creativeId)
         .eq('video_index', videoIndex)
         .eq('period', period) // Загружаем для ЗАПРОШЕННОГО периода
@@ -2067,7 +2073,7 @@ export const metricsAnalyticsService = {
       // КРИТИЧНО: НЕ используем select('*') из-за JSONB поля metrics_data
       const { data, error } = await supabase
         .from('metrics_cache')
-        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cached_at')
+        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at')
         .in('creative_id', creativeIds)
         .eq('period', period); // Загружаем для ЗАПРОШЕННОГО периода
 
@@ -2166,9 +2172,11 @@ export const metricsAnalyticsService = {
     const impressions = Number(cacheData.impressions) || 0;
     const avg_duration = Number(cacheData.avg_duration) || 0;
     const days_count = Number(cacheData.days_count) || 0;
+    const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
+    const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
 
     console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
-      leads, cost, clicks, impressions, avg_duration, days_count
+      leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link
     });
 
     // Вычисляем производные метрики на клиенте
@@ -2203,6 +2211,8 @@ export const metricsAnalyticsService = {
           impressions,
           avg_duration: Number(avg_duration.toFixed(2)),
           days_count,
+          cost_from_sources,
+          clicks_on_link,
           cpl: Number(cpl.toFixed(2)),
           ctr_percent: Number(ctr_percent.toFixed(2)),
           cpc: Number(cpc.toFixed(2)),
