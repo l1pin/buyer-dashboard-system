@@ -1043,17 +1043,35 @@ export const creativeService = {
         const result = await trelloService.syncSingleCreative(creative.id, creative.trello_link);
         console.log('✅ Trello статус синхронизирован:', result.listName);
         
-        // Проверяем что запись попала в БД
-        const { data: checkData, error: checkError } = await supabase
-          .from('trello_card_statuses')
-          .select('*')
-          .eq('creative_id', creative.id)
-          .single();
+        // Двойная проверка что запись попала в БД
+        let checkAttempts = 0;
+        const maxCheckAttempts = 3;
+        let statusFound = false;
         
-        if (checkError) {
-          console.error('❌ Проверка: статус НЕ найден в БД:', checkError);
-        } else {
-          console.log('✅ Проверка: статус НАЙДЕН в БД:', checkData);
+        while (checkAttempts < maxCheckAttempts && !statusFound) {
+          checkAttempts++;
+          console.log(`🔍 Проверка статуса в БД, попытка ${checkAttempts}/${maxCheckAttempts}...`);
+          
+          const { data: checkData, error: checkError } = await supabase
+            .from('trello_card_statuses')
+            .select('*')
+            .eq('creative_id', creative.id)
+            .single();
+          
+          if (checkError) {
+            console.error(`❌ Попытка ${checkAttempts}: статус НЕ найден:`, checkError.code);
+            if (checkAttempts < maxCheckAttempts) {
+              console.log('⏳ Ждем 500ms перед повтором...');
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } else {
+            console.log(`✅ Попытка ${checkAttempts}: статус НАЙДЕН в БД:`, checkData);
+            statusFound = true;
+          }
+        }
+        
+        if (!statusFound) {
+          console.error('❌ Статус не найден после всех попыток проверки');
         }
         
       } catch (syncError) {
@@ -1419,6 +1437,8 @@ export const trelloService = {
   // Ручная синхронизация статуса для одного креатива
   async syncSingleCreative(creativeId, trelloLink) {
     try {
+      console.log('🔄 syncSingleCreative START:', { creativeId, trelloLink });
+      
       if (!trelloLink) {
         throw new Error('Нет ссылки на Trello');
       }
@@ -1433,60 +1453,90 @@ export const trelloService = {
       };
 
       const normalizedUrl = normalizeUrl(trelloLink);
+      console.log('🔗 Normalized URL:', normalizedUrl);
       
       // Извлекаем ID карточки из URL (формат: /c/CARD_ID/...)
       const cardIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)\//);
       if (!cardIdMatch) {
+        console.error('❌ Неверный формат URL, не найден /c/CARD_ID/');
         throw new Error('Неверный формат ссылки Trello');
       }
 
       const cardId = cardIdMatch[1];
-      console.log('🔍 Extracted card ID:', cardId);
+      console.log('🆔 Extracted card ID:', cardId);
 
       // Получаем информацию о карточке через API
       const TRELLO_KEY = 'e83894111117e54746d899c1fc2f7043';
       const TRELLO_TOKEN = 'ATTAb29683ffc0c87de7b5d1ce766ca8c2d28a61b3c722660564d74dae0a955456aeED83F79A';
       
+      console.log('📡 Запрос к Trello API для карточки...');
       const cardUrl = `https://api.trello.com/1/cards/${cardId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=idList,name`;
       const cardResponse = await fetch(cardUrl);
       
       if (!cardResponse.ok) {
-        throw new Error('Не удалось получить информацию о карточке');
+        const errorText = await cardResponse.text();
+        console.error('❌ Ошибка API Trello (card):', cardResponse.status, errorText);
+        throw new Error(`Не удалось получить информацию о карточке: ${cardResponse.status}`);
       }
       
       const card = await cardResponse.json();
+      console.log('📋 Card data:', { id: card.id, name: card.name, idList: card.idList });
       
       // Получаем информацию о списке
+      console.log('📡 Запрос к Trello API для списка...');
       const listUrl = `https://api.trello.com/1/lists/${card.idList}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=name`;
       const listResponse = await fetch(listUrl);
       
       if (!listResponse.ok) {
-        throw new Error('Не удалось получить информацию о списке');
+        const errorText = await listResponse.text();
+        console.error('❌ Ошибка API Trello (list):', listResponse.status, errorText);
+        throw new Error(`Не удалось получить информацию о списке: ${listResponse.status}`);
       }
       
       const list = await listResponse.json();
-      
-      console.log('✅ Card info:', { name: card.name, list: list.name });
+      console.log('📂 List data:', { id: list.id, name: list.name });
 
       // Обновляем статус в базе
-      const { error } = await supabase
+      console.log('💾 Сохранение статуса в БД...');
+      const { data, error } = await supabase
         .from('trello_card_statuses')
         .upsert({
           creative_id: creativeId,
           trello_card_id: cardId,
-          list_id: list.id,
+          list_id: card.idList,
           list_name: list.name,
           last_updated: new Date().toISOString()
         }, {
           onConflict: 'creative_id'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Ошибка сохранения в БД:', error);
+        throw error;
+      }
 
-      return { success: true, listName: list.name };
+      console.log('✅ Статус сохранен в БД:', data);
+      
+      // Проверяем, что запись действительно создана
+      const { data: checkData, error: checkError } = await supabase
+        .from('trello_card_statuses')
+        .select('*')
+        .eq('creative_id', creativeId)
+        .single();
+      
+      if (checkError) {
+        console.error('⚠️ Проверка: запись НЕ найдена после сохранения:', checkError);
+      } else {
+        console.log('✅ Проверка: запись подтверждена в БД:', checkData);
+      }
+
+      console.log('🎉 syncSingleCreative SUCCESS');
+      return { success: true, listName: list.name, cardId, listId: card.idList };
       
     } catch (error) {
-      console.error('Ошибка синхронизации статуса:', error);
+      console.error('❌ syncSingleCreative ERROR:', error);
+      console.error('Stack:', error.stack);
       throw error;
     }
   }
