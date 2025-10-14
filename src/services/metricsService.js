@@ -109,14 +109,7 @@ export class MetricsService {
   static _groupBatchResults(data, videoNames) {
     const grouped = new Map();
 
-    console.log(`🔍 ДИАГНОСТИКА _groupBatchResults:`, {
-      dataCount: data?.length,
-      videoNamesCount: videoNames?.length,
-      dataType: typeof data,
-      isArray: Array.isArray(data)
-    });
-
-    // Инициализируем для всех запрошенных видео
+    // Инициализируем для всех запрошенных видео - по умолчанию found: false
     videoNames.forEach(name => {
       grouped.set(name, {
         videoName: name,
@@ -124,76 +117,44 @@ export class MetricsService {
         first4: null,
         total: null,
         found: false,
-        noData: true
+        noData: true // Флаг отсутствия данных
       });
     });
 
-    console.log(`📦 Инициализировано ${grouped.size} видео в Map`);
+    console.log(`📦 Группировка результатов: ${data.length} записей, ${videoNames.length} видео`);
     
-    if (!data || data.length === 0) {
-      console.warn('⚠️ Нет данных для группировки!');
-      return Array.from(grouped.values());
-    }
-
-    // Детальное логирование первых записей
-    console.log('📋 Первые 3 записи из data:');
-    for (let i = 0; i < Math.min(3, data.length); i++) {
-      console.log(`  [${i}]:`, {
-        video_name: data[i].video_name,
-        kind: data[i].kind,
-        leads: data[i].leads,
-        cost: data[i].cost,
-        allKeys: Object.keys(data[i])
+    // Логируем первую запись чтобы понять структуру
+    if (data.length > 0) {
+      console.log('📋 Пример записи из API:', {
+        keys: Object.keys(data[0]),
+        sample: data[0]
       });
     }
 
-    // Логируем первые 3 видео из videoNames
-    console.log('📋 Первые 3 названия из videoNames:', videoNames.slice(0, 3));
-
     // Группируем данные
     let processedCount = 0;
-    let skippedNoVideoName = 0;
-    let newVideosAdded = 0;
-    
     data.forEach((row, index) => {
       const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration } = row;
       
       if (!video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
-        skippedNoVideoName++;
         return;
       }
       
-      // КРИТИЧНО: Проверяем точное совпадение
-      const hasExactMatch = grouped.has(video_name);
-      
-      if (!hasExactMatch) {
-        // Проверяем похожие названия для диагностики
-        const similarNames = videoNames.filter(name => 
-          name.toLowerCase().includes(video_name.toLowerCase()) || 
-          video_name.toLowerCase().includes(name.toLowerCase())
-        );
-        
-        if (similarNames.length > 0) {
-          console.warn(`⚠️ Не найдено точное совпадение для "${video_name}", похожие:`, similarNames);
-        } else {
-          console.warn(`⚠️ Видео "${video_name}" не было в videoNames, добавляем`);
-        }
-        
+      if (!grouped.has(video_name)) {
+        console.log(`➕ Добавляем новое видео: ${video_name}`);
         grouped.set(video_name, {
           videoName: video_name,
           daily: [],
           first4: null,
           total: null,
-          found: false,
-          noData: true
+          found: false
         });
-        newVideosAdded++;
       }
 
       const entry = grouped.get(video_name);
       entry.found = true;
-      entry.noData = false;
+      entry.noData = false; // Данные найдены
       processedCount++;
 
       const metrics = {
@@ -215,139 +176,13 @@ export class MetricsService {
     });
 
     console.log(`✅ Обработано ${processedCount} записей`);
-    console.log(`⚠️ Пропущено ${skippedNoVideoName} записей без video_name`);
-    console.log(`➕ Добавлено ${newVideosAdded} новых видео (не было в videoNames)`);
     
-    // Детальная статистика
+    // Логируем статистику
     const foundCount = Array.from(grouped.values()).filter(v => v.found).length;
     const notFoundCount = grouped.size - foundCount;
-    console.log(`📊 ИТОГОВАЯ СТАТИСТИКА:`);
-    console.log(`  ✅ Найдено: ${foundCount}`);
-    console.log(`  ❌ Не найдено: ${notFoundCount}`);
-    console.log(`  📦 Всего в Map: ${grouped.size}`);
-
-    // Логируем примеры не найденных видео
-    if (notFoundCount > 0) {
-      const notFound = Array.from(grouped.values()).filter(v => !v.found);
-      console.log('❌ Примеры НЕ НАЙДЕННЫХ видео:', notFound.slice(0, 3).map(v => v.videoName));
-    }
+    console.log(`📊 Статистика: найдено ${foundCount}, не найдено ${notFoundCount} из ${grouped.size} видео`);
 
     return Array.from(grouped.values());
-  }
-
-  /**
-   * НОВЫЙ МЕТОД: Fuzzy-поиск метрик (LIKE вместо точного совпадения)
-   */
-  static async getFuzzyVideoMetrics(videoNamesWithoutExt, options = {}) {
-    const {
-      dateFrom = null,
-      dateTo = null,
-      kind = 'daily_first4_total'
-    } = options;
-
-    if (!videoNamesWithoutExt || videoNamesWithoutExt.length === 0) {
-      console.warn('⚠️ getFuzzyVideoMetrics: пустой массив');
-      return { success: false, results: [] };
-    }
-
-    console.log(`🔍 FUZZY поиск метрик для ${videoNamesWithoutExt.length} видео (без расширений)`);
-
-    try {
-      const requestBody = {
-        video_names: videoNamesWithoutExt,
-        kind: kind,
-        fuzzy_search: true // КРИТИЧНО: включаем LIKE поиск
-      };
-
-      if (dateFrom) requestBody.date_from = dateFrom;
-      if (dateTo) requestBody.date_to = dateTo;
-
-      const startTime = Date.now();
-
-      const response = await fetch(METRICS_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API error ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      const elapsed = Date.now() - startTime;
-
-      console.log(`✅ FUZZY поиск завершен за ${elapsed}ms: ${data.length} записей`);
-
-      // Группируем результаты по video_name
-      const resultsByVideo = this._groupBatchResults(data, videoNamesWithoutExt);
-
-      return {
-        success: true,
-        results: resultsByVideo,
-        metadata: { elapsed, fuzzy: true }
-      };
-
-    } catch (error) {
-      console.error('❌ Ошибка fuzzy поиска:', error);
-      return { success: false, error: error.message, results: [] };
-    }
-  }
-
-  /**
-   * УЛУЧШЕННЫЙ парсинг структуры названия видео
-   */
-  static parseVideoStructure(fileName) {
-    if (!fileName) return null;
-    
-    const result = {
-      original: fileName,
-      article: null,
-      date: null,
-      extension: null,
-      hasStructure: false
-    };
-    
-    // АРТИКУЛ: Буква + 4-5 цифр в НАЧАЛЕ
-    const articleMatch = fileName.match(/^([A-Z]\d{4,5})(?=[\s\-–—_])/i);
-    if (articleMatch) {
-      result.article = articleMatch[1].toUpperCase();
-    }
-    
-    // ДАТА: 6 цифр между пробелами
-    const dateMatch = fileName.match(/\s(\d{6})(?=\s)/);
-    if (dateMatch) {
-      result.date = dateMatch[1];
-    }
-    
-    // РАСШИРЕНИЕ
-    const extMatch = fileName.match(/\.(mp4|avi|mov|mkv|webm|m4v)$/i);
-    if (extMatch) {
-      result.extension = extMatch[0].toLowerCase();
-    }
-    
-    result.hasStructure = !!(result.article && result.date);
-    
-    return result;
-  }
-
-  /**
-   * Извлечение имени файла без расширения (старая функция)
-   */
-  static extractVideoName(fileName) {
-    if (!fileName) return '';
-    
-    // Убираем ТОЛЬКО расширение
-    let cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-    
-    // Убираем окончания типа " (1)", " (2)" и т.д.
-    cleanName = cleanName.replace(/\s*\(\d+\)\s*$/i, '');
-    
-    return cleanName.trim();
   }
 
   /**
@@ -730,6 +565,14 @@ export class MetricsService {
     return METRICS_API_URL;
   }
 
+  /**
+   * Извлечение имени файла без расширения
+   */
+  static extractVideoName(fileName) {
+    if (!fileName) return '';
+    const cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+    return cleanName.trim();
   }
+}
 
 export default MetricsService;
