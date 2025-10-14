@@ -158,7 +158,7 @@ export class MetricsService {
     let newVideosAdded = 0;
     
     data.forEach((row, index) => {
-      const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration } = row;
+      const { video_name, kind, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link } = row;
       
       if (!video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
@@ -204,7 +204,9 @@ export class MetricsService {
         cost: Number(cost) || 0,
         clicks: Number(clicks) || 0,
         impressions: Number(impressions) || 0,
-        avg_duration: Number(avg_duration) || 0
+        avg_duration: Number(avg_duration) || 0,
+        cost_from_sources: Number(cost_from_sources) || 0,
+        clicks_on_link: Number(clicks_on_link) || 0
       };
 
       if (kind === 'daily') {
@@ -295,9 +297,7 @@ export class MetricsService {
         cost: d.cost,
         clicks: d.clicks,
         impressions: d.impressions,
-        avg_duration: d.avg_duration,
-        cost_from_sources: d.cost_from_sources || 0,
-        clicks_on_link: d.clicks_on_link || 0
+        avg_duration: d.avg_duration
       }));
 
       // Вычисляем метрики для "all"
@@ -511,18 +511,14 @@ export class MetricsService {
       clicks: acc.clicks + day.clicks,
       impressions: acc.impressions + day.impressions,
       duration_sum: acc.duration_sum + (day.avg_duration || 0),
-      days_count: acc.days_count + 1,
-      cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
-      clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
+      days_count: acc.days_count + 1
     }), {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
       duration_sum: 0,
-      days_count: 0,
-      cost_from_sources: 0,
-      clicks_on_link: 0
+      days_count: 0
     });
 
     return {
@@ -531,9 +527,7 @@ export class MetricsService {
       clicks: result.clicks,
       impressions: result.impressions,
       avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
-      days_count: result.days_count,
-      cost_from_sources: result.cost_from_sources,
-      clicks_on_link: result.clicks_on_link
+      days_count: result.days_count
     };
   }
 
