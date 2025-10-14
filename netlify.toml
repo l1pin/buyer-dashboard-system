@@ -11,7 +11,6 @@
 [functions]
   directory = "netlify/functions/"
   included_files = ["netlify/functions/**"]
-  timeout = 26
 
 # Настройки для SPA
 [[redirects]]
