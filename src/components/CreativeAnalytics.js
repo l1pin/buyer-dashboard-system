@@ -94,6 +94,8 @@ function CreativeAnalytics({ user }) {
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
   const [loadingTrello, setLoadingTrello] = useState(false);
+  const [trelloStats, setTrelloStats] = useState(null);
+  const [showTrelloInfo, setShowTrelloInfo] = useState(false);
   
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
@@ -1045,15 +1047,29 @@ function CreativeAnalytics({ user }) {
   // Настройка Trello webhook
   const setupTrelloIntegration = async () => {
     try {
+      setLoadingTrello(true);
       console.log('🔧 Настройка интеграции с Trello...');
       const result = await trelloService.setupTrelloWebhook();
       console.log('✅ Trello интеграция настроена:', result);
-      alert(`Успешно! Синхронизировано ${result.stats.synced} карточек из ${result.stats.cards}`);
+      
+      setTrelloStats(result.stats);
+      setShowTrelloInfo(true);
+      
       // Перезагружаем статусы
       await loadTrelloStatuses();
+      
+      alert(`✅ Успешно!\n\n` +
+            `📋 Доска: ${result.board.name}\n` +
+            `📂 Колонок: ${result.stats.lists}\n` +
+            `🎴 Карточек в Trello: ${result.stats.cards}\n` +
+            `🔗 Креативов с ссылками: ${result.stats.creativesWithLinks}\n` +
+            `✅ Синхронизировано: ${result.stats.synced}\n` +
+            `⚠️ Не найдено: ${result.stats.notFound}`);
     } catch (error) {
       console.error('❌ Ошибка настройки Trello:', error);
-      alert('Ошибка настройки Trello: ' + error.message);
+      alert('❌ Ошибка настройки Trello:\n\n' + error.message + '\n\nПроверьте консоль браузера для деталей.');
+    } finally {
+      setLoadingTrello(false);
     }
   };
 
