@@ -234,7 +234,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     cost: d.cost,
                     clicks: d.clicks,
                     impressions: d.impressions,
-                    avg_duration: d.avg_duration
+                    avg_duration: d.avg_duration,
+                    cost_from_sources: d.cost_from_sources || 0,
+                    clicks_on_link: d.clicks_on_link || 0
                   }));
 
                   const aggregates = MetricsService.aggregateDailyData(allDailyData);
@@ -489,16 +491,18 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 matchedCount++;
                 
                 // Преобразуем к формату rawMetrics
-                const allDailyData = videoResult.daily.map(d => ({
-                  date: d.date,
-                  leads: d.leads,
-                  cost: d.cost,
-                  clicks: d.clicks,
-                  impressions: d.impressions,
-                  avg_duration: d.avg_duration
-                }));
+const allDailyData = videoResult.daily.map(d => ({
+              date: d.date,
+              leads: d.leads,
+              cost: d.cost,
+              clicks: d.clicks,
+              impressions: d.impressions,
+              avg_duration: d.avg_duration,
+              cost_from_sources: d.cost_from_sources || 0,
+              clicks_on_link: d.clicks_on_link || 0
+            }));
 
-                const aggregates = MetricsService.aggregateDailyData(allDailyData);
+            const aggregates = MetricsService.aggregateDailyData(allDailyData);
                 const metrics = MetricsService.computeDerivedMetrics(aggregates);
                 const formatted = MetricsService.formatMetrics(metrics);
 
