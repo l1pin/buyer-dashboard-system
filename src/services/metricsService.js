@@ -236,78 +236,6 @@ export class MetricsService {
   }
 
   /**
-   * НОВЫЙ МЕТОД: Fuzzy-поиск метрик (LIKE вместо точного совпадения)
-   */
-  static async getFuzzyVideoMetrics(videoNamesWithoutExt, options = {}) {
-    const {
-      dateFrom = null,
-      dateTo = null,
-      kind = 'daily_first4_total'
-    } = options;
-
-    if (!videoNamesWithoutExt || videoNamesWithoutExt.length === 0) {
-      console.warn('⚠️ getFuzzyVideoMetrics: пустой массив');
-      return { success: false, results: [] };
-    }
-
-    console.log(`🔍 FUZZY поиск метрик для ${videoNamesWithoutExt.length} видео (без расширений)`);
-
-    try {
-      const requestBody = {
-        video_names: videoNamesWithoutExt,
-        kind: kind,
-        fuzzy_search: true // КРИТИЧНО: включаем LIKE поиск
-      };
-
-      if (dateFrom) requestBody.date_from = dateFrom;
-      if (dateTo) requestBody.date_to = dateTo;
-
-      const startTime = Date.now();
-
-      const response = await fetch(METRICS_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API error ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      const elapsed = Date.now() - startTime;
-
-      console.log(`✅ FUZZY поиск завершен за ${elapsed}ms: ${data.length} записей`);
-
-      // Группируем результаты по video_name
-      const resultsByVideo = this._groupBatchResults(data, videoNamesWithoutExt);
-
-      return {
-        success: true,
-        results: resultsByVideo,
-        metadata: { elapsed, fuzzy: true }
-      };
-
-    } catch (error) {
-      console.error('❌ Ошибка fuzzy поиска:', error);
-      return { success: false, error: error.message, results: [] };
-    }
-  }
-
-  /**
-   * Извлечение имени файла без расширения
-   */
-  static extractVideoName(fileName) {
-    if (!fileName) return '';
-    const cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-    return cleanName.trim();
-  }
-
-  /**
    * Получение метрик для одного видео (обёртка над батчевым методом)
    */
   static async getVideoMetricsRaw(videoName, useCache = true, creativeId = null, videoIndex = null, article = null) {
@@ -687,6 +615,31 @@ export class MetricsService {
     return METRICS_API_URL;
   }
 
+  /**
+   * Извлечение имени файла без расширения и очистка
+   */
+  static extractVideoName(fileName) {
+    if (!fileName) return '';
+    
+    // Убираем расширение
+    let cleanName = fileName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+    
+    // Убираем окончания типа " (1)", " (2)" и т.д.
+    cleanName = cleanName.replace(/\s*\(\d+\)\s*$/i, '');
+    
+    // Убираем префиксы типа "cropped_original_..."
+    // Ищем первое вхождение артикула (например AN00174, J00056, X00915)
+    const articleMatch = cleanName.match(/[A-Z]\d{5}/);
+    if (articleMatch) {
+      const articleIndex = cleanName.indexOf(articleMatch[0]);
+      if (articleIndex > 0) {
+        // Обрезаем все до артикула
+        cleanName = cleanName.substring(articleIndex);
+      }
+    }
+    
+    return cleanName.trim();
   }
+}
 
 export default MetricsService;
