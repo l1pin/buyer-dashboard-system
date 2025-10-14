@@ -295,7 +295,9 @@ export class MetricsService {
         cost: d.cost,
         clicks: d.clicks,
         impressions: d.impressions,
-        avg_duration: d.avg_duration
+        avg_duration: d.avg_duration,
+        cost_from_sources: d.cost_from_sources || 0,
+        clicks_on_link: d.clicks_on_link || 0
       }));
 
       // Вычисляем метрики для "all"
@@ -509,14 +511,18 @@ export class MetricsService {
       clicks: acc.clicks + day.clicks,
       impressions: acc.impressions + day.impressions,
       duration_sum: acc.duration_sum + (day.avg_duration || 0),
-      days_count: acc.days_count + 1
+      days_count: acc.days_count + 1,
+      cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
+      clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
     }), {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
       duration_sum: 0,
-      days_count: 0
+      days_count: 0,
+      cost_from_sources: 0,
+      clicks_on_link: 0
     });
 
     return {
@@ -525,7 +531,9 @@ export class MetricsService {
       clicks: result.clicks,
       impressions: result.impressions,
       avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
-      days_count: result.days_count
+      days_count: result.days_count,
+      cost_from_sources: result.cost_from_sources,
+      clicks_on_link: result.clicks_on_link
     };
   }
 
