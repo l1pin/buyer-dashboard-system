@@ -335,11 +335,11 @@ export class MetricsService {
       // Преобразуем к старому формату для совместимости
       const allDailyData = videoData.daily.map((d) => ({
         date: d.date,
-        valid: d.valid,
+        leads: d.valid || d.leads,
         cost: d.cost,
-        clicks_on_link_tracker: d.clicks_on_link_tracker,
-        showed: d.showed,
-        average_time_on_video: d.average_time_on_video,
+        clicks: d.clicks_on_link_tracker || d.clicks,
+        impressions: d.showed || d.impressions,
+        avg_duration: d.average_time_on_video || d.avg_duration,
         cost_from_sources: d.cost_from_sources,
         clicks_on_link: d.clicks_on_link,
       }));
