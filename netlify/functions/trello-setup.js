@@ -194,20 +194,50 @@ exports.handler = async (event, context) => {
     let syncedCount = 0;
     let notFoundCount = 0;
     
+    // ДИАГНОСТИКА: Выводим первые 5 карточек из Trello
+    console.log('\n📋 SAMPLE TRELLO CARDS (first 5):');
+    cards.slice(0, 5).forEach(card => {
+      console.log(`  - ${card.name}`);
+      console.log(`    URL: ${card.url}`);
+      console.log(`    Short URL: ${card.shortUrl}`);
+      console.log(`    Normalized: ${normalizeUrl(card.url)}`);
+    });
+    
+    // ДИАГНОСТИКА: Выводим все URL из Map
+    console.log('\n🗺️ NORMALIZED URLs IN MAP (first 10):');
+    let count = 0;
+    for (const [url, card] of cardsByNormalizedUrl.entries()) {
+      if (count++ >= 10) break;
+      console.log(`  - ${url} -> ${card.name}`);
+    }
+    
+    console.log('\n🔍 MATCHING CREATIVES WITH CARDS:\n');
+    
     for (const creative of creatives || []) {
       const trelloUrl = creative.trello_link;
       
-      if (!trelloUrl) continue;
+      if (!trelloUrl) {
+        console.log(`⚠️ ${creative.article}: NO TRELLO LINK`);
+        continue;
+      }
       
       // Нормализуем URL креатива
       const normalizedCreativeUrl = normalizeUrl(trelloUrl);
+      
+      console.log(`\n📦 ${creative.article}:`);
+      console.log(`   Original: ${trelloUrl}`);
+      console.log(`   Normalized: ${normalizedCreativeUrl}`);
       
       // Ищем карточку
       const card = cardsByNormalizedUrl.get(normalizedCreativeUrl);
       
       if (card) {
+        console.log(`   ✅ FOUND CARD: ${card.name}`);
+        
         const list = lists.find(l => l.id === card.idList);
         if (list) {
+          console.log(`   📂 LIST: ${list.name}`);
+          
           const { error: statusError } = await supabase
             .from('trello_card_statuses')
             .upsert({
@@ -221,15 +251,29 @@ exports.handler = async (event, context) => {
             });
           
           if (statusError) {
-            console.error(`⚠️ Error syncing ${creative.article}:`, statusError);
+            console.error(`   ❌ ERROR SYNCING:`, statusError);
           } else {
             syncedCount++;
-            console.log(`✅ Synced: ${creative.article} -> ${list.name}`);
+            console.log(`   ✅ SYNCED TO DATABASE`);
           }
+        } else {
+          console.log(`   ❌ LIST NOT FOUND`);
         }
       } else {
         notFoundCount++;
-        console.log(`⚠️ Not found: ${creative.article} (${normalizedCreativeUrl})`);
+        console.log(`   ❌ CARD NOT FOUND IN MAP`);
+        
+        // Попробуем найти похожие
+        const similar = [];
+        for (const [url, c] of cardsByNormalizedUrl.entries()) {
+          if (url.includes(normalizedCreativeUrl.substring(0, 20)) || 
+              normalizedCreativeUrl.includes(url.substring(0, 20))) {
+            similar.push(url);
+          }
+        }
+        if (similar.length > 0) {
+          console.log(`   🔍 SIMILAR URLs found:`, similar.slice(0, 3));
+        }
       }
     }
 
