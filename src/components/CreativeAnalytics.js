@@ -1016,10 +1016,88 @@ function CreativeAnalytics({ user }) {
     }
   };
 
-  // Загрузка статусов Trello карточек
-  const loadTrelloStatuses = async () => {
+  // 🆕 НОВАЯ ФУНКЦИЯ: Синхронизация пропущенных статусов
+  const syncMissingTrelloStatuses = async (currentStatusMap) => {
     try {
-      console.log('🟢 loadTrelloStatuses СТАРТ');
+      console.log('🔄 Проверка пропущенных Trello статусов...');
+      
+      // Находим креативы с trello_link, но без статуса
+      const creativesWithoutStatus = analytics.creatives.filter(creative => {
+        const hasLink = !!creative.trello_link;
+        const hasStatus = currentStatusMap.has(creative.id);
+        return hasLink && !hasStatus;
+      });
+      
+      if (creativesWithoutStatus.length === 0) {
+        console.log('✅ Все креативы с Trello ссылками имеют статусы');
+        return 0;
+      }
+      
+      console.log(`⚠️ Найдено ${creativesWithoutStatus.length} креативов БЕЗ статуса, но с Trello ссылкой`);
+      console.log('📋 Артикулы:', creativesWithoutStatus.map(c => c.article).join(', '));
+      
+      // Синхронизируем каждый креатив
+      let successCount = 0;
+      let errorCount = 0;
+      const newStatuses = new Map();
+      
+      for (const creative of creativesWithoutStatus) {
+        try {
+          console.log(`🔄 Синхронизация статуса для ${creative.article}...`);
+          
+          const result = await trelloService.syncSingleCreative(
+            creative.id,
+            creative.trello_link
+          );
+          
+          if (result.success) {
+            console.log(`✅ Статус синхронизирован: ${result.listName}`);
+            
+            // Сохраняем в временный Map
+            newStatuses.set(creative.id, {
+              creative_id: creative.id,
+              list_name: result.listName,
+              list_id: result.listId,
+              trello_card_id: result.cardId,
+              last_updated: new Date().toISOString()
+            });
+            
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
+          errorCount++;
+        }
+        
+        // Задержка между запросами к API Trello (избегаем rate limit)
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Обновляем Map одним вызовом
+      if (newStatuses.size > 0) {
+        setTrelloStatuses(prev => {
+          const updated = new Map(prev);
+          newStatuses.forEach((value, key) => {
+            updated.set(key, value);
+          });
+          console.log('🗺️ Map обновлен, новый размер:', updated.size);
+          return updated;
+        });
+      }
+      
+      console.log(`🎉 Автосинхронизация завершена: успешно ${successCount}, ошибок ${errorCount}`);
+      return successCount;
+      
+    } catch (error) {
+      console.error('❌ Ошибка автосинхронизации статусов:', error);
+      return 0;
+    }
+  };
+
+  // Загрузка статусов Trello карточек
+  const loadTrelloStatuses = async (shouldSyncMissing = false) => {
+    try {
+      console.log('🟢 loadTrelloStatuses СТАРТ, shouldSyncMissing:', shouldSyncMissing);
       console.log('📊 analytics.creatives:', analytics.creatives?.length || 0);
       
       // Получаем списки
@@ -1047,14 +1125,22 @@ function CreativeAnalytics({ user }) {
           const firstEntry = Array.from(statusMap.entries())[0];
           console.log('📦 Первая пара [ID, статус]:', firstEntry);
         }
+        
+        // 🚀 НОВОЕ: Автоматическая синхронизация пропущенных статусов
+        if (shouldSyncMissing) {
+          const syncedCount = await syncMissingTrelloStatuses(statusMap);
+          return syncedCount;
+        }
       } else {
         console.warn('⚠️ НЕТ креативов для загрузки статусов!');
       }
       
       console.log('🏁 loadTrelloStatuses ЗАВЕРШЕН');
+      return 0;
     } catch (error) {
       console.error('❌ Ошибка загрузки Trello статусов:', error);
       console.error('Stack:', error.stack);
+      return 0;
     }
   };
 
@@ -1316,8 +1402,8 @@ function CreativeAnalytics({ user }) {
     console.log('🔵 useEffect для Trello, analytics.creatives:', analytics.creatives?.length);
     
     if (analytics.creatives && analytics.creatives.length > 0) {
-      console.log('🟢 Запускаем loadTrelloStatuses...');
-      loadTrelloStatuses();
+      console.log('🟢 Запускаем loadTrelloStatuses с автосинхронизацией...');
+      loadTrelloStatuses(true); // true = автоматически синхронизировать пропущенные
     } else {
       console.log('⚠️ analytics.creatives пуст, ждем...');
     }
@@ -1867,10 +1953,19 @@ function CreativeAnalytics({ user }) {
 
           <button
               onClick={async () => {
-                if (window.confirm('Синхронизировать статусы всех креативов с Trello?\n\nЭто может занять некоторое время.')) {
+                if (window.confirm('Синхронизировать статусы всех креативов с Trello?\n\nЭто может занять некоторое время для креативов без статуса.')) {
                   console.log('🔄 Ручная синхронизация всех статусов...');
-                  await loadTrelloStatuses();
-                  alert('Синхронизация завершена!');
+                  try {
+                    const syncedCount = await loadTrelloStatuses(true); // true = синхронизировать пропущенные
+                    if (syncedCount > 0) {
+                      alert(`Синхронизация завершена!\n\nОбновлено статусов: ${syncedCount}`);
+                    } else {
+                      alert('Синхронизация завершена!\n\nВсе статусы уже актуальны.');
+                    }
+                  } catch (error) {
+                    console.error('Ошибка синхронизации:', error);
+                    alert('Ошибка синхронизации. Проверьте консоль.');
+                  }
                 }
               }}
               className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
