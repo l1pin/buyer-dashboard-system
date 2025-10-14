@@ -2969,6 +2969,17 @@ function CreativeAnalytics({ user }) {
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
                         const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const allVideoMetrics = getAllVideoMetrics(creative);
+                        
+                        // 🔥 ДИАГНОСТИКА
+                        if (currentDisplayData.metrics?.found) {
+                          console.log('🔥 ДИАГНОСТИКА CreativeAnalytics.js:', {
+                            article: creative.article,
+                            'metrics.data': currentDisplayData.metrics.data,
+                            'metrics.data.raw': currentDisplayData.metrics.data?.raw,
+                            'cost_from_sources': currentDisplayData.metrics.data?.raw?.cost_from_sources,
+                            'clicks_on_link': currentDisplayData.metrics.data?.raw?.clicks_on_link
+                          });
+                        }
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
