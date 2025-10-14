@@ -675,7 +675,7 @@ export class MetricsService {
   /**
    * Вычисление производных метрик
    */
-  static computeDerivedMetrics({ leads, cost, clicks, impressions, avg_duration, days_count }) {
+  static computeDerivedMetrics({ leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link }) {
     const fix2 = (x) => Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
     
     const CPL = leads > 0 ? cost / leads : 0;
@@ -683,6 +683,7 @@ export class MetricsService {
     const CPC = clicks > 0 ? cost / clicks : 0;
     const CPM = impressions > 0 ? (cost / impressions) * 1000 : 0;
 
+    // 🔥🔥🔥 КРИТИЧНО: Сохраняем дополнительные поля
     return {
       leads,
       cost: fix2(cost),
@@ -690,6 +691,8 @@ export class MetricsService {
       impressions,
       avg_duration: fix2(avg_duration),
       days_count,
+      cost_from_sources: fix2(cost_from_sources || 0),
+      clicks_on_link: clicks_on_link || 0,
       cpl: fix2(CPL),
       ctr_percent: fix2(CTR),
       cpc: fix2(CPC),
