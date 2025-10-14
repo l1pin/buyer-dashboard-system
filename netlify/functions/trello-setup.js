@@ -238,7 +238,7 @@ exports.handler = async (event, context) => {
         if (list) {
           console.log(`   📂 LIST: ${list.name}`);
           
-          const { error: statusError } = await supabase
+          const { data: statusData, error: statusError } = await supabase
             .from('trello_card_statuses')
             .upsert({
               creative_id: creative.id,
@@ -248,13 +248,27 @@ exports.handler = async (event, context) => {
               last_updated: new Date().toISOString()
             }, {
               onConflict: 'creative_id'
-            });
+            })
+            .select();
           
           if (statusError) {
             console.error(`   ❌ ERROR SYNCING:`, statusError);
           } else {
             syncedCount++;
-            console.log(`   ✅ SYNCED TO DATABASE`);
+            console.log(`   ✅ SYNCED TO DATABASE:`, statusData);
+            
+            // Проверяем что запись действительно создана
+            const { data: verifyData, error: verifyError } = await supabase
+              .from('trello_card_statuses')
+              .select('*')
+              .eq('creative_id', creative.id)
+              .single();
+            
+            if (verifyError) {
+              console.error(`   ⚠️ VERIFICATION FAILED:`, verifyError);
+            } else {
+              console.log(`   ✅ VERIFICATION SUCCESS:`, verifyData.list_name);
+            }
           }
         } else {
           console.log(`   ❌ LIST NOT FOUND`);
