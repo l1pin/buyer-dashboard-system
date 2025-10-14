@@ -351,34 +351,70 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           });
           
           try {
-            console.log('🌐 Отправляем LIKE запрос к MetricsService.getBatchVideoMetrics...');
-            console.log('📦 Параметры:', {
-              videoCount: videosWithoutMetrics.length,
-              kind: 'daily_first4_total',
-              useCache: false,
-              useLike: true
-            });
+            // 🔥 ЧАНКИНГ: Разбиваем на батчи по 5 видео
+            const LIKE_BATCH_SIZE = 5;
+            const likeChunks = [];
             
-            const likeBatchResult = await MetricsService.getBatchVideoMetrics(videosWithoutMetrics, {
-              kind: 'daily_first4_total',
-              useCache: false,
-              useLike: true // 🔥 LIKE режим
-            });
+            for (let i = 0; i < videosWithoutMetrics.length; i += LIKE_BATCH_SIZE) {
+              likeChunks.push(videosWithoutMetrics.slice(i, i + LIKE_BATCH_SIZE));
+            }
             
-            console.log('📥 LIKE запрос завершен, результат:', {
-              success: likeBatchResult.success,
-              resultsCount: likeBatchResult.results?.length,
-              error: likeBatchResult.error
-            });
+            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ${LIKE_BATCH_SIZE} видео`);
             
-            if (likeBatchResult.success && likeBatchResult.results && likeBatchResult.results.length > 0) {
+            // Собираем все результаты
+            const allLikeResults = [];
+            
+            for (let chunkIndex = 0; chunkIndex < likeChunks.length; chunkIndex++) {
+              const chunk = likeChunks[chunkIndex];
+              
+              console.log('─────────────────────────────────────────────');
+              console.log(`🔄 LIKE батч ${chunkIndex + 1}/${likeChunks.length}: ${chunk.length} видео`);
+              console.log('📋 Видео в батче:', chunk);
+              
+              try {
+                const likeBatchResult = await MetricsService.getBatchVideoMetrics(chunk, {
+                  kind: 'daily_first4_total',
+                  useCache: false,
+                  useLike: true
+                });
+                
+                console.log(`📥 Батч ${chunkIndex + 1} завершен:`, {
+                  success: likeBatchResult.success,
+                  resultsCount: likeBatchResult.results?.length,
+                  error: likeBatchResult.error
+                });
+                
+                if (likeBatchResult.success && likeBatchResult.results) {
+                  allLikeResults.push(...likeBatchResult.results);
+                  console.log(`✅ Батч ${chunkIndex + 1}: добавлено ${likeBatchResult.results.length} результатов`);
+                } else {
+                  console.warn(`⚠️ Батч ${chunkIndex + 1}: ошибка или нет результатов`);
+                }
+                
+                // Задержка между батчами (500ms)
+                if (chunkIndex < likeChunks.length - 1) {
+                  console.log('⏳ Задержка 500ms перед следующим батчем...');
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+              } catch (chunkError) {
+                console.error(`❌ Ошибка батча ${chunkIndex + 1}:`, chunkError.message);
+                // Продолжаем со следующим батчем
+              }
+            }
+            
+            console.log('═══════════════════════════════════════════════');
+            console.log(`🎯 LIKE поиск завершен: всего найдено ${allLikeResults.length} результатов`);
+            console.log('═══════════════════════════════════════════════');
+            
+            if (allLikeResults.length > 0) {
               console.log('═══════════════════════════════════════════════');
-              console.log(`✅ LIKE поиск нашел ${likeBatchResult.results.length} результатов`);
+              console.log(`✅ Обработка ${allLikeResults.length} результатов LIKE поиска`);
               console.log('═══════════════════════════════════════════════');
               
               // Выводим ВСЕ найденные результаты
               console.log('📋 ВСЕ результаты LIKE поиска:');
-              likeBatchResult.results.forEach((result, idx) => {
+              allLikeResults.forEach((result, idx) => {
                 console.log(`  [${idx}]:`, {
                   videoName: result.videoName,
                   found: result.found,
@@ -390,7 +426,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               let matchedCount = 0;
               let notMatchedCount = 0;
               
-              likeBatchResult.results.forEach((videoResult, resultIdx) => {
+              allLikeResults.forEach((videoResult, resultIdx) => {
                 console.log('─────────────────────────────────────────────');
                 console.log(`🔍 Обработка результата [${resultIdx}]: "${videoResult.videoName}"`);
                 console.log('  📊 Проверка данных:', {
@@ -494,17 +530,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               console.log('🎉 LIKE поиск завершен:');
               console.log(`  ✅ Совпадений найдено: ${matchedCount}`);
               console.log(`  ❌ Без совпадений: ${notMatchedCount}`);
-              console.log(`  📦 Всего результатов: ${likeBatchResult.results.length}`);
+              console.log(`  📦 Всего результатов: ${allLikeResults.length}`);
               console.log('═══════════════════════════════════════════════');
             } else {
               console.log('═══════════════════════════════════════════════');
-              console.log('⚠️ LIKE поиск не дал результатов');
-              console.log('  Причины:', {
-                success: likeBatchResult.success,
-                hasResults: !!likeBatchResult.results,
-                resultsLength: likeBatchResult.results?.length || 0,
-                error: likeBatchResult.error
-              });
+              console.log('⚠️ LIKE поиск не дал результатов (все батчи пустые)');
               console.log('═══════════════════════════════════════════════');
             }
           } catch (likeError) {
