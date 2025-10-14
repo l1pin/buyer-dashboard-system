@@ -12,7 +12,8 @@ const CONFIG = {
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
   
   // Таймауты и ретраи
-  FETCH_TIMEOUT_MS: 15000,       // 15 секунд на один SQL-запрос
+  FETCH_TIMEOUT_MS: 15000,       // 15 секунд на один SQL-запрос (обычный)
+  LIKE_FETCH_TIMEOUT_MS: 25000,  // 25 секунд для LIKE запросов
   MAX_RETRIES: 2,                // Количество повторов при ошибках
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
   
@@ -430,16 +431,19 @@ class Chunker {
 }
 
 // ==================== FETCH С РЕТРАЯМИ ====================
-async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
+async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       console.log('🔍 ОТПРАВКА К PHP API:');
       console.log('  📍 URL:', CONFIG.API_URL);
       console.log('  📋 SQL длина:', sql?.length, 'байт');
       console.log('  📋 SQL (первые 200 символов):', sql?.substring(0, 200));
+      console.log('  🔥 LIKE режим:', isLike);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
+      const timeoutMs = isLike ? CONFIG.LIKE_FETCH_TIMEOUT_MS : CONFIG.FETCH_TIMEOUT_MS;
+      console.log('  ⏱️ Таймаут:', timeoutMs, 'мс');
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const response = await fetch(CONFIG.API_URL, {
         method: 'POST',
@@ -599,7 +603,7 @@ class WorkerPool {
         console.log('=====================================');
         
         console.log('🌐 Отправка SQL к PHP API...');
-        const data = await fetchWithRetry(sql);
+        const data = await fetchWithRetry(sql, CONFIG.MAX_RETRIES, useLike);
         
         console.log('📥 ДЕТАЛЬНЫЙ результат от БД:', {
           type: typeof data,
