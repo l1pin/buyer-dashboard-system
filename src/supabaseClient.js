@@ -1315,12 +1315,22 @@ export const trelloService = {
   // Получить статусы для нескольких креативов
   async getBatchCardStatuses(creativeIds) {
     try {
+      console.log('🔵 getBatchCardStatuses вызван с', creativeIds.length, 'ID');
+      
       const { data, error } = await supabase
         .from('trello_card_statuses')
         .select('*')
         .in('creative_id', creativeIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Ошибка запроса к trello_card_statuses:', error);
+        throw error;
+      }
+      
+      console.log('📦 Получено из БД:', data?.length || 0, 'статусов');
+      if (data && data.length > 0) {
+        console.log('📋 Первый статус:', data[0]);
+      }
       
       // Преобразуем в Map для быстрого доступа
       const statusMap = new Map();
@@ -1328,9 +1338,12 @@ export const trelloService = {
         statusMap.set(status.creative_id, status);
       });
       
+      console.log('✅ Map создан, размер:', statusMap.size);
+      console.log('🗺️ Ключи Map (первые 5):', Array.from(statusMap.keys()).slice(0, 5));
+      
       return statusMap;
     } catch (error) {
-      console.error('Ошибка получения батча статусов Trello:', error);
+      console.error('❌ Ошибка получения батча статусов Trello:', error);
       return new Map();
     }
   },
