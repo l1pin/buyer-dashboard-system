@@ -1036,12 +1036,29 @@ export const creativeService = {
 
     // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello
     if (creative.trello_link) {
-      console.log('🔄 Автоматическая синхронизация Trello статуса...');
+      console.log('🔄 Автоматическая синхронизация Trello статуса для', creative.article);
+      console.log('🔗 Trello link:', creative.trello_link);
+      
       try {
-        await trelloService.syncSingleCreative(creative.id, creative.trello_link);
-        console.log('✅ Trello статус синхронизирован');
+        const result = await trelloService.syncSingleCreative(creative.id, creative.trello_link);
+        console.log('✅ Trello статус синхронизирован:', result.listName);
+        
+        // Проверяем что запись попала в БД
+        const { data: checkData, error: checkError } = await supabase
+          .from('trello_card_statuses')
+          .select('*')
+          .eq('creative_id', creative.id)
+          .single();
+        
+        if (checkError) {
+          console.error('❌ Проверка: статус НЕ найден в БД:', checkError);
+        } else {
+          console.log('✅ Проверка: статус НАЙДЕН в БД:', checkData);
+        }
+        
       } catch (syncError) {
-        console.error('⚠️ Ошибка синхронизации Trello (не критично):', syncError);
+        console.error('⚠️ Ошибка синхронизации Trello:', syncError);
+        console.error('Stack:', syncError.stack);
         // Не прерываем создание креатива из-за ошибки синхронизации
       }
     }
