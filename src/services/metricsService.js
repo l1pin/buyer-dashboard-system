@@ -22,7 +22,8 @@ export class MetricsService {
       dateFrom = null,
       dateTo = null,
       kind = 'daily_first4_total', // daily | first4 | total | daily_first4_total
-      useCache = true
+      useCache = true,
+      useLike = false // 🆕 Режим LIKE поиска
     } = options;
 
     if (!videoNames || videoNames.length === 0) {
@@ -30,13 +31,14 @@ export class MetricsService {
       return { success: false, results: [] };
     }
 
-    console.log(`🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}`);
+    console.log(`🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}, LIKE=${useLike}`);
 
     try {
       // Отправляем один запрос с массивом имён
       const requestBody = {
         video_names: videoNames,
-        kind: kind
+        kind: kind,
+        use_like: useLike // 🆕 Передаем флаг LIKE
       };
 
       if (dateFrom) requestBody.date_from = dateFrom;
