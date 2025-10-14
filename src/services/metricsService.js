@@ -679,9 +679,9 @@ export class MetricsService {
     const fix2 = (x) => Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
     
     const CPL = leads > 0 ? cost / leads : 0;
-    const CTR = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const CTR = impressions > 0 ? (clicks_on_link / impressions) * 100 : 0;
     const CPC = clicks > 0 ? cost / clicks : 0;
-    const CPM = impressions > 0 ? (cost / impressions) * 1000 : 0;
+    const CPM = impressions > 0 ? (cost_from_sources / impressions) * 1000 : 0;
 
     // 🔥🔥🔥 КРИТИЧНО: Сохраняем дополнительные поля
     return {
