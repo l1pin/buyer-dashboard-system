@@ -93,9 +93,6 @@ function CreativeAnalytics({ user }) {
   const [deletingCreative, setDeletingCreative] = useState(null);
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
-  const [loadingTrello, setLoadingTrello] = useState(false);
-  const [trelloStats, setTrelloStats] = useState(null);
-  const [showTrelloInfo, setShowTrelloInfo] = useState(false);
   
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
@@ -1022,7 +1019,6 @@ function CreativeAnalytics({ user }) {
   // Загрузка статусов Trello карточек
   const loadTrelloStatuses = async () => {
     try {
-      setLoadingTrello(true);
       console.log('📋 Загрузка статусов Trello...');
       
       // Получаем списки
@@ -1039,39 +1035,10 @@ function CreativeAnalytics({ user }) {
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки Trello статусов:', error);
-    } finally {
-      setLoadingTrello(false);
     }
   };
 
-  // Настройка Trello webhook
-  const setupTrelloIntegration = async () => {
-    try {
-      setLoadingTrello(true);
-      console.log('🔧 Настройка интеграции с Trello...');
-      const result = await trelloService.setupTrelloWebhook();
-      console.log('✅ Trello интеграция настроена:', result);
-      
-      setTrelloStats(result.stats);
-      setShowTrelloInfo(true);
-      
-      // Перезагружаем статусы
-      await loadTrelloStatuses();
-      
-      alert(`✅ Успешно!\n\n` +
-            `📋 Доска: ${result.board.name}\n` +
-            `📂 Колонок: ${result.stats.lists}\n` +
-            `🎴 Карточек в Trello: ${result.stats.cards}\n` +
-            `🔗 Креативов с ссылками: ${result.stats.creativesWithLinks}\n` +
-            `✅ Синхронизировано: ${result.stats.synced}\n` +
-            `⚠️ Не найдено: ${result.stats.notFound}`);
-    } catch (error) {
-      console.error('❌ Ошибка настройки Trello:', error);
-      alert('❌ Ошибка настройки Trello:\n\n' + error.message + '\n\nПроверьте консоль браузера для деталей.');
-    } finally {
-      setLoadingTrello(false);
-    }
-  };
+  
 
   // Получить название списка для креатива
   const getTrelloListName = (creativeId) => {
@@ -1740,18 +1707,6 @@ function CreativeAnalytics({ user }) {
             >
               <Download className="h-4 w-4 mr-2" />
               Экспорт
-            </button>
-
-            <button
-              onClick={setupTrelloIntegration}
-              disabled={loadingTrello}
-              className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors duration-200 disabled:opacity-50"
-              title="Синхронизировать статусы Trello карточек"
-            >
-              <svg className={`h-4 w-4 mr-2 ${loadingTrello ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21 0H3C1.343 0 0 1.343 0 3v18c0 1.657 1.343 3 3 3h18c1.657 0 3-1.343 3-3V3c0-1.657-1.343-3-3-3zM10.44 18.18c0 .795-.645 1.44-1.44 1.44H4.56c-.795 0-1.44-.645-1.44-1.44V4.56c0-.795.645-1.44 1.44-1.44H9c.795 0 1.44.645 1.44 1.44v13.62zm9.6-6.84c0 .795-.645 1.44-1.44 1.44H14.16c-.795 0-1.44-.645-1.44-1.44V4.56c0-.795.645-1.44 1.44-1.44h4.44c.795 0 1.44.645 1.44 1.44v6.78z"/>
-              </svg>
-              Trello
             </button>
           </div>
         </div>
@@ -3426,34 +3381,9 @@ function CreativeAnalytics({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {loadingTrello ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-center space-x-2">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
-                                    {getTrelloListName(creative.id)}
-                                  </span>
-                                  {creative.trello_link && getTrelloListName(creative.id) === '—' && (
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          await trelloService.syncSingleCreative(creative.id, creative.trello_link);
-                                          await loadTrelloStatuses();
-                                        } catch (error) {
-                                          console.error('Ошибка синхронизации:', error);
-                                        }
-                                      }}
-                                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-100"
-                                      title="Синхронизировать статус"
-                                    >
-                                      <RefreshCw className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
+                                {getTrelloListName(creative.id)}
+                              </span>
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
