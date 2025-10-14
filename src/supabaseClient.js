@@ -1866,42 +1866,42 @@ export const metricsAnalyticsService = {
 
   // Сервис для кэширования метрик
   async saveMetricsCache(creativeId, article, videoIndex, videoTitle, metricsData, period = 'all') {
-  try {
-    // Извлекаем только базовые метрики из metricsData
-    const rawMetrics = metricsData.raw || metricsData;
-    
-    const { data, error } = await supabase
-      .from('metrics_cache')
-      .upsert([
-        {
-          creative_id: creativeId,
-          article: article,
-          video_index: videoIndex,
-          video_title: videoTitle,
-          period: period,
-          // Базовые метрики в отдельных колонках
-          valid: rawMetrics.valid || 0,
-          cost: rawMetrics.cost || 0,
-          clicks_on_link_tracker: rawMetrics.clicks_on_link_tracker || 0,
-          showed: rawMetrics.showed || 0,
-          average_time_on_video: rawMetrics.average_time_on_video || 0,
-          days_count: rawMetrics.days_count || 0,
-          cost_from_sources: rawMetrics.cost_from_sources || 0,
-          clicks_on_link: rawMetrics.clicks_on_link || 0,
-          cached_at: new Date().toISOString()
-        }
-      ], {
-        onConflict: 'creative_id,video_index,period'
-      })
-      .select();
+    try {
+      // Извлекаем только базовые метрики из metricsData
+      const rawMetrics = metricsData.raw || metricsData;
+      
+      const { data, error } = await supabase
+        .from('metrics_cache')
+        .upsert([
+          {
+            creative_id: creativeId,
+            article: article,
+            video_index: videoIndex,
+            video_title: videoTitle,
+            period: period,
+            // Базовые метрики в отдельных колонках
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
+            cost_from_sources: rawMetrics.cost_from_sources || 0,
+            clicks_on_link: rawMetrics.clicks_on_link || 0,
+            cached_at: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'creative_id,video_index,period'
+        })
+        .select();
 
-    if (error) throw error;
-    return data[0];
-  } catch (error) {
-    console.error('Ошибка сохранения кэша метрик:', error);
-    return null;
-  }
-},
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      console.error('Ошибка сохранения кэша метрик:', error);
+      return null;
+    }
+  },
 
   // ⚡ НОВАЯ ФУНКЦИЯ: Батчевое сохранение метрик в кэш
   async saveBatchMetricsCache(metricsArray) {
@@ -2176,7 +2176,7 @@ const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
 const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
 
     console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
-      leads, cost, clicks, impressions, avg_duration, days_count
+      valid, cost, clicks_on_link_tracker, showed, average_time_on_video, days_count
     });
 
     // Вычисляем производные метрики на клиенте (НОВЫЕ ФОРМУЛЫ!)
