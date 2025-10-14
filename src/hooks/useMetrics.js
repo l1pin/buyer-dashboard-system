@@ -300,7 +300,103 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         }
       }
 
+      // ============================================
+      // ЭТАП 3: FUZZY-ПОИСК для видео БЕЗ метрик
+      // ============================================
+      if (forceRefresh) {
+        const videosWithoutMetrics = [];
+        const videoMapForFuzzy = new Map();
+
+        videoMap.forEach((metadata, videoKey) => {
+          const hasMetrics = rawMetricsMap.has(videoKey) && rawMetricsMap.get(videoKey).found;
+          
+          if (!hasMetrics) {
+            // Обрезаем расширение
+            const videoNameWithoutExt = MetricsService.extractVideoName(metadata.videoTitle);
+            
+            if (videoNameWithoutExt && videoNameWithoutExt !== metadata.videoTitle) {
+              console.log(`🔍 Добавляем для fuzzy-поиска: "${metadata.videoTitle}" -> "${videoNameWithoutExt}"`);
+              videosWithoutMetrics.push(videoNameWithoutExt);
+              videoMapForFuzzy.set(videoNameWithoutExt, {
+                ...metadata,
+                originalTitle: metadata.videoTitle,
+                videoKey: videoKey
+              });
+            }
+          }
+        });
+
+        if (videosWithoutMetrics.length > 0) {
+          console.log(`🔍 Запускаем FUZZY-поиск для ${videosWithoutMetrics.length} видео без метрик...`);
+
+          const fuzzyResult = await MetricsService.getFuzzyVideoMetrics(videosWithoutMetrics, {
+            kind: 'daily_first4_total',
+            useCache: false
+          });
+
+          if (fuzzyResult.success && fuzzyResult.results && fuzzyResult.results.length > 0) {
+            console.log(`✅ Fuzzy-поиск нашел ${fuzzyResult.results.length} результатов`);
+
+            fuzzyResult.results.forEach(videoResult => {
+              // Ищем соответствие по обрезанному названию
+              let matchedMetadata = null;
+              let matchedKey = null;
+
+              videoMapForFuzzy.forEach((metadata, fuzzyName) => {
+                if (videoResult.videoName.includes(fuzzyName) || fuzzyName.includes(videoResult.videoName)) {
+                  matchedMetadata = metadata;
+                  matchedKey = metadata.videoKey;
+                }
+              });
+
+              if (matchedMetadata && matchedKey) {
+                if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
+                  console.log(`✅ Найдены метрики через FUZZY для "${matchedMetadata.originalTitle}"`);
+
+                  const allDailyData = videoResult.daily.map(d => ({
+                    date: d.date,
+                    leads: d.leads,
+                    cost: d.cost,
+                    clicks: d.clicks,
+                    impressions: d.impressions,
+                    avg_duration: d.avg_duration
+                  }));
+
+                  const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                  const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                  const formatted = MetricsService.formatMetrics(metrics);
+
+                  rawMetricsMap.set(matchedKey, {
+                    found: true,
+                    data: {
+                      raw: metrics,
+                      formatted: formatted,
+                      allDailyData: allDailyData,
+                      dailyData: allDailyData,
+                      videoName: matchedMetadata.originalTitle,
+                      period: 'all',
+                      updatedAt: new Date().toISOString(),
+                      fuzzyMatch: true // Флаг fuzzy-поиска
+                    },
+                    error: null,
+                    videoName: matchedMetadata.originalTitle,
+                    creativeId: matchedMetadata.creativeId,
+                    videoIndex: matchedMetadata.videoIndex,
+                    fromCache: false,
+                    fuzzyMatch: true
+                  });
+                }
+              }
+            });
+
+            console.log(`✅ После fuzzy-поиска: ${Array.from(rawMetricsMap.values()).filter(m => m.found).length} видео с метриками`);
+          }
+        }
+      }
+
       setRawBatchMetrics(rawMetricsMap);
+
+      
 
       // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase (период "all" и "4days")
       // Сохраняем ВСЕ метрики, включая видео БЕЗ данных (с NULL)
