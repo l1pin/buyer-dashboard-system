@@ -101,14 +101,18 @@ class SQLBuilder {
     }
 
     console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
-    console.log('📋 Примеры названий:', videoNames.slice(0, 3));
+    console.log('📋 ВСЕ названия видео:');
+    videoNames.forEach((name, i) => {
+      console.log(`  [${i}]: "${name}"`);
+    });
 
     // VALUES список для video_list CTE
     const valuesClause = videoNames
       .map(name => `('${this.escapeString(name)}')`)
       .join(',\n    ');
     
-    console.log('📝 VALUES clause (первые 200 символов):', valuesClause.substring(0, 200));
+    console.log('📝 ПОЛНЫЙ VALUES clause:');
+    console.log(valuesClause);
 
     // Фильтр по датам
     let dateFilter = '';
@@ -133,11 +137,13 @@ class SQLBuilder {
   }
 
   static _buildDailySQL(valuesClause, dateFilter) {
-    // Преобразуем ('name1'),('name2') в 'name1','name2' для IN clause
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    // НЕ используем replace - он удаляет скобки из названий видео!
+    // Вместо этого извлекаем названия из VALUES и формируем IN напрямую
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
+    
+    console.log('📋 IN clause для daily:');
+    console.log(inClause);
     
     return `
 SELECT 
@@ -158,10 +164,8 @@ ORDER BY t.video_name, t.adv_date`;
   }
 
   static _buildFirst4SQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 
@@ -195,10 +199,8 @@ ORDER BY video_name`;
   }
 
   static _buildTotalSQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 
@@ -230,10 +232,8 @@ ORDER BY video_name`;
   }
 
   static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
-    const inClause = valuesClause
-      .replace(/\(/g, '')
-      .replace(/\)/g, '')
-      .replace(/,\s*\n\s*/g, ',');
+    const names = valuesClause.match(/'([^']|'')+'/g) || [];
+    const inClause = names.join(',');
     
     return `
 SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration 
@@ -333,6 +333,11 @@ class Chunker {
 async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      console.log('🔍 ОТПРАВКА К PHP API:');
+      console.log('  📍 URL:', CONFIG.API_URL);
+      console.log('  📋 SQL длина:', sql?.length, 'байт');
+      console.log('  📋 SQL (первые 200 символов):', sql?.substring(0, 200));
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
 
@@ -350,6 +355,16 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
 
       clearTimeout(timeoutId);
 
+      console.log('📡 Ответ от PHP API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: {
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length')
+        }
+      });
+
       if (!response.ok) {
         // На 502/504 делаем ретрай
         if ((response.status === 502 || response.status === 504) && attempt < retries) {
@@ -360,15 +375,18 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
         }
         
         const errorText = await response.text();
+        console.error('❌ Ошибка от API:', errorText.substring(0, 500));
         throw new Error(`API error ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
       const text = await response.text();
       
-      // КРИТИЧНО: Добавляем логирование сырого ответа
-      console.log('📨 Сырой ответ от API:', {
+      // КРИТИЧНО: Детальное логирование ответа
+      console.log('📨 СЫРОЙ ОТВЕТ от PHP API:', {
         length: text?.length,
-        preview: text?.substring(0, 500)
+        isEmpty: !text || text.trim() === '',
+        preview: text?.substring(0, 1000), // Увеличили до 1000 символов
+        fullText: text // ПОЛНЫЙ текст ответа для диагностики
       });
       
       if (!text || !text.trim()) {
@@ -468,18 +486,27 @@ class WorkerPool {
 
       try {
         console.log(`📊 Обработка чанка ${++processed}/${total}, имён: ${chunk.length}`);
-        console.log('📋 Чанк содержит:', chunk.slice(0, 3));
+        console.log('📋 ВСЕ названия в чанке:');
+        chunk.forEach((name, idx) => {
+          console.log(`  [${idx}]: "${name}"`);
+        });
         
         const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт');
-        console.log('📝 SQL (первые 500 символов):', sql.substring(0, 500));
+        console.log('=====================================');
+        console.log('📝 ПОЛНЫЙ SQL:');
+        console.log(sql);
+        console.log('=====================================');
         
+        console.log('🌐 Отправка SQL к PHP API...');
         const data = await fetchWithRetry(sql);
         
-        console.log('📥 Результат от БД:', {
+        console.log('📥 ДЕТАЛЬНЫЙ результат от БД:', {
+          type: typeof data,
           isArray: Array.isArray(data),
           length: data?.length,
-          firstItem: data?.[0]
+          firstItem: data?.[0],
+          firstThreeItems: data?.slice(0, 3)
         });
         
         results.push(data);
@@ -557,13 +584,15 @@ exports.handler = async (event, context) => {
     // ===== НОВЫЙ ФОРМАТ: {video_names: [...], ...} =====
     const { video_names, date_from, date_to, kind = 'daily' } = requestBody;
 
-    console.log('📥 Получен запрос:', {
-      video_names_count: video_names?.length,
-      video_names_sample: video_names?.slice(0, 3),
-      date_from,
-      date_to,
-      kind
-    });
+    console.log('🔍 ДИАГНОСТИКА ЗАПРОСА:');
+    console.log('  📋 video_names тип:', typeof video_names, 'isArray:', Array.isArray(video_names));
+    console.log('  📋 video_names длина:', video_names?.length);
+    console.log('  📋 Первое название:', video_names?.[0]);
+    console.log('  📋 Второе название:', video_names?.[1]);
+    console.log('  📋 Третье название:', video_names?.[2]);
+    console.log('  📋 date_from:', date_from);
+    console.log('  📋 date_to:', date_to);
+    console.log('  📋 kind:', kind);
 
     if (!video_names || !Array.isArray(video_names) || video_names.length === 0) {
       return {
@@ -666,22 +695,37 @@ function normalizeResults(rawResults) {
   });
 
   if (!rawResults || rawResults.length === 0) {
+    console.log('⚠️ normalizeResults: пустой массив результатов');
     return normalized;
   }
 
-  // КРИТИЧНО: PHP API возвращает [headers, row1, row2, ...]
-  // После flat() у нас плоский массив где:
-  // - элемент 0: массив headers ["kind", "video_name", ...]
-  // - элементы 1+: массивы данных ["daily", "video1", ...]
-  
-  // Проверяем формат данных
+  // КРИТИЧНО: Логируем первые 3 элемента для диагностики
+  console.log('🔍 ДИАГНОСТИКА: Первые 3 элемента rawResults:');
+  for (let i = 0; i < Math.min(3, rawResults.length); i++) {
+    console.log(`  [${i}]:`, {
+      type: typeof rawResults[i],
+      isArray: Array.isArray(rawResults[i]),
+      value: rawResults[i],
+      keys: typeof rawResults[i] === 'object' && !Array.isArray(rawResults[i]) 
+        ? Object.keys(rawResults[i]) 
+        : 'not an object'
+    });
+  }
+
   const firstItem = rawResults[0];
   
   // Случай A: Массив объектов {kind: "daily", video_name: "..."}
   if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
-    console.log('✅ Формат: массив объектов');
+    console.log('✅ ФОРМАТ A: Массив объектов');
+    console.log('📋 Пример объекта:', firstItem);
     
-    rawResults.forEach(row => {
+    let processedCount = 0;
+    rawResults.forEach((row, index) => {
+      if (!row.video_name) {
+        console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
+        return;
+      }
+      
       normalized.push({
         kind: row.kind || 'daily',
         video_name: row.video_name,
@@ -692,31 +736,95 @@ function normalizeResults(rawResults) {
         impressions: Number(row.impressions) || 0,
         avg_duration: Number(row.avg_duration) || 0
       });
+      processedCount++;
     });
     
+    console.log(`✅ Формат A: обработано ${processedCount} объектов`);
     return normalized;
   }
   
-  // Случай B: Плоский массив [headers, row1, row2, ...]
+  // Случай B: Массив массивов [[headers], [row1], [row2], ...]
   if (firstItem && Array.isArray(firstItem)) {
-    console.log('✅ Формат: [headers, ...rows]');
+    console.log('✅ ФОРМАТ B: Массив массивов');
     
-    // Первый элемент - headers
-    const headers = rawResults[0];
-    console.log('📋 Headers:', headers);
+    // КРИТИЧНО: Проверяем, все ли элементы - массивы
+    const allArrays = rawResults.every(item => Array.isArray(item));
+    console.log('🔍 Все элементы - массивы?', allArrays);
     
-    // Проверяем что это действительно headers (содержит строки типа "kind", "video_name")
-    const isHeaders = headers.includes('kind') || headers.includes('video_name');
-    
-    if (!isHeaders) {
-      console.error('❌ Первый элемент не похож на headers:', headers);
+    if (!allArrays) {
+      console.error('❌ НЕ ВСЕ элементы - массивы!');
+      // Пробуем обработать как смешанный формат
       return normalized;
     }
     
-    // Остальные элементы - строки данных
-    const dataRows = rawResults.slice(1);
-    console.log(`📊 Обработка ${dataRows.length} строк данных`);
+    // Первый массив должен быть headers
+    const headers = rawResults[0];
+    console.log('📋 HEADERS:', headers);
+    console.log('📋 HEADERS тип:', typeof headers, 'длина:', headers?.length);
     
+    // Проверяем наличие обязательных полей
+    const hasVideoName = headers.includes('video_name');
+    const hasKind = headers.includes('kind');
+    
+    console.log('🔍 Проверка headers:', {
+      hasVideoName,
+      hasKind,
+      headers
+    });
+    
+    if (!hasVideoName && !hasKind) {
+      console.error('❌ Headers не содержат обязательных полей!');
+      // Возможно, это не headers, а данные
+      console.log('🔍 Пробуем интерпретировать все элементы как данные (без headers)');
+      
+      // Предполагаем фиксированный порядок колонок: [kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration]
+      const assumedHeaders = ['kind', 'video_name', 'adv_date', 'leads', 'cost', 'clicks', 'impressions', 'avg_duration'];
+      
+      rawResults.forEach((row, index) => {
+        if (!Array.isArray(row)) {
+          console.warn(`⚠️ Строка ${index} не массив:`, row);
+          return;
+        }
+        
+        const obj = {};
+        assumedHeaders.forEach((header, i) => {
+          obj[header] = row[i];
+        });
+        
+        if (!obj.video_name) {
+          console.warn(`⚠️ Строка ${index} не содержит video_name после маппинга:`, obj);
+          return;
+        }
+        
+        normalized.push({
+          kind: obj.kind || 'daily',
+          video_name: obj.video_name,
+          adv_date: obj.adv_date || null,
+          leads: Number(obj.leads) || 0,
+          cost: Number(obj.cost) || 0,
+          clicks: Number(obj.clicks) || 0,
+          impressions: Number(obj.impressions) || 0,
+          avg_duration: Number(obj.avg_duration) || 0
+        });
+      });
+      
+      console.log(`✅ Формат B (без headers): обработано ${normalized.length} строк`);
+      return normalized;
+    }
+    
+    // Стандартная обработка с headers
+    const dataRows = rawResults.slice(1);
+    console.log(`📊 Обработка ${dataRows.length} строк данных после headers`);
+    
+    if (dataRows.length === 0) {
+      console.warn('⚠️ Нет строк данных после headers!');
+      return normalized;
+    }
+    
+    // Логируем первую строку данных
+    console.log('📋 Первая строка данных:', dataRows[0]);
+    
+    let processedCount = 0;
     dataRows.forEach((row, index) => {
       if (!Array.isArray(row)) {
         console.warn(`⚠️ Строка ${index} не массив:`, row);
@@ -729,6 +837,16 @@ function normalizeResults(rawResults) {
         obj[header] = row[i];
       });
       
+      // КРИТИЧНО: Проверяем наличие video_name
+      if (!obj.video_name) {
+        console.warn(`⚠️ Строка ${index} не содержит video_name:`, {
+          row,
+          obj,
+          headers
+        });
+        return;
+      }
+      
       normalized.push({
         kind: obj.kind || 'daily',
         video_name: obj.video_name,
@@ -739,14 +857,13 @@ function normalizeResults(rawResults) {
         impressions: Number(obj.impressions) || 0,
         avg_duration: Number(obj.avg_duration) || 0
       });
+      processedCount++;
     });
     
-    console.log(`✅ Нормализовано ${normalized.length} записей`);
+    console.log(`✅ Формат B: обработано ${processedCount} из ${dataRows.length} строк`);
     return normalized;
   }
   
-  console.error('❌ Неизвестный формат данных');
+  console.error('❌ НЕИЗВЕСТНЫЙ ФОРМАТ! Первый элемент:', firstItem);
   return normalized;
-
-  // Эта закрывающая скобка уже есть в новом коде выше, удалите старую
 }
