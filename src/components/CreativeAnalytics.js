@@ -3431,9 +3431,28 @@ function CreativeAnalytics({ user }) {
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
                               ) : (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
-                                  {getTrelloListName(creative.id)}
-                                </span>
+                                <div className="flex items-center justify-center space-x-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
+                                    {getTrelloListName(creative.id)}
+                                  </span>
+                                  {creative.trello_link && getTrelloListName(creative.id) === '—' && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await trelloService.syncSingleCreative(creative.id, creative.trello_link);
+                                          await loadTrelloStatuses();
+                                        } catch (error) {
+                                          console.error('Ошибка синхронизации:', error);
+                                        }
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-100"
+                                      title="Синхронизировать статус"
+                                    >
+                                      <RefreshCw className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
 
