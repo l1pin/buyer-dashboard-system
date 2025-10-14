@@ -1370,6 +1370,81 @@ export const trelloService = {
       console.error('Ошибка настройки Trello webhook:', error);
       throw error;
     }
+  },
+
+  // Ручная синхронизация статуса для одного креатива
+  async syncSingleCreative(creativeId, trelloLink) {
+    try {
+      if (!trelloLink) {
+        throw new Error('Нет ссылки на Trello');
+      }
+
+      // Нормализуем URL
+      const normalizeUrl = (url) => {
+        if (!url) return '';
+        let normalized = url.split('?')[0].split('#')[0];
+        normalized = normalized.replace(/^https?:\/\//, '');
+        normalized = normalized.replace(/\/$/, '');
+        return normalized.toLowerCase();
+      };
+
+      const normalizedUrl = normalizeUrl(trelloLink);
+      
+      // Извлекаем ID карточки из URL (формат: /c/CARD_ID/...)
+      const cardIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)\//);
+      if (!cardIdMatch) {
+        throw new Error('Неверный формат ссылки Trello');
+      }
+
+      const cardId = cardIdMatch[1];
+      console.log('🔍 Extracted card ID:', cardId);
+
+      // Получаем информацию о карточке через API
+      const TRELLO_KEY = 'e83894111117e54746d899c1fc2f7043';
+      const TRELLO_TOKEN = 'ATTAb29683ffc0c87de7b5d1ce766ca8c2d28a61b3c722660564d74dae0a955456aeED83F79A';
+      
+      const cardUrl = `https://api.trello.com/1/cards/${cardId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=idList,name`;
+      const cardResponse = await fetch(cardUrl);
+      
+      if (!cardResponse.ok) {
+        throw new Error('Не удалось получить информацию о карточке');
+      }
+      
+      const card = await cardResponse.json();
+      
+      // Получаем информацию о списке
+      const listUrl = `https://api.trello.com/1/lists/${card.idList}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=name`;
+      const listResponse = await fetch(listUrl);
+      
+      if (!listResponse.ok) {
+        throw new Error('Не удалось получить информацию о списке');
+      }
+      
+      const list = await listResponse.json();
+      
+      console.log('✅ Card info:', { name: card.name, list: list.name });
+
+      // Обновляем статус в базе
+      const { error } = await supabase
+        .from('trello_card_statuses')
+        .upsert({
+          creative_id: creativeId,
+          trello_card_id: cardId,
+          list_id: list.id,
+          list_name: list.name,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'creative_id'
+        });
+
+      if (error) throw error;
+
+      return { success: true, listName: list.name };
+      
+    } catch (error) {
+      console.error('Ошибка синхронизации статуса:', error);
+      throw error;
+    }
   }
 };
 
