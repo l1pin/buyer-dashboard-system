@@ -244,6 +244,22 @@ export class MetricsService {
       entry.noData = false;
       processedCount++;
 
+      // 🔥🔥🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА ДО создания объекта
+      if (index < 3) {
+        console.log(`🔥🔥🔥 ПЕРЕД СОЗДАНИЕМ METRICS ОБЪЕКТА ${index}:`, {
+          'cost_from_sources (переменная)': cost_from_sources,
+          'clicks_on_link (переменная)': clicks_on_link,
+          'row.cost_from_sources': row.cost_from_sources,
+          'row.clicks_on_link': row.clicks_on_link,
+          'row["cost_from_sources"]': row['cost_from_sources'],
+          'row["clicks_on_link"]': row['clicks_on_link'],
+          'Number(cost_from_sources)': Number(cost_from_sources),
+          'Number(clicks_on_link)': Number(clicks_on_link),
+          'typeof cost_from_sources': typeof cost_from_sources,
+          'typeof clicks_on_link': typeof clicks_on_link
+        });
+      }
+      
       const metrics = {
         date: adv_date,
         leads: Number(leads) || 0,
@@ -257,7 +273,11 @@ export class MetricsService {
       
       // 🔥 ДИАГНОСТИКА: Логируем созданный объект metrics для первых 3 строк
       if (index < 3) {
-        console.log(`🔥 ОБЪЕКТ METRICS ДЛЯ СТРОКИ ${index}:`, metrics);
+        console.log(`🔥🔥🔥 ОБЪЕКТ METRICS ПОСЛЕ СОЗДАНИЯ ${index}:`, {
+          'metrics.cost_from_sources': metrics.cost_from_sources,
+          'metrics.clicks_on_link': metrics.clicks_on_link,
+          'полный объект': metrics
+        });
       }
 
       if (kind === 'daily') {
