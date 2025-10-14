@@ -229,13 +229,15 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
                   // Преобразуем к формату rawMetrics
                   const allDailyData = videoResult.daily.map(d => ({
-                    date: d.date,
-                    leads: d.leads,
-                    cost: d.cost,
-                    clicks: d.clicks,
-                    impressions: d.impressions,
-                    avg_duration: d.avg_duration
-                  }));
+  date: d.date,
+  valid: d.valid,
+  cost: d.cost,
+  clicks_on_link_tracker: d.clicks_on_link_tracker,
+  showed: d.showed,
+  average_time_on_video: d.average_time_on_video,
+  cost_from_sources: d.cost_from_sources,
+  clicks_on_link: d.clicks_on_link
+}));
 
                   const aggregates = MetricsService.aggregateDailyData(allDailyData);
                   const metrics = MetricsService.computeDerivedMetrics(aggregates);
@@ -522,13 +524,15 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 
                 // Преобразуем к формату rawMetrics
                 const allDailyData = videoResult.daily.map(d => ({
-                  date: d.date,
-                  leads: d.leads,
-                  cost: d.cost,
-                  clicks: d.clicks,
-                  impressions: d.impressions,
-                  avg_duration: d.avg_duration
-                }));
+  date: d.date,
+  valid: d.valid,
+  cost: d.cost,
+  clicks_on_link_tracker: d.clicks_on_link_tracker,
+  showed: d.showed,
+  average_time_on_video: d.average_time_on_video,
+  cost_from_sources: d.cost_from_sources,
+  clicks_on_link: d.clicks_on_link
+}));
 
                 const aggregates = MetricsService.aggregateDailyData(allDailyData);
                 const metrics = MetricsService.computeDerivedMetrics(aggregates);
@@ -1168,10 +1172,10 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
         
         if (metrics && metrics.found && metrics.data) {
           const data = metrics.data.raw;
-          totalLeads += data.leads || 0;
+          totalLeads += data.valid || 0;
           totalCost += data.cost || 0;
-          totalClicks += data.clicks || 0;
-          totalImpressions += data.impressions || 0;
+          totalClicks += data.clicks_on_link_tracker || 0;
+          totalImpressions += data.showed || 0;
           totalDays += data.days_count || 0;
           videosWithMetrics++;
           creativeHasMetrics = true;
