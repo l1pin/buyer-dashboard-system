@@ -300,6 +300,117 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         }
       }
 
+      // 🆕 ШАГ 4: LIKE поиск для видео без метрик (только при forceRefresh)
+      if (forceRefresh) {
+        const videosWithoutMetrics = [];
+        const videosWithoutMetricsMap = new Map();
+        
+        videoMap.forEach((metadata, videoKey) => {
+          const existingMetric = rawMetricsMap.get(videoKey);
+          if (!existingMetric || !existingMetric.found || existingMetric.noData) {
+            // Обрезаем расширение для LIKE поиска
+            const videoTitle = metadata.videoTitle;
+            const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+            
+            videosWithoutMetrics.push(nameWithoutExt);
+            videosWithoutMetricsMap.set(nameWithoutExt, {
+              videoKey,
+              originalTitle: videoTitle,
+              metadata
+            });
+          }
+        });
+        
+        if (videosWithoutMetrics.length > 0) {
+          console.log(`🔍 LIKE поиск: найдено ${videosWithoutMetrics.length} видео БЕЗ метрик`);
+          console.log('📋 Примеры для LIKE поиска:', videosWithoutMetrics.slice(0, 3));
+          
+          try {
+            const likeBatchResult = await MetricsService.getBatchVideoMetrics(videosWithoutMetrics, {
+              kind: 'daily_first4_total',
+              useCache: false,
+              useLike: true // 🔥 LIKE режим
+            });
+            
+            if (likeBatchResult.success && likeBatchResult.results && likeBatchResult.results.length > 0) {
+              console.log(`✅ LIKE поиск нашел ${likeBatchResult.results.length} результатов`);
+              
+              // Обрабатываем результаты LIKE поиска
+              likeBatchResult.results.forEach(videoResult => {
+                if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
+                  return;
+                }
+                
+                // Находим соответствующий videoKey по частичному совпадению
+                let matchedVideoKey = null;
+                let matchedMetadata = null;
+                
+                for (const [nameWithoutExt, info] of videosWithoutMetricsMap.entries()) {
+                  // Проверяем, содержится ли обрезанное название в найденном видео
+                  if (videoResult.videoName.includes(nameWithoutExt) || nameWithoutExt.includes(videoResult.videoName)) {
+                    matchedVideoKey = info.videoKey;
+                    matchedMetadata = info.metadata;
+                    console.log(`✅ LIKE совпадение: "${nameWithoutExt}" ↔ "${videoResult.videoName}"`);
+                    break;
+                  }
+                }
+                
+                if (!matchedVideoKey) {
+                  console.warn(`⚠️ Не найдено совпадение для LIKE результата: "${videoResult.videoName}"`);
+                  return;
+                }
+                
+                // Преобразуем к формату rawMetrics
+                const allDailyData = videoResult.daily.map(d => ({
+                  date: d.date,
+                  leads: d.leads,
+                  cost: d.cost,
+                  clicks: d.clicks,
+                  impressions: d.impressions,
+                  avg_duration: d.avg_duration
+                }));
+
+                const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                const metrics = MetricsService.computeDerivedMetrics(aggregates);
+                const formatted = MetricsService.formatMetrics(metrics);
+
+                // Обновляем rawMetricsMap найденными метриками
+                rawMetricsMap.set(matchedVideoKey, {
+                  found: true,
+                  data: {
+                    raw: metrics,
+                    formatted: formatted,
+                    allDailyData: allDailyData,
+                    dailyData: allDailyData,
+                    videoName: matchedMetadata.videoTitle,
+                    period: 'all',
+                    updatedAt: new Date().toISOString()
+                  },
+                  error: null,
+                  videoName: matchedMetadata.videoTitle,
+                  creativeId: matchedMetadata.creativeId,
+                  videoIndex: matchedMetadata.videoIndex,
+                  fromCache: false,
+                  noData: false,
+                  foundViaLike: true // 🏷️ Маркер LIKE поиска
+                });
+                
+                console.log(`🎯 LIKE метрика добавлена для: ${matchedMetadata.videoTitle}`);
+              });
+              
+              console.log(`🎉 LIKE поиск завершен: обновлено ${likeBatchResult.results.length} видео`);
+            } else {
+              console.log('⚠️ LIKE поиск не дал результатов');
+            }
+          } catch (likeError) {
+            console.error('❌ Ошибка LIKE поиска:', likeError);
+            // Не прерываем основной процесс
+          }
+        } else {
+          console.log('✅ Все видео имеют метрики, LIKE поиск не требуется');
+        }
+      }
+
       setRawBatchMetrics(rawMetricsMap);
 
       // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase (период "all" и "4days")
