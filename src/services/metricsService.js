@@ -204,7 +204,9 @@ export class MetricsService {
         cost: Number(cost) || 0,
         clicks: Number(clicks) || 0,
         impressions: Number(impressions) || 0,
-        avg_duration: Number(avg_duration) || 0
+        avg_duration: Number(avg_duration) || 0,
+        cost_from_sources: Number(row.cost_from_sources) || 0,
+        clicks_on_link: Number(row.clicks_on_link) || 0
       };
 
       if (kind === 'daily') {
@@ -499,7 +501,9 @@ export class MetricsService {
         clicks: 0,
         impressions: 0,
         avg_duration: 0,
-        days_count: 0
+        days_count: 0,
+        cost_from_sources: 0,
+        clicks_on_link: 0
       };
     }
 
@@ -509,14 +513,18 @@ export class MetricsService {
       clicks: acc.clicks + day.clicks,
       impressions: acc.impressions + day.impressions,
       duration_sum: acc.duration_sum + (day.avg_duration || 0),
-      days_count: acc.days_count + 1
+      days_count: acc.days_count + 1,
+      cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
+      clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
     }), {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
       duration_sum: 0,
-      days_count: 0
+      days_count: 0,
+      cost_from_sources: 0,
+      clicks_on_link: 0
     });
 
     return {
@@ -525,20 +533,22 @@ export class MetricsService {
       clicks: result.clicks,
       impressions: result.impressions,
       avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
-      days_count: result.days_count
+      days_count: result.days_count,
+      cost_from_sources: result.cost_from_sources,
+      clicks_on_link: result.clicks_on_link
     };
   }
 
   /**
    * Вычисление производных метрик
    */
-  static computeDerivedMetrics({ leads, cost, clicks, impressions, avg_duration, days_count }) {
+  static computeDerivedMetrics({ leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link }) {
     const fix2 = (x) => Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
     
     const CPL = leads > 0 ? cost / leads : 0;
-    const CTR = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const CPC = clicks > 0 ? cost / clicks : 0;
-    const CPM = impressions > 0 ? (cost / impressions) * 1000 : 0;
+    const CTR = impressions > 0 ? (clicks_on_link / impressions) * 100 : 0;
+    const CPC = clicks_on_link > 0 ? cost_from_sources / clicks_on_link : 0;
+    const CPM = impressions > 0 ? (cost_from_sources / impressions) * 1000 : 0;
 
     return {
       leads,
@@ -547,6 +557,8 @@ export class MetricsService {
       impressions,
       avg_duration: fix2(avg_duration),
       days_count,
+      cost_from_sources: fix2(cost_from_sources),
+      clicks_on_link,
       cpl: fix2(CPL),
       ctr_percent: fix2(CTR),
       cpc: fix2(CPC),
