@@ -863,7 +863,9 @@ function normalizeResults(rawResults) {
         cost: Number(row.cost) || 0,
         clicks: Number(row.clicks) || 0,
         impressions: Number(row.impressions) || 0,
-        avg_duration: Number(row.avg_duration) || 0
+        avg_duration: Number(row.avg_duration) || 0,
+        cost_from_sources: Number(row.cost_from_sources) || 0,
+        clicks_on_link: Number(row.clicks_on_link) || 0
       });
       processedCount++;
     });
@@ -933,7 +935,9 @@ function normalizeResults(rawResults) {
           cost: Number(obj.cost) || 0,
           clicks: Number(obj.clicks) || 0,
           impressions: Number(obj.impressions) || 0,
-          avg_duration: Number(obj.avg_duration) || 0
+          avg_duration: Number(obj.avg_duration) || 0,
+          cost_from_sources: Number(obj.cost_from_sources) || 0,
+          clicks_on_link: Number(obj.clicks_on_link) || 0
         });
       });
       
@@ -984,7 +988,9 @@ function normalizeResults(rawResults) {
         cost: Number(obj.cost) || 0,
         clicks: Number(obj.clicks) || 0,
         impressions: Number(obj.impressions) || 0,
-        avg_duration: Number(obj.avg_duration) || 0
+        avg_duration: Number(obj.avg_duration) || 0,
+        cost_from_sources: Number(obj.cost_from_sources) || 0,
+        clicks_on_link: Number(obj.clicks_on_link) || 0
       });
       processedCount++;
     });
