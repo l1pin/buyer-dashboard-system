@@ -1230,22 +1230,73 @@ function CreativeAnalytics({ user }) {
     }
   };
 
+  
+
   useEffect(() => {
     loadUsers();
     loadAnalytics();
     loadLastUpdateTime();
     
+    // Подписка на создание новых креативов
+    const creativesSubscription = supabase
+      .channel('creatives_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'creatives'
+        },
+        async (payload) => {
+          console.log('🆕 Новый креатив создан:', payload.new.article);
+          
+          // Если у нового креатива есть Trello ссылка, ждем появления статуса
+          if (payload.new.trello_link) {
+            console.log('⏳ Ждем синхронизации Trello статуса для', payload.new.article);
+            
+            // Даем время на синхронизацию (2 секунды)
+            setTimeout(async () => {
+              try {
+                console.log('🔍 Проверяем статус для', payload.new.id);
+                const status = await trelloService.getCardStatus(payload.new.id);
+                
+                if (status) {
+                  console.log('✅ Статус получен:', status.list_name);
+                  setTrelloStatuses(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(payload.new.id, status);
+                    console.log('🗺️ Обновлен Map, новый размер:', newMap.size);
+                    return newMap;
+                  });
+                } else {
+                  console.log('⚠️ Статус еще не синхронизирован, перезагружаем все статусы...');
+                  loadTrelloStatuses();
+                }
+              } catch (error) {
+                console.error('❌ Ошибка получения статуса:', error);
+                // При ошибке просто перезагружаем все статусы
+                loadTrelloStatuses();
+              }
+            }, 2000); // Ждем 2 секунды
+          }
+        }
+      )
+      .subscribe();
+    
     // Подписка на изменения статусов Trello в реальном времени
-    const subscription = trelloService.subscribeToCardStatuses((payload) => {
+    const trelloSubscription = trelloService.subscribeToCardStatuses((payload) => {
       console.log('🔄 Trello status changed:', payload);
       
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        console.log('➕ Обновляем статус для креатива:', payload.new.creative_id);
         setTrelloStatuses(prev => {
           const newMap = new Map(prev);
           newMap.set(payload.new.creative_id, payload.new);
+          console.log('🗺️ Map обновлен, размер:', newMap.size);
           return newMap;
         });
       } else if (payload.eventType === 'DELETE') {
+        console.log('➖ Удаляем статус для креатива:', payload.old.creative_id);
         setTrelloStatuses(prev => {
           const newMap = new Map(prev);
           newMap.delete(payload.old.creative_id);
@@ -1255,7 +1306,8 @@ function CreativeAnalytics({ user }) {
     });
     
     return () => {
-      subscription.unsubscribe();
+      creativesSubscription.unsubscribe();
+      trelloSubscription.unsubscribe();
     };
   }, []);
 
