@@ -1031,8 +1031,22 @@ export const creativeService = {
       throw error;
     }
 
-    console.log('✅ Креатив создан успешно:', data[0]);
-    return data[0];
+    const creative = data[0];
+    console.log('✅ Креатив создан успешно:', creative);
+
+    // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello
+    if (creative.trello_link) {
+      console.log('🔄 Автоматическая синхронизация Trello статуса...');
+      try {
+        await trelloService.syncSingleCreative(creative.id, creative.trello_link);
+        console.log('✅ Trello статус синхронизирован');
+      } catch (syncError) {
+        console.error('⚠️ Ошибка синхронизации Trello (не критично):', syncError);
+        // Не прерываем создание креатива из-за ошибки синхронизации
+      }
+    }
+
+    return creative;
   },
 
   async getUserCreatives(userId) {
