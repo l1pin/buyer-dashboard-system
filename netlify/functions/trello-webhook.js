@@ -122,15 +122,40 @@ exports.handler = async (event, context) => {
         if (cardUrl && updatedCount === 0) {
           console.log('🔍 Searching by URL:', cardUrl);
           
-          const { data: creativesByUrl, error: creativesError } = await supabase
+          // Нормализуем URL из webhook
+          const normalizeUrl = (url) => {
+            if (!url) return '';
+            let normalized = url.split('?')[0].split('#')[0];
+            normalized = normalized.replace(/^https?:\/\//, '');
+            normalized = normalized.replace(/\/$/, '');
+            return normalized.toLowerCase();
+          };
+          
+          const normalizedCardUrl = normalizeUrl(cardUrl);
+          console.log('🔍 Normalized URL:', normalizedCardUrl);
+          
+          // Получаем все креативы с trello_link
+          const { data: allCreatives, error: creativesError } = await supabase
             .from('creatives')
-            .select('id')
-            .or(`trello_link.eq.${cardUrl},trello_link.ilike.%${cardUrl}%`);
+            .select('id, trello_link')
+            .not('trello_link', 'is', null);
 
-          if (creativesByUrl && creativesByUrl.length > 0) {
-            console.log(`📦 Found ${creativesByUrl.length} creative(s) with URL`);
+          if (creativesError) {
+            console.error('❌ Error fetching creatives:', creativesError);
+          } else if (allCreatives && allCreatives.length > 0) {
+            console.log(`📦 Checking ${allCreatives.length} creatives with Trello links`);
             
-            for (const creative of creativesByUrl) {
+            // Ищем совпадение по нормализованному URL
+            const matchedCreatives = allCreatives.filter(creative => {
+              const normalizedCreativeUrl = normalizeUrl(creative.trello_link);
+              return normalizedCreativeUrl === normalizedCardUrl;
+            });
+            
+            console.log(`📦 Found ${matchedCreatives.length} matching creative(s)`);
+            
+            for (const creative of matchedCreatives) {
+              console.log(`✅ Updating creative: ${creative.id}`);
+              
               const { error: upsertError } = await supabase
                 .from('trello_card_statuses')
                 .upsert({
@@ -145,6 +170,7 @@ exports.handler = async (event, context) => {
 
               if (!upsertError) {
                 updatedCount++;
+                console.log(`✅ Updated status for creative ${creative.id}`);
               } else {
                 console.error('⚠️ Error upserting status:', upsertError);
               }
