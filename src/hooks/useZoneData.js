@@ -40,10 +40,16 @@ export function useZoneData(creatives, autoLoad = true) {
         return;
       }
 
-      console.log(`🔍 Поиск зональных данных для ${articles.length} уникальных артикулов`);
+            console.log(`🔍 Поиск зональных данных для ${articles.length} уникальных артикулов`);
+      console.log('📋 Артикулы для поиска:', articles);
 
       // Получаем зональные данные батчевым запросом
       const zoneData = await metricsAnalyticsService.getZoneDataByArticles(articles);
+      
+      console.log('📦 Результат поиска зональных данных:', {
+        найдено: zoneData.size,
+        артикулы_с_данными: Array.from(zoneData.keys())
+      });
 
       setZoneDataMap(zoneData);
       setLastUpdated(new Date());
