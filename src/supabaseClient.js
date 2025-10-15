@@ -1534,15 +1534,52 @@ export const trelloService = {
       const normalizedUrl = normalizeUrl(trelloLink);
       console.log('🔗 Normalized URL:', normalizedUrl);
       
-      // Извлекаем ID карточки из URL (формат: /c/CARD_ID/...)
-      const cardIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)\//);
-      if (!cardIdMatch) {
-        console.error('❌ Неверный формат URL, не найден /c/CARD_ID/');
-        throw new Error('Неверный формат ссылки Trello');
+      // Извлекаем ID карточки из URL
+      // Поддерживаем форматы:
+      // 1. Полная ссылка: trello.com/c/CARD_ID/card-name
+      // 2. Короткая ссылка: trello.com/c/SHORT_ID
+      let cardId = null;
+      
+      // Пробуем найти полный ID (8 символов в base64)
+      const fullCardIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]{8,})\//);
+      if (fullCardIdMatch) {
+        cardId = fullCardIdMatch[1];
+        console.log('🆔 Extracted FULL card ID:', cardId);
+      } else {
+        // Пробуем найти короткий ID
+        const shortCardIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
+        if (shortCardIdMatch) {
+          const shortId = shortCardIdMatch[1];
+          console.log('🔗 Found SHORT card ID:', shortId);
+          
+          // КРИТИЧНО: Для коротких ID нужно сначала получить полный ID через API
+          try {
+            console.log('📡 Получаем полный ID карточки по короткой ссылке...');
+            const shortCardUrl = `https://api.trello.com/1/cards/${shortId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=id`;
+            const shortCardResponse = await fetch(shortCardUrl);
+            
+            if (!shortCardResponse.ok) {
+              const errorText = await shortCardResponse.text();
+              console.error('❌ Ошибка получения полного ID:', shortCardResponse.status, errorText);
+              throw new Error(`Не удалось получить информацию о карточке по короткой ссылке: ${shortCardResponse.status}`);
+            }
+            
+            const shortCardData = await shortCardResponse.json();
+            cardId = shortCardData.id;
+            console.log('✅ Получен полный ID карточки:', cardId);
+          } catch (shortIdError) {
+            console.error('❌ Ошибка получения полного ID:', shortIdError);
+            throw new Error(`Не удалось получить полный ID карточки: ${shortIdError.message}`);
+          }
+        }
       }
-
-      const cardId = cardIdMatch[1];
-      console.log('🆔 Extracted card ID:', cardId);
+      
+      if (!cardId) {
+        console.error('❌ Не удалось извлечь ID карточки из URL:', normalizedUrl);
+        throw new Error('Неверный формат ссылки Trello. Используйте полную ссылку на карточку.');
+      }
+      
+      console.log('🆔 Final card ID:', cardId);
 
       // Получаем информацию о карточке через API
       const TRELLO_KEY = 'e83894111117e54746d899c1fc2f7043';
