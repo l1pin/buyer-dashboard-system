@@ -97,6 +97,7 @@ function CreativeSearch({ user }) {
   const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
   const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
   
+  const [selectedEditor, setSelectedEditor] = useState('all');
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
   
@@ -125,9 +126,11 @@ function CreativeSearch({ user }) {
   });
 
   const [extractingTitles, setExtractingTitles] = useState(false);
+  const [editors, setEditors] = useState([]);
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showEditorDropdown, setShowEditorDropdown] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -136,6 +139,11 @@ function CreativeSearch({ user }) {
   const filteredCreatives = useMemo(() => {
     // Фильтруем только креативы текущего Search Manager
     let creativesToFilter = creatives.filter(c => c.searcher_id === user.id);
+    
+    // Фильтрация по монтажеру
+    if (selectedEditor !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.user_id === selectedEditor);
+    }
     
     // Фильтрация по байеру (оставляем для дополнительной фильтрации)
     if (selectedBuyer !== 'all') {
@@ -221,7 +229,7 @@ function CreativeSearch({ user }) {
     // Если selectedPeriod === 'all', то не фильтруем по дате
     
     return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1197,14 +1205,16 @@ function CreativeSearch({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
       
-      const [buyersData, searchersData] = await Promise.all([
+      const [editorsData, buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('editor'),
         userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager')
       ]);
       
+      setEditors(editorsData);
       setBuyers(buyersData);
       setSearchers(searchersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
+      console.log(`✅ Загружено ${editorsData.length} монтажеров, ${buyersData.length} байеров и ${searchersData.length} серчеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1555,9 +1565,14 @@ function CreativeSearch({ user }) {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
+      if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
+        setShowEditorDropdown(false);
+      }
+      
       if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
         setShowBuyerDropdown(false);
       }
+      
       if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
         setShowSearcherDropdown(false);
       }
@@ -1771,6 +1786,18 @@ function CreativeSearch({ user }) {
     }
     
     return Object.keys(errors).length === 0;
+  };
+
+  const getEditorName = (editorId) => {
+    if (!editorId || editorId === 'all') return 'Все монтажеры';
+    const editor = editors.find(e => e.id === editorId);
+    return editor ? editor.name : 'Неизвестный';
+  };
+
+  const getEditorAvatar = (editorId) => {
+    if (!editorId || editorId === 'all') return null;
+    const editor = editors.find(e => e.id === editorId);
+    return editor ? editor.avatar_url : null;
   };
 
   const getBuyerName = (buyerId) => {
@@ -2245,6 +2272,90 @@ function CreativeSearch({ user }) {
               <RefreshCw className="h-4 w-4 mr-2" />
               Синхронизировать Trello
             </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowEditorDropdown(!showEditorDropdown)}
+                className="editor-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  {selectedEditor === 'all' ? (
+                    <Video className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {getEditorAvatar(selectedEditor) ? (
+                        <img
+                          src={getEditorAvatar(selectedEditor)}
+                          alt="Editor"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(selectedEditor) ? 'hidden' : ''}`}>
+                        <User className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span>{getEditorName(selectedEditor)}</span>
+                </div>
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showEditorDropdown && (
+                <div className="editor-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedEditor('all');
+                        setShowEditorDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedEditor === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Video className="h-5 w-5 mr-3 text-gray-500" />
+                      Все монтажеры
+                    </button>
+                    
+                    {editors.map(editor => (
+                      <button
+                        key={editor.id}
+                        onClick={() => {
+                          setSelectedEditor(editor.id);
+                          setShowEditorDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedEditor === editor.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+                          {editor.avatar_url ? (
+                            <img
+                              src={editor.avatar_url}
+                              alt={editor.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${editor.avatar_url ? 'hidden' : ''}`}>
+                            <User className="h-3 w-3 text-gray-400" />
+                          </div>
+                        </div>
+                        <span className="truncate">{editor.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             
             <div className="relative">
               <button
@@ -2783,6 +2894,9 @@ function CreativeSearch({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Монтажер
+                      </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Видео
                       </th>
@@ -2910,6 +3024,30 @@ function CreativeSearch({ user }) {
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
                                   {creative.article}
                                 </div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  {getEditorAvatar(creative.user_id) ? (
+                                    <img
+                                      src={getEditorAvatar(creative.user_id)}
+                                      alt="Editor"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(creative.user_id) ? 'hidden' : ''}`}>
+                                    <User className="h-3 w-3 text-gray-400" />
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                  {creative.editor_name || creative.users?.name || 'Неизвестен'}
+                                </span>
                               </div>
                             </td>
                             
