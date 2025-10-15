@@ -2372,6 +2372,7 @@ export const metricsAnalyticsService = {
       }
 
       console.log(`🎯 Батчевый поиск зональных данных для ${cleanArticles.length} артикулов`);
+      console.log('📋 Искомые артикулы:', cleanArticles);
 
       const { data, error } = await supabase
         .from('metrics_analytics')
@@ -2383,10 +2384,48 @@ export const metricsAnalyticsService = {
         return new Map();
       }
 
+      console.log('📦 Ответ от базы данных:', {
+        dataExists: !!data,
+        dataLength: data?.length || 0,
+        firstItem: data?.[0]
+      });
+
+      // 🔍 ДИАГНОСТИКА: Проверяем общее количество записей в таблице
+      const { count, error: countError } = await supabase
+        .from('metrics_analytics')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!countError) {
+        console.log(`📊 Всего записей в metrics_analytics: ${count}`);
+      }
+
+      // 🔍 ДИАГНОСТИКА: Пробуем найти похожие артикулы
+      if ((!data || data.length === 0) && cleanArticles.length > 0) {
+        const searchPattern = cleanArticles[0];
+        console.log(`🔍 Ищем похожие артикулы для: "${searchPattern}"`);
+        
+        const { data: similarData, error: similarError } = await supabase
+          .from('metrics_analytics')
+          .select('article')
+          .ilike('article', `%${searchPattern.substring(0, 3)}%`)
+          .limit(10);
+        
+        if (!similarError && similarData) {
+          console.log('🔍 Найдены похожие артикулы:', similarData.map(d => d.article));
+        }
+      }
+
       const zoneDataMap = new Map();
       
       if (data && data.length > 0) {
         data.forEach(item => {
+          console.log(`✅ Найдены зоны для "${item.article}":`, {
+            red: item.red_zone_price,
+            pink: item.pink_zone_price,
+            gold: item.gold_zone_price,
+            green: item.green_zone_price
+          });
+          
           zoneDataMap.set(item.article, {
             red_zone_price: item.red_zone_price,
             pink_zone_price: item.pink_zone_price,
