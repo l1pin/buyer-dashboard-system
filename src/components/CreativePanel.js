@@ -2246,25 +2246,32 @@ function CreativePanel({ user }) {
 
           <button
               onClick={async () => {
-                if (window.confirm('Синхронизировать статусы всех креативов с Trello?\n\nЭто может занять некоторое время для креативов без статуса.')) {
-                  console.log('🔄 Ручная синхронизация всех статусов...');
+                if (window.confirm('Выполнить полную синхронизацию с Trello?\n\nБудут синхронизированы:\n- Списки (колонки)\n- Карточки\n- Статусы всех креативов')) {
+                  console.log('🔄 Запуск полной синхронизации через trello-setup...');
+                  setLoading(true);
                   try {
-                    const syncedCount = await loadTrelloStatuses(true); // true = синхронизировать пропущенные
-                    if (syncedCount > 0) {
-                      alert(`Синхронизация завершена!\n\nОбновлено статусов: ${syncedCount}`);
-                    } else {
-                      alert('Синхронизация завершена!\n\nВсе статусы уже актуальны.');
-                    }
+                    // Вызываем ПОЛНУЮ синхронизацию через trello-setup
+                    const result = await trelloService.setupTrelloWebhook();
+                    
+                    console.log('✅ Результат синхронизации:', result);
+                    
+                    // Перезагружаем статусы из БД (БЕЗ автосинхронизации)
+                    await loadTrelloStatuses(false);
+                    
+                    alert(`Синхронизация завершена!\n\nСтатистика:\n- Списков: ${result.stats.lists}\n- Карточек в Trello: ${result.stats.cards}\n- Синхронизировано: ${result.stats.synced}\n- Не найдено: ${result.stats.notFound}`);
                   } catch (error) {
-                    console.error('Ошибка синхронизации:', error);
-                    alert('Ошибка синхронизации. Проверьте консоль.');
+                    console.error('❌ Ошибка синхронизации:', error);
+                    alert(`Ошибка синхронизации:\n${error.message}`);
+                  } finally {
+                    setLoading(false);
                   }
                 }
               }}
               className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
-              title="Синхронизировать все статусы Trello"
+              title="Полная синхронизация с Trello (списки + статусы)"
+              disabled={loading}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Синхронизировать Trello
             </button>
             
