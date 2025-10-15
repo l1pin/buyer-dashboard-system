@@ -486,9 +486,9 @@ function CreativeAnalytics({ user }) {
     const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
 
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-    const ctr = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
+    const ctr = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
     const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
-    const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
+    const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
 
     return {
       found: true,
@@ -2758,7 +2758,9 @@ function CreativeAnalytics({ user }) {
                               totalCost: 0,
                               totalClicks: 0,
                               totalImpressions: 0,
-                              commentsCount: 0
+                              commentsCount: 0,
+                              cost_from_sources: 0,
+                              clicks_on_link: 0
                             });
                           }
                           
@@ -2775,6 +2777,8 @@ function CreativeAnalytics({ user }) {
                             editor.totalCost += metrics.data.raw.cost || 0;
                             editor.totalClicks += metrics.data.raw.clicks || 0;
                             editor.totalImpressions += metrics.data.raw.impressions || 0;
+                            editor.cost_from_sources += metrics.data.raw.cost_from_sources || 0;
+                            editor.clicks_on_link += metrics.data.raw.clicks_on_link || 0;
                           }
                         });
                         
@@ -2783,7 +2787,7 @@ function CreativeAnalytics({ user }) {
                           .slice(0, 8)
                           .map((editor, index) => {
                             const avgCPL = editor.totalLeads > 0 ? editor.totalCost / editor.totalLeads : 0;
-                            const avgCTR = editor.totalImpressions > 0 ? (editor.totalClicks / editor.totalImpressions) * 100 : 0;
+                            const avgCTR = editor.totalImpressions > 0 ? (editor.clicks_on_link / editor.totalImpressions) * 100 : 0;
                             const avgCPC = editor.totalClicks > 0 ? editor.totalCost / editor.totalClicks : 0;
                             
                             return (
