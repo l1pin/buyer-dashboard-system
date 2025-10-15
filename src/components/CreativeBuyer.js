@@ -57,10 +57,9 @@ function CreativePanel({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  // Модальные окна создания и редактирования скрыты для Media Buyer
-  const [showCreateModal] = useState(false);
-  const [showEditModal] = useState(false);
-  const [editingCreative] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCreative, setEditingCreative] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -98,7 +97,7 @@ function CreativePanel({ user }) {
   const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
   const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
   
-  // Фильтр по Buyer не нужен - показываем только свои креативы
+  const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
   
   const [newCreative, setNewCreative] = useState({
@@ -137,7 +136,10 @@ function CreativePanel({ user }) {
   const filteredCreatives = useMemo(() => {
     let creativesToFilter = creatives;
     
-    // Фильтрация по байеру НЕ НУЖНА - уже отфильтровано в loadCreatives
+    // Фильтрация по байеру
+    if (selectedBuyer !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+    }
     
     // Фильтрация по серчеру
     if (selectedSearcher !== 'all') {
@@ -1138,17 +1140,14 @@ function CreativePanel({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов для Media Buyer...');
-      // Загружаем ВСЕ креативы и фильтруем по buyer_id на клиенте
-      const allData = await creativeService.getAllCreatives();
-      // КРИТИЧНО: Фильтруем только те креативы, где текущий пользователь указан как Buyer
-      const filteredData = allData.filter(creative => creative.buyer_id === user.id);
-      setCreatives(filteredData);
-      console.log(`✅ Загружено ${filteredData.length} креативов для байера ${user.name}`);
+      console.log('📡 Загрузка креативов пользователя...');
+      const data = await creativeService.getUserCreatives(user.id);
+      setCreatives(data);
+      console.log(`✅ Загружено ${data.length} креативов`);
       
       // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
-      for (const creative of filteredData) {
+      for (const creative of data) {
         const hasHistory = await creativeHistoryService.hasHistory(creative.id);
         if (hasHistory) {
           creativesWithHistorySet.add(creative.id);
@@ -1198,8 +1197,586 @@ function CreativePanel({ user }) {
     return { validLinks, invalidLinks };
   };
 
-  // Функции создания и редактирования креативов скрыты для Media Buyer
-  
+  const handleCreateCreative = async () => {
+    if (!validateFields()) {
+      return;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    const trimmedTrelloLink = newCreative.trello_link.trim();
+
+    try {
+      setCreating(true);
+      setError('');
+      setSuccess('');
+
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setCreating(false);
+        return;
+      }
+
+      setExtractingTitles(true);
+      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+      setExtractingTitles(false);
+
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
+        setCreating(false);
+        return;
+      }
+
+      const cofRating = calculateCOF(newCreative.work_types);
+
+      // Получаем имена байера и серчера по их ID
+      const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
+      const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
+
+      await creativeService.createCreative({
+        user_id: user.id,
+        editor_name: user.name,
+        article: newCreative.article.trim(),
+        links: links,
+        link_titles: titles,
+        work_types: newCreative.work_types,
+        cof_rating: cofRating,
+        comment: newCreative.comment.trim() || null,
+        is_poland: newCreative.is_poland,
+        trello_link: newCreative.trello_link.trim(),
+        buyer_id: newCreative.buyer_id,
+        searcher_id: newCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null
+      });
+
+      setNewCreative({
+        article: '',
+        links: [''],
+        work_types: [],
+        link_titles: [],
+        comment: '',
+        is_poland: false,
+        trello_link: '',
+        buyer_id: null,
+        searcher_id: null
+      });
+      setShowCreateModal(false);
+
+      // Загружаем креативы
+      await loadCreatives();
+      
+      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК И ЗОН ДЛЯ НОВОГО КРЕАТИВА
+      console.log('🚀 Автоматическая загрузка метрик и зон для нового креатива...');
+      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
+      
+      // Загружаем метрики (это обновит все креативы, включая новый)
+      await refreshMetrics();
+      console.log('✅ Метрики загружены');
+      
+      // Загружаем зональные данные
+      await refreshZoneData();
+      console.log('✅ Зональные данные загружены');
+      
+      const successCount = extractedTitles.length;
+      const totalCount = titles.length;
+      const cof = calculateCOF(newCreative.work_types);
+      const country = newCreative.is_poland ? 'PL' : 'UA';
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики и зоны загружены автоматически`);
+    } catch (error) {
+      setError('Ошибка создания креатива: ' + error.message);
+      setExtractingTitles(false);
+      setAuthorizing(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleEditCreative = (creative) => {
+    console.log('✏️ Открытие редактирования креатива:', creative.article);
+    
+    setEditingCreative(creative);
+    setEditCreative({
+      article: creative.article,
+      links: creative.links || [''],
+      work_types: creative.work_types || [],
+      link_titles: creative.link_titles || [],
+      comment: creative.comment || '',
+      is_poland: creative.is_poland || false,
+      trello_link: creative.trello_link || '',
+      buyer_id: creative.buyer_id || null,
+      searcher_id: creative.searcher_id || null
+    });
+    setShowEditModal(true);
+    clearMessages();
+  };
+
+  const handleUpdateCreative = async () => {
+    if (!validateEditFields()) {
+      return;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
+
+    try {
+      setUpdating(true);
+      setError('');
+      setSuccess('');
+
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setUpdating(false);
+        return;
+      }
+
+      setExtractingTitles(true);
+      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+      setExtractingTitles(false);
+
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
+        setUpdating(false);
+        return;
+      }
+
+      const cofRating = calculateCOF(editCreative.work_types);
+
+      const buyerName = editCreative.buyer_id ? getBuyerName(editCreative.buyer_id) : null;
+      const searcherName = editCreative.searcher_id ? getSearcherName(editCreative.searcher_id) : null;
+
+      // Сохраняем старое состояние в историю ПЕРЕД обновлением
+      await creativeHistoryService.createHistoryEntry({
+        creative_id: editingCreative.id,
+        article: editingCreative.article,
+        links: editingCreative.links,
+        link_titles: editingCreative.link_titles,
+        work_types: editingCreative.work_types,
+        cof_rating: editingCreative.cof_rating,
+        comment: editingCreative.comment,
+        is_poland: editingCreative.is_poland,
+        trello_link: editingCreative.trello_link,
+        buyer_id: editingCreative.buyer_id,
+        searcher_id: editingCreative.searcher_id,
+        buyer: editingCreative.buyer,
+        searcher: editingCreative.searcher,
+        changed_by_id: user.id,
+        changed_by_name: user.name,
+        change_type: 'updated'
+      });
+
+      await creativeService.updateCreative(editingCreative.id, {
+        links: links,
+        link_titles: titles,
+        work_types: editCreative.work_types,
+        cof_rating: cofRating,
+        comment: editCreative.comment.trim() || null,
+        is_poland: editCreative.is_poland,
+        trello_link: editCreative.trello_link.trim(),
+        buyer_id: editCreative.buyer_id,
+        searcher_id: editCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null
+      });
+
+      setEditCreative({
+        article: '',
+        links: [''],
+        work_types: [],
+        link_titles: [],
+        comment: '',
+        is_poland: false,
+        trello_link: '',
+        buyer_id: null,
+        searcher_id: null
+      });
+      setEditingCreative(null);
+      setShowEditModal(false);
+
+      await loadCreatives();
+      
+      const successCount = extractedTitles.length;
+      const totalCount = titles.length;
+      const cof = calculateCOF(editCreative.work_types);
+      const country = editCreative.is_poland ? 'PL' : 'UA';
+      setSuccess(`Креатив обновлен! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
+    } catch (error) {
+      setError('Ошибка обновления креатива: ' + error.message);
+      setExtractingTitles(false);
+      setAuthorizing(false);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteCreative = async (creativeId, article) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить креатив "${article}"?`)) {
+      return;
+    }
+
+    try {
+      await creativeService.deleteCreative(creativeId);
+      await loadCreatives();
+      setSuccess('Креатив удален');
+    } catch (error) {
+      setError('Ошибка удаления креатива: ' + error.message);
+    }
+  };
+
+  const addLinkField = () => {
+    setNewCreative({
+      ...newCreative,
+      links: [...newCreative.links, '']
+    });
+  };
+
+  const removeLinkField = (index) => {
+    const newLinks = newCreative.links.filter((_, i) => i !== index);
+    setNewCreative({
+      ...newCreative,
+      links: newLinks.length === 0 ? [''] : newLinks
+    });
+  };
+
+  const updateLink = (index, value) => {
+    const newLinks = [...newCreative.links];
+    newLinks[index] = value;
+    setNewCreative({
+      ...newCreative,
+      links: newLinks
+    });
+    clearFieldError('links');
+  };
+
+  const handleWorkTypeChange = (workType, isChecked) => {
+    let updatedWorkTypes;
+    if (isChecked) {
+      updatedWorkTypes = [...newCreative.work_types, workType];
+    } else {
+      updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
+    }
+    
+    setNewCreative({
+      ...newCreative,
+      work_types: updatedWorkTypes
+    });
+    clearFieldError('work_types');
+  };
+
+  const showComment = (creative) => {
+    setSelectedComment({
+      article: creative.article,
+      comment: creative.comment,
+      createdAt: creative.created_at,
+      editorName: creative.editor_name
+    });
+    setShowCommentModal(true);
+  };
+
+  const showHistory = async (creative) => {
+    setLoadingHistory(true);
+    setShowHistoryModal(true);
+    setSelectedHistory(creative);
+    
+    try {
+      const history = await creativeHistoryService.getCreativeHistory(creative.id);
+      setHistoryData(history);
+    } catch (error) {
+      console.error('Ошибка загрузки истории:', error);
+      setError('Ошибка загрузки истории: ' + error.message);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const toggleWorkTypes = (creativeId) => {
+    const newExpanded = new Set(expandedWorkTypes);
+    if (newExpanded.has(creativeId)) {
+      newExpanded.delete(creativeId);
+    } else {
+      newExpanded.add(creativeId);
+    }
+    setExpandedWorkTypes(newExpanded);
+  };
+
+  const toggleDropdown = (creativeId) => {
+    const newOpenDropdowns = new Set(openDropdowns);
+    if (newOpenDropdowns.has(creativeId)) {
+      newOpenDropdowns.delete(creativeId);
+    } else {
+      newOpenDropdowns.add(creativeId);
+    }
+    setOpenDropdowns(newOpenDropdowns);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-menu') && !event.target.closest('.dropdown-trigger')) {
+        setOpenDropdowns(new Set());
+      }
+      if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
+        setShowPeriodDropdown(false);
+      }
+      if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
+        setShowBuyerDropdown(false);
+      }
+      if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
+        setShowSearcherDropdown(false);
+      }
+      
+      // Закрываем меню периодов при клике вне его
+      const periodMenuContainer = event.target.closest('.period-menu-container');
+      if (!periodMenuContainer && showPeriodMenu) {
+        setShowPeriodMenu(false);
+        setTempCustomDateFrom(customDateFrom);
+        setTempCustomDateTo(customDateTo);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPeriodMenu, customDateFrom, customDateTo]);
+
+  const handlePeriodChange = (period) => {
+    console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
+    setMetricsPeriod(period);
+    setShowPeriodDropdown(false);
+    clearMessages();
+    
+    if (period === '4days') {
+      console.log('⚡ Включен режим "4 дня" - фильтрация на клиенте без запросов к БД');
+    }
+  };
+
+  const getPeriodButtonText = () => {
+    return metricsPeriod === 'all' ? 'Все время' : '4 дня';
+  };
+
+  const formatKyivTime = (dateString) => {
+    try {
+      // Парсим строку напрямую БЕЗ создания Date объекта
+      // Формат: 2025-09-29 06:34:24.19675+00 или 2025-09-29T06:34:24.19675+00:00
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
+      
+      if (!match) {
+        throw new Error('Invalid date format');
+      }
+      
+      const [_, year, month, day, hours, minutes] = match;
+      
+      const dateStr = `${day}.${month}.${year}`;
+      const timeStr = `${hours}:${minutes}`;
+      
+      return { date: dateStr, time: timeStr };
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return { date: '00.00.0000', time: '00:00' };
+    }
+  };
+
+  const getWorkTypeIcon = (workTypes) => {
+    const firstType = workTypes[0] || '';
+    if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
+      return <Video className="h-4 w-4" />;
+    }
+    if (firstType.toLowerCase().includes('статика')) {
+      return <ImageIcon className="h-4 w-4" />;
+    }
+    return <Eye className="h-4 w-4" />;
+  };
+
+  const getWorkTypeColor = (workTypes) => {
+    const firstType = workTypes[0] || '';
+    if (firstType.toLowerCase().includes('video') || firstType.toLowerCase().includes('монтаж')) {
+      return 'bg-blue-100 text-blue-800';
+    }
+    if (firstType.toLowerCase().includes('статика')) {
+      return 'bg-green-100 text-green-800';
+    }
+    if (firstType.toLowerCase().includes('доп')) {
+      return 'bg-purple-100 text-purple-800';
+    }
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+    setFieldErrors({});
+  };
+
+  const clearErrorMessage = () => {
+    setError('');
+  };
+
+  const clearFieldError = (fieldName) => {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  };
+
+  const isAllFieldsValid = () => {
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    
+    return (
+      newCreative.article.trim() &&
+      validLinks.length > 0 &&
+      invalidLinks.length === 0 &&
+      newCreative.work_types.length > 0 &&
+      newCreative.trello_link.trim() &&
+      (newCreative.trello_link.trim().startsWith('https://trello.com/c/') || 
+       newCreative.trello_link.trim().startsWith('trello.com/c/'))
+    );
+  };
+
+  const validateEditFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    // Артикул не проверяем, так как он не редактируется
+
+    // Проверяем ссылки
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
+    } else if (invalidLinks.length > 0) {
+      errors.links = true;
+      errorMessages.push('Проверьте правильность ссылок на Google Drive');
+    }
+
+    // Проверяем типы работ
+    if (editCreative.work_types.length === 0) {
+      errors.work_types = true;
+      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
+    }
+
+    // Проверяем Trello ссылку
+    if (!editCreative.trello_link.trim()) {
+      errors.trello_link = true;
+      errorMessages.push('Карточка Trello обязательна для заполнения');
+    } else {
+      const trimmedTrelloLink = editCreative.trello_link.trim();
+      if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+          !trimmedTrelloLink.startsWith('trello.com/c/')) {
+        errors.trello_link = true;
+        errorMessages.push('Проверьте правильность ссылки на Trello');
+      }
+    }
+
+    setFieldErrors(errors);
+    
+    // Устанавливаем сообщение об ошибке
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
+    }
+    
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    // Проверяем артикул
+    if (!newCreative.article.trim()) {
+      errors.article = true;
+      errorMessages.push('Артикул обязателен для заполнения');
+    }
+
+    // Проверяем ссылки
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
+    } else if (invalidLinks.length > 0) {
+      errors.links = true;
+      errorMessages.push('Проверьте правильность ссылок на Google Drive');
+    }
+
+    // Проверяем типы работ
+    if (newCreative.work_types.length === 0) {
+      errors.work_types = true;
+      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
+    }
+
+    // Проверяем Trello ссылку
+    if (!newCreative.trello_link.trim()) {
+      errors.trello_link = true;
+      errorMessages.push('Карточка Trello обязательна для заполнения');
+    } else {
+      const trimmedTrelloLink = newCreative.trello_link.trim();
+      if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+          !trimmedTrelloLink.startsWith('trello.com/c/')) {
+        errors.trello_link = true;
+        errorMessages.push('Проверьте правильность ссылки на Trello');
+      }
+    }
+
+    setFieldErrors(errors);
+    
+    // Устанавливаем сообщение об ошибке
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
+    }
+    
+    return Object.keys(errors).length === 0;
+  };
+
+  const getBuyerName = (buyerId) => {
+    if (!buyerId) return '—';
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.name : 'Удален';
+  };
+
+  const getSearcherName = (searcherId) => {
+    if (!searcherId) return '—';
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.name : 'Удален';
+  };
+
+  const getBuyerAvatar = (buyerId) => {
+    if (!buyerId) return null;
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.avatar_url : null;
+  };
+
+  const getSearcherAvatar = (searcherId) => {
+    if (!searcherId) return null;
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.avatar_url : null;
+  };
+
+  const getSelectedBuyer = () => {
+    if (!newCreative.buyer_id) return null;
+    return buyers.find(b => b.id === newCreative.buyer_id);
+  };
+
+  const getSelectedSearcher = () => {
+    if (!newCreative.searcher_id) return null;
+    return searchers.find(s => s.id === newCreative.searcher_id);
+  };
+
   const handleRefreshAll = async () => {
     console.log(`🔄 Обновление только метрик и зональных данных (период: ${metricsPeriod})`);
     await refreshMetrics();
@@ -1245,17 +1822,13 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Мои креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name} • Media Buyer
+                {user?.name}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            {/* Информация о роли */}
-            <div className="text-sm text-gray-600">
-              Просмотр креативов как Media Buyer
-            </div>
             {/* Кнопка выбора периода дат */}
             <div className="relative period-menu-container">
               <button
@@ -1585,7 +2158,13 @@ function CreativePanel({ user }) {
               Обновить
             </button>
 
-            {/* Кнопка создания креатива скрыта для Media Buyer */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Создать креатив
+            </button>
           </div>
         </div>
       </div>
@@ -1645,7 +2224,89 @@ function CreativePanel({ user }) {
               Синхронизировать Trello
             </button>
             
-            {/* Фильтр по Buyer скрыт - показываем только свои креативы */}
+            <div className="relative">
+              <button
+                onClick={() => setShowBuyerDropdown(!showBuyerDropdown)}
+                className="buyer-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  {selectedBuyer === 'all' ? (
+                    <User className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {getBuyerAvatar(selectedBuyer) ? (
+                        <img
+                          src={getBuyerAvatar(selectedBuyer)}
+                          alt="Buyer"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(selectedBuyer) ? 'hidden' : ''}`}>
+                        <User className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span>{selectedBuyer === 'all' ? 'Все байеры' : getBuyerName(selectedBuyer)}</span>
+                </div>
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showBuyerDropdown && (
+                <div className="buyer-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedBuyer('all');
+                        setShowBuyerDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        selectedBuyer === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <User className="h-5 w-5 mr-3 text-gray-500" />
+                      Все байеры
+                    </button>
+                    
+                    {buyers.map(buyer => (
+                      <button
+                        key={buyer.id}
+                        onClick={() => {
+                          setSelectedBuyer(buyer.id);
+                          setShowBuyerDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                          selectedBuyer === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+                          {buyer.avatar_url ? (
+                            <img
+                              src={buyer.avatar_url}
+                              alt={buyer.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                            <User className="h-3 w-3 text-gray-400" />
+                          </div>
+                        </div>
+                        <span className="truncate">{buyer.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="relative">
               <button
@@ -2276,15 +2937,17 @@ function CreativePanel({ user }) {
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                              {/* Редактирование скрыто для Media Buyer */}
-                              <span className="text-gray-400" title="Редактирование недоступно">
-                                <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                              <button
+                                onClick={() => handleEditCreative(creative)}
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                title="Редактировать креатив"
+                              >
+                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                                   <path stroke="none" d="M0 0h24v24H0z"/>
-                                  <circle cx="12" cy="12" r="9" />
-                                  <line x1="9" y1="9" x2="15" y2="15" />
-                                  <line x1="15" y1="9" x2="9" y2="15" />
+                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
                                 </svg>
-                              </span>
+                              </button>
                             </td>
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
@@ -2974,8 +3637,8 @@ function CreativePanel({ user }) {
         )}
       </div>
 
-      {/* Create Modal - скрыто для Media Buyer */}
-      {false && showCreateModal && (
+      {/* Create Modal */}
+      {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
@@ -3447,8 +4110,8 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Edit Modal - скрыто для Media Buyer */}
-      {false && showEditModal && editingCreative && (
+      {/* Edit Modal */}
+      {showEditModal && editingCreative && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
