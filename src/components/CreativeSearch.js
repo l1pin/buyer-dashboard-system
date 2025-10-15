@@ -52,7 +52,7 @@ import {
   Filter
 } from 'lucide-react';
 
-function CreativePanel({ user }) {
+function CreativeSearch({ user }) {
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -134,17 +134,15 @@ function CreativePanel({ user }) {
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
-    let creativesToFilter = creatives;
+    // Фильтруем только креативы текущего Search Manager
+    let creativesToFilter = creatives.filter(c => c.searcher_id === user.id);
     
-    // Фильтрация по байеру
+    // Фильтрация по байеру (оставляем для дополнительной фильтрации)
     if (selectedBuyer !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
     
-    // Фильтрация по серчеру
-    if (selectedSearcher !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
-    }
+    // Убираем фильтрацию по серчеру, так как показываем только креативы текущего пользователя
     
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1822,9 +1820,9 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Мои креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name}
+                {user?.name} — Креативы где я указан как Searcher
               </p>
             </div>
           </div>
@@ -2157,14 +2155,6 @@ function CreativePanel({ user }) {
               <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
               Обновить
             </button>
-
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
           </div>
         </div>
       </div>
@@ -2308,89 +2298,7 @@ function CreativePanel({ user }) {
               )}
             </div>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowSearcherDropdown(!showSearcherDropdown)}
-                className="searcher-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-2">
-                  {selectedSearcher === 'all' ? (
-                    <Search className="h-4 w-4 text-gray-500" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      {getSearcherAvatar(selectedSearcher) ? (
-                        <img
-                          src={getSearcherAvatar(selectedSearcher)}
-                          alt="Searcher"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(selectedSearcher) ? 'hidden' : ''}`}>
-                        <Search className="h-3 w-3 text-gray-400" />
-                      </div>
-                    </div>
-                  )}
-                  <span>{selectedSearcher === 'all' ? 'Все серчеры' : getSearcherName(selectedSearcher)}</span>
-                </div>
-                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showSearcherDropdown && (
-                <div className="searcher-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setSelectedSearcher('all');
-                        setShowSearcherDropdown(false);
-                      }}
-                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedSearcher === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <Search className="h-5 w-5 mr-3 text-gray-500" />
-                      Все серчеры
-                    </button>
-                    
-                    {searchers.map(searcher => (
-                      <button
-                        key={searcher.id}
-                        onClick={() => {
-                          setSelectedSearcher(searcher.id);
-                          setShowSearcherDropdown(false);
-                        }}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                          selectedSearcher === searcher.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
-                          {searcher.avatar_url ? (
-                            <img
-                              src={searcher.avatar_url}
-                              alt={searcher.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                          ) : null}
-                          <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
-                            <Search className="h-3 w-3 text-gray-400" />
-                          </div>
-                        </div>
-                        <span className="truncate">{searcher.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            
           </div>
 
           
@@ -2823,15 +2731,8 @@ function CreativePanel({ user }) {
               Нет креативов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив с Google Drive ссылками
+              Вы еще не указаны как Searcher ни в одном креативе
             </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -2844,13 +2745,6 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                          <path stroke="none" d="M0 0h24v24H0z"/>
-                          <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                          <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                        </svg>
-                      </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
@@ -2936,19 +2830,6 @@ function CreativePanel({ user }) {
                             key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                              <button
-                                onClick={() => handleEditCreative(creative)}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                title="Редактировать креатив"
-                              >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                  <path stroke="none" d="M0 0h24v24H0z"/>
-                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                                </svg>
-                              </button>
-                            </td>
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
                                 <div className="font-medium">{formattedDateTime.date}</div>
@@ -3637,8 +3518,8 @@ function CreativePanel({ user }) {
         )}
       </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
+      {/* Create Modal - Hidden for Search Manager */}
+      {false && showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
@@ -4110,8 +3991,8 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {showEditModal && editingCreative && (
+      {/* Edit Modal - Hidden for Search Manager */}
+      {false && showEditModal && editingCreative && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
@@ -4827,4 +4708,4 @@ function CreativePanel({ user }) {
   );
 }
 
-export default CreativePanel;
+export default CreativeSearch;
