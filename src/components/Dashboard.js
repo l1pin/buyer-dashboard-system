@@ -7,7 +7,6 @@ import AdminPanel from './AdminPanel';
 import UserManagement from './UserManagement';
 import CreativePanel from './CreativePanel';
 import CreativeSearch from './CreativeSearch';
-import CreativeBuyer from './CreativeBuyer';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
@@ -42,9 +41,8 @@ function Dashboard({ user, session, updateUser }) {
   const getDefaultSectionForRole = (role) => {
     if (role === 'editor') return 'creatives';
     if (role === 'search_manager') return 'creatives';
-    if (role === 'buyer') return 'creatives';
     if (role === 'teamlead') return 'analytics';
-    if (role === 'content_manager') return 'settings';
+    if (role === 'buyer' || role === 'content_manager') return 'settings';
     return 'settings';
   };
 
@@ -56,7 +54,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'users':
         return role === 'teamlead';
       case 'creatives':
-        return role === 'editor' || role === 'search_manager' || role === 'buyer';
+        return role === 'editor' || role === 'search_manager';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -146,8 +144,6 @@ function Dashboard({ user, session, updateUser }) {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
-        } else if (user?.role === 'buyer') {
-          return <CreativeBuyer user={user} />;
         }
         return null;
       case 'analytics':
@@ -162,8 +158,6 @@ function Dashboard({ user, session, updateUser }) {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
-        } else if (user?.role === 'buyer') {
-          return <CreativeBuyer user={user} />;
         } else if (user?.role === 'teamlead') {
           return <CreativeAnalytics user={user} />;
         } else {
