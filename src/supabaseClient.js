@@ -1462,111 +1462,40 @@ export const trelloService = {
     }
   },
 
-  // Ручная синхронизация статуса для одного креатива
+  // Ручная синхронизация статуса для одного креатива через Netlify Function
   async syncSingleCreative(creativeId, trelloLink) {
     try {
-      console.log('🔄 syncSingleCreative START:', { creativeId, trelloLink });
+      console.log('🔄 syncSingleCreative через Netlify Function:', { creativeId, trelloLink });
       
       if (!trelloLink) {
         throw new Error('Нет ссылки на Trello');
       }
 
-      // API ключи Trello
-      const TRELLO_KEY = 'e83894111117e54746d899c1fc2f7043';
-      const TRELLO_TOKEN = 'ATTAb29683ffc0c87de7b5d1ce766ca8c2d28a61b3c722660564d74dae0a955456aeED83F79A';
-
-      // Нормализуем URL
-      const normalizeUrl = (url) => {
-        if (!url) return '';
-        let normalized = url.split('?')[0].split('#')[0];
-        normalized = normalized.replace(/^https?:\/\//, '');
-        normalized = normalized.replace(/\/$/, '');
-        return normalized.toLowerCase();
-      };
-
-      const normalizedUrl = normalizeUrl(trelloLink);
-      console.log('🔗 Normalized URL:', normalizedUrl);
-      
-      // Извлекаем короткий ID из URL (формат: /c/SHORT_ID/...)
-      const shortIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
-      if (!shortIdMatch) {
-        console.error('❌ Неверный формат URL, не найден /c/SHORT_ID/');
-        throw new Error('Неверный формат ссылки Trello');
-      }
-
-      const shortId = shortIdMatch[1];
-      console.log('🆔 Extracted short ID:', shortId);
-
-      // КРИТИЧНО: Trello API работает с короткими ID напрямую!
-      // Получаем информацию о карточке через API используя короткий ID
-      console.log('📡 Запрос к Trello API для карточки...');
-      const cardUrl = `https://api.trello.com/1/cards/${shortId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=id,idList,name`;
-      const cardResponse = await fetch(cardUrl);
-      
-      if (!cardResponse.ok) {
-        const errorText = await cardResponse.text();
-        console.error('❌ Ошибка API Trello (card):', cardResponse.status, errorText);
-        throw new Error(`Не удалось получить информацию о карточке: ${cardResponse.status}`);
-      }
-      
-      const card = await cardResponse.json();
-      console.log('📋 Card data:', { id: card.id, name: card.name, idList: card.idList });
-      
-      // Получаем информацию о списке
-      console.log('📡 Запрос к Trello API для списка...');
-      const listUrl = `https://api.trello.com/1/lists/${card.idList}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=name`;
-      const listResponse = await fetch(listUrl);
-      
-      if (!listResponse.ok) {
-        const errorText = await listResponse.text();
-        console.error('❌ Ошибка API Trello (list):', listResponse.status, errorText);
-        throw new Error(`Не удалось получить информацию о списке: ${listResponse.status}`);
-      }
-      
-      const list = await listResponse.json();
-      console.log('📂 List data:', { id: list.id, name: list.name });
-
-      // Обновляем статус в базе (используем ПОЛНЫЙ ID карточки из card.id)
-      console.log('💾 Сохранение статуса в БД...');
-      const { data, error } = await supabase
-        .from('trello_card_statuses')
-        .upsert({
-          creative_id: creativeId,
-          trello_card_id: card.id,
-          list_id: card.idList,
-          list_name: list.name,
-          last_updated: new Date().toISOString()
-        }, {
-          onConflict: 'creative_id'
+      // Вызываем СЕРВЕРНУЮ Netlify Function
+      const response = await fetch('/.netlify/functions/trello-sync-single', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          creativeId: creativeId,
+          trelloLink: trelloLink
         })
-        .select();
+      });
 
-      if (error) {
-        console.error('❌ Ошибка сохранения в БД:', error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Ошибка Netlify Function:', response.status, errorText);
+        throw new Error(`Ошибка синхронизации: ${response.status}`);
       }
 
-      console.log('✅ Статус сохранен в БД:', data);
-      
-      // Проверяем, что запись действительно создана
-      const { data: checkData, error: checkError } = await supabase
-        .from('trello_card_statuses')
-        .select('*')
-        .eq('creative_id', creativeId)
-        .single();
-      
-      if (checkError) {
-        console.error('⚠️ Проверка: запись НЕ найдена после сохранения:', checkError);
-      } else {
-        console.log('✅ Проверка: запись подтверждена в БД:', checkData);
-      }
+      const result = await response.json();
+      console.log('✅ Результат синхронизации:', result);
 
-      console.log('🎉 syncSingleCreative SUCCESS');
-      return { success: true, listName: list.name, cardId: card.id, listId: card.idList };
+      return result;
       
     } catch (error) {
       console.error('❌ syncSingleCreative ERROR:', error);
-      console.error('Stack:', error.stack);
       throw error;
     }
   }
