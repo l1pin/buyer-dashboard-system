@@ -27,6 +27,7 @@ export class MetricsService {
       kind = "daily_first4_total", // daily | first4 | total | daily_first4_total
       useCache = true,
       useLike = false, // 🆕 Режим LIKE поиска
+      timeout = useLike ? 32000 : 15000, // 🆕 Адаптивный таймаут
     } = options;
 
     if (!videoNames || videoNames.length === 0) {
@@ -35,7 +36,7 @@ export class MetricsService {
     }
 
     console.log(
-      `🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}, LIKE=${useLike}`
+      `🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}, LIKE=${useLike}, timeout=${timeout}ms`
     );
 
     try {
@@ -51,14 +52,31 @@ export class MetricsService {
 
       const startTime = Date.now();
 
-      const response = await fetch(METRICS_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // 🆕 Создаем AbortController для таймаута
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      let response;
+      try {
+        response = await fetch(METRICS_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error(`Таймаут ${timeout}ms превышен для ${videoNames.length} видео`);
+        }
+        throw fetchError;
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -100,10 +118,13 @@ export class MetricsService {
         },
       };
     } catch (error) {
-      console.error("❌ Ошибка батчевой загрузки:", error);
+      const isTimeout = error.message.includes('Таймаут');
+      console.error(`❌ Ошибка батчевой загрузки ${isTimeout ? '(TIMEOUT)' : ''}:`, error.message);
+      
       return {
         success: false,
         error: error.message,
+        isTimeout: isTimeout,
         results: [],
       };
     }
