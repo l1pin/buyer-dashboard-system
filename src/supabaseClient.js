@@ -1034,60 +1034,9 @@ export const creativeService = {
     const creative = data[0];
     console.log('✅ Креатив создан успешно:', creative);
 
-    // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello
-    if (creative.trello_link) {
-      console.log('🔄 Автоматическая синхронизация Trello статуса для', creative.article);
-      console.log('🔗 Trello link:', creative.trello_link);
-      
-      try {
-        const result = await trelloService.syncSingleCreative(creative.id, creative.trello_link);
-        console.log('✅ Trello статус синхронизирован:', result.listName);
-        
-        // Тройная проверка с увеличенным временем ожидания
-        let checkAttempts = 0;
-        const maxCheckAttempts = 5;
-        let statusFound = false;
-        
-        while (checkAttempts < maxCheckAttempts && !statusFound) {
-          checkAttempts++;
-          console.log(`🔍 Проверка статуса в БД, попытка ${checkAttempts}/${maxCheckAttempts}...`);
-          
-          const { data: checkData, error: checkError } = await supabase
-            .from('trello_card_statuses')
-            .select('*')
-            .eq('creative_id', creative.id)
-            .single();
-          
-          if (checkError) {
-            console.error(`❌ Попытка ${checkAttempts}: статус НЕ найден:`, checkError.code);
-            if (checkAttempts < maxCheckAttempts) {
-              // Увеличиваем задержку с каждой попыткой
-              const delay = 500 * checkAttempts;
-              console.log(`⏳ Ждем ${delay}ms перед повтором...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-            }
-          } else {
-            console.log(`✅ Попытка ${checkAttempts}: статус НАЙДЕН в БД:`, checkData);
-            statusFound = true;
-            
-            // 🔥 ДОПОЛНИТЕЛЬНО: Принудительно уведомляем о создании статуса через realtime
-            console.log('📢 Отправляем уведомление о создании статуса...');
-          }
-        }
-        
-        if (!statusFound) {
-          console.error('❌ Статус не найден после всех попыток проверки');
-          console.error('💡 Рекомендация: проверьте права доступа к таблице trello_card_statuses');
-        } else {
-          console.log('🎉 Статус успешно создан и проверен в БД');
-        }
-        
-      } catch (syncError) {
-        console.error('⚠️ Ошибка синхронизации Trello:', syncError);
-        console.error('Stack:', syncError.stack);
-        // Не прерываем создание креатива из-за ошибки синхронизации
-      }
-    }
+    // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello - ТЕПЕРЬ НЕ НУЖНА
+    // Синхронизация будет выполнена через Netlify Function на фронтенде
+    console.log('✅ Креатив создан, синхронизация Trello будет выполнена на клиенте');
 
     return creative;
   },
