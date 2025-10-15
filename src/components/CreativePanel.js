@@ -2933,8 +2933,13 @@ function CreativePanel({ user }) {
                                 </div>
                               ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                  <span 
+                                    className="font-bold text-sm cursor-text select-text text-black relative group"
+                                  >
                                     {currentDisplayData.metrics.data.formatted.cost}
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                      Расход FB: {currentDisplayData.metrics.data.raw.cost_from_sources?.toFixed(2)}$
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -2945,8 +2950,13 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
+                                          <span 
+                                            className="font-bold text-sm cursor-text select-text text-black relative group"
+                                          >
                                             {videoMetric.data.formatted.cost}
+                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                              Расход FB: {videoMetric.data.raw.cost_from_sources?.toFixed(2)}$
+                                            </span>
                                           </span>
                                         ) : (
                                           <span className="text-gray-400 text-sm cursor-text select-text">—</span>
@@ -2967,8 +2977,13 @@ function CreativePanel({ user }) {
                                 </div>
                               ) : currentMode === 'aggregated' ? (
                                 currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
+                                  <span 
+                                    className="font-bold text-sm cursor-text select-text text-black relative group"
+                                  >
                                     {currentDisplayData.metrics.data.formatted.clicks}
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                      Клики FB: {currentDisplayData.metrics.data.raw.clicks_on_link}
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400 cursor-text select-text">—</span>
@@ -2979,8 +2994,13 @@ function CreativePanel({ user }) {
                                     {allVideoMetrics.map((videoMetric, index) => (
                                       <div key={index} className="text-center min-h-[24px]">
                                         {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
+                                          <span 
+                                            className="font-bold text-sm cursor-text select-text text-black relative group"
+                                          >
                                             {videoMetric.data.formatted.clicks}
+                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                              Клики FB: {videoMetric.data.raw.clicks_on_link}
+                                            </span>
                                           </span>
                                         ) : (
                                           <span className="text-gray-400 text-sm cursor-text select-text">—</span>
