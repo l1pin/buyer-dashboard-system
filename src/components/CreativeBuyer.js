@@ -126,9 +126,11 @@ function CreativeBuyer({ user }) {
 
   const [extractingTitles, setExtractingTitles] = useState(false);
   const [editors, setEditors] = useState([]);
+  const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showEditorDropdown, setShowEditorDropdown] = useState(false);
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -1168,16 +1170,18 @@ const loadCreatives = async () => {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
       
-      const [editorsData, searchersData] = await Promise.all([
+      const [editorsData, buyersData, searchersData] = await Promise.all([
         userService.getAllUsers(),
+        userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager')
       ]);
       
       // Фильтруем только монтажеров
       const filteredEditors = editorsData.filter(u => u.role === 'editor');
       setEditors(filteredEditors);
+      setBuyers(buyersData);
       setSearchers(searchersData);
-      console.log(`✅ Загружено ${filteredEditors.length} монтажеров и ${searchersData.length} серчеров`);
+      console.log(`✅ Загружено ${filteredEditors.length} монтажеров, ${buyersData.length} байеров и ${searchersData.length} серчеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1531,6 +1535,11 @@ const loadCreatives = async () => {
       if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
         setShowEditorDropdown(false);
       }
+      
+      if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
+        setShowBuyerDropdown(false);
+      }
+      
       if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
         setShowSearcherDropdown(false);
       }
