@@ -2,7 +2,7 @@
 // Замените содержимое src/components/CreativePanel.js
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { creativeService, userService, creativeHistoryService, metricsAnalyticsService } from '../supabaseClient';
+import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
@@ -74,6 +74,8 @@ function CreativePanel({ user }) {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
+  const [trelloStatuses, setTrelloStatuses] = useState(new Map());
+  const [trelloLists, setTrelloLists] = useState([]);
   
   // Новая система фильтрации по периоду (как в CreativeAnalytics)
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
@@ -882,7 +884,92 @@ function CreativePanel({ user }) {
     loadUsers();
     loadCreatives();
     loadLastUpdateTime();
+    
+    // Подписка на создание новых креативов
+    const creativesSubscription = supabase
+      .channel('creatives_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'creatives'
+        },
+        async (payload) => {
+          console.log('🆕 Новый креатив создан:', payload.new.article);
+          
+          // Если у нового креатива есть Trello ссылка, ждем появления статуса
+          if (payload.new.trello_link) {
+            console.log('⏳ Ждем синхронизации Trello статуса для', payload.new.article);
+            
+            // Даем время на синхронизацию (2 секунды)
+            setTimeout(async () => {
+              try {
+                console.log('🔍 Проверяем статус для', payload.new.id);
+                const status = await trelloService.getCardStatus(payload.new.id);
+                
+                if (status) {
+                  console.log('✅ Статус получен:', status.list_name);
+                  setTrelloStatuses(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(payload.new.id, status);
+                    console.log('🗺️ Обновлен Map, новый размер:', newMap.size);
+                    return newMap;
+                  });
+                } else {
+                  console.log('⚠️ Статус еще не синхронизирован, перезагружаем все статусы...');
+                  loadTrelloStatuses();
+                }
+              } catch (error) {
+                console.error('❌ Ошибка получения статуса:', error);
+                // При ошибке просто перезагружаем все статусы
+                loadTrelloStatuses();
+              }
+            }, 2000); // Ждем 2 секунды
+          }
+        }
+      )
+      .subscribe();
+    
+    // Подписка на изменения статусов Trello в реальном времени
+    const trelloSubscription = trelloService.subscribeToCardStatuses((payload) => {
+      console.log('🔄 Trello status changed:', payload);
+      
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        console.log('➕ Обновляем статус для креатива:', payload.new.creative_id);
+        setTrelloStatuses(prev => {
+          const newMap = new Map(prev);
+          newMap.set(payload.new.creative_id, payload.new);
+          console.log('🗺️ Map обновлен, размер:', newMap.size);
+          return newMap;
+        });
+      } else if (payload.eventType === 'DELETE') {
+        console.log('➖ Удаляем статус для креатива:', payload.old.creative_id);
+        setTrelloStatuses(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(payload.old.creative_id);
+          return newMap;
+        });
+      }
+    });
+    
+    return () => {
+      creativesSubscription.unsubscribe();
+      trelloSubscription.unsubscribe();
+    };
   }, []);
+
+  // Отдельный useEffect для загрузки Trello статусов ПОСЛЕ загрузки креативов
+  useEffect(() => {
+    console.log('🔵 useEffect для Trello, creatives:', creatives?.length);
+    
+    if (creatives && creatives.length > 0) {
+      console.log('🟢 Запускаем loadTrelloStatuses с автосинхронизацией...');
+      loadTrelloStatuses(true); // true = автоматически синхронизировать пропущенные
+    } else {
+      console.log('⚠️ creatives пуст, ждем...');
+    }
+  }, [creatives]);
 
   const loadLastUpdateTime = async () => {
     try {
@@ -891,6 +978,162 @@ function CreativePanel({ user }) {
     } catch (error) {
       console.error('Ошибка загрузки времени последнего обновления:', error);
     }
+  };
+
+  // 🆕 НОВАЯ ФУНКЦИЯ: Синхронизация пропущенных статусов
+  const syncMissingTrelloStatuses = async (currentStatusMap) => {
+    try {
+      console.log('🔄 Проверка пропущенных Trello статусов...');
+      
+      // Находим креативы с trello_link, но без статуса
+      const creativesWithoutStatus = creatives.filter(creative => {
+        const hasLink = !!creative.trello_link;
+        const hasStatus = currentStatusMap.has(creative.id);
+        return hasLink && !hasStatus;
+      });
+      
+      if (creativesWithoutStatus.length === 0) {
+        console.log('✅ Все креативы с Trello ссылками имеют статусы');
+        return 0;
+      }
+      
+      console.log(`⚠️ Найдено ${creativesWithoutStatus.length} креативов БЕЗ статуса, но с Trello ссылкой`);
+      console.log('📋 Артикулы:', creativesWithoutStatus.map(c => c.article).join(', '));
+      
+      // Синхронизируем каждый креатив
+      let successCount = 0;
+      let errorCount = 0;
+      const newStatuses = new Map();
+      
+      for (const creative of creativesWithoutStatus) {
+        try {
+          console.log(`🔄 Синхронизация статуса для ${creative.article}...`);
+          
+          const result = await trelloService.syncSingleCreative(
+            creative.id,
+            creative.trello_link
+          );
+          
+          if (result.success) {
+            console.log(`✅ Статус синхронизирован: ${result.listName}`);
+            
+            // Сохраняем в временный Map
+            newStatuses.set(creative.id, {
+              creative_id: creative.id,
+              list_name: result.listName,
+              list_id: result.listId,
+              trello_card_id: result.cardId,
+              last_updated: new Date().toISOString()
+            });
+            
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
+          errorCount++;
+        }
+        
+        // Задержка между запросами к API Trello (избегаем rate limit)
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Обновляем Map одним вызовом
+      if (newStatuses.size > 0) {
+        setTrelloStatuses(prev => {
+          const updated = new Map(prev);
+          newStatuses.forEach((value, key) => {
+            updated.set(key, value);
+          });
+          console.log('🗺️ Map обновлен, новый размер:', updated.size);
+          return updated;
+        });
+      }
+      
+      console.log(`🎉 Автосинхронизация завершена: успешно ${successCount}, ошибок ${errorCount}`);
+      return successCount;
+      
+    } catch (error) {
+      console.error('❌ Ошибка автосинхронизации статусов:', error);
+      return 0;
+    }
+  };
+
+  // Загрузка статусов Trello карточек
+  const loadTrelloStatuses = async (shouldSyncMissing = false) => {
+    try {
+      console.log('🟢 loadTrelloStatuses СТАРТ, shouldSyncMissing:', shouldSyncMissing);
+      console.log('📊 creatives:', creatives?.length || 0);
+      
+      // Получаем списки
+      const lists = await trelloService.getAllLists();
+      setTrelloLists(lists);
+      console.log(`✅ Загружено ${lists.length} списков Trello`);
+      
+      // Получаем статусы для ВСЕХ креативов
+      const creativeIds = creatives.map(c => c.id);
+      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов`);
+      console.log('🆔 Первые 3 ID:', creativeIds.slice(0, 3));
+      
+      if (creativeIds.length > 0) {
+        const statusMap = await trelloService.getBatchCardStatuses(creativeIds);
+        
+        console.log('🟡 ПЕРЕД setTrelloStatuses, размер Map:', statusMap.size);
+        
+        setTrelloStatuses(statusMap);
+        
+        console.log('🟢 ПОСЛЕ setTrelloStatuses');
+        console.log(`✅ Установлено ${statusMap.size} статусов в состояние`);
+        
+        // Выводим пример для отладки
+        if (statusMap.size > 0) {
+          const firstEntry = Array.from(statusMap.entries())[0];
+          console.log('📦 Первая пара [ID, статус]:', firstEntry);
+        }
+        
+        // 🚀 НОВОЕ: Автоматическая синхронизация пропущенных статусов
+        if (shouldSyncMissing) {
+          const syncedCount = await syncMissingTrelloStatuses(statusMap);
+          return syncedCount;
+        }
+      } else {
+        console.warn('⚠️ НЕТ креативов для загрузки статусов!');
+      }
+      
+      console.log('🏁 loadTrelloStatuses ЗАВЕРШЕН');
+      return 0;
+    } catch (error) {
+      console.error('❌ Ошибка загрузки Trello статусов:', error);
+      console.error('Stack:', error.stack);
+      return 0;
+    }
+  };
+
+  // Получить название списка для креатива
+  const getTrelloListName = (creativeId) => {
+    // Временное логирование для первого креатива
+    const isFirstCall = !window.__trelloDebugCalled;
+    if (isFirstCall) {
+      window.__trelloDebugCalled = true;
+      console.log('🔴 getTrelloListName ПЕРВЫЙ ВЫЗОВ');
+      console.log('📊 trelloStatuses.size:', trelloStatuses.size);
+      console.log('🆔 Ищем creativeId:', creativeId);
+      console.log('🗺️ Все ключи Map:', Array.from(trelloStatuses.keys()));
+    }
+    
+    const status = trelloStatuses.get(creativeId);
+    
+    if (!status) {
+      if (isFirstCall) {
+        console.log('❌ Статус НЕ НАЙДЕН для', creativeId);
+      }
+      return '—';
+    }
+    
+    if (isFirstCall) {
+      console.log('✅ Статус НАЙДЕН:', status);
+    }
+    
+    return status.list_name || '—';
   };
 
   const loadCreatives = async () => {
@@ -1956,6 +2199,30 @@ function CreativePanel({ user }) {
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-700">Фильтры:</span>
             </div>
+
+          <button
+              onClick={async () => {
+                if (window.confirm('Синхронизировать статусы всех креативов с Trello?\n\nЭто может занять некоторое время для креативов без статуса.')) {
+                  console.log('🔄 Ручная синхронизация всех статусов...');
+                  try {
+                    const syncedCount = await loadTrelloStatuses(true); // true = синхронизировать пропущенные
+                    if (syncedCount > 0) {
+                      alert(`Синхронизация завершена!\n\nОбновлено статусов: ${syncedCount}`);
+                    } else {
+                      alert('Синхронизация завершена!\n\nВсе статусы уже актуальны.');
+                    }
+                  } catch (error) {
+                    console.error('Ошибка синхронизации:', error);
+                    alert('Ошибка синхронизации. Проверьте консоль.');
+                  }
+                }
+              }}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+              title="Синхронизировать все статусы Trello"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Синхронизировать Trello
+            </button>
             
             <div className="relative">
               <button
@@ -2638,6 +2905,9 @@ function CreativePanel({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Trello
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Статус
+                      </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Buyer
                       </th>
@@ -3275,25 +3545,30 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-  {creative.trello_link ? (
-    <div className="space-y-2">
-      <div>
-        <a
-          href={creative.trello_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <ExternalLink className="h-3 w-3 mr-1" />
-          Карточка
-        </a>
-      </div>
-      
-    </div>
-  ) : (
-    <span className="text-gray-400 cursor-text select-text">—</span>
-  )}
-</td>
+                              {creative.trello_link ? (
+                                <div className="space-y-2">
+                                  <div>
+                                    
+                                     <a href={creative.trello_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Карточка
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
+                                {getTrelloListName(creative.id)}
+                              </span>
+                            </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                               {(creative.buyer_id || creative.buyer) ? (
