@@ -40,31 +40,10 @@ export function useZoneData(creatives, autoLoad = true) {
         return;
       }
 
-            console.log(`🔍 Поиск зональных данных для ${articles.length} уникальных артикулов`);
-      console.log('📋 Артикулы для поиска:', articles);
+      console.log(`🔍 Поиск зональных данных для ${articles.length} уникальных артикулов`);
 
-            // Получаем зональные данные батчевым запросом
-      console.log('🔍 ДЕТАЛЬНАЯ ДИАГНОСТИКА перед getZoneDataByArticles:');
-      console.log('  - Количество артикулов:', articles.length);
-      console.log('  - Артикулы:', articles);
-      console.log('  - Типы:', articles.map(a => typeof a));
-      console.log('  - Длины:', articles.map(a => a?.length));
-      
+      // Получаем зональные данные батчевым запросом
       const zoneData = await metricsAnalyticsService.getZoneDataByArticles(articles);
-      
-      console.log('📦 ДЕТАЛЬНЫЙ результат от getZoneDataByArticles:', {
-        тип: zoneData instanceof Map ? 'Map' : typeof zoneData,
-        размер: zoneData?.size || 0,
-        это_пустой_Map: zoneData instanceof Map && zoneData.size === 0,
-        ключи: zoneData instanceof Map ? Array.from(zoneData.keys()) : 'НЕ MAP!',
-        значения_пример: zoneData instanceof Map && zoneData.size > 0 ? zoneData.get(Array.from(zoneData.keys())[0]) : 'нет данных',
-        весь_Map: zoneData instanceof Map ? Object.fromEntries(zoneData) : null
-      });
-      
-      console.log('📦 Результат поиска зональных данных:', {
-        найдено: zoneData.size,
-        артикулы_с_данными: Array.from(zoneData.keys())
-      });
 
       setZoneDataMap(zoneData);
       setLastUpdated(new Date());
