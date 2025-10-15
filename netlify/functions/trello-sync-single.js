@@ -58,6 +58,7 @@ exports.handler = async (event, context) => {
     const shortId = shortIdMatch[1];
     console.log('🆔 Extracted short ID:', shortId);
 
+    // КРИТИЧНО: Trello API работает с короткими ID напрямую
     // Получаем информацию о карточке через API
     console.log('📡 Запрос к Trello API для карточки...');
     const cardUrl = `https://api.trello.com/1/cards/${shortId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&fields=id,idList,name`;
