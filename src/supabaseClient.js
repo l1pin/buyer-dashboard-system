@@ -1113,6 +1113,35 @@ export const creativeService = {
     }
   },
 
+  async getCreativesByBuyerId(buyerId) {
+    try {
+      console.log('📡 Запрос креативов для байера:', buyerId);
+      
+      const { data, error } = await supabase
+        .from('creatives')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getCreativesByBuyerId:', error);
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getCreativesByBuyerId завершен, получено креативов:', result.length);
+      
+      const withComments = result.filter(c => c.comment && c.comment.trim());
+      console.log('💬 Креативов с комментариями:', withComments.length);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getCreativesByBuyerId:', error);
+      return [];
+    }
+  },
+
   async getAllCreatives() {
     try {
       console.log('📡 Запрос к таблице creatives...');
