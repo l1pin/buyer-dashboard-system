@@ -346,32 +346,35 @@ function CreativePanel({ user }) {
 
     // Агрегируем все метрики
     const aggregated = validMetrics.reduce((acc, metric) => {
-      const data = metric.data.raw;
-      return {
-        leads: acc.leads + (data.leads || 0),
-        cost: acc.cost + (data.cost || 0),
-        clicks: acc.clicks + (data.clicks || 0),
-        impressions: acc.impressions + (data.impressions || 0),
-        avg_duration: acc.avg_duration + (data.avg_duration || 0),
-        days_count: Math.max(acc.days_count, data.days_count || 0)
-      };
-    }, {
-      leads: 0,
-      cost: 0,
-      clicks: 0,
-      impressions: 0,
-      avg_duration: 0,
-      days_count: 0
-    });
+        const data = metric.data.raw;
+        return {
+          leads: acc.leads + (data.leads || 0),
+          cost: acc.cost + (data.cost || 0),
+          clicks: acc.clicks + (data.clicks || 0),
+          impressions: acc.impressions + (data.impressions || 0),
+          avg_duration: acc.avg_duration + (data.avg_duration || 0),
+          days_count: Math.max(acc.days_count, data.days_count || 0),
+          cost_from_sources: acc.cost_from_sources + (data.cost_from_sources || 0),
+          clicks_on_link: acc.clicks_on_link + (data.clicks_on_link || 0)
+        };
+      }, {
+        leads: 0,
+        cost: 0,
+        clicks: 0,
+        impressions: 0,
+        avg_duration: 0,
+        days_count: 0,
+        cost_from_sources: 0,
+        clicks_on_link: 0
+      });
 
     // Вычисляем среднее время просмотра
     const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
 
-    // Вычисляем производные метрики
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-    const ctr = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
+    const ctr = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
     const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
-    const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
+    const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
 
     return {
       found: true,
