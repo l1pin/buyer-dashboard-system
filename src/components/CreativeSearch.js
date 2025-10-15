@@ -1139,9 +1139,39 @@ function CreativeSearch({ user }) {
       setLoading(true);
       setError('');
       console.log('📡 Загрузка всех креативов для Search Manager...');
+      console.log('🔑 Текущая сессия пользователя:', {
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role
+      });
+      
+      // Прямой запрос для диагностики
+      const { data: directData, error: directError } = await supabase
+        .from('creatives')
+        .select('*')
+        .eq('searcher_id', user.id);
+      
+      console.log('🔍 ПРЯМОЙ запрос креативов где searcher_id =', user.id);
+      console.log('📊 Результат прямого запроса:', {
+        success: !directError,
+        count: directData?.length || 0,
+        error: directError,
+        data: directData
+      });
+      
       const data = await creativeService.getAllCreatives();
       console.log(`📊 Всего креативов в системе: ${data.length}`);
       console.log(`👤 Текущий пользователь (Search Manager): ${user.id}, ${user.name}`);
+      
+      if (data.length > 0) {
+        console.log('📋 Пример креатива:', data[0]);
+        const myCreatives = data.filter(c => c.searcher_id === user.id);
+        console.log(`✅ Креативов где я Searcher: ${myCreatives.length}`);
+        if (myCreatives.length > 0) {
+          console.log('📋 Мой креатив:', myCreatives[0]);
+        }
+      }
+      
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов`);
       
