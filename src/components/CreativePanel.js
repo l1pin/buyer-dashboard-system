@@ -1241,7 +1241,7 @@ function CreativePanel({ user }) {
       const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
       const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
 
-      await creativeService.createCreative({
+      const newCreativeData = await creativeService.createCreative({
         user_id: user.id,
         editor_name: user.name,
         article: newCreative.article.trim(),
@@ -1258,6 +1258,33 @@ function CreativePanel({ user }) {
         searcher: searcherName !== '—' ? searcherName : null
       });
 
+      // 🆕 СИНХРОНИЗАЦИЯ TRELLO ЧЕРЕЗ NETLIFY FUNCTION
+      if (newCreativeData.trello_link) {
+        console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
+        try {
+          const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              creativeId: newCreativeData.id,
+              trelloLink: newCreativeData.trello_link
+            })
+          });
+
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            console.log('✅ Trello статус синхронизирован:', syncResult.listName);
+          } else {
+            const errorText = await syncResponse.text();
+            console.error('❌ Ошибка синхронизации Trello:', errorText);
+          }
+        } catch (syncError) {
+          console.error('❌ Ошибка вызова Netlify Function:', syncError);
+        }
+      }
+
       setNewCreative({
         article: '',
         links: [''],
@@ -1272,7 +1299,7 @@ function CreativePanel({ user }) {
       setShowCreateModal(false);
 
       // Загружаем креативы
-      const newCreativesList = await loadCreatives();
+      await loadCreatives();
       
       // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК, ЗОН И TRELLO СТАТУСА ДЛЯ НОВОГО КРЕАТИВА
       console.log('🚀 Автоматическая загрузка метрик, зон и Trello статуса для нового креатива...');
@@ -1289,10 +1316,10 @@ function CreativePanel({ user }) {
       // 🆕 ЗАГРУЖАЕМ TRELLO СТАТУС ДЛЯ НОВОГО КРЕАТИВА
       console.log('🔄 Загрузка Trello статуса для нового креатива...');
       try {
-        // Ждем 2 секунды для завершения синхронизации на бэкенде
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Даем время на обновление состояния после синхронизации
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Перезагружаем статусы для всех креативов
+        // Перезагружаем статусы всех креативов
         await loadTrelloStatuses(false);
         console.log('✅ Trello статус загружен');
       } catch (trelloError) {
