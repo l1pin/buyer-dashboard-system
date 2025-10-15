@@ -134,10 +134,10 @@ function CreativeBuyer({ user }) {
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
-    // КРИТИЧНО: Показываем ТОЛЬКО креативы, где текущий пользователь - buyer
-    let creativesToFilter = creatives.filter(c => c.buyer_id === user.id);
+    // Креативы уже отфильтрованы по buyer_id при загрузке
+    let creativesToFilter = creatives;
     
-    // Фильтрация по байеру (уже отфильтровано выше, но оставляем для совместимости)
+    // Фильтрация по байеру (не нужна для buyer, но оставляем для совместимости)
     if (selectedBuyer !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
@@ -1141,10 +1141,10 @@ function CreativeBuyer({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов пользователя...');
-      const data = await creativeService.getUserCreatives(user.id);
+      console.log('📡 Загрузка креативов для байера...');
+      const data = await creativeService.getCreativesByBuyerId(user.id);
       setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов`);
+      console.log(`✅ Загружено ${data.length} креативов для байера`);
       
       // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
