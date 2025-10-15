@@ -57,7 +57,9 @@ function CreativeBuyer({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCreative, setEditingCreative] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -95,20 +97,49 @@ function CreativeBuyer({ user }) {
   const [detailMode, setDetailMode] = useState(new Map()); // 'aggregated' (по умолчанию) или 'individual'
   const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map()); // индекс текущего видео для каждого креатива
   
-  const [selectedEditor, setSelectedEditor] = useState('all');
+  const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  
+  const [newCreative, setNewCreative] = useState({
+    article: '',
+    links: [''],
+    work_types: [],
+    link_titles: [],
+    comment: '',
+    is_poland: false,
+    trello_link: '',
+    buyer_id: null,
+    searcher_id: null
+  });
 
-  const [showEditorDropdown, setShowEditorDropdown] = useState(false);
+  const [editCreative, setEditCreative] = useState({
+    article: '',
+    links: [''],
+    work_types: [],
+    link_titles: [],
+    comment: '',
+    is_poland: false,
+    trello_link: '',
+    buyer_id: null,
+    searcher_id: null
+  });
+
+  const [extractingTitles, setExtractingTitles] = useState(false);
+  const [buyers, setBuyers] = useState([]);
+  const [searchers, setSearchers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
     // КРИТИЧНО: Показываем ТОЛЬКО креативы, где текущий пользователь - buyer
     let creativesToFilter = creatives.filter(c => c.buyer_id === user.id);
     
-    // Фильтрация по монтажеру
-    if (selectedEditor !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.user_id === selectedEditor);
+    // Фильтрация по байеру (уже отфильтровано выше, но оставляем для совместимости)
+    if (selectedBuyer !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
     
     // Фильтрация по серчеру
@@ -193,7 +224,7 @@ function CreativeBuyer({ user }) {
     // Если selectedPeriod === 'all', то не фильтруем по дате
     
     return creativesToFilter;
-  }, [creatives, selectedEditor, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, user.id]);
+  }, [creatives, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1134,20 +1165,311 @@ const loadCreatives = async () => {
 
   const loadUsers = async () => {
     try {
+      setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
       
-      const [editorsData, searchersData] = await Promise.all([
-        userService.getAllUsers(),
+      const [buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager')
       ]);
       
-      const editorsFiltered = editorsData.filter(u => u.role === 'editor');
-      setEditors(editorsFiltered);
+      setBuyers(buyersData);
       setSearchers(searchersData);
-      console.log(`✅ Загружено ${editorsFiltered.length} монтажеров и ${searchersData.length} серчеров`);
+      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
+    } finally {
+      setLoadingUsers(false);
     }
+  };
+
+  const validateGoogleDriveLinks = (links) => {
+    const validLinks = links.filter(link => link.trim() !== '');
+    const invalidLinks = [];
+
+    for (const link of validLinks) {
+      const trimmedLink = link.trim();
+      if (!trimmedLink.startsWith('https://drive.google.com/file/d/') && 
+          !trimmedLink.startsWith('drive.google.com/file/d/')) {
+        invalidLinks.push(link);
+      }
+    }
+
+    return { validLinks, invalidLinks };
+  };
+
+  const handleCreateCreative = async () => {
+    if (!validateFields()) {
+      return;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    const trimmedTrelloLink = newCreative.trello_link.trim();
+
+    try {
+      setCreating(true);
+      setError('');
+      setSuccess('');
+
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setCreating(false);
+        return;
+      }
+
+      setExtractingTitles(true);
+      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+      setExtractingTitles(false);
+
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
+        setCreating(false);
+        return;
+      }
+
+      const cofRating = calculateCOF(newCreative.work_types);
+
+      // Получаем имена байера и серчера по их ID
+      const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
+      const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
+
+      await creativeService.createCreative({
+        user_id: user.id,
+        editor_name: user.name,
+        article: newCreative.article.trim(),
+        links: links,
+        link_titles: titles,
+        work_types: newCreative.work_types,
+        cof_rating: cofRating,
+        comment: newCreative.comment.trim() || null,
+        is_poland: newCreative.is_poland,
+        trello_link: newCreative.trello_link.trim(),
+        buyer_id: newCreative.buyer_id,
+        searcher_id: newCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null
+      });
+
+      setNewCreative({
+        article: '',
+        links: [''],
+        work_types: [],
+        link_titles: [],
+        comment: '',
+        is_poland: false,
+        trello_link: '',
+        buyer_id: null,
+        searcher_id: null
+      });
+      setShowCreateModal(false);
+
+      // Загружаем креативы
+      await loadCreatives();
+      
+      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК И ЗОН ДЛЯ НОВОГО КРЕАТИВА
+      console.log('🚀 Автоматическая загрузка метрик и зон для нового креатива...');
+      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
+      
+      // Загружаем метрики (это обновит все креативы, включая новый)
+      await refreshMetrics();
+      console.log('✅ Метрики загружены');
+      
+      // Загружаем зональные данные
+      await refreshZoneData();
+      console.log('✅ Зональные данные загружены');
+      
+      const successCount = extractedTitles.length;
+      const totalCount = titles.length;
+      const cof = calculateCOF(newCreative.work_types);
+      const country = newCreative.is_poland ? 'PL' : 'UA';
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики и зоны загружены автоматически`);
+    } catch (error) {
+      setError('Ошибка создания креатива: ' + error.message);
+      setExtractingTitles(false);
+      setAuthorizing(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleEditCreative = (creative) => {
+    console.log('✏️ Открытие редактирования креатива:', creative.article);
+    
+    setEditingCreative(creative);
+    setEditCreative({
+      article: creative.article,
+      links: creative.links || [''],
+      work_types: creative.work_types || [],
+      link_titles: creative.link_titles || [],
+      comment: creative.comment || '',
+      is_poland: creative.is_poland || false,
+      trello_link: creative.trello_link || '',
+      buyer_id: creative.buyer_id || null,
+      searcher_id: creative.searcher_id || null
+    });
+    setShowEditModal(true);
+    clearMessages();
+  };
+
+  const handleUpdateCreative = async () => {
+    if (!validateEditFields()) {
+      return;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
+
+    try {
+      setUpdating(true);
+      setError('');
+      setSuccess('');
+
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setUpdating(false);
+        return;
+      }
+
+      setExtractingTitles(true);
+      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+      setExtractingTitles(false);
+
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
+        setUpdating(false);
+        return;
+      }
+
+      const cofRating = calculateCOF(editCreative.work_types);
+
+      const buyerName = editCreative.buyer_id ? getBuyerName(editCreative.buyer_id) : null;
+      const searcherName = editCreative.searcher_id ? getSearcherName(editCreative.searcher_id) : null;
+
+      // Сохраняем старое состояние в историю ПЕРЕД обновлением
+      await creativeHistoryService.createHistoryEntry({
+        creative_id: editingCreative.id,
+        article: editingCreative.article,
+        links: editingCreative.links,
+        link_titles: editingCreative.link_titles,
+        work_types: editingCreative.work_types,
+        cof_rating: editingCreative.cof_rating,
+        comment: editingCreative.comment,
+        is_poland: editingCreative.is_poland,
+        trello_link: editingCreative.trello_link,
+        buyer_id: editingCreative.buyer_id,
+        searcher_id: editingCreative.searcher_id,
+        buyer: editingCreative.buyer,
+        searcher: editingCreative.searcher,
+        changed_by_id: user.id,
+        changed_by_name: user.name,
+        change_type: 'updated'
+      });
+
+      await creativeService.updateCreative(editingCreative.id, {
+        links: links,
+        link_titles: titles,
+        work_types: editCreative.work_types,
+        cof_rating: cofRating,
+        comment: editCreative.comment.trim() || null,
+        is_poland: editCreative.is_poland,
+        trello_link: editCreative.trello_link.trim(),
+        buyer_id: editCreative.buyer_id,
+        searcher_id: editCreative.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null
+      });
+
+      setEditCreative({
+        article: '',
+        links: [''],
+        work_types: [],
+        link_titles: [],
+        comment: '',
+        is_poland: false,
+        trello_link: '',
+        buyer_id: null,
+        searcher_id: null
+      });
+      setEditingCreative(null);
+      setShowEditModal(false);
+
+      await loadCreatives();
+      
+      const successCount = extractedTitles.length;
+      const totalCount = titles.length;
+      const cof = calculateCOF(editCreative.work_types);
+      const country = editCreative.is_poland ? 'PL' : 'UA';
+      setSuccess(`Креатив обновлен! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
+    } catch (error) {
+      setError('Ошибка обновления креатива: ' + error.message);
+      setExtractingTitles(false);
+      setAuthorizing(false);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteCreative = async (creativeId, article) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить креатив "${article}"?`)) {
+      return;
+    }
+
+    try {
+      await creativeService.deleteCreative(creativeId);
+      await loadCreatives();
+      setSuccess('Креатив удален');
+    } catch (error) {
+      setError('Ошибка удаления креатива: ' + error.message);
+    }
+  };
+
+  const addLinkField = () => {
+    setNewCreative({
+      ...newCreative,
+      links: [...newCreative.links, '']
+    });
+  };
+
+  const removeLinkField = (index) => {
+    const newLinks = newCreative.links.filter((_, i) => i !== index);
+    setNewCreative({
+      ...newCreative,
+      links: newLinks.length === 0 ? [''] : newLinks
+    });
+  };
+
+  const updateLink = (index, value) => {
+    const newLinks = [...newCreative.links];
+    newLinks[index] = value;
+    setNewCreative({
+      ...newCreative,
+      links: newLinks
+    });
+    clearFieldError('links');
+  };
+
+  const handleWorkTypeChange = (workType, isChecked) => {
+    let updatedWorkTypes;
+    if (isChecked) {
+      updatedWorkTypes = [...newCreative.work_types, workType];
+    } else {
+      updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
+    }
+    
+    setNewCreative({
+      ...newCreative,
+      work_types: updatedWorkTypes
+    });
+    clearFieldError('work_types');
   };
 
   const showComment = (creative) => {
@@ -1204,8 +1526,8 @@ const loadCreatives = async () => {
       if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
         setShowPeriodDropdown(false);
       }
-      if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
-        setShowEditorDropdown(false);
+      if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
+        setShowBuyerDropdown(false);
       }
       if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
         setShowSearcherDropdown(false);
@@ -1286,6 +1608,174 @@ const loadCreatives = async () => {
       return 'bg-purple-100 text-purple-800';
     }
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+    setFieldErrors({});
+  };
+
+  const clearErrorMessage = () => {
+    setError('');
+  };
+
+  const clearFieldError = (fieldName) => {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  };
+
+  const isAllFieldsValid = () => {
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    
+    return (
+      newCreative.article.trim() &&
+      validLinks.length > 0 &&
+      invalidLinks.length === 0 &&
+      newCreative.work_types.length > 0 &&
+      newCreative.trello_link.trim() &&
+      (newCreative.trello_link.trim().startsWith('https://trello.com/c/') || 
+       newCreative.trello_link.trim().startsWith('trello.com/c/'))
+    );
+  };
+
+  const validateEditFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    // Артикул не проверяем, так как он не редактируется
+
+    // Проверяем ссылки
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
+    } else if (invalidLinks.length > 0) {
+      errors.links = true;
+      errorMessages.push('Проверьте правильность ссылок на Google Drive');
+    }
+
+    // Проверяем типы работ
+    if (editCreative.work_types.length === 0) {
+      errors.work_types = true;
+      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
+    }
+
+    // Проверяем Trello ссылку
+    if (!editCreative.trello_link.trim()) {
+      errors.trello_link = true;
+      errorMessages.push('Карточка Trello обязательна для заполнения');
+    } else {
+      const trimmedTrelloLink = editCreative.trello_link.trim();
+      if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+          !trimmedTrelloLink.startsWith('trello.com/c/')) {
+        errors.trello_link = true;
+        errorMessages.push('Проверьте правильность ссылки на Trello');
+      }
+    }
+
+    setFieldErrors(errors);
+    
+    // Устанавливаем сообщение об ошибке
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
+    }
+    
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    // Проверяем артикул
+    if (!newCreative.article.trim()) {
+      errors.article = true;
+      errorMessages.push('Артикул обязателен для заполнения');
+    }
+
+    // Проверяем ссылки
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
+    if (validLinks.length === 0) {
+      errors.links = true;
+      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
+    } else if (invalidLinks.length > 0) {
+      errors.links = true;
+      errorMessages.push('Проверьте правильность ссылок на Google Drive');
+    }
+
+    // Проверяем типы работ
+    if (newCreative.work_types.length === 0) {
+      errors.work_types = true;
+      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
+    }
+
+    // Проверяем Trello ссылку
+    if (!newCreative.trello_link.trim()) {
+      errors.trello_link = true;
+      errorMessages.push('Карточка Trello обязательна для заполнения');
+    } else {
+      const trimmedTrelloLink = newCreative.trello_link.trim();
+      if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
+          !trimmedTrelloLink.startsWith('trello.com/c/')) {
+        errors.trello_link = true;
+        errorMessages.push('Проверьте правильность ссылки на Trello');
+      }
+    }
+
+    setFieldErrors(errors);
+    
+    // Устанавливаем сообщение об ошибке
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
+    }
+    
+    return Object.keys(errors).length === 0;
+  };
+
+  const getBuyerName = (buyerId) => {
+    if (!buyerId) return '—';
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.name : 'Удален';
+  };
+
+  const getSearcherName = (searcherId) => {
+    if (!searcherId) return '—';
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.name : 'Удален';
+  };
+
+  const getBuyerAvatar = (buyerId) => {
+    if (!buyerId) return null;
+    const buyer = buyers.find(b => b.id === buyerId);
+    return buyer ? buyer.avatar_url : null;
+  };
+
+  const getSearcherAvatar = (searcherId) => {
+    if (!searcherId) return null;
+    const searcher = searchers.find(s => s.id === searcherId);
+    return searcher ? searcher.avatar_url : null;
+  };
+
+  const getSelectedBuyer = () => {
+    if (!newCreative.buyer_id) return null;
+    return buyers.find(b => b.id === newCreative.buyer_id);
+  };
+
+  const getSelectedSearcher = () => {
+    if (!newCreative.searcher_id) return null;
+    return searchers.find(s => s.id === newCreative.searcher_id);
   };
 
   const handleRefreshAll = async () => {
@@ -1728,21 +2218,21 @@ const loadCreatives = async () => {
               <RefreshCw className="h-4 w-4 mr-2" />
               Синхронизировать Trello
             </button>
-
+            
             <div className="relative">
               <button
-                onClick={() => setShowEditorDropdown(!showEditorDropdown)}
-                className="editor-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowBuyerDropdown(!showBuyerDropdown)}
+                className="buyer-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 <div className="flex items-center space-x-2">
-                  {selectedEditor === 'all' ? (
-                    <Video className="h-4 w-4 text-gray-500" />
+                  {selectedBuyer === 'all' ? (
+                    <User className="h-4 w-4 text-gray-500" />
                   ) : (
                     <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      {getEditorAvatar(selectedEditor) ? (
+                      {getBuyerAvatar(selectedBuyer) ? (
                         <img
-                          src={getEditorAvatar(selectedEditor)}
-                          alt="Editor"
+                          src={getBuyerAvatar(selectedBuyer)}
+                          alt="Buyer"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.target.style.display = 'none';
@@ -1750,50 +2240,50 @@ const loadCreatives = async () => {
                           }}
                         />
                       ) : null}
-                      <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(selectedEditor) ? 'hidden' : ''}`}>
+                      <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(selectedBuyer) ? 'hidden' : ''}`}>
                         <User className="h-3 w-3 text-gray-400" />
                       </div>
                     </div>
                   )}
-                  <span>{getEditorName(selectedEditor)}</span>
+                  <span>{selectedBuyer === 'all' ? 'Все байеры' : getBuyerName(selectedBuyer)}</span>
                 </div>
                 <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               
-              {showEditorDropdown && (
-                <div className="editor-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+              {showBuyerDropdown && (
+                <div className="buyer-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
                   <div className="py-1">
                     <button
                       onClick={() => {
-                        setSelectedEditor('all');
-                        setShowEditorDropdown(false);
+                        setSelectedBuyer('all');
+                        setShowBuyerDropdown(false);
                       }}
                       className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedEditor === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        selectedBuyer === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                       }`}
                     >
-                      <Video className="h-5 w-5 mr-3 text-gray-500" />
-                      Все монтажеры
+                      <User className="h-5 w-5 mr-3 text-gray-500" />
+                      Все байеры
                     </button>
                     
-                    {editors.map(editor => (
+                    {buyers.map(buyer => (
                       <button
-                        key={editor.id}
+                        key={buyer.id}
                         onClick={() => {
-                          setSelectedEditor(editor.id);
-                          setShowEditorDropdown(false);
+                          setSelectedBuyer(buyer.id);
+                          setShowBuyerDropdown(false);
                         }}
                         className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                          selectedEditor === editor.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          selectedBuyer === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                       >
                         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
-                          {editor.avatar_url ? (
+                          {buyer.avatar_url ? (
                             <img
-                              src={editor.avatar_url}
-                              alt={editor.name}
+                              src={buyer.avatar_url}
+                              alt={buyer.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.style.display = 'none';
@@ -1801,18 +2291,18 @@ const loadCreatives = async () => {
                               }}
                             />
                           ) : null}
-                          <div className={`w-full h-full flex items-center justify-center ${editor.avatar_url ? 'hidden' : ''}`}>
+                          <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
                             <User className="h-3 w-3 text-gray-400" />
                           </div>
                         </div>
-                        <span className="truncate">{editor.name}</span>
+                        <span className="truncate">{buyer.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-            
+
             <div className="relative">
               <button
                 onClick={() => setShowSearcherDropdown(!showSearcherDropdown)}
@@ -2343,13 +2833,17 @@ const loadCreatives = async () => {
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z"/>
+                          <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                          <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                        </svg>
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Монтажер
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Видео
@@ -2430,6 +2924,11 @@ const loadCreatives = async () => {
                             key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                              <div className="text-gray-400" title="Только для просмотра">
+                                <Eye className="h-5 w-5 mx-auto" />
+                              </div>
+                            </td>
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
                                 <div className="font-medium">{formattedDateTime.date}</div>
@@ -2478,30 +2977,6 @@ const loadCreatives = async () => {
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
                                   {creative.article}
                                 </div>
-                              </div>
-                            </td>
-                            
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                  {getEditorAvatar(creative.user_id) ? (
-                                    <img
-                                      src={getEditorAvatar(creative.user_id)}
-                                      alt="Editor"
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(creative.user_id) ? 'hidden' : ''}`}>
-                                    <User className="h-3 w-3 text-gray-400" />
-                                  </div>
-                                </div>
-                                <span className="text-sm text-gray-900 cursor-text select-text">
-                                  {creative.editor_name || creative.users?.name || 'Неизвестен'}
-                                </span>
                               </div>
                             </td>
                             
@@ -3141,6 +3616,968 @@ const loadCreatives = async () => {
           </div>
         )}
       </div>
+
+      {/* Create Modal - DISABLED FOR BUYER */}
+      {false && showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900">
+                Создать новый креатив
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewCreative({
+                    article: '',
+                    links: [''],
+                    work_types: [],
+                    link_titles: [],
+                    comment: '',
+                    is_poland: false,
+                    trello_link: '',
+                    buyer_id: null,
+                    searcher_id: null
+                  });
+                  setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
+                  clearMessages();
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
+                  Артикул *
+                </label>
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newCreative.article}
+                      onChange={(e) => {
+                        setNewCreative({ ...newCreative, article: e.target.value });
+                        clearFieldError('article');
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        fieldErrors.article 
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                          : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                      }`}
+                      placeholder="Введите артикул"
+                    />
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCreative({ ...newCreative, is_poland: !newCreative.is_poland });
+                    }}
+                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
+                      newCreative.is_poland
+                        ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                    }`}
+                    title={newCreative.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
+                  >
+                    {newCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    <span className="ml-2">
+                      {newCreative.is_poland ? 'Poland' : 'Ukraine'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
+                  Google Drive ссылки *
+                </label>
+                <div className="space-y-2">
+                  {newCreative.links.map((link, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input
+                        type="url"
+                        value={link}
+                        onChange={(e) => updateLink(index, e.target.value)}
+                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                          fieldErrors.links 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                        placeholder="https://drive.google.com/file/d/..."
+                      />
+                      {newCreative.links.length > 1 && (
+                        <button
+                          onClick={() => removeLinkField(index)}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={addLinkField}
+                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить ссылку
+                </button>
+                <p className="mt-2 text-xs text-blue-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Используйте только ссылки на Google Drive файлы
+                </p>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.trello_link ? 'text-red-600' : 'text-gray-700'}`}>
+                  Карточка Trello *
+                </label>
+                <input
+                  type="url"
+                  value={newCreative.trello_link}
+                  onChange={(e) => {
+                    setNewCreative({ ...newCreative, trello_link: e.target.value });
+                    clearFieldError('trello_link');
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    fieldErrors.trello_link 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                  }`}
+                  placeholder="https://trello.com/c/..."
+                />
+                <p className="mt-1 text-xs text-blue-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Укажите ссылку на карточку Trello
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Buyer
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowBuyerDropdown(!showBuyerDropdown);
+                          setShowSearcherDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {getSelectedBuyer() ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSelectedBuyer().avatar_url ? (
+                                <img
+                                  src={getSelectedBuyer().avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getSelectedBuyer().name}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите байера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {getSelectedBuyer() && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewCreative({ ...newCreative, buyer_id: null });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+                    
+                    {showBuyerDropdown && !loadingUsers && (
+                      <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {buyers.map((buyer) => (
+                          <button
+                            key={buyer.id}
+                            type="button"
+                            onClick={() => {
+                              setNewCreative({ ...newCreative, buyer_id: buyer.id });
+                              setShowBuyerDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {buyer.avatar_url ? (
+                                <img
+                                  src={buyer.avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{buyer.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка байеров...</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Searcher
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowSearcherDropdown(!showSearcherDropdown);
+                          setShowBuyerDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {getSelectedSearcher() ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSelectedSearcher().avatar_url ? (
+                                <img
+                                  src={getSelectedSearcher().avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedSearcher().avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getSelectedSearcher().name}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите серчера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {getSelectedSearcher() && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewCreative({ ...newCreative, searcher_id: null });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+                    
+                    {showSearcherDropdown && !loadingUsers && (
+                      <div className="searcher-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {searchers.map((searcher) => (
+                          <button
+                            key={searcher.id}
+                            type="button"
+                            onClick={() => {
+                              setNewCreative({ ...newCreative, searcher_id: searcher.id });
+                              setShowSearcherDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {searcher.avatar_url ? (
+                                <img
+                                  src={searcher.avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{searcher.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка серчеров...</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Комментарий
+                </label>
+                <textarea
+                  value={newCreative.comment}
+                  onChange={(e) => {
+                    setNewCreative({ ...newCreative, comment: e.target.value });
+                  }}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Добавьте комментарий к креативу (необязательно)"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`block text-sm font-medium ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
+                    Типы работ * ({newCreative.work_types.length} выбрано)
+                  </label>
+                  {newCreative.work_types.length > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-gray-500">COF:</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(calculateCOF(newCreative.work_types))}`}>
+                        {formatCOF(calculateCOF(newCreative.work_types))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className={`max-h-72 overflow-y-auto border rounded-md p-3 bg-gray-50 ${
+                  fieldErrors.work_types ? 'border-red-300' : 'border-gray-300'
+                }`}>
+                  <div className="grid grid-cols-1 gap-2">
+                    {workTypes.map((type) => (
+                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={newCreative.work_types.includes(type)}
+                            onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700 select-none">{type}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatCOF(workTypeValues[type] || 0)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {newCreative.work_types.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {newCreative.work_types.map((type, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                        {type} ({formatCOF(workTypeValues[type] || 0)})
+                        <button
+                          type="button"
+                          onClick={() => handleWorkTypeChange(type, false)}
+                          className="ml-1 text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewCreative({
+                    article: '',
+                    links: [''],
+                    work_types: [],
+                    link_titles: [],
+                    comment: '',
+                    is_poland: false,
+                    trello_link: '',
+                    buyer_id: null,
+                    searcher_id: null
+                  });
+                  setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
+                  clearMessages();
+                }}
+                disabled={creating}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                Отменить
+              </button>
+              <button
+                onClick={handleCreateCreative}
+                disabled={creating}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {creating ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {authorizing ? 'Авторизация Google...' : 
+                     extractingTitles ? 'Извлечение названий...' : 
+                     'Создание...'}
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span>Создать креатив</span>
+                    {newCreative.work_types.length > 0 && (
+                      <span className="ml-2 text-xs opacity-75">
+                        (COF: {formatCOF(calculateCOF(newCreative.work_types))})
+                      </span>
+                    )}
+                    <div className="ml-2">
+                      {newCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    </div>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal - DISABLED FOR BUYER */}
+      {false && showEditModal && editingCreative && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900">
+                Редактировать креатив
+              </h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingCreative(null);
+                  setEditCreative({
+                    article: '',
+                    links: [''],
+                    work_types: [],
+                    link_titles: [],
+                    comment: '',
+                    is_poland: false,
+                    trello_link: '',
+                    buyer_id: null,
+                    searcher_id: null
+                  });
+                  setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
+                  clearMessages();
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Артикул
+                </label>
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={editCreative.article}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditCreative({ ...editCreative, is_poland: !editCreative.is_poland });
+                    }}
+                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
+                      editCreative.is_poland
+                        ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                    }`}
+                    title={editCreative.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
+                  >
+                    {editCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    <span className="ml-2">
+                      {editCreative.is_poland ? 'Poland' : 'Ukraine'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
+                  Google Drive ссылки *
+                </label>
+                <div className="space-y-2">
+                  {editCreative.links.map((link, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input
+                        type="url"
+                        value={link}
+                        onChange={(e) => {
+                          const newLinks = [...editCreative.links];
+                          newLinks[index] = e.target.value;
+                          setEditCreative({ ...editCreative, links: newLinks });
+                          clearFieldError('links');
+                        }}
+                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                          fieldErrors.links 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                        placeholder="https://drive.google.com/file/d/..."
+                      />
+                      {editCreative.links.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const newLinks = editCreative.links.filter((_, i) => i !== index);
+                            setEditCreative({ ...editCreative, links: newLinks.length === 0 ? [''] : newLinks });
+                          }}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    setEditCreative({ ...editCreative, links: [...editCreative.links, ''] });
+                  }}
+                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить ссылку
+                </button>
+                <p className="mt-2 text-xs text-blue-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Используйте только ссылки на Google Drive файлы
+                </p>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.trello_link ? 'text-red-600' : 'text-gray-700'}`}>
+                  Карточка Trello *
+                </label>
+                <input
+                  type="url"
+                  value={editCreative.trello_link}
+                  onChange={(e) => {
+                    setEditCreative({ ...editCreative, trello_link: e.target.value });
+                    clearFieldError('trello_link');
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    fieldErrors.trello_link 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                  }`}
+                  placeholder="https://trello.com/c/..."
+                />
+                <p className="mt-1 text-xs text-blue-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Укажите ссылку на карточку Trello
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Buyer
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowBuyerDropdown(!showBuyerDropdown);
+                          setShowSearcherDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {editCreative.buyer_id ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getBuyerAvatar(editCreative.buyer_id) ? (
+                                <img
+                                  src={getBuyerAvatar(editCreative.buyer_id)}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(editCreative.buyer_id) ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getBuyerName(editCreative.buyer_id)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите байера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {editCreative.buyer_id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditCreative({ ...editCreative, buyer_id: null });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+                    
+                    {showBuyerDropdown && !loadingUsers && (
+                      <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {buyers.map((buyer) => (
+                          <button
+                            key={buyer.id}
+                            type="button"
+                            onClick={() => {
+                              setEditCreative({ ...editCreative, buyer_id: buyer.id });
+                              setShowBuyerDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {buyer.avatar_url ? (
+                                <img
+                                  src={buyer.avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{buyer.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка байеров...</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Searcher
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowSearcherDropdown(!showSearcherDropdown);
+                          setShowBuyerDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {editCreative.searcher_id ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSearcherAvatar(editCreative.searcher_id) ? (
+                                <img
+                                  src={getSearcherAvatar(editCreative.searcher_id)}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(editCreative.searcher_id) ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getSearcherName(editCreative.searcher_id)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите серчера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {editCreative.searcher_id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditCreative({ ...editCreative, searcher_id: null });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+                    
+                    {showSearcherDropdown && !loadingUsers && (
+                      <div className="searcher-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {searchers.map((searcher) => (
+                          <button
+                            key={searcher.id}
+                            type="button"
+                            onClick={() => {
+                              setEditCreative({ ...editCreative, searcher_id: searcher.id });
+                              setShowSearcherDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {searcher.avatar_url ? (
+                                <img
+                                  src={searcher.avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{searcher.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка серчеров...</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Комментарий
+                </label>
+                <textarea
+                  value={editCreative.comment}
+                  onChange={(e) => {
+                    setEditCreative({ ...editCreative, comment: e.target.value });
+                  }}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Добавьте комментарий к креативу (необязательно)"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`block text-sm font-medium ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
+                    Типы работ * ({editCreative.work_types.length} выбрано)
+                  </label>
+                  {editCreative.work_types.length > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-gray-500">COF:</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(calculateCOF(editCreative.work_types))}`}>
+                        {formatCOF(calculateCOF(editCreative.work_types))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className={`max-h-72 overflow-y-auto border rounded-md p-3 bg-gray-50 ${
+                  fieldErrors.work_types ? 'border-red-300' : 'border-gray-300'
+                }`}>
+                  <div className="grid grid-cols-1 gap-2">
+                    {workTypes.map((type) => (
+                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={editCreative.work_types.includes(type)}
+                            onChange={(e) => {
+                              let updatedWorkTypes;
+                              if (e.target.checked) {
+                                updatedWorkTypes = [...editCreative.work_types, type];
+                              } else {
+                                updatedWorkTypes = editCreative.work_types.filter(t => t !== type);
+                              }
+                              setEditCreative({ ...editCreative, work_types: updatedWorkTypes });
+                              clearFieldError('work_types');
+                            }}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700 select-none">{type}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatCOF(workTypeValues[type] || 0)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {editCreative.work_types.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {editCreative.work_types.map((type, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                        {type} ({formatCOF(workTypeValues[type] || 0)})
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedWorkTypes = editCreative.work_types.filter(t => t !== type);
+                            setEditCreative({ ...editCreative, work_types: updatedWorkTypes });
+                          }}
+                          className="ml-1 text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingCreative(null);
+                  setEditCreative({
+                    article: '',
+                    links: [''],
+                    work_types: [],
+                    link_titles: [],
+                    comment: '',
+                    is_poland: false,
+                    trello_link: '',
+                    buyer_id: null,
+                    searcher_id: null
+                  });
+                  setExtractingTitles(false);
+                  setShowBuyerDropdown(false);
+                  setShowSearcherDropdown(false);
+                  clearMessages();
+                }}
+                disabled={updating}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                Отменить
+              </button>
+              <button
+                onClick={handleUpdateCreative}
+                disabled={updating}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {updating ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {authorizing ? 'Авторизация Google...' : 
+                     extractingTitles ? 'Извлечение названий...' : 
+                     'Обновление...'}
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span>Обновить креатив</span>
+                    {editCreative.work_types.length > 0 && (
+                      <span className="ml-2 text-xs opacity-75">
+                        (COF: {formatCOF(calculateCOF(editCreative.work_types))})
+                      </span>
+                    )}
+                    <div className="ml-2">
+                      {editCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    </div>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comment Modal */}
       {showCommentModal && selectedComment && (
