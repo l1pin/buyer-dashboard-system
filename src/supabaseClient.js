@@ -2343,11 +2343,41 @@ export const metricsAnalyticsService = {
       }
 
       console.log(`🎯 Батчевый поиск зональных данных для ${cleanArticles.length} артикулов`);
+      console.log('📋 Артикулы для поиска:', cleanArticles);
 
+      // ДИАГНОСТИКА: Сначала проверяем, есть ли вообще данные в таблице
+      const { count: totalCount, error: countError } = await supabase
+        .from('metrics_analytics')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('❌ Ошибка подсчета записей в metrics_analytics:', countError);
+      } else {
+        console.log(`📊 Всего записей в metrics_analytics: ${totalCount}`);
+      }
+
+      // ДИАГНОСТИКА: Получаем несколько примеров артикулов из таблицы
+      const { data: sampleData, error: sampleError } = await supabase
+        .from('metrics_analytics')
+        .select('article')
+        .limit(5);
+
+      if (!sampleError && sampleData) {
+        console.log('📋 Примеры артикулов из БД:', sampleData.map(d => `"${d.article}"`));
+      }
+
+      // Основной запрос с детальным логированием
+      console.log('🔍 Выполняем запрос к metrics_analytics...');
       const { data, error } = await supabase
         .from('metrics_analytics')
         .select('article, red_zone_price, pink_zone_price, gold_zone_price, green_zone_price, offer_zone')
         .in('article', cleanArticles);
+
+      console.log('📦 Результат запроса:', {
+        hasError: !!error,
+        dataLength: data?.length || 0,
+        data: data
+      });
 
       if (error) {
         console.error('❌ Ошибка батчевого запроса зональных данных:', error);
@@ -2357,7 +2387,16 @@ export const metricsAnalyticsService = {
       const zoneDataMap = new Map();
       
       if (data && data.length > 0) {
-        data.forEach(item => {
+        console.log('✅ Найдены данные, создаем Map...');
+        data.forEach((item, index) => {
+          console.log(`📍 Запись ${index + 1}:`, {
+            article: item.article,
+            hasRedZone: item.red_zone_price !== null,
+            hasPinkZone: item.pink_zone_price !== null,
+            hasGoldZone: item.gold_zone_price !== null,
+            hasGreenZone: item.green_zone_price !== null
+          });
+          
           zoneDataMap.set(item.article, {
             red_zone_price: item.red_zone_price,
             pink_zone_price: item.pink_zone_price,
@@ -2367,9 +2406,28 @@ export const metricsAnalyticsService = {
           });
         });
 
-        console.log(`✅ Найдены зональные данные для ${data.length} из ${cleanArticles.length} артикулов`);
+        console.log(`✅ Map создан, размер: ${zoneDataMap.size}`);
+        console.log('🗺️ Ключи Map:', Array.from(zoneDataMap.keys()));
       } else {
         console.log(`❌ Зональные данные не найдены ни для одного из ${cleanArticles.length} артикулов`);
+        
+        // ДИАГНОСТИКА: Попробуем найти похожие артикулы
+        if (cleanArticles.length > 0) {
+          const firstArticle = cleanArticles[0];
+          console.log(`🔍 Ищем похожие артикулы для "${firstArticle}"...`);
+          
+          const { data: similarData, error: similarError } = await supabase
+            .from('metrics_analytics')
+            .select('article')
+            .ilike('article', `%${firstArticle}%`)
+            .limit(5);
+
+          if (!similarError && similarData && similarData.length > 0) {
+            console.log('📋 Найдены похожие артикулы:', similarData.map(d => `"${d.article}"`));
+          } else {
+            console.log('❌ Похожие артикулы не найдены');
+          }
+        }
       }
 
       return zoneDataMap;
