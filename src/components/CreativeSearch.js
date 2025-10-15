@@ -1138,8 +1138,10 @@ function CreativeSearch({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов пользователя...');
-      const data = await creativeService.getUserCreatives(user.id);
+      console.log('📡 Загрузка всех креативов для Search Manager...');
+      const data = await creativeService.getAllCreatives();
+      console.log(`📊 Всего креативов в системе: ${data.length}`);
+      console.log(`👤 Текущий пользователь (Search Manager): ${user.id}, ${user.name}`);
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов`);
       
