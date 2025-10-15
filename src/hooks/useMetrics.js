@@ -312,11 +312,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         }
       }
 
-      // 🆕 ШАГ 4: LIKE поиск для видео без метрик (только при forceRefresh)
+      // 🆕 ШАГ 4: АДАПТИВНЫЙ LIKE поиск для видео без метрик (только при forceRefresh)
       console.log('🔥 ПРОВЕРКА: forceRefresh =', forceRefresh);
       
       if (forceRefresh) {
-        console.log('🚀 ШАГ 4: Начинаем LIKE поиск для видео без метрик');
+        console.log('🚀 ШАГ 4: Начинаем АДАПТИВНЫЙ LIKE поиск для видео без метрик');
         
         const videosWithoutMetrics = [];
         const videosWithoutMetricsMap = new Map();
@@ -327,19 +327,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         videoMap.forEach((metadata, videoKey) => {
           const existingMetric = rawMetricsMap.get(videoKey);
           
-          console.log(`🔍 Проверка видео [${videoKey}]:`, {
-            videoTitle: metadata.videoTitle,
-            existingMetric: !!existingMetric,
-            found: existingMetric?.found,
-            noData: existingMetric?.noData
-          });
-          
           if (!existingMetric || !existingMetric.found || existingMetric.noData) {
-            // Обрезаем расширение для LIKE поиска
             const videoTitle = metadata.videoTitle;
             const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-            
-            console.log(`➕ Добавляем в LIKE список: "${videoTitle}" → "${nameWithoutExt}"`);
             
             videosWithoutMetrics.push(nameWithoutExt);
             videosWithoutMetricsMap.set(nameWithoutExt, {
@@ -354,65 +344,143 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         
         if (videosWithoutMetrics.length > 0) {
           console.log('═══════════════════════════════════════════════');
-          console.log('🔍 НАЧАЛО LIKE ПОИСКА');
+          console.log('🔍 НАЧАЛО АДАПТИВНОГО LIKE ПОИСКА');
           console.log('═══════════════════════════════════════════════');
           console.log(`📊 Видео БЕЗ метрик: ${videosWithoutMetrics.length}`);
-          console.log('📋 ВСЕ названия для LIKE поиска:');
-          videosWithoutMetrics.forEach((name, idx) => {
-            console.log(`  [${idx}]: "${name}"`);
-          });
           
           try {
-            // 🔥 ЧАНКИНГ: Разбиваем на батчи по 5 видео
-            const LIKE_BATCH_SIZE = 5;
-            const likeChunks = [];
+            // 🚀 АДАПТИВНАЯ СИСТЕМА БАТЧИНГА
+            // Уровни агрессивности: 1 (агрессивный), 2 (сбалансированный), 3 (консервативный)
+            const LEVELS = {
+              1: { parallel: 3, batchSize: 25, timeout: 30000, delay: 0, name: 'Агрессивный' },
+              2: { parallel: 2, batchSize: 20, timeout: 32000, delay: 150, name: 'Сбалансированный' },
+              3: { parallel: 1, batchSize: 10, timeout: 35000, delay: 200, name: 'Консервативный' }
+            };
             
-            for (let i = 0; i < videosWithoutMetrics.length; i += LIKE_BATCH_SIZE) {
-              likeChunks.push(videosWithoutMetrics.slice(i, i + LIKE_BATCH_SIZE));
-            }
+            let currentLevel = 2; // Начинаем со сбалансированного уровня
+            let errorRate = 0;
+            let totalProcessed = 0;
+            let totalErrors = 0;
             
-            console.log(`📦 LIKE запросы разбиты на ${likeChunks.length} батчей по ${LIKE_BATCH_SIZE} видео`);
-            
-            // Собираем все результаты
             const allLikeResults = [];
             
-            for (let chunkIndex = 0; chunkIndex < likeChunks.length; chunkIndex++) {
-              const chunk = likeChunks[chunkIndex];
-              
-              console.log('─────────────────────────────────────────────');
-              console.log(`🔄 LIKE батч ${chunkIndex + 1}/${likeChunks.length}: ${chunk.length} видео`);
-              console.log('📋 Видео в батче:', chunk);
+            // Функция для обработки одного батча с повторами
+            const processBatchWithRetry = async (batch, attempt = 1, maxAttempts = 3) => {
+              const level = LEVELS[currentLevel];
               
               try {
-                const likeBatchResult = await MetricsService.getBatchVideoMetrics(chunk, {
+                console.log(`📡 Попытка ${attempt}/${maxAttempts}: ${batch.length} видео (уровень: ${level.name})`);
+                
+                const likeBatchResult = await MetricsService.getBatchVideoMetrics(batch, {
                   kind: 'daily_first4_total',
                   useCache: false,
                   useLike: true
                 });
                 
-                console.log(`📥 Батч ${chunkIndex + 1} завершен:`, {
-                  success: likeBatchResult.success,
-                  resultsCount: likeBatchResult.results?.length,
-                  error: likeBatchResult.error
+                if (likeBatchResult.success && likeBatchResult.results) {
+                  console.log(`✅ Батч успешно обработан: ${likeBatchResult.results.length} результатов`);
+                  return { success: true, results: likeBatchResult.results };
+                } else {
+                  throw new Error(likeBatchResult.error || 'Нет результатов');
+                }
+                
+              } catch (error) {
+                console.error(`❌ Ошибка батча (попытка ${attempt}):`, error.message);
+                
+                // Если не последняя попытка и батч можно разделить
+                if (attempt < maxAttempts && batch.length > 1) {
+                  console.log(`🔄 Разбиваем батч пополам и повторяем...`);
+                  
+                  const mid = Math.ceil(batch.length / 2);
+                  const batch1 = batch.slice(0, mid);
+                  const batch2 = batch.slice(mid);
+                  
+                  // Обрабатываем половинки последовательно
+                  const [result1, result2] = await Promise.allSettled([
+                    processBatchWithRetry(batch1, attempt + 1, maxAttempts),
+                    processBatchWithRetry(batch2, attempt + 1, maxAttempts)
+                  ]);
+                  
+                  const combinedResults = [];
+                  if (result1.status === 'fulfilled' && result1.value.success) {
+                    combinedResults.push(...result1.value.results);
+                  }
+                  if (result2.status === 'fulfilled' && result2.value.success) {
+                    combinedResults.push(...result2.value.results);
+                  }
+                  
+                  return { success: true, results: combinedResults };
+                }
+                
+                // Последняя попытка или батч из 1 видео
+                return { success: false, error: error.message };
+              }
+            };
+            
+            // Разбиваем на батчи согласно текущему уровню
+            const createBatches = (videos, batchSize) => {
+              const batches = [];
+              for (let i = 0; i < videos.length; i += batchSize) {
+                batches.push(videos.slice(i, i + batchSize));
+              }
+              return batches;
+            };
+            
+            let remainingVideos = [...videosWithoutMetrics];
+            
+            while (remainingVideos.length > 0) {
+              const level = LEVELS[currentLevel];
+              const batches = createBatches(remainingVideos, level.batchSize);
+              
+              console.log(`\n🎯 Уровень ${currentLevel} (${level.name}): ${level.parallel} параллельных × ${level.batchSize} видео`);
+              console.log(`📦 Создано батчей: ${batches.length}, осталось видео: ${remainingVideos.length}`);
+              
+              // Обрабатываем батчи группами (по parallel штук параллельно)
+              for (let i = 0; i < batches.length; i += level.parallel) {
+                const batchGroup = batches.slice(i, i + level.parallel);
+                console.log(`\n⚡ Параллельная группа ${Math.floor(i / level.parallel) + 1}: ${batchGroup.length} батчей`);
+                
+                const groupResults = await Promise.allSettled(
+                  batchGroup.map(batch => processBatchWithRetry(batch))
+                );
+                
+                // Собираем результаты
+                groupResults.forEach((result, idx) => {
+                  totalProcessed++;
+                  
+                  if (result.status === 'fulfilled' && result.value.success) {
+                    allLikeResults.push(...result.value.results);
+                    console.log(`✅ Батч ${i + idx + 1}: ${result.value.results.length} результатов`);
+                  } else {
+                    totalErrors++;
+                    console.error(`❌ Батч ${i + idx + 1}: провал`);
+                  }
                 });
                 
-                if (likeBatchResult.success && likeBatchResult.results) {
-                  allLikeResults.push(...likeBatchResult.results);
-                  console.log(`✅ Батч ${chunkIndex + 1}: добавлено ${likeBatchResult.results.length} результатов`);
-                } else {
-                  console.warn(`⚠️ Батч ${chunkIndex + 1}: ошибка или нет результатов`);
+                // Пересчитываем error rate каждые 10 батчей
+                if (totalProcessed > 0 && totalProcessed % 10 === 0) {
+                  errorRate = totalErrors / totalProcessed;
+                  console.log(`\n📊 Статистика: обработано ${totalProcessed}, ошибок ${totalErrors} (${(errorRate * 100).toFixed(1)}%)`);
+                  
+                  // Адаптация уровня
+                  if (errorRate > 0.3 && currentLevel < 3) {
+                    currentLevel++;
+                    console.log(`⬇️ ДЕГРАДАЦИЯ до уровня ${currentLevel} (${LEVELS[currentLevel].name})`);
+                  } else if (errorRate < 0.05 && currentLevel > 1) {
+                    currentLevel--;
+                    console.log(`⬆️ ПОВЫШЕНИЕ до уровня ${currentLevel} (${LEVELS[currentLevel].name})`);
+                  }
                 }
                 
-                // Задержка между батчами (500ms)
-                if (chunkIndex < likeChunks.length - 1) {
-                  console.log('⏳ Задержка 500ms перед следующим батчем...');
-                  await new Promise(resolve => setTimeout(resolve, 500));
+                // Задержка между группами батчей
+                if (level.delay > 0 && i + level.parallel < batches.length) {
+                  await new Promise(resolve => setTimeout(resolve, level.delay));
                 }
-                
-              } catch (chunkError) {
-                console.error(`❌ Ошибка батча ${chunkIndex + 1}:`, chunkError.message);
-                // Продолжаем со следующим батчем
               }
+              
+              // Удаляем обработанные видео
+              const processedCount = batches.reduce((sum, b) => sum + b.length, 0);
+              remainingVideos = remainingVideos.slice(processedCount);
             }
             
             console.log('═══════════════════════════════════════════════');
