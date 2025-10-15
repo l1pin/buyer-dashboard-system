@@ -22,7 +22,7 @@ const CONFIG = {
   CACHE_MAX_SIZE: 100,           // Максимум записей в LRU кэше
   
   // LIKE поиск
-  MAX_LIKE_NAMES: 100,           // Максимум имён для LIKE запроса
+  MAX_LIKE_NAMES: 300,           // Максимум имён для LIKE запроса (увеличено для батчей)
   
   // API
   API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php'
