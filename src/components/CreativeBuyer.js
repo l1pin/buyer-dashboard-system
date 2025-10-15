@@ -52,7 +52,7 @@ import {
   Filter
 } from 'lucide-react';
 
-function CreativePanel({ user }) {
+function CreativeBuyer({ user }) {
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -134,9 +134,10 @@ function CreativePanel({ user }) {
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
-    let creativesToFilter = creatives;
+    // КРИТИЧНО: Показываем ТОЛЬКО креативы, где текущий пользователь - buyer
+    let creativesToFilter = creatives.filter(c => c.buyer_id === user.id);
     
-    // Фильтрация по байеру
+    // Фильтрация по байеру (уже отфильтровано выше, но оставляем для совместимости)
     if (selectedBuyer !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
@@ -1822,9 +1823,9 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Мои креативы</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name}
+                {user?.name} • Креативы где вы указаны как Buyer
               </p>
             </div>
           </div>
@@ -2158,13 +2159,7 @@ function CreativePanel({ user }) {
               Обновить
             </button>
 
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
+            
           </div>
         </div>
       </div>
@@ -2937,17 +2932,9 @@ function CreativePanel({ user }) {
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                              <button
-                                onClick={() => handleEditCreative(creative)}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                title="Редактировать креатив"
-                              >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                  <path stroke="none" d="M0 0h24v24H0z"/>
-                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                                </svg>
-                              </button>
+                              <div className="text-gray-400" title="Только для просмотра">
+                                <Eye className="h-5 w-5 mx-auto" />
+                              </div>
                             </td>
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
@@ -3637,8 +3624,8 @@ function CreativePanel({ user }) {
         )}
       </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
+      {/* Create Modal - DISABLED FOR BUYER */}
+      {false && showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
@@ -4110,8 +4097,8 @@ function CreativePanel({ user }) {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {showEditModal && editingCreative && (
+      {/* Edit Modal - DISABLED FOR BUYER */}
+      {false && showEditModal && editingCreative && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
@@ -4827,4 +4814,4 @@ function CreativePanel({ user }) {
   );
 }
 
-export default CreativePanel;
+export default CreativeBuyer;
