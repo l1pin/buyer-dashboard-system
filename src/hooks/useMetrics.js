@@ -628,9 +628,7 @@ const allDailyData = videoResult.daily.map(d => ({
               clicks: 0,
               impressions: 0,
               duration_sum: 0,
-              days_count: 0,
-              cost_from_sources: 0,
-              clicks_on_link: 0
+              days_count: 0
             };
             
             first4Days.forEach(day => {
@@ -640,16 +638,14 @@ const allDailyData = videoResult.daily.map(d => ({
               aggregated.impressions += day.impressions || 0;
               aggregated.duration_sum += day.avg_duration || 0;
               aggregated.days_count += 1;
-              aggregated.cost_from_sources += day.cost_from_sources || 0;
-              aggregated.clicks_on_link += day.clicks_on_link || 0;
             });
             
             // Вычисляем производные метрики
             const avg_duration = aggregated.days_count > 0 ? aggregated.duration_sum / aggregated.days_count : 0;
             const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
+            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
             const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
-            const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
+            const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
             
             const raw = {
               leads: aggregated.leads,
@@ -658,8 +654,6 @@ const allDailyData = videoResult.daily.map(d => ({
               impressions: aggregated.impressions,
               avg_duration: Number(avg_duration.toFixed(2)),
               days_count: aggregated.days_count,
-              cost_from_sources: Number(aggregated.cost_from_sources.toFixed(2)),
-              clicks_on_link: aggregated.clicks_on_link,
               cpl: Number(cpl.toFixed(2)),
               ctr_percent: Number(ctr_percent.toFixed(2)),
               cpc: Number(cpc.toFixed(2)),
