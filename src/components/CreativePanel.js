@@ -584,22 +584,48 @@ function CreativePanel({ user }) {
       return null;
     }
 
-    zones.sort((a, b) => b.price - a.price);
+    // КРИТИЧНО: Сортируем от МЕНЬШЕГО к БОЛЬШЕМУ
+    zones.sort((a, b) => a.price - b.price);
 
-    for (const zone of zones) {
-      if (cplValue <= zone.price) {
-        return {
-          zone: zone.zone,
-          name: zone.name,
-          price: zone.price
-        };
+    // ПРАВИЛЬНАЯ логика:
+    // Зеленая: CPL < green_price
+    // Золотая: green_price <= CPL < gold_price
+    // Розовая: gold_price <= CPL < pink_price
+    // Красная: pink_price <= CPL < red_price
+    // Вне зон: CPL >= red_price (возвращаем красную или null)
+
+    // Ищем зону, в которую попадает CPL
+    for (let i = 0; i < zones.length; i++) {
+      const currentZone = zones[i];
+      
+      if (i === 0) {
+        // Первая зона (самая дешевая, обычно зеленая)
+        if (cplValue < currentZone.price) {
+          return {
+            zone: currentZone.zone,
+            name: currentZone.name,
+            price: currentZone.price
+          };
+        }
+      } else {
+        // Остальные зоны: проверяем диапазон между предыдущей и текущей
+        const prevZone = zones[i - 1];
+        if (cplValue >= prevZone.price && cplValue < currentZone.price) {
+          return {
+            zone: currentZone.zone,
+            name: currentZone.name,
+            price: currentZone.price
+          };
+        }
       }
     }
 
+    // Если CPL >= самой дорогой зоны, возвращаем самую дорогую (красную)
+    const mostExpensive = zones[zones.length - 1];
     return {
-      zone: zones[0].zone,
-      name: zones[0].name,
-      price: zones[0].price
+      zone: mostExpensive.zone,
+      name: mostExpensive.name,
+      price: mostExpensive.price
     };
   };
 
@@ -1557,96 +1583,7 @@ function CreativePanel({ user }) {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="relative">
-              <button
-                onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                className="period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
-              >
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Метрики: {getPeriodButtonText()}
-                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showPeriodDropdown && (
-                <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                  <div className="py-1">
-                    <button
-                      onClick={() => handlePeriodChange('all')}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        metricsPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Все время
-                    </button>
-                    <button
-                      onClick={() => handlePeriodChange('4days')}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
-                        metricsPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      4 дня
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <button
-              onClick={handleRefreshAll}
-              disabled={loading || metricsLoading}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
-              Обновить
-            </button>
-
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Информационная панель с временем обновления */}
-      <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {metricsLastUpdate && (
-              <>
-                <Clock className="h-3 w-3 text-gray-400" />
-                <span className="text-xs text-gray-500">
-                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Фильтры:</span>
-            </div>
-            
-            {/* Кнопка выбора периода */}
+            {/* Кнопка выбора периода дат */}
             <div className="relative period-menu-container">
               <button
                 onClick={() => setShowPeriodMenu(!showPeriodMenu)}
@@ -1659,7 +1596,7 @@ function CreativePanel({ user }) {
               
               {/* Выпадающее меню с календарем ВНУТРИ */}
               {showPeriodMenu && (
-                <div className="absolute left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{width: '850px'}}>
+                <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{width: '850px'}}>
                   <div className="grid grid-cols-3">
                     {/* Левая колонка - список периодов */}
                     <div className="border-r border-gray-200 py-2">
@@ -1928,6 +1865,95 @@ function CreativePanel({ user }) {
               )}
             </div>
 
+            <div className="relative">
+              <button
+                onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                className="period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Метрики: {getPeriodButtonText()}
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showPeriodDropdown && (
+                <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handlePeriodChange('all')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        metricsPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Все время
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('4days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${
+                        metricsPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      4 дня
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={handleRefreshAll}
+              disabled={loading || metricsLoading}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
+              Обновить
+            </button>
+
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Создать креатив
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Информационная панель с временем обновления */}
+      <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {metricsLastUpdate && (
+              <>
+                <Clock className="h-3 w-3 text-gray-400" />
+                <span className="text-xs text-gray-500">
+                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Фильтры:</span>
+            </div>
+            
             <div className="relative">
               <button
                 onClick={() => setShowBuyerDropdown(!showBuyerDropdown)}
@@ -2732,7 +2758,11 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 text-sm text-gray-900 text-center">
-                              {currentMode === 'aggregated' ? (
+                              {metricsLoading ? (
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : currentMode === 'aggregated' ? (
                                 <CurrentZoneDisplay 
                                   article={creative.article} 
                                   metricsData={getAggregatedCreativeMetrics(creative)}
