@@ -1137,14 +1137,14 @@ function CreativeBuyer({ user }) {
     return status.list_name || '—';
   };
 
-  const loadCreatives = async () => {
+const loadCreatives = async () => {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов пользователя...');
-      const data = await creativeService.getUserCreatives(user.id);
+      console.log('📡 Загрузка креативов для байера...');
+      const data = await creativeService.getCreativesByBuyerId(user.id);
       setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов`);
+      console.log(`✅ Загружено ${data.length} креативов для байера`);
       
       // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
