@@ -264,22 +264,6 @@ function CreativeSearch({ user }) {
     refresh: refreshZoneData
   } = useZoneData(filteredCreatives, true);
 
-  // 🔍 ДИАГНОСТИКА: Логируем состояние зональных данных
-  useEffect(() => {
-    console.log('🎯 ZONE DATA STATUS:', {
-      loading: zoneDataLoading,
-      error: zoneDataError,
-      mapSize: zoneDataMap?.size || 0,
-      stats: zoneDataStats,
-      creativesCount: filteredCreatives?.length || 0
-    });
-    
-    if (zoneDataMap && zoneDataMap.size > 0) {
-      const firstEntry = Array.from(zoneDataMap.entries())[0];
-      console.log('📋 Первая запись зональных данных:', firstEntry);
-    }
-  }, [zoneDataMap, zoneDataLoading, zoneDataError, zoneDataStats, filteredCreatives]);
-
   const workTypes = [
     'Монтаж _Video',
     'Upscale_Video', 
@@ -537,32 +521,12 @@ function CreativeSearch({ user }) {
 
   // Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
-    // 🔍 ДИАГНОСТИКА: Проверяем что получаем
     const zoneData = getZoneDataForArticle(article);
-    
-    // Временно логируем для первого креатива
-    React.useEffect(() => {
-      if (article && !window.__zoneDebugLogged) {
-        window.__zoneDebugLogged = true;
-        console.log('🎯 ZoneDataDisplay для артикула:', article);
-        console.log('📦 Полученные зональные данные:', zoneData);
-        console.log('🗺️ Размер zoneDataMap:', zoneDataMap?.size || 0);
-        console.log('🔍 Прямая проверка Map:', zoneDataMap?.get(article));
-      }
-    }, []);
-    
-    if (zoneDataLoading) {
-      return (
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto"></div>
-        </div>
-      );
-    }
     
     if (!zoneData) {
       return (
         <div className="text-center">
-          <span className="text-gray-400 text-xs" title={`Нет зональных данных для ${article}`}>—</span>
+          <span className="text-gray-400 text-xs">—</span>
         </div>
       );
     }
@@ -577,7 +541,7 @@ function CreativeSearch({ user }) {
     if (zones.length === 0) {
       return (
         <div className="text-center">
-          <span className="text-gray-400 text-xs" title={`Все зоны пустые для ${article}`}>—</span>
+          <span className="text-gray-400 text-xs">—</span>
         </div>
       );
     }
@@ -589,7 +553,6 @@ function CreativeSearch({ user }) {
             key={zone.color}
             className={`font-mono font-bold flex items-center justify-center w-11 h-6 rounded-full text-xs border ${zone.bg} ${zone.text} ${zone.border} text-center`}
             style={{ fontSize: '10px' }}
-            title={`${zone.color.charAt(0).toUpperCase() + zone.color.slice(1)} зона: ${zone.value}`}
           >
             {zone.value}
           </span>
@@ -2224,26 +2187,12 @@ function CreativeSearch({ user }) {
             
             <button
               onClick={handleRefreshAll}
-              disabled={loading || metricsLoading || zoneDataLoading}
+              disabled={loading || metricsLoading}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading || zoneDataLoading) ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
               Обновить
             </button>
-            
-            {zoneDataError && (
-              <button
-                onClick={async () => {
-                  console.log('🔄 Принудительная перезагрузка зональных данных...');
-                  await refreshZoneData();
-                }}
-                className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md shadow-sm text-red-700 bg-red-50 hover:bg-red-100 transition-colors duration-200"
-                title="Ошибка загрузки зон. Нажмите для повтора."
-              >
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Загрузить зоны
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -2251,9 +2200,9 @@ function CreativeSearch({ user }) {
       {/* Информационная панель с временем обновления */}
       <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             {metricsLastUpdate && (
-              <div className="flex items-center space-x-2">
+              <>
                 <Clock className="h-3 w-3 text-gray-400" />
                 <span className="text-xs text-gray-500">
                   Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
@@ -2264,18 +2213,8 @@ function CreativeSearch({ user }) {
                     minute: '2-digit'
                   })}
                 </span>
-              </div>
+              </>
             )}
-            
-            {/* Статус зональных данных */}
-            <div className="flex items-center space-x-2">
-              <Target className="h-3 w-3 text-gray-400" />
-              <span className="text-xs text-gray-500">
-                Зоны: {zoneDataLoading ? 'загрузка...' : 
-                       zoneDataError ? 'ошибка' : 
-                       `${zoneDataStats.found}/${zoneDataStats.total}`}
-              </span>
-            </div>
           </div>
         </div>
       </div>
