@@ -523,6 +523,17 @@ function CreativeSearch({ user }) {
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
     
+    // ДИАГНОСТИКА
+    if (!window.__zoneDebugDone) {
+      window.__zoneDebugDone = true;
+      console.log('🔍 ZoneDataDisplay Debug:', {
+        article,
+        zoneData,
+        zoneDataMapSize: zoneDataMap?.size || 0,
+        allKeys: zoneDataMap ? Array.from(zoneDataMap.keys()) : []
+      });
+    }
+    
     if (!zoneData) {
       return (
         <div className="text-center">
@@ -977,6 +988,17 @@ function CreativeSearch({ user }) {
     }
   }, [creatives]);
 
+  // НОВЫЙ useEffect для диагностики зональных данных
+  useEffect(() => {
+    if (zoneDataMap && zoneDataMap.size > 0) {
+      console.log('🗺️ ZONE DATA MAP обновлен:', {
+        size: zoneDataMap.size,
+        keys: Array.from(zoneDataMap.keys()),
+        sample: zoneDataMap.get(Array.from(zoneDataMap.keys())[0])
+      });
+    }
+  }, [zoneDataMap]);
+
   const loadLastUpdateTime = async () => {
     try {
       const lastUpdate = await metricsAnalyticsService.getMetricsLastUpdate();
@@ -1182,6 +1204,9 @@ function CreativeSearch({ user }) {
       
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов`);
+      
+      // ДИАГНОСТИКА: Выводим артикулы для проверки
+      console.log('📋 Артикулы загруженных креативов:', data.map(c => c.article).join(', '));
       
       // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
