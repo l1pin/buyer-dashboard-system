@@ -647,9 +647,9 @@ const allDailyData = videoResult.daily.map(d => ({
             // Вычисляем производные метрики
             const avg_duration = aggregated.days_count > 0 ? aggregated.duration_sum / aggregated.days_count : 0;
             const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks / aggregated.impressions) * 100 : 0;
+            const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
             const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
-            const cpm = aggregated.impressions > 0 ? (aggregated.cost / aggregated.impressions) * 1000 : 0;
+            const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
             
             const raw = {
               leads: aggregated.leads,
