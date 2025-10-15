@@ -251,6 +251,17 @@ function CreativeSearch({ user }) {
     hasData: hasMetricsData 
   } = useMetricsStats(filteredCreatives, batchMetrics);
 
+    // ДИАГНОСТИКА: Проверяем, какие артикулы передаём в useZoneData
+  useEffect(() => {
+    if (creatives && creatives.length > 0) {
+      console.log('🔵 CreativeSearch передаёт в useZoneData:', {
+        count: creatives.length,
+        articles: creatives.map(c => c.article),
+        firstCreative: creatives[0]
+      });
+    }
+  }, [creatives]);
+
   // Хук для зональных данных - используем ВСЕ креативы (зоны не зависят от фильтрации)
   const {
     zoneDataMap,
