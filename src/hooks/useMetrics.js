@@ -324,21 +324,69 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log('📊 Анализируем videoMap, размер:', videoMap.size);
         console.log('📊 Анализируем rawMetricsMap, размер:', rawMetricsMap.size);
         
+        // 🎯 Группируем видео по креативам
+        const creativeGroups = new Map(); // creativeId -> { hasMetrics: boolean, videos: [] }
+        
         videoMap.forEach((metadata, videoKey) => {
+          const creativeId = metadata.creativeId;
+          
+          if (!creativeGroups.has(creativeId)) {
+            creativeGroups.set(creativeId, {
+              hasMetrics: false,
+              videos: []
+            });
+          }
+          
+          const group = creativeGroups.get(creativeId);
           const existingMetric = rawMetricsMap.get(videoKey);
           
-          if (!existingMetric || !existingMetric.found || existingMetric.noData) {
-            const videoTitle = metadata.videoTitle;
-            const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+          // Если хотя бы одно видео из креатива имеет метрики - помечаем креатив
+          if (existingMetric && existingMetric.found && !existingMetric.noData) {
+            group.hasMetrics = true;
+          }
+          
+          group.videos.push({
+            videoKey,
+            videoTitle: metadata.videoTitle,
+            metadata,
+            hasMetrics: existingMetric && existingMetric.found && !existingMetric.noData
+          });
+        });
+        
+        console.log(`📦 Сгруппировано по креативам: ${creativeGroups.size} креативов`);
+        
+        // 🎯 Добавляем в LIKE поиск только видео из креативов БЕЗ метрик
+        let creativesNeedingLike = 0;
+        let creativesSkipped = 0;
+        
+        creativeGroups.forEach((group, creativeId) => {
+          if (group.hasMetrics) {
+            // Пропускаем креатив - хотя бы одно видео нашлось
+            creativesSkipped++;
+            console.log(`✅ Креатив ${creativeId}: ${group.videos.filter(v => v.hasMetrics).length}/${group.videos.length} видео найдено, LIKE не нужен`);
+          } else {
+            // Добавляем ВСЕ видео креатива в LIKE поиск
+            creativesNeedingLike++;
+            console.log(`❌ Креатив ${creativeId}: 0/${group.videos.length} видео найдено, добавляем в LIKE`);
             
-            videosWithoutMetrics.push(nameWithoutExt);
-            videosWithoutMetricsMap.set(nameWithoutExt, {
-              videoKey,
-              originalTitle: videoTitle,
-              metadata
+            group.videos.forEach(video => {
+              const videoTitle = video.videoTitle;
+              const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+              
+              videosWithoutMetrics.push(nameWithoutExt);
+              videosWithoutMetricsMap.set(nameWithoutExt, {
+                videoKey: video.videoKey,
+                originalTitle: videoTitle,
+                metadata: video.metadata
+              });
             });
           }
         });
+        
+        console.log(`📊 ИТОГОВАЯ СТАТИСТИКА:`);
+        console.log(`  ✅ Креативов с метриками (пропущено): ${creativesSkipped}`);
+        console.log(`  ❌ Креативов БЕЗ метрик (LIKE поиск): ${creativesNeedingLike}`);
+        console.log(`  📋 Видео для LIKE поиска: ${videosWithoutMetrics.length}`);
         
         console.log(`📋 ИТОГО для LIKE поиска: ${videosWithoutMetrics.length} видео`);
         
