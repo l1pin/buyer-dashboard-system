@@ -6,6 +6,7 @@ import WorkTable from './WorkTable';
 import AdminPanel from './AdminPanel';
 import UserManagement from './UserManagement';
 import CreativePanel from './CreativePanel';
+import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
@@ -138,7 +139,12 @@ function Dashboard({ user, session, updateUser }) {
       case 'users':
         return user?.role === 'teamlead' ? <UserManagement user={user} /> : null;
       case 'creatives':
-        return user?.role === 'editor' ? <CreativePanel user={user} /> : null;
+        if (user?.role === 'editor') {
+          return <CreativePanel user={user} />;
+        } else if (user?.role === 'search_manager') {
+          return <CreativeSearch user={user} />;
+        }
+        return null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
