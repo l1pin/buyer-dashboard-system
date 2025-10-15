@@ -36,7 +36,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor'
+      show: user?.role === 'editor' || user?.role === 'search_manager'
     },
     {
       id: 'analytics',
