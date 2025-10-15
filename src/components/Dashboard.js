@@ -6,7 +6,6 @@ import WorkTable from './WorkTable';
 import AdminPanel from './AdminPanel';
 import UserManagement from './UserManagement';
 import CreativePanel from './CreativePanel';
-import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import Settings from './Settings';
@@ -40,8 +39,9 @@ function Dashboard({ user, session, updateUser }) {
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
     if (role === 'editor') return 'creatives';
+    if (role === 'search_manager') return 'creatives';
     if (role === 'teamlead') return 'analytics';
-    if (role === 'buyer' || role === 'search_manager' || role === 'content_manager') return 'settings';
+    if (role === 'buyer' || role === 'content_manager') return 'settings';
     return 'settings';
   };
 
@@ -53,7 +53,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'users':
         return role === 'teamlead';
       case 'creatives':
-        return role === 'editor';
+        return role === 'editor' || role === 'search_manager';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -139,12 +139,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'users':
         return user?.role === 'teamlead' ? <UserManagement user={user} /> : null;
       case 'creatives':
-        if (user?.role === 'editor') {
-          return <CreativePanel user={user} />;
-        } else if (user?.role === 'search_manager') {
-          return <CreativeSearch user={user} />;
-        }
-        return null;
+        return user?.role === 'editor' ? <CreativePanel user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
