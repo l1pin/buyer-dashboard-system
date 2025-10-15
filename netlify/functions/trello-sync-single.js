@@ -9,15 +9,6 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Функция для нормализации URL
-const normalizeUrl = (url) => {
-  if (!url) return '';
-  let normalized = url.split('?')[0].split('#')[0];
-  normalized = normalized.replace(/^https?:\/\//, '');
-  normalized = normalized.replace(/\/$/, '');
-  return normalized.toLowerCase();
-};
-
 exports.handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -46,17 +37,15 @@ exports.handler = async (event, context) => {
     console.log('🔄 Синхронизация Trello карточки для креатива:', creativeId);
     console.log('🔗 Trello link:', trelloLink);
 
-    const normalizedUrl = normalizeUrl(trelloLink);
-    console.log('🔗 Normalized URL:', normalizedUrl);
-
-    // Извлекаем короткий ID из URL (формат: /c/SHORT_ID/...)
-    const shortIdMatch = normalizedUrl.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
+    // КРИТИЧНО: Извлекаем короткий ID из ОРИГИНАЛЬНОГО URL (до нормализации)
+    // Формат: /c/SHORT_ID/... (короткий ID всегда латиница и цифры)
+    const shortIdMatch = trelloLink.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
     if (!shortIdMatch) {
       throw new Error('Неверный формат ссылки Trello');
     }
 
     const shortId = shortIdMatch[1];
-    console.log('🆔 Extracted short ID:', shortId);
+    console.log('🆔 Extracted short ID from original URL:', shortId);
 
     // КРИТИЧНО: Trello API работает с короткими ID напрямую
     // Получаем информацию о карточке через API
