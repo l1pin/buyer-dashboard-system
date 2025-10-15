@@ -251,7 +251,7 @@ function CreativeSearch({ user }) {
     hasData: hasMetricsData 
   } = useMetricsStats(filteredCreatives, batchMetrics);
 
-  // Хук для зональных данных - используем ОТФИЛЬТРОВАННЫЕ креативы
+  // Хук для зональных данных - используем ВСЕ креативы (зоны не зависят от фильтрации)
   const {
     zoneDataMap,
     loading: zoneDataLoading,
@@ -262,7 +262,7 @@ function CreativeSearch({ user }) {
     getCurrentZone,
     getZonePricesString,
     refresh: refreshZoneData
-  } = useZoneData(filteredCreatives, true);
+  } = useZoneData(creatives, true);
 
   const workTypes = [
     'Монтаж _Video',
