@@ -134,10 +134,10 @@ function CreativeBuyer({ user }) {
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
-    // Креативы уже отфильтрованы по buyer_id при загрузке
-    let creativesToFilter = creatives;
+    // КРИТИЧНО: Показываем ТОЛЬКО креативы, где текущий пользователь - buyer
+    let creativesToFilter = creatives.filter(c => c.buyer_id === user.id);
     
-    // Фильтрация по байеру (не нужна для buyer, но оставляем для совместимости)
+    // Фильтрация по байеру (уже отфильтровано выше, но оставляем для совместимости)
     if (selectedBuyer !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
@@ -1141,10 +1141,10 @@ function CreativeBuyer({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов для байера...');
-      const data = await creativeService.getCreativesByBuyerId(user.id);
+      console.log('📡 Загрузка креативов пользователя...');
+      const data = await creativeService.getUserCreatives(user.id);
       setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов для байера`);
+      console.log(`✅ Загружено ${data.length} креативов`);
       
       // Проверяем наличие истории для каждого креатива
       const creativesWithHistorySet = new Set();
@@ -2818,15 +2818,8 @@ function CreativeBuyer({ user }) {
               Нет креативов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив с Google Drive ссылками
+              Пока нет креативов, где вы указаны как Buyer
             </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
