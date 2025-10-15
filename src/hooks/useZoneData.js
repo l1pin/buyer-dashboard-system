@@ -43,8 +43,16 @@ export function useZoneData(creatives, autoLoad = true) {
             console.log(`🔍 Поиск зональных данных для ${articles.length} уникальных артикулов`);
       console.log('📋 Артикулы для поиска:', articles);
 
-      // Получаем зональные данные батчевым запросом
+            // Получаем зональные данные батчевым запросом
+      console.log('🔍 Вызываем getZoneDataByArticles с артикулами:', articles);
       const zoneData = await metricsAnalyticsService.getZoneDataByArticles(articles);
+      
+      console.log('📦 Результат от getZoneDataByArticles:', {
+        тип: zoneData instanceof Map ? 'Map' : typeof zoneData,
+        размер: zoneData?.size || 0,
+        ключи: zoneData instanceof Map ? Array.from(zoneData.keys()) : 'НЕ MAP!',
+        значения_пример: zoneData instanceof Map && zoneData.size > 0 ? zoneData.get(Array.from(zoneData.keys())[0]) : 'нет данных'
+      });
       
       console.log('📦 Результат поиска зональных данных:', {
         найдено: zoneData.size,
