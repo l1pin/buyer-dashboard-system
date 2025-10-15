@@ -173,45 +173,27 @@ exports.handler = async (event, context) => {
 
     console.log(`📦 Found ${creatives?.length || 0} creatives with Trello links`);
 
-    // Создаем карту карточек по нормализованным URL
-    const cardsByNormalizedUrl = new Map();
+    // НОВАЯ ЛОГИКА: Создаем карту карточек по SHORT ID (более надежно)
+    const cardsByShortId = new Map();
     
     cards.forEach(card => {
-      if (card.url) {
-        const normalized = normalizeUrl(card.url);
-        cardsByNormalizedUrl.set(normalized, card);
-      }
-      
-      if (card.shortUrl && card.shortUrl !== card.url) {
-        const normalized = normalizeUrl(card.shortUrl);
-        cardsByNormalizedUrl.set(normalized, card);
+      // Извлекаем короткий ID из shortUrl или url
+      const urlToCheck = card.shortUrl || card.url;
+      if (urlToCheck) {
+        const shortIdMatch = urlToCheck.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
+        if (shortIdMatch) {
+          const shortId = shortIdMatch[1].toLowerCase();
+          cardsByShortId.set(shortId, card);
+          console.log(`   📌 Mapped short ID: ${shortId} -> ${card.name}`);
+        }
       }
     });
 
-    console.log(`🗺️ Created URL map with ${cardsByNormalizedUrl.size} entries`);
+    console.log(`🗺️ Created Short ID map with ${cardsByShortId.size} entries`);
 
     // Обновляем статусы карточек
     let syncedCount = 0;
     let notFoundCount = 0;
-    
-    // ДИАГНОСТИКА: Выводим первые 5 карточек из Trello
-    console.log('\n📋 SAMPLE TRELLO CARDS (first 5):');
-    cards.slice(0, 5).forEach(card => {
-      console.log(`  - ${card.name}`);
-      console.log(`    URL: ${card.url}`);
-      console.log(`    Short URL: ${card.shortUrl}`);
-      console.log(`    Normalized: ${normalizeUrl(card.url)}`);
-    });
-    
-    // ДИАГНОСТИКА: Выводим все URL из Map
-    console.log('\n🗺️ NORMALIZED URLs IN MAP (first 10):');
-    let count = 0;
-    for (const [url, card] of cardsByNormalizedUrl.entries()) {
-      if (count++ >= 10) break;
-      console.log(`  - ${url} -> ${card.name}`);
-    }
-    
-    console.log('\n🔍 MATCHING CREATIVES WITH CARDS:\n');
     
     for (const creative of creatives || []) {
       const trelloUrl = creative.trello_link;
@@ -221,15 +203,23 @@ exports.handler = async (event, context) => {
         continue;
       }
       
-      // Нормализуем URL креатива
-      const normalizedCreativeUrl = normalizeUrl(trelloUrl);
-      
       console.log(`\n📦 ${creative.article}:`);
       console.log(`   Original: ${trelloUrl}`);
-      console.log(`   Normalized: ${normalizedCreativeUrl}`);
       
-      // Ищем карточку
-      const card = cardsByNormalizedUrl.get(normalizedCreativeUrl);
+      // НОВАЯ ЛОГИКА: Извлекаем короткий ID из URL креатива
+      const shortIdMatch = trelloUrl.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
+      
+      if (!shortIdMatch) {
+        console.log(`   ❌ INVALID TRELLO URL FORMAT`);
+        notFoundCount++;
+        continue;
+      }
+      
+      const shortId = shortIdMatch[1].toLowerCase();
+      console.log(`   🆔 Extracted short ID: ${shortId}`);
+      
+      // Ищем карточку по короткому ID (независимо от URL-encoding названия)
+      const card = cardsByShortId.get(shortId);
       
       if (card) {
         console.log(`   ✅ FOUND CARD: ${card.name}`);
@@ -275,18 +265,17 @@ exports.handler = async (event, context) => {
         }
       } else {
         notFoundCount++;
-        console.log(`   ❌ CARD NOT FOUND IN MAP`);
+        console.log(`   ❌ CARD NOT FOUND BY SHORT ID: ${shortId}`);
         
-        // Попробуем найти похожие
+        // Попробуем найти похожие короткие ID
         const similar = [];
-        for (const [url, c] of cardsByNormalizedUrl.entries()) {
-          if (url.includes(normalizedCreativeUrl.substring(0, 20)) || 
-              normalizedCreativeUrl.includes(url.substring(0, 20))) {
-            similar.push(url);
+        for (const [sid, c] of cardsByShortId.entries()) {
+          if (sid.includes(shortId.substring(0, 3)) || shortId.includes(sid.substring(0, 3))) {
+            similar.push(`${sid} (${c.name})`);
           }
         }
         if (similar.length > 0) {
-          console.log(`   🔍 SIMILAR URLs found:`, similar.slice(0, 3));
+          console.log(`   🔍 SIMILAR Short IDs found:`, similar.slice(0, 3));
         }
       }
     }
