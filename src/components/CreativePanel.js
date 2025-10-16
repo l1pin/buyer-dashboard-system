@@ -2201,7 +2201,20 @@ function CreativePanel({ user }) {
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
-              Обновить
+              Обновить метрики
+            </button>
+
+            <button
+              onClick={syncMissingTrelloStatuses}
+              disabled={syncingCreatives.size > 0}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+              title="Синхронизировать креативы без статуса"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncingCreatives.size > 0 ? 'animate-spin' : ''}`} />
+              Синхронизировать Trello
+              {syncingCreatives.size > 0 && (
+                <span className="ml-2 text-xs">({syncingCreatives.size})</span>
+              )}
             </button>
 
             <button
@@ -2245,19 +2258,6 @@ function CreativePanel({ user }) {
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-700">Фильтры:</span>
             </div>
-
-          <button
-              onClick={syncMissingTrelloStatuses}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
-              title="Синхронизировать креативы без статуса"
-              disabled={syncingCreatives.size > 0}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncingCreatives.size > 0 ? 'animate-spin' : ''}`} />
-              Синхронизировать Trello
-              {syncingCreatives.size > 0 && (
-                <span className="ml-2 text-xs">({syncingCreatives.size})</span>
-              )}
-            </button>
             
             <div className="relative">
               <button
