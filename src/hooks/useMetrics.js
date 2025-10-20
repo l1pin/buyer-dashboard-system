@@ -15,6 +15,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
+  const [loadingCreativeIds, setLoadingCreativeIds] = useState(new Set()); // 🆕 Креативы, для которых идет загрузка
   const loadingCancelRef = useRef(false);
 
   /**
@@ -1079,7 +1080,9 @@ const allDailyData = videoResult.daily.map(d => ({
     }
 
     console.log(`🎯 Загрузка метрик ТОЛЬКО для креатива: ${creative.article}`);
-    setLoading(true);
+    
+    // 🆕 Добавляем креатив в список загружающихся
+    setLoadingCreativeIds(prev => new Set(prev).add(creative.id));
     setError('');
 
     try {
@@ -1205,7 +1208,12 @@ const allDailyData = videoResult.daily.map(d => ({
       console.error('❌ Ошибка загрузки метрик для одного креатива:', error);
       setError(`Ошибка загрузки метрик: ${error.message}`);
     } finally {
-      setLoading(false);
+      // 🆕 Убираем креатив из списка загружающихся
+      setLoadingCreativeIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(creative.id);
+        return newSet;
+      });
     }
   }, [rawBatchMetrics]);
 
@@ -1218,7 +1226,8 @@ const allDailyData = videoResult.daily.map(d => ({
     lastUpdated,
     refresh,
     loadFromCache: () => loadRawBatchMetrics(false),
-    loadMetricsForSingleCreative, // 🆕 НОВАЯ ФУНКЦИЯ
+    loadMetricsForSingleCreative,
+    loadingCreativeIds, // 🆕 Set с ID креативов, для которых идет загрузка
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
