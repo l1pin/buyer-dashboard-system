@@ -1341,6 +1341,8 @@ function CreativeAnalytics({ user }) {
           console.log('🆕 Новый креатив создан:', payload.new.article);
           
           // 🚀 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В АНАЛИТИКУ В РЕАЛЬНОМ ВРЕМЕНИ
+          let updatedAnalyticsData = null;
+          
           setAnalytics(prevAnalytics => {
             const newCreative = {
               ...payload.new,
@@ -1373,7 +1375,7 @@ function CreativeAnalytics({ user }) {
 
             const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
 
-            return {
+            const newAnalyticsState = {
               ...prevAnalytics,
               creatives: updatedCreatives,
               stats: {
@@ -1388,9 +1390,48 @@ function CreativeAnalytics({ user }) {
                 creativesWithComments: creativesWithComments
               }
             };
+            
+            // Сохраняем во внешнюю переменную для последующего сохранения в кеш
+            updatedAnalyticsData = newAnalyticsState;
+            
+            return newAnalyticsState;
           });
           
           console.log('✅ Новый креатив добавлен в аналитику в режиме реального времени');
+          
+          // 💾 СОХРАНЯЕМ ОБНОВЛЕННЫЕ ДАННЫЕ В КЕШ
+          if (updatedAnalyticsData) {
+            try {
+              saveAnalyticsToCache({
+                analytics: updatedAnalyticsData,
+                creativesWithHistory: Array.from(creativesWithHistory)
+              });
+              console.log('💾 Кеш обновлен с новым креативом');
+            } catch (error) {
+              console.error('❌ Ошибка сохранения в кеш:', error);
+            }
+          }
+          
+          // 🔥 ЗАГРУЖАЕМ МЕТРИКИ И ЗОНЫ ДЛЯ НОВОГО КРЕАТИВА
+          try {
+            console.log('🚀 Загружаем метрики для нового креатива:', payload.new.article);
+            
+            // Создаем объект креатива для загрузки метрик
+            const newCreativeForMetrics = {
+              ...payload.new,
+              editor_name: analytics.editors.find(e => e.id === payload.new.user_id)?.name || 'Неизвестен'
+            };
+            
+            // Загружаем метрики только для этого креатива
+            await loadMetricsForSingleCreative(newCreativeForMetrics);
+            
+            // Обновляем зональные данные
+            await refreshZoneData();
+            
+            console.log('✅ Метрики и зональные данные загружены для нового креатива');
+          } catch (error) {
+            console.error('❌ Ошибка загрузки метрик для нового креатива:', error);
+          }
           
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
