@@ -1339,79 +1339,85 @@ function CreativeAnalytics({ user }) {
         },
         async (payload) => {
           console.log('🆕 Новый креатив создан:', payload.new.article);
+          console.log('⏳ Ждем 6 секунд, пока CreativePanel.js загрузит метрики в кеш БД...');
           
-          // 🚀 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В АНАЛИТИКУ В РЕАЛЬНОМ ВРЕМЕНИ
-          let updatedAnalyticsData = null;
-          
-          setAnalytics(prevAnalytics => {
-            const newCreative = {
-              ...payload.new,
-              // Добавляем имя редактора из пользователей
-              editor_name: prevAnalytics.editors.find(e => e.id === payload.new.user_id)?.name || 'Неизвестен'
-            };
+          // ⏳ ЖДЕМ 6 СЕКУНД - CreativePanel.js за это время загрузит метрики в кеш БД
+          setTimeout(() => {
+            console.log('✅ Прошло 6 секунд, добавляем креатив в аналитику С метриками из кеша');
             
-            // Добавляем в начало массива
-            const updatedCreatives = [newCreative, ...prevAnalytics.creatives];
+            // 🚀 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В АНАЛИТИКУ ПОСЛЕ ЗАГРУЗКИ МЕТРИК
+            let updatedAnalyticsData = null;
             
-            // Пересчитываем статистику
-            const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            setAnalytics(prevAnalytics => {
+              const newCreative = {
+                ...payload.new,
+                // Добавляем имя редактора из пользователей
+                editor_name: prevAnalytics.editors.find(e => e.id === payload.new.user_id)?.name || 'Неизвестен'
+              };
+              
+              // Добавляем в начало массива
+              const updatedCreatives = [newCreative, ...prevAnalytics.creatives];
+              
+              // Пересчитываем статистику
+              const now = new Date();
+              const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-            const todayCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= todayStart);
-            const weekCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= weekStart);
+              const todayCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= todayStart);
+              const weekCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= weekStart);
 
-            const calculateCreativeCOF = (creative) => {
-              if (typeof creative.cof_rating === 'number') {
-                return creative.cof_rating;
+              const calculateCreativeCOF = (creative) => {
+                if (typeof creative.cof_rating === 'number') {
+                  return creative.cof_rating;
+                }
+                return calculateCOF(creative.work_types || []);
+              };
+
+              const totalCOF = updatedCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+              const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+              const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+              const avgCOF = updatedCreatives.length > 0 ? totalCOF / updatedCreatives.length : 0;
+
+              const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
+
+              const newAnalyticsState = {
+                ...prevAnalytics,
+                creatives: updatedCreatives,
+                stats: {
+                  ...prevAnalytics.stats,
+                  totalCreatives: updatedCreatives.length,
+                  todayCreatives: todayCreatives.length,
+                  weekCreatives: weekCreatives.length,
+                  totalCOF: totalCOF,
+                  avgCOF: avgCOF,
+                  todayCOF: todayCOF,
+                  weekCOF: weekCOF,
+                  creativesWithComments: creativesWithComments
+                }
+              };
+              
+              // Сохраняем во внешнюю переменную для последующего сохранения в кеш
+              updatedAnalyticsData = newAnalyticsState;
+              
+              return newAnalyticsState;
+            });
+            
+            console.log('✅ Новый креатив добавлен в аналитику');
+            console.log('🤖 Хук useBatchMetrics автоматически загрузит метрики из кеша БД');
+            
+            // 💾 СОХРАНЯЕМ ОБНОВЛЕННЫЕ ДАННЫЕ В КЕШ
+            if (updatedAnalyticsData) {
+              try {
+                saveAnalyticsToCache({
+                  analytics: updatedAnalyticsData,
+                  creativesWithHistory: Array.from(creativesWithHistory)
+                });
+                console.log('💾 Кеш обновлен с новым креативом');
+              } catch (error) {
+                console.error('❌ Ошибка сохранения в кеш:', error);
               }
-              return calculateCOF(creative.work_types || []);
-            };
-
-            const totalCOF = updatedCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-            const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-            const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-            const avgCOF = updatedCreatives.length > 0 ? totalCOF / updatedCreatives.length : 0;
-
-            const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
-
-            const newAnalyticsState = {
-              ...prevAnalytics,
-              creatives: updatedCreatives,
-              stats: {
-                ...prevAnalytics.stats,
-                totalCreatives: updatedCreatives.length,
-                todayCreatives: todayCreatives.length,
-                weekCreatives: weekCreatives.length,
-                totalCOF: totalCOF,
-                avgCOF: avgCOF,
-                todayCOF: todayCOF,
-                weekCOF: weekCOF,
-                creativesWithComments: creativesWithComments
-              }
-            };
-            
-            // Сохраняем во внешнюю переменную для последующего сохранения в кеш
-            updatedAnalyticsData = newAnalyticsState;
-            
-            return newAnalyticsState;
-          });
-          
-          console.log('✅ Новый креатив добавлен в аналитику в режиме реального времени');
-          console.log('🤖 Хук useBatchMetrics автоматически загрузит метрики в фоновом режиме');
-          
-          // 💾 СОХРАНЯЕМ ОБНОВЛЕННЫЕ ДАННЫЕ В КЕШ
-          if (updatedAnalyticsData) {
-            try {
-              saveAnalyticsToCache({
-                analytics: updatedAnalyticsData,
-                creativesWithHistory: Array.from(creativesWithHistory)
-              });
-              console.log('💾 Кеш обновлен с новым креативом');
-            } catch (error) {
-              console.error('❌ Ошибка сохранения в кеш:', error);
             }
-          }
+          }, 6000); // Ждем 6 секунд
           
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
