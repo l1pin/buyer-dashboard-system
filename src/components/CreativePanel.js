@@ -237,7 +237,8 @@ function CreativePanel({ user }) {
     getVideoMetrics,
     getCreativeMetrics,
     refresh: refreshMetrics,
-    loadFromCache
+    loadFromCache,
+    loadMetricsForSingleCreative // 🆕 НОВАЯ ФУНКЦИЯ
   } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 
@@ -1210,6 +1211,7 @@ function CreativePanel({ user }) {
 
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
     const trimmedTrelloLink = newCreative.trello_link.trim();
+    const creativeArticle = newCreative.article.trim(); // 🆕 Сохраняем артикул до очистки формы
 
     try {
       setCreating(true);
@@ -1301,15 +1303,20 @@ function CreativePanel({ user }) {
       setShowCreateModal(false);
 
       // Загружаем креативы
-      await loadCreatives();
+      const loadedCreatives = await loadCreatives();
       
       // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК, ЗОН И TRELLO СТАТУСА ДЛЯ НОВОГО КРЕАТИВА
       console.log('🚀 Автоматическая загрузка метрик, зон и Trello статуса для нового креатива...');
       setSuccess(`Креатив создан! Загружаем метрики, зональные данные и Trello статус...`);
       
-      // Загружаем метрики (это обновит все креативы, включая новый)
-      await refreshMetrics();
-      console.log('✅ Метрики загружены');
+      // 🎯 Загружаем метрики ТОЛЬКО для нового креатива (не для всех)
+      const createdCreative = loadedCreatives.find(c => c.article === creativeArticle);
+      if (createdCreative) {
+        await loadMetricsForSingleCreative(createdCreative);
+        console.log('✅ Метрики загружены только для нового креатива');
+      } else {
+        console.warn('⚠️ Не удалось найти новый креатив для загрузки метрик');
+      }
       
       // Загружаем зональные данные
       await refreshZoneData();
