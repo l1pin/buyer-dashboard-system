@@ -1211,7 +1211,6 @@ function CreativePanel({ user }) {
 
     const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
     const trimmedTrelloLink = newCreative.trello_link.trim();
-    const creativeArticle = newCreative.article.trim(); // 🆕 Сохраняем артикул до очистки формы
 
     try {
       setCreating(true);
@@ -1262,6 +1261,8 @@ function CreativePanel({ user }) {
         searcher: searcherName !== '—' ? searcherName : null
       });
 
+      console.log('✅ Креатив создан в БД:', newCreativeData);
+
       // 🆕 СИНХРОНИЗАЦИЯ TRELLO ЧЕРЕЗ NETLIFY FUNCTION
       if (newCreativeData.trello_link) {
         console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
@@ -1280,6 +1281,19 @@ function CreativePanel({ user }) {
           if (syncResponse.ok) {
             const syncResult = await syncResponse.json();
             console.log('✅ Trello статус синхронизирован:', syncResult.listName);
+            
+            // Добавляем статус в локальное состояние сразу
+            setTrelloStatuses(prev => {
+              const updated = new Map(prev);
+              updated.set(newCreativeData.id, {
+                creative_id: newCreativeData.id,
+                list_name: syncResult.listName,
+                list_id: syncResult.listId,
+                trello_card_id: syncResult.cardId,
+                last_updated: new Date().toISOString()
+              });
+              return updated;
+            });
           } else {
             const errorText = await syncResponse.text();
             console.error('❌ Ошибка синхронизации Trello:', errorText);
@@ -1289,6 +1303,11 @@ function CreativePanel({ user }) {
         }
       }
 
+      // 🎯 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В СУЩЕСТВУЮЩИЙ МАССИВ (БЕЗ ПЕРЕЗАГРУЗКИ ВСЕХ)
+      console.log('➕ Добавляем новый креатив в таблицу БЕЗ перезагрузки всех креативов');
+      setCreatives(prevCreatives => [newCreativeData, ...prevCreatives]);
+
+      // Очищаем форму и закрываем модалку
       setNewCreative({
         article: '',
         links: [''],
@@ -1302,44 +1321,24 @@ function CreativePanel({ user }) {
       });
       setShowCreateModal(false);
 
-      // Загружаем креативы
-      const loadedCreatives = await loadCreatives();
+      // 🔥 ЗАГРУЗКА МЕТРИК И ЗОН ТОЛЬКО ДЛЯ НОВОГО КРЕАТИВА
+      console.log('🚀 Загружаем метрики и зоны ТОЛЬКО для нового креатива...');
+      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
       
-      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК, ЗОН И TRELLO СТАТУСА ДЛЯ НОВОГО КРЕАТИВА
-      console.log('🚀 Автоматическая загрузка метрик, зон и Trello статуса для нового креатива...');
-      setSuccess(`Креатив создан! Загружаем метрики, зональные данные и Trello статус...`);
+      // Загружаем метрики только для этого креатива
+      await loadMetricsForSingleCreative(newCreativeData);
+      console.log('✅ Метрики загружены только для нового креатива');
       
-      // 🎯 Загружаем метрики ТОЛЬКО для нового креатива (не для всех)
-      const createdCreative = loadedCreatives.find(c => c.article === creativeArticle);
-      if (createdCreative) {
-        await loadMetricsForSingleCreative(createdCreative);
-        console.log('✅ Метрики загружены только для нового креатива');
-      } else {
-        console.warn('⚠️ Не удалось найти новый креатив для загрузки метрик');
-      }
-      
-      // Загружаем зональные данные
+      // Загружаем зональные данные только для этого креатива
       await refreshZoneData();
-      console.log('✅ Зональные данные загружены');
-      
-      // 🆕 ЗАГРУЖАЕМ TRELLO СТАТУС ДЛЯ НОВОГО КРЕАТИВА
-      console.log('🔄 Загрузка Trello статуса для нового креатива...');
-      try {
-        // Даем время на обновление состояния после синхронизации
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Перезагружаем статусы всех креативов
-        await loadTrelloStatuses(false);
-        console.log('✅ Trello статус загружен');
-      } catch (trelloError) {
-        console.error('⚠️ Ошибка загрузки Trello статуса:', trelloError);
-      }
+      console.log('✅ Зональные данные обновлены');
       
       const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
       const country = newCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики, зоны и Trello статус загружены автоматически`);
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики загружены`);
+      
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
