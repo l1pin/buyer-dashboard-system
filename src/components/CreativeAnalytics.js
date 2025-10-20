@@ -1327,116 +1327,77 @@ function CreativeAnalytics({ user }) {
     loadAnalytics();
     loadLastUpdateTime();
     
-    // 🚀 МГНОВЕННОЕ ОБНОВЛЕНИЕ: Слушаем событие создания креатива
-    const handleCreativeCreated = (event) => {
-      const { creative } = event.detail;
-      console.log('🆕 Получено событие создания креатива:', creative.article);
-      
-      // Мгновенно добавляем креатив в state
-      setAnalytics(prevAnalytics => {
-        const updatedCreatives = [creative, ...prevAnalytics.creatives];
-        
-        // Пересчитываем статистику
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-        const todayCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= todayStart);
-        const weekCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= weekStart);
-
-        const calculateCreativeCOF = (creative) => {
-          if (typeof creative.cof_rating === 'number') {
-            return creative.cof_rating;
+    // Подписка на создание новых креативов
+    const creativesSubscription = supabase
+      .channel('creatives_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'creatives'
+        },
+        async (payload) => {
+          console.log('🆕 Новый креатив создан:', payload.new.article);
+          
+          // Если у нового креатива есть Trello ссылка, ждем появления статуса
+          if (payload.new.trello_link) {
+            console.log('⏳ Ждем синхронизации Trello статуса для', payload.new.article);
+            
+            // Даем время на синхронизацию (2 секунды)
+            setTimeout(async () => {
+              try {
+                console.log('🔍 Проверяем статус для', payload.new.id);
+                const status = await trelloService.getCardStatus(payload.new.id);
+                
+                if (status) {
+                  console.log('✅ Статус получен:', status.list_name);
+                  setTrelloStatuses(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(payload.new.id, status);
+                    console.log('🗺️ Обновлен Map, новый размер:', newMap.size);
+                    return newMap;
+                  });
+                } else {
+                  console.log('⚠️ Статус еще не синхронизирован, перезагружаем все статусы...');
+                  loadTrelloStatuses();
+                }
+              } catch (error) {
+                console.error('❌ Ошибка получения статуса:', error);
+                // При ошибке просто перезагружаем все статусы
+                loadTrelloStatuses();
+              }
+            }, 2000); // Ждем 2 секунды
           }
-          return calculateCOF(creative.work_types || []);
-        };
-
-        const totalCOF = updatedCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-        const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-        const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
-        const avgCOF = updatedCreatives.length > 0 ? totalCOF / updatedCreatives.length : 0;
-
-        const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
-
-        return {
-          ...prevAnalytics,
-          creatives: updatedCreatives,
-          stats: {
-            ...prevAnalytics.stats,
-            totalCreatives: updatedCreatives.length,
-            todayCreatives: todayCreatives.length,
-            weekCreatives: weekCreatives.length,
-            totalCOF: totalCOF,
-            avgCOF: avgCOF,
-            todayCOF: todayCOF,
-            weekCOF: weekCOF,
-            creativesWithComments: creativesWithComments
-          }
-        };
-      });
-
-      // Проверяем наличие истории для нового креатива
-      creativeHistoryService.hasHistory(creative.id).then(hasHistory => {
-        if (hasHistory) {
-          setCreativesWithHistory(prev => {
-            const updated = new Set(prev);
-            updated.add(creative.id);
-            return updated;
-          });
         }
-      });
-
-      // Очищаем кеш аналитики
-      clearAnalyticsCache();
-      
-      console.log('✅ Креатив мгновенно добавлен в UI');
-      
-      // Если у креатива есть Trello ссылка, ждем синхронизацию статуса
-      if (creative.trello_link) {
-        console.log('⏳ Ожидаем синхронизацию Trello статуса для', creative.article);
-        setTimeout(async () => {
-          try {
-            const status = await trelloService.getCardStatus(creative.id);
-            if (status) {
-              console.log('✅ Статус получен:', status.list_name);
-              setTrelloStatuses(prev => {
-                const newMap = new Map(prev);
-                newMap.set(creative.id, status);
-                return newMap;
-              });
-            }
-          } catch (error) {
-            console.error('❌ Ошибка получения статуса:', error);
-          }
-        }, 2000);
-      }
-    };
+      )
+      .subscribe();
     
-    // 🚀 МГНОВЕННОЕ ОБНОВЛЕНИЕ: Слушаем событие обновления Trello статуса
-    const handleTrelloStatusUpdated = (event) => {
-      const { creativeId, listName, listId, cardId, timestamp } = event.detail;
-      console.log('🔄 Получено событие обновления Trello статуса:', { creativeId, listName });
+    // Подписка на изменения статусов Trello в реальном времени
+    const trelloSubscription = trelloService.subscribeToCardStatuses((payload) => {
+      console.log('🔄 Trello status changed:', payload);
       
-      setTrelloStatuses(prev => {
-        const newMap = new Map(prev);
-        newMap.set(creativeId, {
-          creative_id: creativeId,
-          list_name: listName,
-          list_id: listId,
-          trello_card_id: cardId,
-          last_updated: timestamp
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        console.log('➕ Обновляем статус для креатива:', payload.new.creative_id);
+        setTrelloStatuses(prev => {
+          const newMap = new Map(prev);
+          newMap.set(payload.new.creative_id, payload.new);
+          console.log('🗺️ Map обновлен, размер:', newMap.size);
+          return newMap;
         });
-        console.log('✅ Trello статус мгновенно обновлен в UI, Map размер:', newMap.size);
-        return newMap;
-      });
-    };
-    
-    window.addEventListener('creativeCreated', handleCreativeCreated);
-    window.addEventListener('trelloStatusUpdated', handleTrelloStatusUpdated);
+      } else if (payload.eventType === 'DELETE') {
+        console.log('➖ Удаляем статус для креатива:', payload.old.creative_id);
+        setTrelloStatuses(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(payload.old.creative_id);
+          return newMap;
+        });
+      }
+    });
     
     return () => {
-      window.removeEventListener('creativeCreated', handleCreativeCreated);
-      window.removeEventListener('trelloStatusUpdated', handleTrelloStatusUpdated);
+      creativesSubscription.unsubscribe();
+      trelloSubscription.unsubscribe();
     };
   }, []);
 
