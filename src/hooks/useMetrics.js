@@ -1069,6 +1069,146 @@ const allDailyData = videoResult.daily.map(d => ({
     await loadRawBatchMetrics(true, period);
   }, [loadRawBatchMetrics, period]);
 
+  /**
+   * НОВАЯ ФУНКЦИЯ: Загрузка метрик только для одного креатива
+   */
+  const loadMetricsForSingleCreative = useCallback(async (creative) => {
+    if (!creative || !creative.link_titles || creative.link_titles.length === 0) {
+      console.warn('⚠️ loadMetricsForSingleCreative: нет видео для загрузки');
+      return;
+    }
+
+    console.log(`🎯 Загрузка метрик ТОЛЬКО для креатива: ${creative.article}`);
+    setLoading(true);
+    setError('');
+
+    try {
+      // Собираем названия видео только этого креатива
+      const videoNames = creative.link_titles.filter(title => 
+        title && !title.startsWith('Видео ')
+      );
+
+      if (videoNames.length === 0) {
+        console.log('⚠️ Нет валидных названий видео');
+        setLoading(false);
+        return;
+      }
+
+      console.log(`📊 Загружаем метрики для ${videoNames.length} видео креатива ${creative.article}`);
+
+      // Загружаем метрики через батчевый API
+      const batchResult = await MetricsService.getBatchVideoMetrics(videoNames, {
+        kind: 'daily_first4_total',
+        useCache: false, // Не используем кэш, так как это новый креатив
+        useLike: false
+      });
+
+      if (!batchResult.success || !batchResult.results || batchResult.results.length === 0) {
+        console.log('⚠️ Не удалось загрузить метрики для нового креатива');
+        setLoading(false);
+        return;
+      }
+
+      console.log(`✅ Получены метрики для ${batchResult.results.length} видео`);
+
+      // Обновляем rawBatchMetrics, добавляя только новые метрики
+      const updatedRawMetrics = new Map(rawBatchMetrics);
+
+      batchResult.results.forEach((videoResult, videoIndex) => {
+        const videoKey = `${creative.id}_${videoIndex}`;
+
+        if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
+          // Преобразуем к формату rawMetrics
+          const allDailyData = videoResult.daily.map(d => ({
+            date: d.date,
+            leads: d.leads,
+            cost: d.cost,
+            clicks: d.clicks,
+            impressions: d.impressions,
+            avg_duration: d.avg_duration,
+            cost_from_sources: d.cost_from_sources || 0,
+            clicks_on_link: d.clicks_on_link || 0
+          }));
+
+          const aggregates = MetricsService.aggregateDailyData(allDailyData);
+          const metrics = MetricsService.computeDerivedMetrics(aggregates);
+          const formatted = MetricsService.formatMetrics(metrics);
+
+          updatedRawMetrics.set(videoKey, {
+            found: true,
+            data: {
+              raw: metrics,
+              formatted: formatted,
+              allDailyData: allDailyData,
+              dailyData: allDailyData,
+              videoName: creative.link_titles[videoIndex],
+              period: 'all',
+              updatedAt: new Date().toISOString()
+            },
+            error: null,
+            videoName: creative.link_titles[videoIndex],
+            creativeId: creative.id,
+            videoIndex: videoIndex,
+            fromCache: false,
+            noData: false
+          });
+        } else {
+          // Метрики не найдены
+          updatedRawMetrics.set(videoKey, {
+            found: false,
+            data: null,
+            error: 'Нет данных',
+            videoName: creative.link_titles[videoIndex],
+            creativeId: creative.id,
+            videoIndex: videoIndex,
+            noData: true
+          });
+        }
+      });
+
+      // Обновляем состояние с новыми метриками
+      setRawBatchMetrics(updatedRawMetrics);
+
+      // Сохраняем в кэш Supabase
+      const metricsToSave = [];
+      batchResult.results.forEach((videoResult, videoIndex) => {
+        if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
+          const videoKey = `${creative.id}_${videoIndex}`;
+          const metric = updatedRawMetrics.get(videoKey);
+          
+          if (metric && metric.data) {
+            metricsToSave.push({
+              creativeId: creative.id,
+              article: creative.article,
+              videoIndex: videoIndex,
+              videoTitle: creative.link_titles[videoIndex],
+              metricsData: metric.data,
+              period: 'all',
+              hasData: true
+            });
+          }
+        }
+      });
+
+      if (metricsToSave.length > 0) {
+        await metricsAnalyticsService.saveBatchMetricsCache(metricsToSave);
+        console.log(`💾 Сохранено ${metricsToSave.length} метрик нового креатива в кэш`);
+      }
+
+      // Обновляем время последнего обновления
+      await metricsAnalyticsService.updateMetricsLastUpdate();
+      setLastUpdated(new Date());
+
+      console.log(`✅ Метрики для креатива ${creative.article} успешно загружены`);
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки метрик для одного креатива:', error);
+      setError(`Ошибка загрузки метрик: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [rawBatchMetrics]);
+
   return {
     batchMetrics: filteredBatchMetrics,
     rawBatchMetrics,
@@ -1078,6 +1218,7 @@ const allDailyData = videoResult.daily.map(d => ({
     lastUpdated,
     refresh,
     loadFromCache: () => loadRawBatchMetrics(false),
+    loadMetricsForSingleCreative, // 🆕 НОВАЯ ФУНКЦИЯ
     getVideoMetrics,
     getCreativeMetrics,
     hasVideoMetrics,
