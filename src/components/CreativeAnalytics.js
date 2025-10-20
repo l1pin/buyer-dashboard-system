@@ -1340,6 +1340,58 @@ function CreativeAnalytics({ user }) {
         async (payload) => {
           console.log('🆕 Новый креатив создан:', payload.new.article);
           
+          // 🚀 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В АНАЛИТИКУ В РЕАЛЬНОМ ВРЕМЕНИ
+          setAnalytics(prevAnalytics => {
+            const newCreative = {
+              ...payload.new,
+              // Добавляем имя редактора из пользователей
+              editor_name: prevAnalytics.editors.find(e => e.id === payload.new.user_id)?.name || 'Неизвестен'
+            };
+            
+            // Добавляем в начало массива
+            const updatedCreatives = [newCreative, ...prevAnalytics.creatives];
+            
+            // Пересчитываем статистику
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            const todayCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= todayStart);
+            const weekCreatives = updatedCreatives.filter(c => new Date(c.created_at) >= weekStart);
+
+            const calculateCreativeCOF = (creative) => {
+              if (typeof creative.cof_rating === 'number') {
+                return creative.cof_rating;
+              }
+              return calculateCOF(creative.work_types || []);
+            };
+
+            const totalCOF = updatedCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+            const todayCOF = todayCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+            const weekCOF = weekCreatives.reduce((sum, c) => sum + calculateCreativeCOF(c), 0);
+            const avgCOF = updatedCreatives.length > 0 ? totalCOF / updatedCreatives.length : 0;
+
+            const creativesWithComments = updatedCreatives.filter(c => c.comment && c.comment.trim()).length;
+
+            return {
+              ...prevAnalytics,
+              creatives: updatedCreatives,
+              stats: {
+                ...prevAnalytics.stats,
+                totalCreatives: updatedCreatives.length,
+                todayCreatives: todayCreatives.length,
+                weekCreatives: weekCreatives.length,
+                totalCOF: totalCOF,
+                avgCOF: avgCOF,
+                todayCOF: todayCOF,
+                weekCOF: weekCOF,
+                creativesWithComments: creativesWithComments
+              }
+            };
+          });
+          
+          console.log('✅ Новый креатив добавлен в аналитику в режиме реального времени');
+          
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
             console.log('⏳ Ждем синхронизации Trello статуса для', payload.new.article);
