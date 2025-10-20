@@ -1034,14 +1034,8 @@ export const creativeService = {
     const creative = data[0];
     console.log('✅ Креатив создан успешно:', creative);
 
-    // 🚀 BROADCAST: Уведомляем все компоненты о новом креативе
-    try {
-      const { broadcastNewCreative } = await import('../utils/creativeBroadcast');
-      broadcastNewCreative(creative);
-    } catch (broadcastError) {
-      console.warn('⚠️ Ошибка broadcast нового креатива:', broadcastError);
-    }
-
+    // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello - ТЕПЕРЬ НЕ НУЖНА
+    // Синхронизация будет выполнена через Netlify Function на фронтенде
     console.log('✅ Креатив создан, синхронизация Trello будет выполнена на клиенте');
 
     return creative;
