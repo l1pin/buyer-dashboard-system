@@ -1034,11 +1034,9 @@ export const creativeService = {
     const creative = data[0];
     console.log('✅ Креатив создан успешно:', creative);
 
-    // 🚀 МГНОВЕННОЕ ОБНОВЛЕНИЕ: Диспатчим событие для мгновенного появления в UI
-    window.dispatchEvent(new CustomEvent('creativeCreated', { 
-      detail: { creative } 
-    }));
-    console.log('📢 Событие creativeCreated отправлено');
+    // 🚀 АВТОМАТИЧЕСКАЯ синхронизация статуса Trello - ТЕПЕРЬ НЕ НУЖНА
+    // Синхронизация будет выполнена через Netlify Function на фронтенде
+    console.log('✅ Креатив создан, синхронизация Trello будет выполнена на клиенте');
 
     return creative;
   },
@@ -1493,20 +1491,6 @@ export const trelloService = {
 
       const result = await response.json();
       console.log('✅ Результат синхронизации:', result);
-
-      // 🚀 МГНОВЕННОЕ ОБНОВЛЕНИЕ: Диспатчим событие обновления Trello статуса
-      if (result.success && result.listName) {
-        window.dispatchEvent(new CustomEvent('trelloStatusUpdated', { 
-          detail: { 
-            creativeId: creativeId,
-            listName: result.listName,
-            listId: result.listId,
-            cardId: result.cardId,
-            timestamp: new Date().toISOString()
-          } 
-        }));
-        console.log('📢 Событие trelloStatusUpdated отправлено для креатива:', creativeId);
-      }
 
       return result;
       
