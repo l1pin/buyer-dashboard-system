@@ -2179,7 +2179,7 @@ const loadCreatives = async () => {
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
-              Обновить
+              Обновить метрики
             </button>
 
             
@@ -2218,30 +2218,6 @@ const loadCreatives = async () => {
               <span className="text-sm font-medium text-gray-700">Фильтры:</span>
             </div>
 
-          <button
-              onClick={async () => {
-                if (window.confirm('Синхронизировать статусы всех креативов с Trello?\n\nЭто может занять некоторое время для креативов без статуса.')) {
-                  console.log('🔄 Ручная синхронизация всех статусов...');
-                  try {
-                    const syncedCount = await loadTrelloStatuses(true); // true = синхронизировать пропущенные
-                    if (syncedCount > 0) {
-                      alert(`Синхронизация завершена!\n\nОбновлено статусов: ${syncedCount}`);
-                    } else {
-                      alert('Синхронизация завершена!\n\nВсе статусы уже актуальны.');
-                    }
-                  } catch (error) {
-                    console.error('Ошибка синхронизации:', error);
-                    alert('Ошибка синхронизации. Проверьте консоль.');
-                  }
-                }
-              }}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
-              title="Синхронизировать все статусы Trello"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Синхронизировать Trello
-            </button>
-            
             <div className="relative">
               <button
                 onClick={() => setShowEditorDropdown(!showEditorDropdown)}
