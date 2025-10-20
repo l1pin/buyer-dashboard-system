@@ -238,7 +238,8 @@ function CreativePanel({ user }) {
     getCreativeMetrics,
     refresh: refreshMetrics,
     loadFromCache,
-    loadMetricsForSingleCreative // 🆕 НОВАЯ ФУНКЦИЯ
+    loadMetricsForSingleCreative,
+    loadingCreativeIds // 🆕 Set с ID креативов, для которых идет загрузка
   } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 
@@ -3157,7 +3158,7 @@ function CreativePanel({ user }) {
                             
                             {/* ОБНОВЛЕННЫЕ колонки метрик */}
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3191,7 +3192,7 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3225,7 +3226,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3269,7 +3270,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3313,7 +3314,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3347,7 +3348,7 @@ function CreativePanel({ user }) {
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3381,7 +3382,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3415,7 +3416,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3449,7 +3450,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
@@ -3483,7 +3484,7 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
+                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                 </div>
