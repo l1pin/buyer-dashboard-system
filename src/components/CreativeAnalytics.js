@@ -339,8 +339,7 @@ function CreativeAnalytics({ user }) {
     stats: metricsStats,
     getCreativeMetrics,
     refresh: refreshMetrics,
-    loadFromCache,
-    loadMetricsForSingleCreative
+    loadFromCache
   } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
   
   const { 
@@ -1399,6 +1398,7 @@ function CreativeAnalytics({ user }) {
           });
           
           console.log('✅ Новый креатив добавлен в аналитику в режиме реального времени');
+          console.log('⏳ Хук useBatchMetrics автоматически загрузит метрики для нового креатива...');
           
           // 💾 СОХРАНЯЕМ ОБНОВЛЕННЫЕ ДАННЫЕ В КЕШ
           if (updatedAnalyticsData) {
@@ -1412,30 +1412,6 @@ function CreativeAnalytics({ user }) {
               console.error('❌ Ошибка сохранения в кеш:', error);
             }
           }
-          
-          // 🔥 ЗАГРУЖАЕМ МЕТРИКИ И ЗОНЫ ДЛЯ НОВОГО КРЕАТИВА С ЗАДЕРЖКОЙ
-          // Задержка нужна, чтобы React успел обновить state и хуки отреагировали на изменения
-          setTimeout(async () => {
-            try {
-              console.log('🚀 Загружаем метрики для нового креатива:', payload.new.article);
-              
-              // Создаем объект креатива для загрузки метрик
-              const newCreativeForMetrics = {
-                ...payload.new,
-                editor_name: analytics.editors.find(e => e.id === payload.new.user_id)?.name || 'Неизвестен'
-              };
-              
-              // Загружаем метрики только для этого креатива
-              await loadMetricsForSingleCreative(newCreativeForMetrics);
-              
-              // Обновляем зональные данные
-              await refreshZoneData();
-              
-              console.log('✅ Метрики и зональные данные загружены для нового креатива');
-            } catch (error) {
-              console.error('❌ Ошибка загрузки метрик для нового креатива:', error);
-            }
-          }, 1000); // Задержка 1 секунда - дает время React обновить state и хукам стабилизироваться
           
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
