@@ -339,7 +339,8 @@ function CreativeAnalytics({ user }) {
     stats: metricsStats,
     getCreativeMetrics,
     refresh: refreshMetrics,
-    loadFromCache
+    loadFromCache,
+    loadMetricsForSingleCreative
   } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
   
   const { 
