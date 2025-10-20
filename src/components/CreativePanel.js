@@ -901,6 +901,19 @@ function CreativePanel({ user }) {
         async (payload) => {
           console.log('🆕 Новый креатив создан:', payload.new.article);
           
+          // 🔥 КРИТИЧНО: Добавляем новый креатив в массив для realtime обновления
+          setCreatives(prevCreatives => {
+            // Проверяем, не добавлен ли уже этот креатив
+            const exists = prevCreatives.some(c => c.id === payload.new.id);
+            if (exists) {
+              console.log('⚠️ Креатив уже существует в массиве, пропускаем');
+              return prevCreatives;
+            }
+            
+            console.log('✅ Добавляем новый креатив в массив (realtime)');
+            return [payload.new, ...prevCreatives];
+          });
+          
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
             console.log('⏳ Ждем синхронизации Trello статуса для', payload.new.article);
@@ -930,6 +943,12 @@ function CreativePanel({ user }) {
               }
             }, 2000); // Ждем 2 секунды
           }
+          
+          // 🚀 Загружаем метрики и зоны для нового креатива
+          console.log('🚀 Загружаем метрики и зоны для нового креатива (realtime)...');
+          await loadMetricsForSingleCreative(payload.new);
+          await refreshZoneData();
+          console.log('✅ Метрики и зоны загружены (realtime)');
         }
       )
       .subscribe();
