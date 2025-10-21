@@ -12,14 +12,13 @@ import {
   Check,
   Eye,
   EyeOff,
-  Monitor,
   Video,
+  Palette,
   Info,
   Edit,
   Save,
   Search,
-  FileText,
-  Palette
+  FileText
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -367,7 +366,7 @@ function UserManagement({ user }) {
       case 'editor':
         return 'Video Designer';
       case 'designer':
-        return 'Designer';
+        return 'Editor';
       case 'teamlead':
         return 'Team Lead';
       case 'search_manager':
@@ -384,7 +383,7 @@ function UserManagement({ user }) {
       case 'buyer':
         return <Users className="h-6 w-6 text-blue-600" />;
       case 'editor':
-        return <Monitor className="h-6 w-6 text-purple-600" />;
+        return <Video className="h-6 w-6 text-purple-600" />;
       case 'designer':
         return <Palette className="h-6 w-6 text-pink-600" />;
       case 'teamlead':
@@ -527,7 +526,7 @@ function UserManagement({ user }) {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Monitor className="h-8 w-8 text-purple-500" />
+                  <Video className="h-8 w-8 text-purple-500" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
@@ -552,7 +551,7 @@ function UserManagement({ user }) {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Designers
+                      Editors
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {designersCount}
@@ -914,7 +913,7 @@ function UserManagement({ user }) {
                 >
                   <option value="buyer">Media Buyer</option>
                   <option value="editor">Video Designer</option>
-                  <option value="designer">Designer</option>
+                  <option value="designer">Editor</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
                   <option value="teamlead">Team Lead</option>
@@ -922,7 +921,7 @@ function UserManagement({ user }) {
                 <p className="mt-1 text-xs text-gray-500">
                   {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {newUser.role === 'editor' && 'Доступ к управлению креативами'}
-                  {newUser.role === 'designer' && 'Доступ к дизайну и креативам'}
+                  {newUser.role === 'designer' && 'Доступ к редактированию и креативам'}
                   {newUser.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
@@ -1096,7 +1095,7 @@ function UserManagement({ user }) {
                 >
                   <option value="buyer">Media Buyer</option>
                   <option value="editor">Video Designer</option>
-                  <option value="designer">Designer</option>
+                  <option value="designer">Editor</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
                   <option value="teamlead">Team Lead</option>
@@ -1104,7 +1103,7 @@ function UserManagement({ user }) {
                 <p className="mt-1 text-xs text-gray-500">
                   {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
-                  {editUserData.role === 'designer' && 'Доступ к дизайну и креативам'}
+                  {editUserData.role === 'designer' && 'Доступ к редактированию и креативам'}
                   {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
