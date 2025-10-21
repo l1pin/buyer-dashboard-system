@@ -93,7 +93,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'editor':
         return 'Video Designer';
       case 'designer':
-        return 'Editor';
+        return 'Designer';
       case 'search_manager':
         return 'Search Manager';
       case 'content_manager':
