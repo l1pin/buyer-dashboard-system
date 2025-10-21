@@ -41,7 +41,7 @@ function Dashboard({ user, session, updateUser }) {
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
     if (role === 'editor') return 'creatives';
-    if (role === 'designer') return 'creatives';
+    if (role === 'designer') return 'settings';
     if (role === 'search_manager') return 'creatives';
     if (role === 'buyer') return 'creatives';
     if (role === 'teamlead') return 'analytics';
@@ -59,7 +59,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'users':
         return role === 'teamlead';
       case 'creatives':
-        return role === 'editor' || role === 'designer' || role === 'search_manager' || role === 'buyer';
+        return role === 'editor' || role === 'search_manager' || role === 'buyer';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -162,8 +162,6 @@ function Dashboard({ user, session, updateUser }) {
       default:
         // Определяем дефолтную секцию по роли
         if (user?.role === 'editor') {
-          return <CreativePanel user={user} />;
-        } else if (user?.role === 'designer') {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
