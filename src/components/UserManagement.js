@@ -17,7 +17,9 @@ import {
   Edit,
   Save,
   Search,
-  Code2
+  Code2,
+  Package,
+  Pencil
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -394,6 +396,10 @@ function UserManagement({ user }) {
         return 'Search Manager';
       case 'content_manager':
         return 'Content Manager';
+      case 'product_manager':
+        return 'Product Manager';
+      case 'proofreader':
+        return 'Editor';
       default:
         return 'Unknown';
     }
@@ -413,6 +419,10 @@ function UserManagement({ user }) {
         return <Search className="h-6 w-6 text-orange-600" />;
       case 'content_manager':
         return <Code2 className="h-6 w-6 text-indigo-600" />;
+      case 'product_manager':
+        return <Package className="h-6 w-6 text-amber-600" />;
+      case 'proofreader':
+        return <Pencil className="h-6 w-6 text-teal-600" />;
       default:
         return <User className="h-6 w-6 text-gray-600" />;
     }
@@ -432,6 +442,10 @@ function UserManagement({ user }) {
         return 'bg-orange-100 text-orange-800';
       case 'content_manager':
         return 'bg-indigo-100 text-indigo-800';
+      case 'product_manager':
+        return 'bg-amber-100 text-amber-800';
+      case 'proofreader':
+        return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -443,8 +457,10 @@ function UserManagement({ user }) {
     const designersCount = users.filter(u => u.role === 'designer').length;
     const searchManagersCount = users.filter(u => u.role === 'search_manager').length;
     const contentManagersCount = users.filter(u => u.role === 'content_manager').length;
+    const productManagersCount = users.filter(u => u.role === 'product_manager').length;
+    const proofreadersCount = users.filter(u => u.role === 'proofreader').length;
     const teamleadCount = users.filter(u => u.role === 'teamlead').length;
-    return { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, teamleadCount };
+    return { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, teamleadCount };
   };
 
   const clearMessages = () => {
@@ -453,7 +469,7 @@ function UserManagement({ user }) {
     setShowPassword(false);
   };
 
-  const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, teamleadCount } = getUserStats();
+  const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, teamleadCount } = getUserStats();
 
   if (loading) {
     return (
@@ -522,7 +538,7 @@ function UserManagement({ user }) {
 
       {/* Stats */}
       <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9 gap-4 mb-6">
           <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
             <div className="p-5">
               <div className="flex items-center">
@@ -616,6 +632,46 @@ function UserManagement({ user }) {
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {contentManagersCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Package className="h-8 w-8 text-amber-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Product Managers
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {productManagersCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Pencil className="h-8 w-8 text-teal-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Editors
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {proofreadersCount}
                     </dd>
                   </dl>
                 </div>
@@ -937,6 +993,8 @@ function UserManagement({ user }) {
                   <option value="designer">Designer</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
+                  <option value="product_manager">Product Manager</option>
+                  <option value="proofreader">Editor</option>
                   <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
@@ -945,6 +1003,8 @@ function UserManagement({ user }) {
                   {newUser.role === 'designer' && 'Доступ к дизайну и креативам'}
                   {newUser.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
+                  {newUser.role === 'product_manager' && 'Доступ к управлению продуктами'}
+                  {newUser.role === 'proofreader' && 'Доступ к редактированию контента'}
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
@@ -1119,6 +1179,8 @@ function UserManagement({ user }) {
                   <option value="designer">Designer</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
+                  <option value="product_manager">Product Manager</option>
+                  <option value="proofreader">Editor</option>
                   <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
@@ -1127,6 +1189,8 @@ function UserManagement({ user }) {
                   {editUserData.role === 'designer' && 'Доступ к дизайну и креативам'}
                   {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
+                  {editUserData.role === 'product_manager' && 'Доступ к управлению продуктами'}
+                  {editUserData.role === 'proofreader' && 'Доступ к редактированию контента'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
