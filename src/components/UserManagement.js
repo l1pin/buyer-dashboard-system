@@ -5,7 +5,6 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
-  Users,
   Shield,
   User,
   X,
@@ -18,7 +17,8 @@ import {
   Edit,
   Save,
   Search,
-  FileText
+  Code2,
+  Radio
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -381,7 +381,7 @@ function UserManagement({ user }) {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'buyer':
-        return <Users className="h-6 w-6 text-blue-600" />;
+        return <Radio className="h-6 w-6 text-blue-600" />;
       case 'editor':
         return <Video className="h-6 w-6 text-purple-600" />;
       case 'designer':
@@ -391,7 +391,7 @@ function UserManagement({ user }) {
       case 'search_manager':
         return <Search className="h-6 w-6 text-orange-600" />;
       case 'content_manager':
-        return <FileText className="h-6 w-6 text-indigo-600" />;
+        return <Code2 className="h-6 w-6 text-indigo-600" />;
       default:
         return <User className="h-6 w-6 text-gray-600" />;
     }
@@ -506,7 +506,7 @@ function UserManagement({ user }) {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Users className="h-8 w-8 text-blue-500" />
+                  <Radio className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
@@ -586,7 +586,7 @@ function UserManagement({ user }) {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <FileText className="h-8 w-8 text-indigo-500" />
+                  <Code2 className="h-8 w-8 text-indigo-500" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
