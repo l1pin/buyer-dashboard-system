@@ -1,8 +1,8 @@
-// LandingPanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
-// Замените содержимое src/components/LandingPanel.js
+// LandingPanel.js - Управление лендингами
+// Компонент для Content Manager
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
   formatFileName, 
@@ -52,21 +52,21 @@ import {
   Filter
 } from 'lucide-react';
 
-function CreativePanel({ user }) {
-  const [creatives, setCreatives] = useState([]);
+function LandingPanel({ user }) {
+  const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingCreative, setEditingCreative] = useState(null);
+  const [editingLanding, setEditingLanding] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
+  const [landingsWithHistory, setLandingsWithHistory] = useState(new Set());
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
@@ -76,7 +76,7 @@ function CreativePanel({ user }) {
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
-  const [syncingCreatives, setSyncingCreatives] = useState(new Set()); // Отслеживание синхронизирующихся креативов
+  const [syncingLandings, setSyncingLandings] = useState(new Set()); // Отслеживание синхронизирующихся лендингов
   
   // Новая система фильтрации по периоду (как в CreativeAnalytics)
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
@@ -101,50 +101,51 @@ function CreativePanel({ user }) {
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
   
-  const [newCreative, setNewCreative] = useState({
+  const [newLanding, setNewLanding] = useState({
     article: '',
-    links: [''],
-    work_types: [],
-    link_titles: [],
+    template: '',
+    tags: [],
     comment: '',
     is_poland: false,
     trello_link: '',
+    designer_id: null,
     buyer_id: null,
     searcher_id: null
   });
 
-  const [editCreative, setEditCreative] = useState({
+  const [editLanding, setEditLanding] = useState({
     article: '',
-    links: [''],
-    work_types: [],
-    link_titles: [],
+    template: '',
+    tags: [],
     comment: '',
     is_poland: false,
     trello_link: '',
+    designer_id: null,
     buyer_id: null,
     searcher_id: null
   });
 
-  const [extractingTitles, setExtractingTitles] = useState(false);
+  const [designers, setDesigners] = useState([]);
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showDesignerDropdown, setShowDesignerDropdown] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Используем useMemo для оптимизации фильтрации креативов
-  const filteredCreatives = useMemo(() => {
-    let creativesToFilter = creatives;
+  // Используем useMemo для оптимизации фильтрации лендингов
+  const filteredLandings = useMemo(() => {
+    let landingsToFilter = landings;
     
     // Фильтрация по байеру
     if (selectedBuyer !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+      landingsToFilter = landingsToFilter.filter(l => l.buyer_id === selectedBuyer);
     }
     
     // Фильтрация по серчеру
     if (selectedSearcher !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
+      landingsToFilter = landingsToFilter.filter(l => l.searcher_id === selectedSearcher);
     }
     
     const now = new Date();
@@ -181,33 +182,33 @@ function CreativePanel({ user }) {
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
     if (selectedPeriod === 'today') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+      landingsToFilter = landingsToFilter.filter(l => {
+        const createdDate = new Date(l.created_at);
         return createdDate >= todayStart && createdDate <= todayEnd;
       });
     } else if (selectedPeriod === 'yesterday') {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
       });
     } else if (selectedPeriod === 'this_week') {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
       });
     } else if (selectedPeriod === 'last_7_days') {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= last7DaysStart && createdDate <= todayEnd;
       });
     } else if (selectedPeriod === 'this_month') {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
       });
     } else if (selectedPeriod === 'last_month') {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
       });
     } else if (selectedPeriod === 'custom' && customDateFrom && customDateTo) {
@@ -217,14 +218,14 @@ function CreativePanel({ user }) {
       customTo.setHours(23, 59, 59);
       
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
+        const createdDate = new Date(l.created_at);
         return createdDate >= customFrom && createdDate <= customTo;
       });
     }
     // Если selectedPeriod === 'all', то не фильтруем по дате
     
-    return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+    return landingsToFilter;
+  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -239,16 +240,16 @@ function CreativePanel({ user }) {
     refresh: refreshMetrics,
     loadFromCache,
     loadMetricsForSingleCreative,
-    loadingCreativeIds // 🆕 Set с ID креативов, для которых идет загрузка
-  } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
+    loadingCreativeIds // 🆕 Set с ID лендингов, для которых идет загрузка
+  } = useBatchMetrics(filteredLandings, true, metricsPeriod);
 
   const { 
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData 
-  } = useMetricsStats(filteredCreatives, batchMetrics);
+  } = useMetricsStats(filteredLandings, batchMetrics);
 
-  // Хук для зональных данных - используем отфильтрованные креативы
+  // Хук для зональных данных - используем отфильтрованные лендинги
   const {
     zoneDataMap,
     loading: zoneDataLoading,
@@ -259,65 +260,29 @@ function CreativePanel({ user }) {
     getCurrentZone,
     getZonePricesString,
     refresh: refreshZoneData
-  } = useZoneData(filteredCreatives, true);
+  } = useZoneData(filteredLandings, true);
 
-  const workTypes = [
-    'Монтаж _Video',
-    'Upscale_Video', 
-    'Ресайз 1',
-    'Озвучка',
-    'Субтитры',
-    'Ресайз 2',
-    'Написання_Sub',
-    'Video_Avarat',
-    'Монтаж > 21s',
-    'Правки_video',
-    'Превьюшка',
-    'Статика 1',
-    'Статика 2', 
-    'Статика 3',
-    'Статика 4',
-    'Ресайз St 1',
-    'Ресайз St 2',
-    'Ресайз St 3', 
-    'Ресайз St 4',
-    'Правки Статика',
-    'Доп. 0,2',
-    'Доп. 0,4',
-    'Доп. 0,6',
-    'Доп. 0,8',
-    'Доп. 1',
-    'Доп. 2'
+  // Шаблоны лендингов
+  const templates = [
+    'Шаблон 1',
+    'Шаблон 2',
+    'Шаблон 3',
+    'Шаблон 4',
+    'Шаблон 5'
   ];
 
-  const workTypeValues = {
-    'Монтаж _Video': 1,
-    'Монтаж > 21s': 0.4,
-    'Upscale_Video': 0.2,
-    'Ресайз 1': 0.4,
-    'Озвучка': 0.2,
-    'Субтитры': 0.2,
-    'Ресайз 2': 0.4,
-    'Написання_Sub': 0.2,
-    'Video_Avarat': 0.4,
-    'Правки_video': 0.2,
-    'Превьюшка': 0.2,
-    'Статика 1': 1,
-    'Статика 2': 1,
-    'Статика 3': 1,
-    'Статика 4': 1,
-    'Ресайз St 1': 0.2,
-    'Ресайз St 2': 0.2,
-    'Ресайз St 3': 0.2,
-    'Ресайз St 4': 0.2,
-    'Правки Статика': 0.2,
-    'Доп. 0,2': 0.2,
-    'Доп. 0,4': 0.4,
-    'Доп. 0,6': 0.6,
-    'Доп. 0,8': 0.8,
-    'Доп. 1': 1,
-    'Доп. 2': 2
-  };
+  // Теги лендингов
+  const availableTags = [
+    'Промо',
+    'Продажи',
+    'Подписка',
+    'Регистрация',
+    'Инфо',
+    'Событие',
+    'А/Б тест',
+    'Мобильный',
+    'Десктоп'
+  ];
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -697,56 +662,38 @@ function CreativePanel({ user }) {
     );
   };
 
-  const calculateCOF = (workTypes) => {
-    if (!workTypes || !Array.isArray(workTypes)) return 0;
-    return workTypes.reduce((total, workType) => {
-      const value = workTypeValues[workType] || 0;
-      return total + value;
-    }, 0);
-  };
-
-  const formatCOF = (cof) => {
-    return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
-  };
-
-  // ИЗМЕНЕН: COF теперь нейтральные цвета
-  const getCOFBadgeColor = (cof) => {
-    return 'bg-gray-100 text-gray-800 border-gray-300';
-  };
-
-  const getCOFStats = (creativesData) => {
-    const totalCOF = creativesData.reduce((sum, creative) => {
-      return sum + calculateCOF(creative.work_types);
-    }, 0);
-
-    const avgCOF = creativesData.length > 0 ? totalCOF / creativesData.length : 0;
+  const getTagsStats = (landingsData) => {
+    const tagCount = {};
     
-    return {
-      totalCOF: totalCOF,
-      avgCOF: avgCOF,
-      maxCOF: Math.max(...creativesData.map(c => calculateCOF(c.work_types)), 0),
-      minCOF: creativesData.length > 0 ? Math.min(...creativesData.map(c => calculateCOF(c.work_types))) : 0
-    };
+    landingsData.forEach(landing => {
+      if (landing.tags && Array.isArray(landing.tags)) {
+        landing.tags.forEach(tag => {
+          tagCount[tag] = (tagCount[tag] || 0) + 1;
+        });
+      }
+    });
+    
+    return tagCount;
   };
 
   // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
-  const getCountryStats = (creativesData) => {
-    const ukraineCount = creativesData.filter(c => !c.is_poland).length;
-    const polandCount = creativesData.filter(c => c.is_poland).length;
+  const getCountryStats = (landingsData) => {
+    const ukraineCount = landingsData.filter(l => !l.is_poland).length;
+    const polandCount = landingsData.filter(l => l.is_poland).length;
     return { ukraineCount, polandCount };
   };
 
-  const getZoneStats = (creativesData) => {
+  const getZoneStats = (landingsData) => {
     const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
     
-    creativesData.forEach(creative => {
-      const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+    landingsData.forEach(landing => {
+      const aggregatedMetrics = getAggregatedCreativeMetrics(landing);
       if (aggregatedMetrics?.found && aggregatedMetrics.data) {
         const cplString = aggregatedMetrics.data.formatted.cpl;
         const cplValue = parseFloat(cplString.replace('$', ''));
         
         if (!isNaN(cplValue)) {
-          const currentZone = getCurrentZoneByMetrics(creative.article, cplValue);
+          const currentZone = getCurrentZoneByMetrics(landing.article, cplValue);
           if (currentZone) {
             zoneCount[currentZone.zone]++;
           }
@@ -885,21 +832,21 @@ function CreativePanel({ user }) {
 
   useEffect(() => {
     loadUsers();
-    loadCreatives();
+    loadLandings();
     loadLastUpdateTime();
     
-    // Подписка на создание новых креативов
-    const creativesSubscription = supabase
-      .channel('creatives_changes')
+    // Подписка на создание новых лендингов
+    const landingsSubscription = supabase
+      .channel('landings_changes')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'creatives'
+          table: 'landings'
         },
         async (payload) => {
-          console.log('🆕 Новый креатив создан:', payload.new.article);
+          console.log('🆕 Новый лендинг создан:', payload.new.article);
           
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
           if (payload.new.trello_link) {
@@ -957,22 +904,22 @@ function CreativePanel({ user }) {
     });
     
     return () => {
-      creativesSubscription.unsubscribe();
+      landingsSubscription.unsubscribe();
       trelloSubscription.unsubscribe();
     };
   }, []);
 
-  // Отдельный useEffect для загрузки Trello статусов ПОСЛЕ загрузки креативов
+  // Отдельный useEffect для загрузки Trello статусов ПОСЛЕ загрузки лендингов
   useEffect(() => {
-    console.log('🔵 useEffect для Trello, creatives:', creatives?.length);
+    console.log('🔵 useEffect для Trello, landings:', landings?.length);
     
-    if (creatives && creatives.length > 0) {
+    if (landings && landings.length > 0) {
       console.log('🟢 Запускаем loadTrelloStatuses с автосинхронизацией...');
       loadTrelloStatuses(true); // true = автоматически синхронизировать пропущенные
     } else {
-      console.log('⚠️ creatives пуст, ждем...');
+      console.log('⚠️ landings пуст, ждем...');
     }
-  }, [creatives]);
+  }, [landings]);
 
   const loadLastUpdateTime = async () => {
     try {
@@ -988,20 +935,20 @@ function CreativePanel({ user }) {
   const loadTrelloStatuses = async () => {
     try {
       console.log('🟢 loadTrelloStatuses СТАРТ');
-      console.log('📊 creatives:', creatives?.length || 0);
+      console.log('📊 landings:', landings?.length || 0);
       
       // Получаем списки
       const lists = await trelloService.getAllLists();
       setTrelloLists(lists);
       console.log(`✅ Загружено ${lists.length} списков Trello`);
       
-      // Получаем статусы для ВСЕХ креативов
-      const creativeIds = creatives.map(c => c.id);
-      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов`);
+      // Получаем статусы для ВСЕХ лендингов
+      const landingIds = landings.map(l => l.id);
+      console.log(`🔍 Запрос статусов для ${landingIds.length} лендингов`);
       console.log('🆔 Первые 3 ID:', creativeIds.slice(0, 3));
       
-      if (creativeIds.length > 0) {
-        const statusMap = await trelloService.getBatchCardStatuses(creativeIds);
+      if (landingIds.length > 0) {
+        const statusMap = await trelloService.getBatchCardStatuses(landingIds);
         
         console.log('🟡 ПЕРЕД setTrelloStatuses, размер Map:', statusMap.size);
         
@@ -1016,7 +963,7 @@ function CreativePanel({ user }) {
           console.log('📦 Первая пара [ID, статус]:', firstEntry);
         }
       } else {
-        console.warn('⚠️ НЕТ креативов для загрузки статусов!');
+        console.warn('⚠️ НЕТ лендингов для загрузки статусов!');
       }
       
       console.log('🏁 loadTrelloStatuses ЗАВЕРШЕН');
@@ -1026,44 +973,44 @@ function CreativePanel({ user }) {
     }
   };
 
-  // Синхронизация только креативов без статуса
+  // Синхронизация только лендингов без статуса
   const syncMissingTrelloStatuses = async () => {
     try {
-      console.log('🔄 Синхронизация креативов без статуса...');
+      console.log('🔄 Синхронизация лендингов без статуса...');
       
-      // Находим креативы с trello_link, но без статуса (статус "—")
-      const creativesWithoutStatus = filteredCreatives.filter(creative => {
-        const hasLink = !!creative.trello_link;
-        const status = getTrelloListName(creative.id);
+      // Находим лендинги с trello_link, но без статуса (статус "—")
+      const landingsWithoutStatus = filteredLandings.filter(landing => {
+        const hasLink = !!landing.trello_link;
+        const status = getTrelloListName(landing.id);
         const hasStatus = status && status !== '—';
         return hasLink && !hasStatus;
       });
       
-      if (creativesWithoutStatus.length === 0) {
-        console.log('✅ Все креативы уже имеют статусы');
-        setSuccess('Все креативы уже синхронизированы');
+      if (landingsWithoutStatus.length === 0) {
+        console.log('✅ Все лендинги уже имеют статусы');
+        setSuccess('Все лендинги уже синхронизированы');
         setTimeout(() => setSuccess(''), 3000);
         return;
       }
       
-      console.log(`⚠️ Найдено ${creativesWithoutStatus.length} креативов без статуса`);
-      console.log('📋 Артикулы:', creativesWithoutStatus.map(c => c.article).join(', '));
+      console.log(`⚠️ Найдено ${landingsWithoutStatus.length} лендингов без статуса`);
+      console.log('📋 Артикулы:', landingsWithoutStatus.map(l => l.article).join(', '));
       
-      // Помечаем креативы как синхронизирующиеся
-      const syncingIds = new Set(creativesWithoutStatus.map(c => c.id));
-      setSyncingCreatives(syncingIds);
+      // Помечаем лендинги как синхронизирующиеся
+      const syncingIds = new Set(landingsWithoutStatus.map(l => l.id));
+      setSyncingLandings(syncingIds);
       
-      // Синхронизируем каждый креатив
+      // Синхронизируем каждый лендинг
       let successCount = 0;
       let errorCount = 0;
       
-      for (const creative of creativesWithoutStatus) {
+      for (const landing of landingsWithoutStatus) {
         try {
-          console.log(`🔄 Синхронизация ${creative.article}...`);
+          console.log(`🔄 Синхронизация ${landing.article}...`);
           
           const result = await trelloService.syncSingleCreative(
-            creative.id,
-            creative.trello_link
+            landing.id,
+            landing.trello_link
           );
           
           if (result.success) {
@@ -1072,8 +1019,8 @@ function CreativePanel({ user }) {
             // Обновляем статус в локальном состоянии сразу
             setTrelloStatuses(prev => {
               const updated = new Map(prev);
-              updated.set(creative.id, {
-                creative_id: creative.id,
+              updated.set(landing.id, {
+                creative_id: landing.id,
                 list_name: result.listName,
                 list_id: result.listId,
                 trello_card_id: result.cardId,
@@ -1085,7 +1032,7 @@ function CreativePanel({ user }) {
             successCount++;
           }
         } catch (error) {
-          console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
+          console.error(`❌ Ошибка синхронизации ${landing.article}:`, error.message);
           errorCount++;
         }
         
@@ -1094,7 +1041,7 @@ function CreativePanel({ user }) {
       }
       
       // Убираем спиннеры
-      setSyncingCreatives(new Set());
+      setSyncingLandings(new Set());
       
       // Показываем результат
       if (successCount > 0 || errorCount > 0) {
@@ -1106,29 +1053,29 @@ function CreativePanel({ user }) {
       
     } catch (error) {
       console.error('❌ Ошибка синхронизации:', error);
-      setSyncingCreatives(new Set());
+      setSyncingLandings(new Set());
       setError(`Ошибка синхронизации: ${error.message}`);
       setTimeout(() => setError(''), 5000);
     }
   };
 
-  // Получить название списка для креатива
-  const getTrelloListName = (creativeId) => {
-    // Временное логирование для первого креатива
+  // Получить название списка для лендинга
+  const getTrelloListName = (landingId) => {
+    // Временное логирование для первого лендинга
     const isFirstCall = !window.__trelloDebugCalled;
     if (isFirstCall) {
       window.__trelloDebugCalled = true;
       console.log('🔴 getTrelloListName ПЕРВЫЙ ВЫЗОВ');
       console.log('📊 trelloStatuses.size:', trelloStatuses.size);
-      console.log('🆔 Ищем creativeId:', creativeId);
+      console.log('🆔 Ищем landingId:', landingId);
       console.log('🗺️ Все ключи Map:', Array.from(trelloStatuses.keys()));
     }
     
-    const status = trelloStatuses.get(creativeId);
+    const status = trelloStatuses.get(landingId);
     
     if (!status) {
       if (isFirstCall) {
-        console.log('❌ Статус НЕ НАЙДЕН для', creativeId);
+        console.log('❌ Статус НЕ НАЙДЕН для', landingId);
       }
       return '—';
     }
@@ -1140,30 +1087,30 @@ function CreativePanel({ user }) {
     return status.list_name || '—';
   };
 
-  const loadCreatives = async () => {
+  const loadLandings = async () => {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов пользователя...');
-      const data = await creativeService.getUserCreatives(user.id);
-      setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов`);
+      console.log('📡 Загрузка лендингов пользователя...');
+      const data = await landingService.getUserLandings(user.id);
+      setLandings(data);
+      console.log(`✅ Загружено ${data.length} лендингов`);
       
-      // Проверяем наличие истории для каждого креатива
-      const creativesWithHistorySet = new Set();
-      for (const creative of data) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+      // Проверяем наличие истории для каждого лендинга
+      const landingsWithHistorySet = new Set();
+      for (const landing of data) {
+        const hasHistory = await landingHistoryService.hasHistory(landing.id);
         if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
+          landingsWithHistorySet.add(landing.id);
         }
       }
-      setCreativesWithHistory(creativesWithHistorySet);
+      setLandingsWithHistory(landingsWithHistorySet);
       
-      // Возвращаем загруженные креативы для дальнейшего использования
+      // Возвращаем загруженные лендинги для дальнейшего использования
       return data;
     } catch (error) {
-      console.error('❌ Ошибка загрузки креативов:', error);
-      setError('Ошибка загрузки креативов: ' + error.message);
+      console.error('❌ Ошибка загрузки лендингов:', error);
+      setError('Ошибка загрузки лендингов: ' + error.message);
       return [];
     } finally {
       setLoading(false);
@@ -1175,14 +1122,16 @@ function CreativePanel({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
       
-      const [buyersData, searchersData] = await Promise.all([
+      const [designersData, buyersData, searchersData] = await Promise.all([
+        userService.getUsersByRole('designer'),
         userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager')
       ]);
       
+      setDesigners(designersData);
       setBuyers(buyersData);
       setSearchers(searchersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
+      console.log(`✅ Загружено ${designersData.length} дизайнеров, ${buyersData.length} байеров и ${searchersData.length} серчеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1190,82 +1139,42 @@ function CreativePanel({ user }) {
     }
   };
 
-  const validateGoogleDriveLinks = (links) => {
-    const validLinks = links.filter(link => link.trim() !== '');
-    const invalidLinks = [];
-
-    for (const link of validLinks) {
-      const trimmedLink = link.trim();
-      if (!trimmedLink.startsWith('https://drive.google.com/file/d/') && 
-          !trimmedLink.startsWith('drive.google.com/file/d/')) {
-        invalidLinks.push(link);
-      }
-    }
-
-    return { validLinks, invalidLinks };
-  };
-
-  const handleCreateCreative = async () => {
+  const handleCreateLanding = async () => {
     if (!validateFields()) {
       return;
     }
-
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
-    const trimmedTrelloLink = newCreative.trello_link.trim();
 
     try {
       setCreating(true);
       setError('');
       setSuccess('');
 
-      setAuthorizing(true);
-      const authSuccess = await ensureGoogleAuth();
-      setAuthorizing(false);
+      // Получаем имена пользователей по их ID
+      const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
+      const buyerName = newLanding.buyer_id ? getBuyerName(newLanding.buyer_id) : null;
+      const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
 
-      if (!authSuccess) {
-        setError('Необходима авторизация Google для извлечения названий файлов');
-        setCreating(false);
-        return;
-      }
-
-      setExtractingTitles(true);
-      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      setExtractingTitles(false);
-
-      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
-        setCreating(false);
-        return;
-      }
-
-      const cofRating = calculateCOF(newCreative.work_types);
-
-      // Получаем имена байера и серчера по их ID
-      const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
-      const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
-
-      const newCreativeData = await creativeService.createCreative({
+      const newLandingData = await landingService.createLanding({
         user_id: user.id,
-        editor_name: user.name,
-        article: newCreative.article.trim(),
-        links: links,
-        link_titles: titles,
-        work_types: newCreative.work_types,
-        cof_rating: cofRating,
-        comment: newCreative.comment.trim() || null,
-        is_poland: newCreative.is_poland,
-        trello_link: newCreative.trello_link.trim(),
-        buyer_id: newCreative.buyer_id,
-        searcher_id: newCreative.searcher_id,
+        content_manager_name: user.name,
+        article: newLanding.article.trim(),
+        template: newLanding.template,
+        tags: newLanding.tags,
+        comment: newLanding.comment.trim() || null,
+        is_poland: newLanding.is_poland,
+        trello_link: newLanding.trello_link.trim(),
+        designer_id: newLanding.designer_id,
+        buyer_id: newLanding.buyer_id,
+        searcher_id: newLanding.searcher_id,
+        designer: designerName !== '—' ? designerName : null,
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null
       });
 
-      console.log('✅ Креатив создан в БД:', newCreativeData);
+      console.log('✅ Лендинг создан в БД:', newLandingData);
 
       // 🆕 СИНХРОНИЗАЦИЯ TRELLO ЧЕРЕЗ NETLIFY FUNCTION
-      if (newCreativeData.trello_link) {
+      if (newLandingData.trello_link) {
         console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
         try {
           const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
@@ -1274,8 +1183,8 @@ function CreativePanel({ user }) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              creativeId: newCreativeData.id,
-              trelloLink: newCreativeData.trello_link
+              creativeId: newLandingData.id,
+              trelloLink: newLandingData.trello_link
             })
           });
 
@@ -1286,8 +1195,8 @@ function CreativePanel({ user }) {
             // Добавляем статус в локальное состояние сразу
             setTrelloStatuses(prev => {
               const updated = new Map(prev);
-              updated.set(newCreativeData.id, {
-                creative_id: newCreativeData.id,
+              updated.set(newLandingData.id, {
+                creative_id: newLandingData.id,
                 list_name: syncResult.listName,
                 list_id: syncResult.listId,
                 trello_card_id: syncResult.cardId,
@@ -1304,243 +1213,186 @@ function CreativePanel({ user }) {
         }
       }
 
-      // 🎯 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В СУЩЕСТВУЮЩИЙ МАССИВ (БЕЗ ПЕРЕЗАГРУЗКИ ВСЕХ)
-      console.log('➕ Добавляем новый креатив в таблицу БЕЗ перезагрузки всех креативов');
-      setCreatives(prevCreatives => [newCreativeData, ...prevCreatives]);
+      // 🎯 ДОБАВЛЯЕМ НОВЫЙ ЛЕНДИНГ В СУЩЕСТВУЮЩИЙ МАССИВ (БЕЗ ПЕРЕЗАГРУЗКИ ВСЕХ)
+      console.log('➕ Добавляем новый лендинг в таблицу БЕЗ перезагрузки всех лендингов');
+      setLandings(prevLandings => [newLandingData, ...prevLandings]);
 
       // Очищаем форму и закрываем модалку
-      setNewCreative({
+      setNewLanding({
         article: '',
-        links: [''],
-        work_types: [],
-        link_titles: [],
+        template: '',
+        tags: [],
         comment: '',
         is_poland: false,
         trello_link: '',
+        designer_id: null,
         buyer_id: null,
         searcher_id: null
       });
       setShowCreateModal(false);
 
-      // 🔥 ЗАГРУЗКА МЕТРИК И ЗОН ТОЛЬКО ДЛЯ НОВОГО КРЕАТИВА
-      console.log('🚀 Загружаем метрики и зоны ТОЛЬКО для нового креатива...');
-      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
+      // 🔥 ЗАГРУЗКА МЕТРИК И ЗОН ТОЛЬКО ДЛЯ НОВОГО ЛЕНДИНГА
+      console.log('🚀 Загружаем метрики и зоны ТОЛЬКО для нового лендинга...');
+      setSuccess(`Лендинг создан! Загружаем метрики и зональные данные...`);
       
-      // Загружаем метрики только для этого креатива
-      await loadMetricsForSingleCreative(newCreativeData);
-      console.log('✅ Метрики загружены только для нового креатива');
+      // Загружаем метрики только для этого лендинга
+      await loadMetricsForSingleCreative(newLandingData);
+      console.log('✅ Метрики загружены только для нового лендинга');
       
-      // Загружаем зональные данные только для этого креатива
+      // Загружаем зональные данные только для этого лендинга
       await refreshZoneData();
       console.log('✅ Зональные данные обновлены');
       
-      const successCount = extractedTitles.length;
-      const totalCount = titles.length;
-      const cof = calculateCOF(newCreative.work_types);
-      const country = newCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики загружены`);
+      const country = newLanding.is_poland ? 'PL' : 'UA';
+      const tagsCount = newLanding.tags.length;
+      setSuccess(`Лендинг создан! Шаблон: ${newLanding.template} | Страна: ${country} | Тегов: ${tagsCount} | Метрики загружены`);
       
     } catch (error) {
-      setError('Ошибка создания креатива: ' + error.message);
-      setExtractingTitles(false);
-      setAuthorizing(false);
+      setError('Ошибка создания лендинга: ' + error.message);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleEditCreative = (creative) => {
-    console.log('✏️ Открытие редактирования креатива:', creative.article);
+  const handleEditLanding = (landing) => {
+    console.log('✏️ Открытие редактирования лендинга:', landing.article);
     
-    setEditingCreative(creative);
-    setEditCreative({
-      article: creative.article,
-      links: creative.links || [''],
-      work_types: creative.work_types || [],
-      link_titles: creative.link_titles || [],
-      comment: creative.comment || '',
-      is_poland: creative.is_poland || false,
-      trello_link: creative.trello_link || '',
-      buyer_id: creative.buyer_id || null,
-      searcher_id: creative.searcher_id || null
+    setEditingLanding(landing);
+    setEditLanding({
+      article: landing.article,
+      template: landing.template || '',
+      tags: landing.tags || [],
+      comment: landing.comment || '',
+      is_poland: landing.is_poland || false,
+      trello_link: landing.trello_link || '',
+      designer_id: landing.designer_id || null,
+      buyer_id: landing.buyer_id || null,
+      searcher_id: landing.searcher_id || null
     });
     setShowEditModal(true);
     clearMessages();
   };
 
-  const handleUpdateCreative = async () => {
+  const handleUpdateLanding = async () => {
     if (!validateEditFields()) {
       return;
     }
-
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
 
     try {
       setUpdating(true);
       setError('');
       setSuccess('');
 
-      setAuthorizing(true);
-      const authSuccess = await ensureGoogleAuth();
-      setAuthorizing(false);
-
-      if (!authSuccess) {
-        setError('Необходима авторизация Google для извлечения названий файлов');
-        setUpdating(false);
-        return;
-      }
-
-      setExtractingTitles(true);
-      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      setExtractingTitles(false);
-
-      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
-        setUpdating(false);
-        return;
-      }
-
-      const cofRating = calculateCOF(editCreative.work_types);
-
-      const buyerName = editCreative.buyer_id ? getBuyerName(editCreative.buyer_id) : null;
-      const searcherName = editCreative.searcher_id ? getSearcherName(editCreative.searcher_id) : null;
+      const designerName = editLanding.designer_id ? getDesignerName(editLanding.designer_id) : null;
+      const buyerName = editLanding.buyer_id ? getBuyerName(editLanding.buyer_id) : null;
+      const searcherName = editLanding.searcher_id ? getSearcherName(editLanding.searcher_id) : null;
 
       // Сохраняем старое состояние в историю ПЕРЕД обновлением
-      await creativeHistoryService.createHistoryEntry({
-        creative_id: editingCreative.id,
-        article: editingCreative.article,
-        links: editingCreative.links,
-        link_titles: editingCreative.link_titles,
-        work_types: editingCreative.work_types,
-        cof_rating: editingCreative.cof_rating,
-        comment: editingCreative.comment,
-        is_poland: editingCreative.is_poland,
-        trello_link: editingCreative.trello_link,
-        buyer_id: editingCreative.buyer_id,
-        searcher_id: editingCreative.searcher_id,
-        buyer: editingCreative.buyer,
-        searcher: editingCreative.searcher,
+      await landingHistoryService.createHistoryEntry({
+        landing_id: editingLanding.id,
+        article: editingLanding.article,
+        template: editingLanding.template,
+        tags: editingLanding.tags,
+        comment: editingLanding.comment,
+        is_poland: editingLanding.is_poland,
+        trello_link: editingLanding.trello_link,
+        designer_id: editingLanding.designer_id,
+        buyer_id: editingLanding.buyer_id,
+        searcher_id: editingLanding.searcher_id,
+        designer: editingLanding.designer,
+        buyer: editingLanding.buyer,
+        searcher: editingLanding.searcher,
         changed_by_id: user.id,
         changed_by_name: user.name,
         change_type: 'updated'
       });
 
-      await creativeService.updateCreative(editingCreative.id, {
-        links: links,
-        link_titles: titles,
-        work_types: editCreative.work_types,
-        cof_rating: cofRating,
-        comment: editCreative.comment.trim() || null,
-        is_poland: editCreative.is_poland,
-        trello_link: editCreative.trello_link.trim(),
-        buyer_id: editCreative.buyer_id,
-        searcher_id: editCreative.searcher_id,
+      await landingService.updateLanding(editingLanding.id, {
+        template: editLanding.template,
+        tags: editLanding.tags,
+        comment: editLanding.comment.trim() || null,
+        is_poland: editLanding.is_poland,
+        trello_link: editLanding.trello_link.trim(),
+        designer_id: editLanding.designer_id,
+        buyer_id: editLanding.buyer_id,
+        searcher_id: editLanding.searcher_id,
+        designer: designerName !== '—' ? designerName : null,
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null
       });
 
-      setEditCreative({
+      setEditLanding({
         article: '',
-        links: [''],
-        work_types: [],
-        link_titles: [],
+        template: '',
+        tags: [],
         comment: '',
         is_poland: false,
         trello_link: '',
+        designer_id: null,
         buyer_id: null,
         searcher_id: null
       });
-      setEditingCreative(null);
+      setEditingLanding(null);
       setShowEditModal(false);
 
-      await loadCreatives();
+      await loadLandings();
       
-      const successCount = extractedTitles.length;
-      const totalCount = titles.length;
-      const cof = calculateCOF(editCreative.work_types);
-      const country = editCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив обновлен! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
+      const country = editLanding.is_poland ? 'PL' : 'UA';
+      const tagsCount = editLanding.tags.length;
+      setSuccess(`Лендинг обновлен! Шаблон: ${editLanding.template} | Страна: ${country} | Тегов: ${tagsCount}`);
     } catch (error) {
-      setError('Ошибка обновления креатива: ' + error.message);
-      setExtractingTitles(false);
-      setAuthorizing(false);
+      setError('Ошибка обновления лендинга: ' + error.message);
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleDeleteCreative = async (creativeId, article) => {
-    if (!window.confirm(`Вы уверены, что хотите удалить креатив "${article}"?`)) {
+  const handleDeleteLanding = async (landingId, article) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить лендинг "${article}"?`)) {
       return;
     }
 
     try {
-      await creativeService.deleteCreative(creativeId);
-      await loadCreatives();
-      setSuccess('Креатив удален');
+      await landingService.deleteLanding(landingId);
+      await loadLandings();
+      setSuccess('Лендинг удален');
     } catch (error) {
-      setError('Ошибка удаления креатива: ' + error.message);
+      setError('Ошибка удаления лендинга: ' + error.message);
     }
   };
 
-  const addLinkField = () => {
-    setNewCreative({
-      ...newCreative,
-      links: [...newCreative.links, '']
-    });
-  };
-
-  const removeLinkField = (index) => {
-    const newLinks = newCreative.links.filter((_, i) => i !== index);
-    setNewCreative({
-      ...newCreative,
-      links: newLinks.length === 0 ? [''] : newLinks
-    });
-  };
-
-  const updateLink = (index, value) => {
-    const newLinks = [...newCreative.links];
-    newLinks[index] = value;
-    setNewCreative({
-      ...newCreative,
-      links: newLinks
-    });
-    clearFieldError('links');
-  };
-
-  const handleWorkTypeChange = (workType, isChecked) => {
-    let updatedWorkTypes;
+  const handleTagChange = (tag, isChecked) => {
+    let updatedTags;
     if (isChecked) {
-      updatedWorkTypes = [...newCreative.work_types, workType];
+      updatedTags = [...newLanding.tags, tag];
     } else {
-      updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
+      updatedTags = newLanding.tags.filter(t => t !== tag);
     }
     
-    setNewCreative({
-      ...newCreative,
-      work_types: updatedWorkTypes
+    setNewLanding({
+      ...newLanding,
+      tags: updatedTags
     });
-    clearFieldError('work_types');
+    clearFieldError('tags');
   };
 
-  const showComment = (creative) => {
+  const showComment = (landing) => {
     setSelectedComment({
-      article: creative.article,
-      comment: creative.comment,
-      createdAt: creative.created_at,
-      editorName: creative.editor_name
+      article: landing.article,
+      comment: landing.comment,
+      createdAt: landing.created_at,
+      editorName: landing.content_manager_name
     });
     setShowCommentModal(true);
   };
 
-  const showHistory = async (creative) => {
+  const showHistory = async (landing) => {
     setLoadingHistory(true);
     setShowHistoryModal(true);
-    setSelectedHistory(creative);
+    setSelectedHistory(landing);
     
     try {
-      const history = await creativeHistoryService.getCreativeHistory(creative.id);
+      const history = await landingHistoryService.getLandingHistory(landing.id);
       setHistoryData(history);
     } catch (error) {
       console.error('Ошибка загрузки истории:', error);
@@ -1550,22 +1402,22 @@ function CreativePanel({ user }) {
     }
   };
 
-  const toggleWorkTypes = (creativeId) => {
+  const toggleTags = (landingId) => {
     const newExpanded = new Set(expandedWorkTypes);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
+    if (newExpanded.has(landingId)) {
+      newExpanded.delete(landingId);
     } else {
-      newExpanded.add(creativeId);
+      newExpanded.add(landingId);
     }
     setExpandedWorkTypes(newExpanded);
   };
 
-  const toggleDropdown = (creativeId) => {
+  const toggleDropdown = (landingId) => {
     const newOpenDropdowns = new Set(openDropdowns);
-    if (newOpenDropdowns.has(creativeId)) {
-      newOpenDropdowns.delete(creativeId);
+    if (newOpenDropdowns.has(landingId)) {
+      newOpenDropdowns.delete(landingId);
     } else {
-      newOpenDropdowns.add(creativeId);
+      newOpenDropdowns.add(landingId);
     }
     setOpenDropdowns(newOpenDropdowns);
   };
@@ -1820,14 +1672,31 @@ function CreativePanel({ user }) {
     return searcher ? searcher.avatar_url : null;
   };
 
+  const getDesignerName = (designerId) => {
+    if (!designerId) return '—';
+    const designer = designers.find(d => d.id === designerId);
+    return designer ? designer.name : 'Удален';
+  };
+
+  const getDesignerAvatar = (designerId) => {
+    if (!designerId) return null;
+    const designer = designers.find(d => d.id === designerId);
+    return designer ? designer.avatar_url : null;
+  };
+
+  const getSelectedDesigner = () => {
+    if (!newLanding.designer_id) return null;
+    return designers.find(d => d.id === newLanding.designer_id);
+  };
+
   const getSelectedBuyer = () => {
-    if (!newCreative.buyer_id) return null;
-    return buyers.find(b => b.id === newCreative.buyer_id);
+    if (!newLanding.buyer_id) return null;
+    return buyers.find(b => b.id === newLanding.buyer_id);
   };
 
   const getSelectedSearcher = () => {
-    if (!newCreative.searcher_id) return null;
-    return searchers.find(s => s.id === newCreative.searcher_id);
+    if (!newLanding.searcher_id) return null;
+    return searchers.find(s => s.id === newLanding.searcher_id);
   };
 
   const handleRefreshAll = async () => {
@@ -1837,16 +1706,16 @@ function CreativePanel({ user }) {
     await loadLastUpdateTime();
   };
 
-  const cofStats = getCOFStats(filteredCreatives);
-  const countryStats = getCountryStats(filteredCreatives);
-  const zoneStats = getZoneStats(filteredCreatives);
+  const tagsStats = getTagsStats(filteredLandings);
+  const countryStats = getCountryStats(filteredLandings);
+  const zoneStats = getZoneStats(filteredLandings);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка креативов...</p>
+          <p className="mt-4 text-gray-600">Загрузка лендингов...</p>
         </div>
       </div>
     );
@@ -1875,7 +1744,7 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Лендинги</h1>
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name}
               </p>
@@ -2216,7 +2085,7 @@ function CreativePanel({ user }) {
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
+              Создать лендинг
             </button>
           </div>
         </div>
@@ -2428,24 +2297,24 @@ function CreativePanel({ user }) {
       </div>
 
       {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
-      {filteredCreatives.length > 0 && (
+      {filteredLandings.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
-            {/* Креативов */}
+            {/* Лендингов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Video className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        Креативов
+                        Лендингов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredCreatives.length}
+                        {filteredLandings.length}
                       </dd>
                     </dl>
                   </div>
@@ -2466,7 +2335,7 @@ function CreativePanel({ user }) {
                         С комментарием
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredCreatives.filter(c => c.comment && c.comment.trim()).length}
+                        {filteredLandings.filter(l => l.comment && l.comment.trim()).length}
                       </dd>
                     </dl>
                   </div>
@@ -2499,22 +2368,20 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            {/* Общий COF */}
+            {/* Всего тегов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">COF</span>
-                    </div>
+                    <Layers className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        Общий COF
+                        Всего тегов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {formatCOF(cofStats.totalCOF)}
+                        {Object.keys(tagsStats).length}
                       </dd>
                     </dl>
                   </div>
@@ -2522,20 +2389,22 @@ function CreativePanel({ user }) {
               </div>
             </div>
 
-            {/* Средний COF */}
+            {/* Популярный тег */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний COF
+                        Популярный тег
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {formatCOF(cofStats.avgCOF)}
+                        {Object.keys(tagsStats).length > 0 
+                          ? Object.entries(tagsStats).sort((a, b) => b[1] - a[1])[0][0] 
+                          : '—'}
                       </dd>
                     </dl>
                   </div>
@@ -2666,7 +2535,7 @@ function CreativePanel({ user }) {
                           CPL
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (filteredCreatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
+                          {hasMetricsData ? (filteredLandings.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
                           (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
                           '0.00$') : '—'}
                         </dd>
@@ -2831,7 +2700,7 @@ function CreativePanel({ user }) {
                           Ср. лидов
                         </dt>
                         <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (filteredCreatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredCreatives.length) : 0) : '—'}
+                          {hasMetricsData ? (filteredLandings.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredLandings.length) : 0) : '—'}
                         </dd>
                       </dl>
                     </div>
@@ -2845,28 +2714,28 @@ function CreativePanel({ user }) {
 
       {/* Content */}
       <div className="flex-1 p-6">
-        {filteredCreatives.length === 0 ? (
+        {filteredLandings.length === 0 ? (
           <div className="text-center py-12">
-            <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Нет креативов
+              Нет лендингов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив с Google Drive ссылками
+              Создайте свой первый лендинг
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
+              Создать лендинг
             </button>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                Полная аналитика креативов
+                Полная аналитика лендингов
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
@@ -2885,9 +2754,6 @@ function CreativePanel({ user }) {
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Видео
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Зона
@@ -2929,13 +2795,16 @@ function CreativePanel({ user }) {
                         Зоны
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        COF
+                        Теги
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Trello
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Статус
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Designer
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Buyer
@@ -2946,30 +2815,26 @@ function CreativePanel({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredCreatives
+                    {filteredLandings
                       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-                      .map((creative) => {
-                        const cof = typeof creative.cof_rating === 'number' 
-                          ? creative.cof_rating 
-                          : calculateCOF(creative.work_types || []);
-                        
-                        const currentDisplayData = getCurrentMetricsForDisplay(creative);
-                        const currentMode = detailMode.get(creative.id) || 'aggregated';
-                        const allVideoMetrics = getAllVideoMetrics(creative);
-                        const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
-                        const isDropdownOpen = openDropdowns.has(creative.id);
-                        const formattedDateTime = formatKyivTime(creative.created_at);
+                      .map((landing) => {
+                        const currentDisplayData = getCurrentMetricsForDisplay(landing);
+                        const currentMode = detailMode.get(landing.id) || 'aggregated';
+                        const allVideoMetrics = getAllVideoMetrics(landing);
+                        const isTagsExpanded = expandedWorkTypes.has(landing.id);
+                        const isDropdownOpen = openDropdowns.has(landing.id);
+                        const formattedDateTime = formatKyivTime(landing.created_at);
                         
                         return (
                           <tr 
-                            key={creative.id}
+                            key={landing.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
                               <button
-                                onClick={() => handleEditCreative(creative)}
+                                onClick={() => handleEditLanding(landing)}
                                 className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                title="Редактировать креатив"
+                                title="Редактировать лендинг"
                               >
                                 <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                                   <path stroke="none" d="M0 0h24v24H0z"/>
@@ -2988,11 +2853,11 @@ function CreativePanel({ user }) {
                             <td className="px-3 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  {creative.comment && (
+                                  {landing.comment && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        showComment(creative);
+                                        showComment(landing);
                                       }}
                                       className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                       title="Показать комментарий"
@@ -3003,11 +2868,11 @@ function CreativePanel({ user }) {
                                 </div>
                                 
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  {creativesWithHistory.has(creative.id) && (
+                                  {landingsWithHistory.has(landing.id) && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        showHistory(creative);
+                                        showHistory(landing);
                                       }}
                                       className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                       title="Показать историю изменений"
@@ -3021,10 +2886,10 @@ function CreativePanel({ user }) {
                                   )}
                                 </div>
                                 
-                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                 
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
-                                  {creative.article}
+                                  {landing.article}
                                 </div>
                               </div>
                             </td>
@@ -4863,4 +4728,4 @@ function CreativePanel({ user }) {
   );
 }
 
-export default CreativePanel;
+export default LandingPanel;
