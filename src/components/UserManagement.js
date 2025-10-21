@@ -18,7 +18,8 @@ import {
   Edit,
   Save,
   Search,
-  FileText
+  FileText,
+  Palette
 } from 'lucide-react';
 
 function UserManagement({ user }) {
@@ -365,6 +366,8 @@ function UserManagement({ user }) {
         return 'Media Buyer';
       case 'editor':
         return 'Video Designer';
+      case 'designer':
+        return 'Designer';
       case 'teamlead':
         return 'Team Lead';
       case 'search_manager':
@@ -382,6 +385,8 @@ function UserManagement({ user }) {
         return <Users className="h-6 w-6 text-blue-600" />;
       case 'editor':
         return <Monitor className="h-6 w-6 text-purple-600" />;
+      case 'designer':
+        return <Palette className="h-6 w-6 text-pink-600" />;
       case 'teamlead':
         return <Shield className="h-6 w-6 text-green-600" />;
       case 'search_manager':
@@ -399,6 +404,8 @@ function UserManagement({ user }) {
         return 'bg-blue-100 text-blue-800';
       case 'editor':
         return 'bg-purple-100 text-purple-800';
+      case 'designer':
+        return 'bg-pink-100 text-pink-800';
       case 'teamlead':
         return 'bg-green-100 text-green-800';
       case 'search_manager':
@@ -413,10 +420,11 @@ function UserManagement({ user }) {
   const getUserStats = () => {
     const buyersCount = users.filter(u => u.role === 'buyer').length;
     const editorsCount = users.filter(u => u.role === 'editor').length;
+    const designersCount = users.filter(u => u.role === 'designer').length;
     const searchManagersCount = users.filter(u => u.role === 'search_manager').length;
     const contentManagersCount = users.filter(u => u.role === 'content_manager').length;
     const teamleadCount = users.filter(u => u.role === 'teamlead').length;
-    return { buyersCount, editorsCount, searchManagersCount, contentManagersCount, teamleadCount };
+    return { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, teamleadCount };
   };
 
   const clearMessages = () => {
@@ -425,7 +433,7 @@ function UserManagement({ user }) {
     setShowPassword(false);
   };
 
-  const { buyersCount, editorsCount, searchManagersCount, contentManagersCount, teamleadCount } = getUserStats();
+  const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, teamleadCount } = getUserStats();
 
   if (loading) {
     return (
@@ -528,6 +536,26 @@ function UserManagement({ user }) {
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {editorsCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Palette className="h-8 w-8 text-pink-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Designers
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {designersCount}
                     </dd>
                   </dl>
                 </div>
@@ -886,6 +914,7 @@ function UserManagement({ user }) {
                 >
                   <option value="buyer">Media Buyer</option>
                   <option value="editor">Video Designer</option>
+                  <option value="designer">Designer</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
                   <option value="teamlead">Team Lead</option>
@@ -893,6 +922,7 @@ function UserManagement({ user }) {
                 <p className="mt-1 text-xs text-gray-500">
                   {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {newUser.role === 'editor' && 'Доступ к управлению креативами'}
+                  {newUser.role === 'designer' && 'Доступ к дизайну и креативам'}
                   {newUser.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
@@ -1066,6 +1096,7 @@ function UserManagement({ user }) {
                 >
                   <option value="buyer">Media Buyer</option>
                   <option value="editor">Video Designer</option>
+                  <option value="designer">Designer</option>
                   <option value="search_manager">Search Manager</option>
                   <option value="content_manager">Content Manager</option>
                   <option value="teamlead">Team Lead</option>
@@ -1073,6 +1104,7 @@ function UserManagement({ user }) {
                 <p className="mt-1 text-xs text-gray-500">
                   {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
+                  {editUserData.role === 'designer' && 'Доступ к дизайну и креативам'}
                   {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
                   {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
