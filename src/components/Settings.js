@@ -47,7 +47,7 @@ function Settings({ user, updateUser }) {
   });
 
   // Проверяем, является ли пользователь с ограниченными правами
-  const isLimitedUser = user?.role === 'editor' || user?.role === 'designer' || user?.role === 'buyer' || user?.role === 'search_manager' || user?.role === 'content_manager';
+  const isLimitedUser = user?.role === 'editor' || user?.role === 'designer' || user?.role === 'buyer' || user?.role === 'search_manager' || user?.role === 'content_manager' || user?.role === 'product_manager' || user?.role === 'proofreader';
 
   const handleProfileUpdate = async () => {
     if (!profileData.name) {
@@ -357,7 +357,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : 'Content Manager'}
+                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : user?.role === 'product_manager' ? 'Product Manager' : user?.role === 'proofreader' ? 'Editor' : 'Unknown'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -427,7 +427,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : 'Content Manager'}
+                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : user?.role === 'product_manager' ? 'Product Manager' : user?.role === 'proofreader' ? 'Editor' : 'Unknown'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
