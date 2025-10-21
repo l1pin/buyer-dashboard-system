@@ -1,5 +1,5 @@
-// CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
-// Замените содержимое src/components/CreativePanel.js
+// CreativeBuyer.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
+// Замените содержимое src/components/CreativeBuyer.js
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
