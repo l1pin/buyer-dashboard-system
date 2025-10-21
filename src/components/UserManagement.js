@@ -17,9 +17,30 @@ import {
   Edit,
   Save,
   Search,
-  Code2,
-  Radio
+  Code2
 } from 'lucide-react';
+
+// Кастомная иконка Ad для Media Buyer
+const AdIcon = ({ className }) => (
+  <svg 
+    className={className}
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    strokeWidth="2" 
+    stroke="currentColor" 
+    fill="none" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <path stroke="none" d="M0 0h24v24H0z"/>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7 15v-4a2 2 0 0 1 4 0v4" />
+    <line x1="7" y1="13" x2="11" y2="13" />
+    <path d="M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5" />
+  </svg>
+);
 
 function UserManagement({ user }) {
   const [users, setUsers] = useState([]);
@@ -381,7 +402,7 @@ function UserManagement({ user }) {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'buyer':
-        return <Radio className="h-6 w-6 text-blue-600" />;
+        return <AdIcon className="h-6 w-6 text-blue-600" />;
       case 'editor':
         return <Video className="h-6 w-6 text-purple-600" />;
       case 'designer':
@@ -506,7 +527,7 @@ function UserManagement({ user }) {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Radio className="h-8 w-8 text-blue-500" />
+                  <AdIcon className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
