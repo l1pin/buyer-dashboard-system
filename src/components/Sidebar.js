@@ -13,7 +13,9 @@ import {
   Activity,
   Search,
   Code2,
-  Palette
+  Palette,
+  Package,
+  Pencil
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -98,6 +100,10 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return 'Search Manager';
       case 'content_manager':
         return 'Content Manager';
+      case 'product_manager':
+        return 'Product Manager';
+      case 'proofreader':
+        return 'Editor';
       default:
         return 'Unknown';
     }
@@ -117,6 +123,10 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return <Search className="h-5 w-5 text-gray-600" />;
       case 'content_manager':
         return <Code2 className="h-5 w-5 text-gray-600" />;
+      case 'product_manager':
+        return <Package className="h-5 w-5 text-gray-600" />;
+      case 'proofreader':
+        return <Pencil className="h-5 w-5 text-gray-600" />;
       default:
         return <Shield className="h-5 w-5 text-gray-600" />;
     }
