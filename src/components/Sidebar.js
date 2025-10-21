@@ -9,12 +9,34 @@ import {
   Database,
   Shield,
   Video,
-  Monitor,
   BarChart3,
   Activity,
   Search,
-  FileText
+  Code2,
+  Palette
 } from 'lucide-react';
+
+// Кастомная иконка Ad для Media Buyer
+const AdIcon = ({ className }) => (
+  <svg 
+    className={className}
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    strokeWidth="2" 
+    stroke="currentColor" 
+    fill="none" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <path stroke="none" d="M0 0h24v24H0z"/>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7 15v-4a2 2 0 0 1 4 0v4" />
+    <line x1="7" y1="13" x2="11" y2="13" />
+    <path d="M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5" />
+  </svg>
+);
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -36,7 +58,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
+      show: user?.role === 'editor' || user?.role === 'designer' || user?.role === 'search_manager' || user?.role === 'buyer'
     },
     {
       id: 'analytics',
@@ -70,6 +92,8 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return 'Media Buyer';
       case 'editor':
         return 'Video Designer';
+      case 'designer':
+        return 'Editor';
       case 'search_manager':
         return 'Search Manager';
       case 'content_manager':
@@ -84,15 +108,17 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'teamlead':
         return <Shield className="h-5 w-5 text-gray-600" />;
       case 'buyer':
-        return <Users className="h-5 w-5 text-gray-600" />;
+        return <AdIcon className="h-5 w-5 text-gray-600" />;
       case 'editor':
-        return <Monitor className="h-5 w-5 text-gray-600" />;
+        return <Video className="h-5 w-5 text-gray-600" />;
+      case 'designer':
+        return <Palette className="h-5 w-5 text-gray-600" />;
       case 'search_manager':
         return <Search className="h-5 w-5 text-gray-600" />;
       case 'content_manager':
-        return <FileText className="h-5 w-5 text-gray-600" />;
+        return <Code2 className="h-5 w-5 text-gray-600" />;
       default:
-        return <Users className="h-5 w-5 text-gray-600" />;
+        return <Shield className="h-5 w-5 text-gray-600" />;
     }
   };
 
