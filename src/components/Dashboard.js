@@ -46,6 +46,8 @@ function Dashboard({ user, session, updateUser }) {
     if (role === 'buyer') return 'creatives';
     if (role === 'teamlead') return 'analytics';
     if (role === 'content_manager') return 'settings';
+    if (role === 'product_manager') return 'settings';
+    if (role === 'proofreader') return 'settings';
     return 'settings';
   };
 
