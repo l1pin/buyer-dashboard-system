@@ -60,7 +60,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor' || user?.role === 'designer' || user?.role === 'search_manager' || user?.role === 'buyer'
+      show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
     },
     {
       id: 'analytics',
