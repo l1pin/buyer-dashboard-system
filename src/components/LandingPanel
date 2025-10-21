@@ -2,13 +2,8 @@
 // Замените содержимое src/components/LandingPanel.js
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
-import { 
-  processLinksAndExtractTitles, 
-  formatFileName, 
-  ensureGoogleAuth,
-  isGoogleDriveUrl
-} from '../utils/googleDriveUtils';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
+// Google Drive utilities removed for landings
 import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
@@ -52,21 +47,21 @@ import {
   Filter
 } from 'lucide-react';
 
-function CreativePanel({ user }) {
-  const [creatives, setCreatives] = useState([]);
+function LandingPanel({ user }) {
+  const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingCreative, setEditingCreative] = useState(null);
+  const [editingLanding, setEditingLanding] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
+  const [landingsWithHistory, setLandingsWithHistory] = useState(new Set());
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
@@ -76,7 +71,7 @@ function CreativePanel({ user }) {
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
-  const [syncingCreatives, setSyncingCreatives] = useState(new Set()); // Отслеживание синхронизирующихся креативов
+  const [syncingLandings, setSyncingLandings] = useState(new Set()); // Отслеживание синхронизирующихся лендингов
   
   // Новая система фильтрации по периоду (как в CreativeAnalytics)
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
@@ -101,50 +96,75 @@ function CreativePanel({ user }) {
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
   
-  const [newCreative, setNewCreative] = useState({
+  const [newLanding, setNewLanding] = useState({
     article: '',
-    links: [''],
-    work_types: [],
-    link_titles: [],
+    template: '',
+    tags: [],
     comment: '',
     is_poland: false,
     trello_link: '',
-    buyer_id: null,
-    searcher_id: null
+    designer_id: null,
+    searcher_id: null,
+    buyer_id: null
   });
 
-  const [editCreative, setEditCreative] = useState({
+  const [editLanding, setEditLanding] = useState({
     article: '',
-    links: [''],
-    work_types: [],
-    link_titles: [],
+    template: '',
+    tags: [],
     comment: '',
     is_poland: false,
     trello_link: '',
-    buyer_id: null,
-    searcher_id: null
+    designer_id: null,
+    searcher_id: null,
+    buyer_id: null
   });
 
-  const [extractingTitles, setExtractingTitles] = useState(false);
+  
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
+  const [designers, setDesigners] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
+  const [showDesignerDropdown, setShowDesignerDropdown] = useState(false);
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
+  // Шаблоны лендингов (позже можно вынести в БД)
+  const templates = [
+    'Шаблон 1',
+    'Шаблон 2',
+    'Шаблон 3',
+    'Кастомный шаблон'
+  ];
+
+  // Теги для лендингов (позже можно вынести в БД)
+  const availableTags = [
+    'Промо',
+    'Акция',
+    'Новинка',
+    'Распродажа',
+    'Лид-магнит',
+    'Продающий',
+    'Информационный',
+    'Мобильный',
+    'Десктоп',
+    'A/B тест'
+  ];
+
   // Используем useMemo для оптимизации фильтрации креативов
-  const filteredCreatives = useMemo(() => {
-    let creativesToFilter = creatives;
+  const filteredLandings = useMemo(() => {
+    let landingsToFilter = landings;
     
     // Фильтрация по байеру
     if (selectedBuyer !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+      landingsToFilter = landingsToFilter.filter(c => c.buyer_id === selectedBuyer);
     }
     
     // Фильтрация по серчеру
     if (selectedSearcher !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
+      landingsToFilter = landingsToFilter.filter(c => c.searcher_id === selectedSearcher);
     }
     
     const now = new Date();
@@ -181,32 +201,32 @@ function CreativePanel({ user }) {
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
     if (selectedPeriod === 'today') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= todayStart && createdDate <= todayEnd;
       });
     } else if (selectedPeriod === 'yesterday') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
       });
     } else if (selectedPeriod === 'this_week') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
       });
     } else if (selectedPeriod === 'last_7_days') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= last7DaysStart && createdDate <= todayEnd;
       });
     } else if (selectedPeriod === 'this_month') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
       });
     } else if (selectedPeriod === 'last_month') {
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
       });
@@ -216,15 +236,15 @@ function CreativePanel({ user }) {
       const customTo = new Date(customDateTo);
       customTo.setHours(23, 59, 59);
       
-      creativesToFilter = creativesToFilter.filter(c => {
+      landingsToFilter = landingsToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
         return createdDate >= customFrom && createdDate <= customTo;
       });
     }
     // Если selectedPeriod === 'all', то не фильтруем по дате
     
-    return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+    return landingsToFilter;
+  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -239,14 +259,14 @@ function CreativePanel({ user }) {
     refresh: refreshMetrics,
     loadFromCache,
     loadMetricsForSingleCreative,
-    loadingCreativeIds // 🆕 Set с ID креативов, для которых идет загрузка
-  } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
+    loadingCreativeIds // 🆕 Set с ID лендингов, для которых идет загрузка
+  } = useBatchMetrics(filteredLandings, true, metricsPeriod);
 
   const { 
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData 
-  } = useMetricsStats(filteredCreatives, batchMetrics);
+  } = useMetricsStats(filteredLandings, batchMetrics);
 
   // Хук для зональных данных - используем отфильтрованные креативы
   const {
@@ -259,65 +279,7 @@ function CreativePanel({ user }) {
     getCurrentZone,
     getZonePricesString,
     refresh: refreshZoneData
-  } = useZoneData(filteredCreatives, true);
-
-  const workTypes = [
-    'Монтаж _Video',
-    'Upscale_Video', 
-    'Ресайз 1',
-    'Озвучка',
-    'Субтитры',
-    'Ресайз 2',
-    'Написання_Sub',
-    'Video_Avarat',
-    'Монтаж > 21s',
-    'Правки_video',
-    'Превьюшка',
-    'Статика 1',
-    'Статика 2', 
-    'Статика 3',
-    'Статика 4',
-    'Ресайз St 1',
-    'Ресайз St 2',
-    'Ресайз St 3', 
-    'Ресайз St 4',
-    'Правки Статика',
-    'Доп. 0,2',
-    'Доп. 0,4',
-    'Доп. 0,6',
-    'Доп. 0,8',
-    'Доп. 1',
-    'Доп. 2'
-  ];
-
-  const workTypeValues = {
-    'Монтаж _Video': 1,
-    'Монтаж > 21s': 0.4,
-    'Upscale_Video': 0.2,
-    'Ресайз 1': 0.4,
-    'Озвучка': 0.2,
-    'Субтитры': 0.2,
-    'Ресайз 2': 0.4,
-    'Написання_Sub': 0.2,
-    'Video_Avarat': 0.4,
-    'Правки_video': 0.2,
-    'Превьюшка': 0.2,
-    'Статика 1': 1,
-    'Статика 2': 1,
-    'Статика 3': 1,
-    'Статика 4': 1,
-    'Ресайз St 1': 0.2,
-    'Ресайз St 2': 0.2,
-    'Ресайз St 3': 0.2,
-    'Ресайз St 4': 0.2,
-    'Правки Статика': 0.2,
-    'Доп. 0,2': 0.2,
-    'Доп. 0,4': 0.4,
-    'Доп. 0,6': 0.6,
-    'Доп. 0,8': 0.8,
-    'Доп. 1': 1,
-    'Доп. 2': 2
-  };
+  } = useZoneData(filteredLandings, true);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -333,188 +295,6 @@ function CreativePanel({ user }) {
       <div className="w-full h-3 bg-red-500"></div>
     </div>
   );
-
-  // ОБНОВЛЕННАЯ ФУНКЦИЯ: Агрегация метрик по всем видео креатива
-  const getAggregatedCreativeMetrics = (creative) => {
-    const creativeMetrics = getCreativeMetrics(creative.id);
-    
-    if (!creativeMetrics || creativeMetrics.length === 0) {
-      return null;
-    }
-
-    // Фильтруем только найденные метрики
-    const validMetrics = creativeMetrics.filter(metric => metric.found && metric.data);
-    
-    if (validMetrics.length === 0) {
-      return null;
-    }
-
-    // Агрегируем все метрики
-    const aggregated = validMetrics.reduce((acc, metric) => {
-        const data = metric.data.raw;
-        return {
-          leads: acc.leads + (data.leads || 0),
-          cost: acc.cost + (data.cost || 0),
-          clicks: acc.clicks + (data.clicks || 0),
-          impressions: acc.impressions + (data.impressions || 0),
-          avg_duration: acc.avg_duration + (data.avg_duration || 0),
-          days_count: Math.max(acc.days_count, data.days_count || 0),
-          cost_from_sources: acc.cost_from_sources + (data.cost_from_sources || 0),
-          clicks_on_link: acc.clicks_on_link + (data.clicks_on_link || 0)
-        };
-      }, {
-        leads: 0,
-        cost: 0,
-        clicks: 0,
-        impressions: 0,
-        avg_duration: 0,
-        days_count: 0,
-        cost_from_sources: 0,
-        clicks_on_link: 0
-      });
-
-    // Вычисляем среднее время просмотра
-    const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
-
-    const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
-    const ctr = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
-    const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
-    const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
-
-    return {
-      found: true,
-      videoCount: validMetrics.length,
-      totalVideos: creativeMetrics.length,
-      data: {
-        raw: {
-          ...aggregated,
-          avg_duration: Number(avgDuration.toFixed(2)),
-          cpl: Number(cpl.toFixed(2)),
-          ctr_percent: Number(ctr.toFixed(2)),
-          cpc: Number(cpc.toFixed(2)),
-          cpm: Number(cpm.toFixed(2))
-        },
-        formatted: {
-          leads: String(Math.round(aggregated.leads)),
-          cpl: aggregated.leads > 0 ? `${cpl.toFixed(2)}$` : '0.00$',
-          cost: `${aggregated.cost.toFixed(2)}$`,
-          ctr: `${ctr.toFixed(2)}%`,
-          cpc: `${cpc.toFixed(2)}$`,
-          cpm: `${cpm.toFixed(2)}$`,
-          clicks: String(Math.round(aggregated.clicks)),
-          impressions: String(Math.round(aggregated.impressions)),
-          avg_duration: `${avgDuration.toFixed(1)}с`,
-          days: String(aggregated.days_count)
-        }
-      }
-    };
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получение метрик для конкретного видео
-  const getIndividualVideoMetrics = (creative, videoIndex) => {
-    if (!creative.link_titles || videoIndex >= creative.link_titles.length) {
-      return null;
-    }
-    
-    const videoKey = `${creative.id}_${videoIndex}`;
-    const metric = batchMetrics.get(videoKey);
-    
-    if (!metric || !metric.found || !metric.data) {
-      return null;
-    }
-
-    return {
-      found: true,
-      videoTitle: creative.link_titles[videoIndex] || `Видео ${videoIndex + 1}`,
-      videoIndex: videoIndex + 1,
-      totalVideos: creative.link_titles.length,
-      data: metric.data
-    };
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Переключение режима отображения метрик
-  const toggleDetailMode = (creativeId) => {
-    const newDetailMode = new Map(detailMode);
-    const currentMode = newDetailMode.get(creativeId) || 'aggregated';
-    
-    if (currentMode === 'aggregated') {
-      newDetailMode.set(creativeId, 'individual');
-      // Устанавливаем начальный индекс видео на 0
-      const newCurrentVideoIndex = new Map(currentVideoIndex);
-      newCurrentVideoIndex.set(creativeId, 0);
-      setCurrentVideoIndex(newCurrentVideoIndex);
-    } else {
-      newDetailMode.set(creativeId, 'aggregated');
-    }
-    
-    setDetailMode(newDetailMode);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Переключение на предыдущее видео
-  const previousVideo = (creativeId, creative) => {
-    const newCurrentVideoIndex = new Map(currentVideoIndex);
-    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
-    const maxIndex = (creative.link_titles?.length || 1) - 1;
-    
-    const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex;
-    newCurrentVideoIndex.set(creativeId, newIndex);
-    setCurrentVideoIndex(newCurrentVideoIndex);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Переключение на следующее видео
-  const nextVideo = (creativeId, creative) => {
-    const newCurrentVideoIndex = new Map(currentVideoIndex);
-    const currentIndex = newCurrentVideoIndex.get(creativeId) || 0;
-    const maxIndex = (creative.link_titles?.length || 1) - 1;
-    
-    const newIndex = currentIndex < maxIndex ? currentIndex + 1 : 0;
-    newCurrentVideoIndex.set(creativeId, newIndex);
-    setCurrentVideoIndex(newCurrentVideoIndex);
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получение текущих метрик для отображения
-  const getCurrentMetricsForDisplay = (creative) => {
-    const currentMode = detailMode.get(creative.id) || 'aggregated';
-    
-    if (currentMode === 'aggregated') {
-      return {
-        type: 'aggregated',
-        metrics: getAggregatedCreativeMetrics(creative)
-      };
-    } else {
-      const videoIndex = currentVideoIndex.get(creative.id) || 0;
-      return {
-        type: 'individual',
-        metrics: getIndividualVideoMetrics(creative, videoIndex),
-        videoIndex: videoIndex
-      };
-    }
-  };
-
-  // НОВАЯ ФУНКЦИЯ: Получение всех метрик видео для отображения
-  const getAllVideoMetrics = (creative) => {
-    if (!creative.link_titles || creative.link_titles.length === 0) {
-      return [];
-    }
-    
-    const videoCount = creative.link_titles.length;
-    const allMetrics = [];
-    
-    // КРИТИЧНО: Создаем массив для ВСЕХ видео, даже если метрик нет
-    for (let index = 0; index < videoCount; index++) {
-      const videoKey = `${creative.id}_${index}`;
-      const metric = batchMetrics.get(videoKey);
-      
-      allMetrics.push({
-        videoIndex: index,
-        videoTitle: creative.link_titles[index] || `Видео ${index + 1}`,
-        found: metric?.found || false,
-        data: metric?.found ? metric.data : null
-      });
-    }
-    
-    return allMetrics;
-  };
 
   // Компонент отображения зональных данных - компактные цены в два ряда
   const ZoneDataDisplay = ({ article }) => {
@@ -697,50 +477,18 @@ function CreativePanel({ user }) {
     );
   };
 
-  const calculateCOF = (workTypes) => {
-    if (!workTypes || !Array.isArray(workTypes)) return 0;
-    return workTypes.reduce((total, workType) => {
-      const value = workTypeValues[workType] || 0;
-      return total + value;
-    }, 0);
-  };
-
-  const formatCOF = (cof) => {
-    return cof % 1 === 0 ? cof.toString() : cof.toFixed(1);
-  };
-
-  // ИЗМЕНЕН: COF теперь нейтральные цвета
-  const getCOFBadgeColor = (cof) => {
-    return 'bg-gray-100 text-gray-800 border-gray-300';
-  };
-
-  const getCOFStats = (creativesData) => {
-    const totalCOF = creativesData.reduce((sum, creative) => {
-      return sum + calculateCOF(creative.work_types);
-    }, 0);
-
-    const avgCOF = creativesData.length > 0 ? totalCOF / creativesData.length : 0;
-    
-    return {
-      totalCOF: totalCOF,
-      avgCOF: avgCOF,
-      maxCOF: Math.max(...creativesData.map(c => calculateCOF(c.work_types)), 0),
-      minCOF: creativesData.length > 0 ? Math.min(...creativesData.map(c => calculateCOF(c.work_types))) : 0
-    };
-  };
-
   // НОВЫЕ ФУНКЦИИ: Подсчет по странам и зонам
-  const getCountryStats = (creativesData) => {
-    const ukraineCount = creativesData.filter(c => !c.is_poland).length;
-    const polandCount = creativesData.filter(c => c.is_poland).length;
+  const getCountryStats = (landingsData) => {
+    const ukraineCount = landingsData.filter(c => !c.is_poland).length;
+    const polandCount = landingsData.filter(c => c.is_poland).length;
     return { ukraineCount, polandCount };
   };
 
-  const getZoneStats = (creativesData) => {
+  const getZoneStats = (landingsData) => {
     const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
     
-    creativesData.forEach(creative => {
-      const aggregatedMetrics = getAggregatedCreativeMetrics(creative);
+    landingsData.forEach(landing => {
+      const aggregatedMetrics = null; // метрики для лендингов пока не реализованы
       if (aggregatedMetrics?.found && aggregatedMetrics.data) {
         const cplString = aggregatedMetrics.data.formatted.cpl;
         const cplValue = parseFloat(cplString.replace('$', ''));
@@ -885,12 +633,12 @@ function CreativePanel({ user }) {
 
   useEffect(() => {
     loadUsers();
-    loadCreatives();
+    loadLandings();
     loadLastUpdateTime();
     
-    // Подписка на создание новых креативов
-    const creativesSubscription = supabase
-      .channel('creatives_changes')
+    // Подписка на создание новых лендингов
+    const landingsSubscription = supabase
+      .channel('landings_changes')
       .on(
         'postgres_changes',
         {
@@ -964,15 +712,15 @@ function CreativePanel({ user }) {
 
   // Отдельный useEffect для загрузки Trello статусов ПОСЛЕ загрузки креативов
   useEffect(() => {
-    console.log('🔵 useEffect для Trello, creatives:', creatives?.length);
+    console.log('🔵 useEffect для Trello, landings:', landings?.length);
     
-    if (creatives && creatives.length > 0) {
+    if (landings && landings.length > 0) {
       console.log('🟢 Запускаем loadTrelloStatuses с автосинхронизацией...');
       loadTrelloStatuses(true); // true = автоматически синхронизировать пропущенные
     } else {
       console.log('⚠️ creatives пуст, ждем...');
     }
-  }, [creatives]);
+  }, [landings]);
 
   const loadLastUpdateTime = async () => {
     try {
@@ -995,13 +743,13 @@ function CreativePanel({ user }) {
       setTrelloLists(lists);
       console.log(`✅ Загружено ${lists.length} списков Trello`);
       
-      // Получаем статусы для ВСЕХ креативов
-      const creativeIds = creatives.map(c => c.id);
-      console.log(`🔍 Запрос статусов для ${creativeIds.length} креативов`);
+      // Получаем статусы для ВСЕХ лендингов
+      const landingIds = landings.map(c => c.id);
+      console.log(`🔍 Запрос статусов для ${landingIds.length} лендингов`);
       console.log('🆔 Первые 3 ID:', creativeIds.slice(0, 3));
       
-      if (creativeIds.length > 0) {
-        const statusMap = await trelloService.getBatchCardStatuses(creativeIds);
+      if (landingIds.length > 0) {
+        const statusMap = await trelloService.getBatchCardStatuses(landingIds);
         
         console.log('🟡 ПЕРЕД setTrelloStatuses, размер Map:', statusMap.size);
         
@@ -1140,30 +888,30 @@ function CreativePanel({ user }) {
     return status.list_name || '—';
   };
 
-  const loadCreatives = async () => {
+  const loadLandings = async () => {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка креативов пользователя...');
-      const data = await creativeService.getUserCreatives(user.id);
-      setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов`);
+      console.log('📡 Загрузка лендингов пользователя...');
+      const data = await landingService.getUserLandings(user.id);
+      setLandings(data);
+      console.log(`✅ Загружено ${data.length} лендингов`);
       
-      // Проверяем наличие истории для каждого креатива
-      const creativesWithHistorySet = new Set();
-      for (const creative of data) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+      // Проверяем наличие истории для каждого лендинга
+      const landingsWithHistorySet = new Set();
+      for (const landing of data) {
+        const hasHistory = await landingHistoryService.hasHistory(landing.id);
         if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
+          landingsWithHistorySet.add(landing.id);
         }
       }
-      setCreativesWithHistory(creativesWithHistorySet);
+      setLandingsWithHistory(landingsWithHistorySet);
       
-      // Возвращаем загруженные креативы для дальнейшего использования
+      // Возвращаем загруженные лендинги для дальнейшего использования
       return data;
     } catch (error) {
-      console.error('❌ Ошибка загрузки креативов:', error);
-      setError('Ошибка загрузки креативов: ' + error.message);
+      console.error('❌ Ошибка загрузки лендингов:', error);
+      setError('Ошибка загрузки лендингов: ' + error.message);
       return [];
     } finally {
       setLoading(false);
@@ -1175,14 +923,16 @@ function CreativePanel({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
       
-      const [buyersData, searchersData] = await Promise.all([
+      const [buyersData, searchersData, designersData] = await Promise.all([
         userService.getUsersByRole('buyer'),
-        userService.getUsersByRole('search_manager')
+        userService.getUsersByRole('search_manager'),
+        userService.getUsersByRole('designer')
       ]);
       
       setBuyers(buyersData);
       setSearchers(searchersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров и ${searchersData.length} серчеров`);
+      setDesigners(designersData);
+      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров и ${designersData.length} дизайнеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1190,82 +940,42 @@ function CreativePanel({ user }) {
     }
   };
 
-  const validateGoogleDriveLinks = (links) => {
-    const validLinks = links.filter(link => link.trim() !== '');
-    const invalidLinks = [];
-
-    for (const link of validLinks) {
-      const trimmedLink = link.trim();
-      if (!trimmedLink.startsWith('https://drive.google.com/file/d/') && 
-          !trimmedLink.startsWith('drive.google.com/file/d/')) {
-        invalidLinks.push(link);
-      }
-    }
-
-    return { validLinks, invalidLinks };
-  };
-
-  const handleCreateCreative = async () => {
+  const handleCreateLanding = async () => {
     if (!validateFields()) {
       return;
     }
-
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
-    const trimmedTrelloLink = newCreative.trello_link.trim();
 
     try {
       setCreating(true);
       setError('');
       setSuccess('');
 
-      setAuthorizing(true);
-      const authSuccess = await ensureGoogleAuth();
-      setAuthorizing(false);
+      // Получаем имена пользователей по их ID
+      const buyerName = newLanding.buyer_id ? getBuyerName(newLanding.buyer_id) : null;
+      const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
+      const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
 
-      if (!authSuccess) {
-        setError('Необходима авторизация Google для извлечения названий файлов');
-        setCreating(false);
-        return;
-      }
-
-      setExtractingTitles(true);
-      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      setExtractingTitles(false);
-
-      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
-        setCreating(false);
-        return;
-      }
-
-      const cofRating = calculateCOF(newCreative.work_types);
-
-      // Получаем имена байера и серчера по их ID
-      const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
-      const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
-
-      const newCreativeData = await creativeService.createCreative({
+      const newLandingData = await landingService.createLanding({
         user_id: user.id,
-        editor_name: user.name,
-        article: newCreative.article.trim(),
-        links: links,
-        link_titles: titles,
-        work_types: newCreative.work_types,
-        cof_rating: cofRating,
-        comment: newCreative.comment.trim() || null,
-        is_poland: newCreative.is_poland,
-        trello_link: newCreative.trello_link.trim(),
-        buyer_id: newCreative.buyer_id,
-        searcher_id: newCreative.searcher_id,
-        buyer: buyerName !== '—' ? buyerName : null,
-        searcher: searcherName !== '—' ? searcherName : null
+        content_manager_name: user.name,
+        article: newLanding.article.trim(),
+        template: newLanding.template,
+        tags: newLanding.tags,
+        comment: newLanding.comment.trim() || null,
+        is_poland: newLanding.is_poland,
+        trello_link: newLanding.trello_link.trim(),
+        designer_id: newLanding.designer_id,
+        searcher_id: newLanding.searcher_id,
+        buyer_id: newLanding.buyer_id,
+        designer: designerName !== '—' ? designerName : null,
+        searcher: searcherName !== '—' ? searcherName : null,
+        buyer: buyerName !== '—' ? buyerName : null
       });
 
-      console.log('✅ Креатив создан в БД:', newCreativeData);
+      console.log('✅ Лендинг создан в БД:', newLandingData);
 
       // 🆕 СИНХРОНИЗАЦИЯ TRELLO ЧЕРЕЗ NETLIFY FUNCTION
-      if (newCreativeData.trello_link) {
+      if (newLandingData.trello_link) {
         console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
         try {
           const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
@@ -1274,8 +984,8 @@ function CreativePanel({ user }) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              creativeId: newCreativeData.id,
-              trelloLink: newCreativeData.trello_link
+              creativeId: newLandingData.id,
+              trelloLink: newLandingData.trello_link
             })
           });
 
@@ -1286,8 +996,8 @@ function CreativePanel({ user }) {
             // Добавляем статус в локальное состояние сразу
             setTrelloStatuses(prev => {
               const updated = new Map(prev);
-              updated.set(newCreativeData.id, {
-                creative_id: newCreativeData.id,
+              updated.set(newLandingData.id, {
+                creative_id: newLandingData.id,
                 list_name: syncResult.listName,
                 list_id: syncResult.listId,
                 trello_card_id: syncResult.cardId,
@@ -1304,243 +1014,172 @@ function CreativePanel({ user }) {
         }
       }
 
-      // 🎯 ДОБАВЛЯЕМ НОВЫЙ КРЕАТИВ В СУЩЕСТВУЮЩИЙ МАССИВ (БЕЗ ПЕРЕЗАГРУЗКИ ВСЕХ)
-      console.log('➕ Добавляем новый креатив в таблицу БЕЗ перезагрузки всех креативов');
-      setCreatives(prevCreatives => [newCreativeData, ...prevCreatives]);
+      // 🎯 ДОБАВЛЯЕМ НОВЫЙ ЛЕНДИНГ В СУЩЕСТВУЮЩИЙ МАССИВ (БЕЗ ПЕРЕЗАГРУЗКИ ВСЕХ)
+      console.log('➕ Добавляем новый лендинг в таблицу БЕЗ перезагрузки всех лендингов');
+      setLandings(prevLandings => [newLandingData, ...prevLandings]);
 
       // Очищаем форму и закрываем модалку
-      setNewCreative({
+      setNewLanding({
         article: '',
-        links: [''],
-        work_types: [],
-        link_titles: [],
+        template: '',
+        tags: [],
         comment: '',
         is_poland: false,
         trello_link: '',
-        buyer_id: null,
-        searcher_id: null
+        designer_id: null,
+        searcher_id: null,
+        buyer_id: null
       });
       setShowCreateModal(false);
 
-      // 🔥 ЗАГРУЗКА МЕТРИК И ЗОН ТОЛЬКО ДЛЯ НОВОГО КРЕАТИВА
-      console.log('🚀 Загружаем метрики и зоны ТОЛЬКО для нового креатива...');
-      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
-      
-      // Загружаем метрики только для этого креатива
-      await loadMetricsForSingleCreative(newCreativeData);
-      console.log('✅ Метрики загружены только для нового креатива');
-      
-      // Загружаем зональные данные только для этого креатива
-      await refreshZoneData();
-      console.log('✅ Зональные данные обновлены');
-      
-      const successCount = extractedTitles.length;
-      const totalCount = titles.length;
-      const cof = calculateCOF(newCreative.work_types);
-      const country = newCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики загружены`);
+      const country = newLanding.is_poland ? 'PL' : 'UA';
+      setSuccess(`Лендинг создан! Страна: ${country} | Шаблон: ${newLanding.template} | Тегов: ${newLanding.tags.length}`);
       
     } catch (error) {
-      setError('Ошибка создания креатива: ' + error.message);
-      setExtractingTitles(false);
-      setAuthorizing(false);
+      setError('Ошибка создания лендинга: ' + error.message);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleEditCreative = (creative) => {
-    console.log('✏️ Открытие редактирования креатива:', creative.article);
+  const handleEditLanding = (landing) => {
+    console.log('✏️ Открытие редактирования лендинга:', landing.article);
     
-    setEditingCreative(creative);
-    setEditCreative({
-      article: creative.article,
-      links: creative.links || [''],
-      work_types: creative.work_types || [],
-      link_titles: creative.link_titles || [],
-      comment: creative.comment || '',
-      is_poland: creative.is_poland || false,
-      trello_link: creative.trello_link || '',
-      buyer_id: creative.buyer_id || null,
-      searcher_id: creative.searcher_id || null
+    setEditingLanding(landing);
+    setEditLanding({
+      article: landing.article,
+      template: landing.template || '',
+      tags: landing.tags || [],
+      comment: landing.comment || '',
+      is_poland: landing.is_poland || false,
+      trello_link: landing.trello_link || '',
+      designer_id: landing.designer_id || null,
+      searcher_id: landing.searcher_id || null,
+      buyer_id: landing.buyer_id || null
     });
     setShowEditModal(true);
     clearMessages();
   };
 
-  const handleUpdateCreative = async () => {
+  const handleUpdateLanding = async () => {
     if (!validateEditFields()) {
       return;
     }
-
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(editCreative.links);
 
     try {
       setUpdating(true);
       setError('');
       setSuccess('');
 
-      setAuthorizing(true);
-      const authSuccess = await ensureGoogleAuth();
-      setAuthorizing(false);
-
-      if (!authSuccess) {
-        setError('Необходима авторизация Google для извлечения названий файлов');
-        setUpdating(false);
-        return;
-      }
-
-      setExtractingTitles(true);
-      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      setExtractingTitles(false);
-
-      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive и попробуйте еще раз, или обратитесь к администратору.');
-        setUpdating(false);
-        return;
-      }
-
-      const cofRating = calculateCOF(editCreative.work_types);
-
-      const buyerName = editCreative.buyer_id ? getBuyerName(editCreative.buyer_id) : null;
-      const searcherName = editCreative.searcher_id ? getSearcherName(editCreative.searcher_id) : null;
+      const buyerName = editLanding.buyer_id ? getBuyerName(editLanding.buyer_id) : null;
+      const searcherName = editLanding.searcher_id ? getSearcherName(editLanding.searcher_id) : null;
+      const designerName = editLanding.designer_id ? getDesignerName(editLanding.designer_id) : null;
 
       // Сохраняем старое состояние в историю ПЕРЕД обновлением
-      await creativeHistoryService.createHistoryEntry({
-        creative_id: editingCreative.id,
-        article: editingCreative.article,
-        links: editingCreative.links,
-        link_titles: editingCreative.link_titles,
-        work_types: editingCreative.work_types,
-        cof_rating: editingCreative.cof_rating,
-        comment: editingCreative.comment,
-        is_poland: editingCreative.is_poland,
-        trello_link: editingCreative.trello_link,
-        buyer_id: editingCreative.buyer_id,
-        searcher_id: editingCreative.searcher_id,
-        buyer: editingCreative.buyer,
-        searcher: editingCreative.searcher,
+      await landingHistoryService.createHistoryEntry({
+        landing_id: editingLanding.id,
+        article: editingLanding.article,
+        template: editingLanding.template,
+        tags: editingLanding.tags,
+        comment: editingLanding.comment,
+        is_poland: editingLanding.is_poland,
+        trello_link: editingLanding.trello_link,
+        designer_id: editingLanding.designer_id,
+        searcher_id: editingLanding.searcher_id,
+        buyer_id: editingLanding.buyer_id,
+        designer: editingLanding.designer,
+        searcher: editingLanding.searcher,
+        buyer: editingLanding.buyer,
         changed_by_id: user.id,
         changed_by_name: user.name,
         change_type: 'updated'
       });
 
-      await creativeService.updateCreative(editingCreative.id, {
-        links: links,
-        link_titles: titles,
-        work_types: editCreative.work_types,
-        cof_rating: cofRating,
-        comment: editCreative.comment.trim() || null,
-        is_poland: editCreative.is_poland,
-        trello_link: editCreative.trello_link.trim(),
-        buyer_id: editCreative.buyer_id,
-        searcher_id: editCreative.searcher_id,
-        buyer: buyerName !== '—' ? buyerName : null,
-        searcher: searcherName !== '—' ? searcherName : null
+      await landingService.updateLanding(editingLanding.id, {
+        template: editLanding.template,
+        tags: editLanding.tags,
+        comment: editLanding.comment.trim() || null,
+        is_poland: editLanding.is_poland,
+        trello_link: editLanding.trello_link.trim(),
+        designer_id: editLanding.designer_id,
+        searcher_id: editLanding.searcher_id,
+        buyer_id: editLanding.buyer_id,
+        designer: designerName !== '—' ? designerName : null,
+        searcher: searcherName !== '—' ? searcherName : null,
+        buyer: buyerName !== '—' ? buyerName : null
       });
 
-      setEditCreative({
+      setEditLanding({
         article: '',
-        links: [''],
-        work_types: [],
-        link_titles: [],
+        template: '',
+        tags: [],
         comment: '',
         is_poland: false,
         trello_link: '',
-        buyer_id: null,
-        searcher_id: null
+        designer_id: null,
+        searcher_id: null,
+        buyer_id: null
       });
-      setEditingCreative(null);
+      setEditingLanding(null);
       setShowEditModal(false);
 
-      await loadCreatives();
+      await loadLandings();
       
-      const successCount = extractedTitles.length;
-      const totalCount = titles.length;
-      const cof = calculateCOF(editCreative.work_types);
-      const country = editCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив обновлен! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount}`);
+      const country = editLanding.is_poland ? 'PL' : 'UA';
+      setSuccess(`Лендинг обновлен! Страна: ${country} | Шаблон: ${editLanding.template} | Тегов: ${editLanding.tags.length}`);
     } catch (error) {
-      setError('Ошибка обновления креатива: ' + error.message);
-      setExtractingTitles(false);
-      setAuthorizing(false);
+      setError('Ошибка обновления лендинга: ' + error.message);
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleDeleteCreative = async (creativeId, article) => {
-    if (!window.confirm(`Вы уверены, что хотите удалить креатив "${article}"?`)) {
+  const handleDeleteLanding = async (landingId, article) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить лендинг "${article}"?`)) {
       return;
     }
 
     try {
-      await creativeService.deleteCreative(creativeId);
-      await loadCreatives();
-      setSuccess('Креатив удален');
+      await landingService.deleteLanding(landingId);
+      await loadLandings();
+      setSuccess('Лендинг удален');
     } catch (error) {
-      setError('Ошибка удаления креатива: ' + error.message);
+      setError('Ошибка удаления лендинга: ' + error.message);
     }
   };
 
-  const addLinkField = () => {
-    setNewCreative({
-      ...newCreative,
-      links: [...newCreative.links, '']
-    });
-  };
-
-  const removeLinkField = (index) => {
-    const newLinks = newCreative.links.filter((_, i) => i !== index);
-    setNewCreative({
-      ...newCreative,
-      links: newLinks.length === 0 ? [''] : newLinks
-    });
-  };
-
-  const updateLink = (index, value) => {
-    const newLinks = [...newCreative.links];
-    newLinks[index] = value;
-    setNewCreative({
-      ...newCreative,
-      links: newLinks
-    });
-    clearFieldError('links');
-  };
-
-  const handleWorkTypeChange = (workType, isChecked) => {
-    let updatedWorkTypes;
+  const handleTagChange = (tag, isChecked) => {
+    let updatedTags;
     if (isChecked) {
-      updatedWorkTypes = [...newCreative.work_types, workType];
+      updatedTags = [...newLanding.tags, tag];
     } else {
-      updatedWorkTypes = newCreative.work_types.filter(type => type !== workType);
+      updatedTags = newLanding.tags.filter(t => t !== tag);
     }
     
-    setNewCreative({
-      ...newCreative,
-      work_types: updatedWorkTypes
+    setNewLanding({
+      ...newLanding,
+      tags: updatedTags
     });
-    clearFieldError('work_types');
+    clearFieldError('tags');
   };
 
-  const showComment = (creative) => {
+  const showComment = (landing) => {
     setSelectedComment({
-      article: creative.article,
-      comment: creative.comment,
-      createdAt: creative.created_at,
-      editorName: creative.editor_name
+      article: landing.article,
+      comment: landing.comment,
+      createdAt: landing.created_at,
+      editorName: landing.content_manager_name
     });
     setShowCommentModal(true);
   };
 
-  const showHistory = async (creative) => {
+  const showHistory = async (landing) => {
     setLoadingHistory(true);
     setShowHistoryModal(true);
-    setSelectedHistory(creative);
+    setSelectedHistory(landing);
     
     try {
-      const history = await creativeHistoryService.getCreativeHistory(creative.id);
+      const history = await landingHistoryService.getLandingHistory(landing.id);
       setHistoryData(history);
     } catch (error) {
       console.error('Ошибка загрузки истории:', error);
@@ -1548,16 +1187,6 @@ function CreativePanel({ user }) {
     } finally {
       setLoadingHistory(false);
     }
-  };
-
-  const toggleWorkTypes = (creativeId) => {
-    const newExpanded = new Set(expandedWorkTypes);
-    if (newExpanded.has(creativeId)) {
-      newExpanded.delete(creativeId);
-    } else {
-      newExpanded.add(creativeId);
-    }
-    setExpandedWorkTypes(newExpanded);
   };
 
   const toggleDropdown = (creativeId) => {
@@ -1808,6 +1437,12 @@ function CreativePanel({ user }) {
     return searcher ? searcher.name : 'Удален';
   };
 
+  const getDesignerName = (designerId) => {
+    if (!designerId) return '—';
+    const designer = designers.find(d => d.id === designerId);
+    return designer ? designer.name : 'Удален';
+  };
+
   const getBuyerAvatar = (buyerId) => {
     if (!buyerId) return null;
     const buyer = buyers.find(b => b.id === buyerId);
@@ -1820,33 +1455,54 @@ function CreativePanel({ user }) {
     return searcher ? searcher.avatar_url : null;
   };
 
+  const getDesignerAvatar = (designerId) => {
+    if (!designerId) return null;
+    const designer = designers.find(d => d.id === designerId);
+    return designer ? designer.avatar_url : null;
+  };
+
   const getSelectedBuyer = () => {
-    if (!newCreative.buyer_id) return null;
-    return buyers.find(b => b.id === newCreative.buyer_id);
+    if (!newLanding.buyer_id) return null;
+    return buyers.find(b => b.id === newLanding.buyer_id);
   };
 
   const getSelectedSearcher = () => {
-    if (!newCreative.searcher_id) return null;
-    return searchers.find(s => s.id === newCreative.searcher_id);
+    if (!newLanding.searcher_id) return null;
+    return searchers.find(s => s.id === newLanding.searcher_id);
+  };
+
+  const getSelectedDesigner = () => {
+    if (!newLanding.designer_id) return null;
+    return designers.find(d => d.id === newLanding.designer_id);
   };
 
   const handleRefreshAll = async () => {
-    console.log(`🔄 Обновление только метрик и зональных данных (период: ${metricsPeriod})`);
-    await refreshMetrics();
-    await refreshZoneData();
+    console.log(`🔄 Обновление данных лендингов`);
+    await loadLandings();
     await loadLastUpdateTime();
   };
 
-  const cofStats = getCOFStats(filteredCreatives);
-  const countryStats = getCountryStats(filteredCreatives);
-  const zoneStats = getZoneStats(filteredCreatives);
+  const countryStats = getCountryStats(filteredLandings);
+  const tagStats = getTagStats(filteredLandings);
+
+  function getTagStats(landingsData) {
+    const tagCount = {};
+    landingsData.forEach(landing => {
+      if (landing.tags && Array.isArray(landing.tags)) {
+        landing.tags.forEach(tag => {
+          tagCount[tag] = (tagCount[tag] || 0) + 1;
+        });
+      }
+    });
+    return tagCount;
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка креативов...</p>
+          <p className="mt-4 text-gray-600">Загрузка лендингов...</p>
         </div>
       </div>
     );
@@ -1875,7 +1531,7 @@ function CreativePanel({ user }) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Креативы</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Лендинги</h1>
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name}
               </p>
@@ -2216,7 +1872,7 @@ function CreativePanel({ user }) {
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
+              Создать лендинг
             </button>
           </div>
         </div>
@@ -2427,25 +2083,25 @@ function CreativePanel({ user }) {
         
       </div>
 
-      {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
-      {filteredCreatives.length > 0 && (
+      {/* СТАТИСТИКА ЛЕНДИНГОВ */}
+      {filteredLandings.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          {/* ПЕРВАЯ СТРОКА */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
-            {/* Креативов */}
+          {/* СТРОКА СТАТИСТИКИ */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4">
+            {/* Лендингов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Video className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        Креативов
+                        Лендингов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredCreatives.length}
+                        {filteredLandings.length}
                       </dd>
                     </dl>
                   </div>
@@ -2466,7 +2122,7 @@ function CreativePanel({ user }) {
                         С комментарием
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredCreatives.filter(c => c.comment && c.comment.trim()).length}
+                        {filteredLandings.filter(c => c.comment && c.comment.trim()).length}
                       </dd>
                     </dl>
                   </div>
@@ -2498,375 +2154,34 @@ function CreativePanel({ user }) {
                 </div>
               </div>
             </div>
-
-            {/* Общий COF */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">COF</span>
-                    </div>
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Общий COF
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {formatCOF(cofStats.totalCOF)}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Средний COF */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний COF
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {formatCOF(cofStats.avgCOF)}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Красная зона */}
-            <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-red-100 truncate">
-                        Красная зона
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
-                        {zoneStats.red}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Розовая зона */}
-            <div className="bg-pink-500 overflow-hidden shadow-sm rounded-lg border border-pink-600">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-pink-100 truncate">
-                        Розовая зона
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
-                        {zoneStats.pink}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Золотая зона */}
-            <div className="bg-yellow-500 overflow-hidden shadow-sm rounded-lg border border-yellow-600">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-black" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-yellow-800 truncate">
-                        Золотая зона
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-black">
-                        {zoneStats.gold}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Зеленая зона */}
-            <div className="bg-green-500 overflow-hidden shadow-sm rounded-lg border border-green-600">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-green-100 truncate">
-                        Зеленая зона
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-white">
-                        {zoneStats.green}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
-
-          {/* ВТОРАЯ СТРОКА - метрики */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
-              {/* Лидов */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Лидов
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? formatStats().totalLeads : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPL */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPL</span>
-                      </div>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPL
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (filteredCreatives.length > 0 && aggregatedMetricsStats.totalLeads > 0 ? 
-                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' : 
-                          '0.00$') : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Расходы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Расходы
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? formatStats().totalCost : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Клики */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                      </svg>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Клики
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? Math.round(aggregatedMetricsStats.totalClicks).toLocaleString() : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPC */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPC</span>
-                      </div>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPC
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (aggregatedMetricsStats.totalClicks > 0 ? 
-                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' : 
-                          '0.00$') : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CTR */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CTR</span>
-                      </div>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CTR
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? formatStats().avgCTR : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPM */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPM</span>
-                      </div>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          CPM
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (aggregatedMetricsStats.totalImpressions > 0 ? 
-                          ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' : 
-                          '0.00$') : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Показы */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Показы
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString() : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ср. лидов */}
-              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 sm:p-3 md:p-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="8.5" cy="7" r="4" />
-                        <polyline points="17 11 19 13 23 9" />
-                      </svg>
-                    </div>
-                    <div className="ml-2 sm:ml-3 w-0 flex-1">
-                      <dl>
-                        <dt className="text-xs font-medium text-gray-500 truncate">
-                          Ср. лидов
-                        </dt>
-                        <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                          {hasMetricsData ? (filteredCreatives.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredCreatives.length) : 0) : '—'}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-        </div>
       )}
 
       {/* Content */}
       <div className="flex-1 p-6">
-        {filteredCreatives.length === 0 ? (
+        {filteredLandings.length === 0 ? (
           <div className="text-center py-12">
-            <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Нет креативов
+              Нет лендингов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив с Google Drive ссылками
+              Создайте свой первый лендинг
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
+              Создать лендинг
             </button>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                Полная аналитика креативов
+                Список лендингов
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
@@ -2887,49 +2202,10 @@ function CreativePanel({ user }) {
                         Артикул
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Видео
+                        Шаблон
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Зона
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <BarChart3 className="h-4 w-4 mx-auto" />
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Лиды
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CPL
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Расходы
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Клики
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CPC
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CTR
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CPM
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Показы
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Время
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Дней
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Зоны
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        COF
+                        Теги
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Trello
@@ -2938,38 +2214,33 @@ function CreativePanel({ user }) {
                         Статус
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Buyer
+                        Designer
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Searcher
                       </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Buyer
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredCreatives
+                    {filteredLandings
                       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-                      .map((creative) => {
-                        const cof = typeof creative.cof_rating === 'number' 
-                          ? creative.cof_rating 
-                          : calculateCOF(creative.work_types || []);
-                        
-                        const currentDisplayData = getCurrentMetricsForDisplay(creative);
-                        const currentMode = detailMode.get(creative.id) || 'aggregated';
-                        const allVideoMetrics = getAllVideoMetrics(creative);
-                        const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
-                        const isDropdownOpen = openDropdowns.has(creative.id);
-                        const formattedDateTime = formatKyivTime(creative.created_at);
+                      .map((landing) => {
+                        const isDropdownOpen = openDropdowns.has(landing.id);
+                        const formattedDateTime = formatKyivTime(landing.created_at);
                         
                         return (
                           <tr 
-                            key={creative.id}
+                            key={landing.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
                               <button
-                                onClick={() => handleEditCreative(creative)}
+                                onClick={() => handleEditLanding(landing)}
                                 className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                title="Редактировать креатив"
+                                title="Редактировать лендинг"
                               >
                                 <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                                   <path stroke="none" d="M0 0h24v24H0z"/>
@@ -2988,11 +2259,11 @@ function CreativePanel({ user }) {
                             <td className="px-3 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  {creative.comment && (
+                                  {landing.comment && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        showComment(creative);
+                                        showComment(landing);
                                       }}
                                       className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                       title="Показать комментарий"
@@ -3003,11 +2274,11 @@ function CreativePanel({ user }) {
                                 </div>
                                 
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  {creativesWithHistory.has(creative.id) && (
+                                  {landingsWithHistory.has(landing.id) && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        showHistory(creative);
+                                        showHistory(landing);
                                       }}
                                       className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                       title="Показать историю изменений"
@@ -3021,500 +2292,18 @@ function CreativePanel({ user }) {
                                   )}
                                 </div>
                                 
-                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                 
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
-                                  {creative.article}
+                                  {landing.article}
                                 </div>
                               </div>
                             </td>
                             
-                            <td className="px-3 py-4 text-sm text-gray-900">
-                              <div className="space-y-1">
-                                {creative.link_titles && creative.link_titles.length > 0 ? (
-                                  creative.link_titles.map((title, index) => (
-                                    <div key={index} className="flex items-center min-h-[24px]">
-                                      <span 
-                                        className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
-                                        title={title}
-                                      >
-                                        {title}
-                                      </span>
-                                      <a
-                                        href={creative.links[index]}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        title="Открыть в Google Drive"
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="text-center">
-                                    <span className="text-gray-400 cursor-text select-text">Нет видео</span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-
                             <td className="px-3 py-4 text-sm text-gray-900 text-center">
-                              {metricsLoading ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                <CurrentZoneDisplay 
-                                  article={creative.article} 
-                                  metricsData={getAggregatedCreativeMetrics(creative)}
-                                />
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <CurrentZoneDisplay 
-                                            article={creative.article} 
-                                            metricsData={{
-                                              found: true,
-                                              data: videoMetric.data
-                                            }}
-                                          />
-                                        ) : (
-                                          <div className="text-center">
-                                            <span className="text-gray-400 text-xs">—</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-center">
-                                    <span className="text-gray-400 text-xs">—</span>
-                                  </div>
-                                )
-                              )}
-                            </td>
-
-                            {/* ОБНОВЛЕННАЯ колонка с кнопкой статистики */}
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              <div className="flex items-center justify-center">
-                                {getAggregatedCreativeMetrics(creative)?.found && creative.link_titles && creative.link_titles.length > 1 ? (
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <button
-                                      onClick={() => toggleDetailMode(creative.id)}
-                                      className={`cursor-pointer p-2 rounded-full transition-colors duration-200 ${
-                                        currentMode === 'individual' 
-                                          ? 'text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200' 
-                                          : 'text-blue-600 hover:text-blue-800 hover:bg-blue-100'
-                                      }`}
-                                      title={currentMode === 'aggregated' 
-                                        ? "Показать статистику по каждому видео" 
-                                        : "Показать общую статистику"
-                                      }
-                                    >
-                                      {currentMode === 'individual' ? (
-                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                          <path stroke="none" d="M0 0h24v24H0z"/>
-                                          <polyline points="5 9 9 9 9 5" />
-                                          <line x1="3" y1="3" x2="9" y2="9" />
-                                          <polyline points="5 15 9 15 9 19" />
-                                          <line x1="3" y1="21" x2="9" y2="15" />
-                                          <polyline points="19 9 15 9 15 5" />
-                                          <line x1="15" y1="9" x2="21" y2="3" />
-                                          <polyline points="19 15 15 15 15 19" />
-                                          <line x1="15" y1="15" x2="21" y2="21" />
-                                        </svg>
-                                      ) : (
-                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                          <path stroke="none" d="M0 0h24v24H0z"/>
-                                          <polyline points="16 4 20 4 20 8" />
-                                          <line x1="14" y1="10" x2="20" y2="4" />
-                                          <polyline points="8 20 4 20 4 16" />
-                                          <line x1="4" y1="20" x2="10" y2="14" />
-                                          <polyline points="16 20 20 20 20 16" />
-                                          <line x1="14" y1="14" x2="20" y2="20" />
-                                          <polyline points="8 4 4 4 4 8" />
-                                          <line x1="4" y1="4" x2="10" y2="10" />
-                                        </svg>
-                                      )}
-                                    </button>
-                                    <div className="min-w-[24px] flex justify-center">
-                                      {getAggregatedCreativeMetrics(creative)?.found && getAggregatedCreativeMetrics(creative).videoCount > 1 && (
-                                        <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded cursor-text select-text">
-                                          {getAggregatedCreativeMetrics(creative).videoCount}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-8 h-8"></div>
-                                )}
-                              </div>
-
-                            </td>
-                            
-                            {/* ОБНОВЛЕННЫЕ колонки метрик */}
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.leads}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.leads}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-                            
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.cpl}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.cpl}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span 
-                                    className="font-bold text-sm cursor-text select-text text-black relative group"
-                                  >
-                                    {currentDisplayData.metrics.data.formatted.cost}
-                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                      Расход FB: {currentDisplayData.metrics.data.raw.cost_from_sources?.toFixed(2)}$
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span 
-                                            className="font-bold text-sm cursor-text select-text text-black relative group"
-                                          >
-                                            {videoMetric.data.formatted.cost}
-                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                              Расход FB: {videoMetric.data.raw.cost_from_sources?.toFixed(2)}$
-                                            </span>
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span 
-                                    className="font-bold text-sm cursor-text select-text text-black relative group"
-                                  >
-                                    {currentDisplayData.metrics.data.formatted.clicks}
-                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                      Клики FB: {currentDisplayData.metrics.data.raw.clicks_on_link}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span 
-                                            className="font-bold text-sm cursor-text select-text text-black relative group"
-                                          >
-                                            {videoMetric.data.formatted.clicks}
-                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                              Клики FB: {videoMetric.data.raw.clicks_on_link}
-                                            </span>
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.cpc}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.cpc}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-                            
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.ctr}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.ctr}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.cpm}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.cpm}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.impressions}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.impressions}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.avg_duration || '0.0с'}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.avg_duration || '0.0с'}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {(metricsLoading || loadingCreativeIds.has(creative.id)) ? (
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                </div>
-                              ) : currentMode === 'aggregated' ? (
-                                currentDisplayData.metrics?.found ? (
-                                  <span className="font-bold text-sm cursor-text select-text text-black">
-                                    {currentDisplayData.metrics.data.formatted.days}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              ) : (
-                                allVideoMetrics.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {allVideoMetrics.map((videoMetric, index) => (
-                                      <div key={index} className="text-center min-h-[24px]">
-                                        {videoMetric.found ? (
-                                          <span className="font-bold text-sm cursor-text select-text text-black-700">
-                                            {videoMetric.data.formatted.days.replace(/\s*дн\./g, '')}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-sm cursor-text select-text">—</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 cursor-text select-text">—</span>
-                                )
-                              )}
+                              <span className="text-sm text-gray-900 cursor-text select-text">
+                                {landing.template || '—'}
+                              </span>
                             </td>
 
                             <td className="px-3 py-4 text-sm text-gray-900 text-center">
@@ -3522,63 +2311,30 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-center">
-                              {creative.work_types && creative.work_types.length > 0 ? (
+                              {landing.tags && landing.tags.length > 0 ? (
                                 <div className="space-y-1">
-                                  {/* Первая строка: COF рейтинг */}
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(cof)} cursor-text select-text`}>
-                                    <span className="text-xs font-bold mr-1">COF</span>
-                                    {formatCOF(cof)}
-                                  </span>
-                                  
-                                  {/* Вторая строка: Работы (количество) с возможностью раскрытия */}
-                                  <div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleWorkTypes(creative.id);
-                                      }}
-                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
-                                    >
-                                      <Eye className="h-3 w-3 mr-1" />
-                                      <span>
-                                        {isWorkTypesExpanded 
-                                          ? `Скрыть работы` 
-                                          : `Работы (${creative.work_types.length})`
-                                        }
+                                  <div className="flex flex-wrap gap-1 justify-center">
+                                    {landing.tags.map((tag, index) => (
+                                      <span 
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300 cursor-text select-text"
+                                      >
+                                        {tag}
                                       </span>
-                                      {isWorkTypesExpanded ? (
-                                        <ChevronUp className="h-3 w-3 ml-1" />
-                                      ) : (
-                                        <ChevronDown className="h-3 w-3 ml-1" />
-                                      )}
-                                    </button>
+                                    ))}
                                   </div>
-                                  
-                                  {/* Расширенный список работ */}
-                                  {isWorkTypesExpanded && (
-                                    <div className="mt-2 space-y-1 max-w-xs">
-                                      {creative.work_types.map((workType, index) => (
-                                        <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
-                                          <span className="truncate cursor-text select-text">{workType}</span>
-                                          <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
-                                            {formatCOF(workTypeValues[workType] || 0)}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                  </div>
                               ) : (
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )}
                             </td>
                             
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {creative.trello_link ? (
+                              {landing.trello_link ? (
                                 <div className="space-y-2">
                                   <div>
                                     
-                                     <a href={creative.trello_link}
+                                     <a href={landing.trello_link}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -3594,17 +2350,45 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {syncingCreatives.has(creative.id) ? (
+                              {syncingLandings.has(landing.id) ? (
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                   <span className="ml-2 text-xs text-blue-600">Синхронизация...</span>
                                 </div>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
-                                  {getTrelloListName(creative.id)}
+                                  {getTrelloListName(landing.id)}
                                 </span>
                               )}
                             </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {(landing.designer_id || landing.designer) ? (
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getDesignerAvatar(landing.designer_id) ? (
+                                      <img
+                                        src={getDesignerAvatar(landing.designer_id)}
+                                        alt="Designer"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getDesignerAvatar(landing.designer_id) ? 'hidden' : ''}`}>
+                                      <Palette className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900 cursor-text select-text">
+                                    {landing.designer_id ? getDesignerName(landing.designer_id) : landing.designer}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )}
+                            </td>    
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                               {(creative.buyer_id || creative.buyer) ? (
@@ -3635,10 +2419,10 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {(creative.searcher_id || creative.searcher) ? (
+                              {(landing.searcher_id || landing.searcher) ? (
                                 <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                    {getSearcherAvatar(creative.searcher_id) ? (
+                                    {getSearcherAvatar(landing.searcher_id) ? (
                                       <img
                                         src={getSearcherAvatar(creative.searcher_id)}
                                         alt="Searcher"
@@ -3649,12 +2433,12 @@ function CreativePanel({ user }) {
                                         }}
                                       />
                                     ) : null}
-                                    <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(creative.searcher_id) ? 'hidden' : ''}`}>
+                                    <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(landing.searcher_id) ? 'hidden' : ''}`}>
                                       <Search className="h-3 w-3 text-gray-400" />
                                     </div>
                                   </div>
                                   <span className="text-sm text-gray-900 cursor-text select-text">
-                                    {creative.searcher_id ? getSearcherName(creative.searcher_id) : creative.searcher}
+                                    {landing.searcher_id ? getSearcherName(landing.searcher_id) : landing.searcher}
                                   </span>
                                 </div>
                               ) : (
@@ -4863,4 +3647,4 @@ function CreativePanel({ user }) {
   );
 }
 
-export default CreativePanel;
+export default LandingPanel;
