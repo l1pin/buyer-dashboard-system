@@ -8,7 +8,7 @@ import CreativeMetrics from './CreativeMetrics';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
-import { 
+import {
   Plus, 
   X, 
   Link as LinkIcon,
@@ -44,7 +44,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  Filter
+  Filter,
+  Palette
 } from 'lucide-react';
 
 function LandingPanel({ user }) {
@@ -984,7 +985,7 @@ function LandingPanel({ user }) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              creativeId: newLandingData.id,
+              landingId: newLandingData.id,
               trelloLink: newLandingData.trello_link
             })
           });
@@ -997,7 +998,7 @@ function LandingPanel({ user }) {
             setTrelloStatuses(prev => {
               const updated = new Map(prev);
               updated.set(newLandingData.id, {
-                creative_id: newLandingData.id,
+                landing_id: newLandingData.id,
                 list_name: syncResult.listName,
                 list_id: syncResult.listId,
                 trello_card_id: syncResult.cardId,
@@ -1377,38 +1378,52 @@ function LandingPanel({ user }) {
     const errorMessages = [];
 
     // Проверяем артикул
-    if (!newCreative.article.trim()) {
+    if (!newLanding.article.trim()) {
       errors.article = true;
       errorMessages.push('Артикул обязателен для заполнения');
     }
 
-    // Проверяем ссылки
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(newCreative.links);
-    if (validLinks.length === 0) {
-      errors.links = true;
-      errorMessages.push('Необходимо добавить хотя бы одну ссылку на Google Drive');
-    } else if (invalidLinks.length > 0) {
-      errors.links = true;
-      errorMessages.push('Проверьте правильность ссылок на Google Drive');
+    // Проверяем шаблон
+    if (!newLanding.template.trim()) {
+      errors.template = true;
+      errorMessages.push('Шаблон обязателен для заполнения');
     }
 
-    // Проверяем типы работ
-    if (newCreative.work_types.length === 0) {
-      errors.work_types = true;
-      errorMessages.push('Необходимо выбрать хотя бы один тип работы');
+    // Проверяем теги
+    if (newLanding.tags.length === 0) {
+      errors.tags = true;
+      errorMessages.push('Необходимо выбрать хотя бы один тег');
     }
 
     // Проверяем Trello ссылку
-    if (!newCreative.trello_link.trim()) {
+    if (!newLanding.trello_link.trim()) {
       errors.trello_link = true;
       errorMessages.push('Карточка Trello обязательна для заполнения');
     } else {
-      const trimmedTrelloLink = newCreative.trello_link.trim();
+      const trimmedTrelloLink = newLanding.trello_link.trim();
       if (!trimmedTrelloLink.startsWith('https://trello.com/c/') && 
           !trimmedTrelloLink.startsWith('trello.com/c/')) {
         errors.trello_link = true;
         errorMessages.push('Проверьте правильность ссылки на Trello');
       }
+    }
+
+    // Проверяем Designer
+    if (!newLanding.designer_id) {
+      errors.designer_id = true;
+      errorMessages.push('Необходимо выбрать дизайнера');
+    }
+
+    // Проверяем Searcher
+    if (!newLanding.searcher_id) {
+      errors.searcher_id = true;
+      errorMessages.push('Необходимо выбрать серчера');
+    }
+
+    // Проверяем Buyer
+    if (!newLanding.buyer_id) {
+      errors.buyer_id = true;
+      errorMessages.push('Необходимо выбрать байера');
     }
 
     setFieldErrors(errors);
@@ -2468,20 +2483,21 @@ function LandingPanel({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setNewCreative({
+                  setNewLanding({
                     article: '',
-                    links: [''],
-                    work_types: [],
-                    link_titles: [],
+                    template: '',
+                    tags: [],
                     comment: '',
                     is_poland: false,
                     trello_link: '',
-                    buyer_id: null,
-                    searcher_id: null
+                    designer_id: null,
+                    searcher_id: null,
+                    buyer_id: null
                   });
-                  setExtractingTitles(false);
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
+                  setShowDesignerDropdown(false);
+                  setShowTemplateDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -2538,48 +2554,6 @@ function LandingPanel({ user }) {
                     </span>
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
-                  Google Drive ссылки *
-                </label>
-                <div className="space-y-2">
-                  {newCreative.links.map((link, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input
-                        type="url"
-                        value={link}
-                        onChange={(e) => updateLink(index, e.target.value)}
-                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                          fieldErrors.links 
-                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
-                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                        }`}
-                        placeholder="https://drive.google.com/file/d/..."
-                      />
-                      {newCreative.links.length > 1 && (
-                        <button
-                          onClick={() => removeLinkField(index)}
-                          className="text-gray-400 hover:text-red-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={addLinkField}
-                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Добавить ссылку
-                </button>
-                <p className="mt-2 text-xs text-blue-600 flex items-center">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Используйте только ссылки на Google Drive файлы
-                </p>
               </div>
 
               <div>
@@ -2654,7 +2628,8 @@ function LandingPanel({ user }) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setNewCreative({ ...newCreative, buyer_id: null });
+                              setNewLanding({ ...newLanding, buyer_id: null });
+                              clearFieldError('buyer_id');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2716,6 +2691,7 @@ function LandingPanel({ user }) {
                         if (!loadingUsers) {
                           setShowSearcherDropdown(!showSearcherDropdown);
                           setShowBuyerDropdown(false);
+                          setShowDesignerDropdown(false);
                         }
                       }}
                       disabled={loadingUsers}
@@ -2752,7 +2728,8 @@ function LandingPanel({ user }) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setNewCreative({ ...newCreative, searcher_id: null });
+                              setNewLanding({ ...newLanding, searcher_id: null });
+                              clearFieldError('searcher_id');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -2820,50 +2797,35 @@ function LandingPanel({ user }) {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className={`block text-sm font-medium ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
-                    Типы работ * ({newCreative.work_types.length} выбрано)
-                  </label>
-                  {newCreative.work_types.length > 0 && (
-                    <div className="flex items-center space-x-1">
-                      <span className="text-xs text-gray-500">COF:</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(calculateCOF(newCreative.work_types))}`}>
-                        {formatCOF(calculateCOF(newCreative.work_types))}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.tags ? 'text-red-600' : 'text-gray-700'}`}>
+                  Теги * ({newLanding.tags.length} выбрано)
+                </label>
                 <div className={`max-h-72 overflow-y-auto border rounded-md p-3 bg-gray-50 ${
-                  fieldErrors.work_types ? 'border-red-300' : 'border-gray-300'
+                  fieldErrors.tags ? 'border-red-300' : 'border-gray-300'
                 }`}>
-                  <div className="grid grid-cols-1 gap-2">
-                    {workTypes.map((type) => (
-                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={newCreative.work_types.includes(type)}
-                            onChange={(e) => handleWorkTypeChange(type, e.target.checked)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <span className="text-sm text-gray-700 select-none">{type}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 font-medium">
-                          {formatCOF(workTypeValues[type] || 0)}
-                        </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableTags.map((tag) => (
+                      <label key={tag} className="flex items-center p-2 hover:bg-white rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newLanding.tags.includes(tag)}
+                          onChange={(e) => handleTagChange(tag, e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700 select-none">{tag}</span>
                       </label>
                     ))}
                   </div>
                 </div>
-                {newCreative.work_types.length > 0 && (
+                {newLanding.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {newCreative.work_types.map((type, index) => (
-                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
-                        {type} ({formatCOF(workTypeValues[type] || 0)})
+                    {newLanding.tags.map((tag, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 border border-blue-300">
+                        {tag}
                         <button
                           type="button"
-                          onClick={() => handleWorkTypeChange(type, false)}
-                          className="ml-1 text-gray-600 hover:text-gray-800"
+                          onClick={() => handleTagChange(tag, false)}
+                          className="ml-1 text-blue-600 hover:text-blue-800"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -2878,20 +2840,21 @@ function LandingPanel({ user }) {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setNewCreative({
+                  setNewLanding({
                     article: '',
-                    links: [''],
-                    work_types: [],
-                    link_titles: [],
+                    template: '',
+                    tags: [],
                     comment: '',
                     is_poland: false,
                     trello_link: '',
-                    buyer_id: null,
-                    searcher_id: null
+                    designer_id: null,
+                    searcher_id: null,
+                    buyer_id: null
                   });
-                  setExtractingTitles(false);
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
+                  setShowDesignerDropdown(false);
+                  setShowTemplateDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
@@ -2900,27 +2863,20 @@ function LandingPanel({ user }) {
                 Отменить
               </button>
               <button
-                onClick={handleCreateCreative}
+                onClick={handleCreateLanding}
                 disabled={creating}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {creating ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {authorizing ? 'Авторизация Google...' : 
-                     extractingTitles ? 'Извлечение названий...' : 
-                     'Создание...'}
+                    Создание...
                   </div>
                 ) : (
                   <div className="flex items-center">
-                    <span>Создать креатив</span>
-                    {newCreative.work_types.length > 0 && (
-                      <span className="ml-2 text-xs opacity-75">
-                        (COF: {formatCOF(calculateCOF(newCreative.work_types))})
-                      </span>
-                    )}
+                    <span>Создать лендинг</span>
                     <div className="ml-2">
-                      {newCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                      {newLanding.is_poland ? <PolandFlag /> : <UkraineFlag />}
                     </div>
                   </div>
                 )}
@@ -2936,7 +2892,7 @@ function LandingPanel({ user }) {
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
-                Редактировать креатив
+                Редактировать лендинг
               </h3>
               <button
                 onClick={() => {
@@ -2980,7 +2936,7 @@ function LandingPanel({ user }) {
                   <div className="flex-1">
                     <input
                       type="text"
-                      value={editCreative.article}
+                      value={editLanding.article}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
@@ -2989,73 +2945,62 @@ function LandingPanel({ user }) {
                   <button
                     type="button"
                     onClick={() => {
-                      setEditCreative({ ...editCreative, is_poland: !editCreative.is_poland });
+                      setEditLanding({ ...editLanding, is_poland: !editLanding.is_poland });
                     }}
                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${
-                      editCreative.is_poland
+                      editLanding.is_poland
                         ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
                         : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                     }`}
-                    title={editCreative.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
+                    title={editLanding.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
                   >
-                    {editCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                    {editLanding.is_poland ? <PolandFlag /> : <UkraineFlag />}
                     <span className="ml-2">
-                      {editCreative.is_poland ? 'Poland' : 'Ukraine'}
+                      {editLanding.is_poland ? 'Poland' : 'Ukraine'}
                     </span>
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
-                  Google Drive ссылки *
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.template ? 'text-red-600' : 'text-gray-700'}`}>
+                  Шаблон *
                 </label>
-                <div className="space-y-2">
-                  {editCreative.links.map((link, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input
-                        type="url"
-                        value={link}
-                        onChange={(e) => {
-                          const newLinks = [...editCreative.links];
-                          newLinks[index] = e.target.value;
-                          setEditCreative({ ...editCreative, links: newLinks });
-                          clearFieldError('links');
-                        }}
-                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                          fieldErrors.links 
-                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400' 
-                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                        }`}
-                        placeholder="https://drive.google.com/file/d/..."
-                      />
-                      {editCreative.links.length > 1 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${
+                      fieldErrors.template 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                    }`}
+                  >
+                    <span className={editLanding.template ? 'text-gray-900' : 'text-gray-500'}>
+                      {editLanding.template || 'Выберите шаблон'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </button>
+                  
+                  {showTemplateDropdown && (
+                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {templates.map((template) => (
                         <button
+                          key={template}
+                          type="button"
                           onClick={() => {
-                            const newLinks = editCreative.links.filter((_, i) => i !== index);
-                            setEditCreative({ ...editCreative, links: newLinks.length === 0 ? [''] : newLinks });
+                            setEditLanding({ ...editLanding, template: template });
+                            setShowTemplateDropdown(false);
+                            clearFieldError('template');
                           }}
-                          className="text-gray-400 hover:text-red-600"
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                         >
-                          <X className="h-4 w-4" />
+                          <span className="text-gray-900">{template}</span>
                         </button>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-                <button
-                  onClick={() => {
-                    setEditCreative({ ...editCreative, links: [...editCreative.links, ''] });
-                  }}
-                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Добавить ссылку
-                </button>
-                <p className="mt-2 text-xs text-blue-600 flex items-center">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Используйте только ссылки на Google Drive файлы
-                </p>
               </div>
 
               <div>
@@ -3064,9 +3009,9 @@ function LandingPanel({ user }) {
                 </label>
                 <input
                   type="url"
-                  value={editCreative.trello_link}
+                  value={editLanding.trello_link}
                   onChange={(e) => {
-                    setEditCreative({ ...editCreative, trello_link: e.target.value });
+                    setEditLanding({ ...editLanding, trello_link: e.target.value });
                     clearFieldError('trello_link');
                   }}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
@@ -3082,10 +3027,115 @@ function LandingPanel({ user }) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Buyer
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                    Designer *
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowDesignerDropdown(!showDesignerDropdown);
+                          setShowBuyerDropdown(false);
+                          setShowSearcherDropdown(false);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className={`designer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                        fieldErrors.designer_id 
+                          ? 'border-red-300 focus:ring-red-500' 
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {editLanding.designer_id ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getDesignerAvatar(editLanding.designer_id) ? (
+                                <img
+                                  src={getDesignerAvatar(editLanding.designer_id)}
+                                  alt="Designer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getDesignerAvatar(editLanding.designer_id) ? 'hidden' : ''}`}>
+                                <Palette className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{getDesignerName(editLanding.designer_id)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите дизайнера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {editLanding.designer_id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditLanding({ ...editLanding, designer_id: null });
+                              clearFieldError('designer_id');
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+                    
+                    {showDesignerDropdown && !loadingUsers && (
+                      <div className="designer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {designers.map((designer) => (
+                          <button
+                            key={designer.id}
+                            type="button"
+                            onClick={() => {
+                              setEditLanding({ ...editLanding, designer_id: designer.id });
+                              setShowDesignerDropdown(false);
+                              clearFieldError('designer_id');
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {designer.avatar_url ? (
+                                <img
+                                  src={designer.avatar_url}
+                                  alt="Designer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${designer.avatar_url ? 'hidden' : ''}`}>
+                                <Palette className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900">{designer.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {loadingUsers && (
+                    <p className="mt-1 text-xs text-gray-500">Загрузка дизайнеров...</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
+                    Searcher *
                   </label>
                   <div className="relative">
                     <button
@@ -3094,16 +3144,17 @@ function LandingPanel({ user }) {
                         if (!loadingUsers) {
                           setShowBuyerDropdown(!showBuyerDropdown);
                           setShowSearcherDropdown(false);
+                          setShowDesignerDropdown(false);
                         }
                       }}
                       disabled={loadingUsers}
                       className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
                     >
                       <div className="flex items-center space-x-2 flex-1">
-                        {editCreative.buyer_id ? (
+                        {editLanding.buyer_id ? (
                           <>
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getBuyerAvatar(editCreative.buyer_id) ? (
+                              {getBuyerAvatar(editLanding.buyer_id) ? (
                                 <img
                                   src={getBuyerAvatar(editCreative.buyer_id)}
                                   alt="Buyer"
@@ -3118,19 +3169,20 @@ function LandingPanel({ user }) {
                                 <User className="h-3 w-3 text-gray-400" />
                               </div>
                             </div>
-                            <span className="text-gray-900">{getBuyerName(editCreative.buyer_id)}</span>
+                            <span className="text-gray-900">{getBuyerName(editLanding.buyer_id)}</span>
                           </>
                         ) : (
                           <span className="text-gray-500">Выберите байера</span>
                         )}
                       </div>
                       <div className="flex items-center space-x-1">
-                        {editCreative.buyer_id && (
+                        {editLanding.buyer_id && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditCreative({ ...editCreative, buyer_id: null });
+                              setEditLanding({ ...editLanding, buyer_id: null });
+                              clearFieldError('buyer_id');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -3149,8 +3201,9 @@ function LandingPanel({ user }) {
                             key={buyer.id}
                             type="button"
                             onClick={() => {
-                              setEditCreative({ ...editCreative, buyer_id: buyer.id });
+                              setEditLanding({ ...editLanding, buyer_id: buyer.id });
                               setShowBuyerDropdown(false);
+                              clearFieldError('buyer_id');
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -3192,6 +3245,7 @@ function LandingPanel({ user }) {
                         if (!loadingUsers) {
                           setShowSearcherDropdown(!showSearcherDropdown);
                           setShowBuyerDropdown(false);
+                          setShowDesignerDropdown(false);
                         }
                       }}
                       disabled={loadingUsers}
