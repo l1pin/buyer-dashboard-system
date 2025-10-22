@@ -10,6 +10,7 @@ import CreativeBuyer from './CreativeBuyer';
 import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
+import LandingPanel from './LandingPanel';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
@@ -23,6 +24,7 @@ function Dashboard({ user, session, updateUser }) {
     '/admin/tables': 'table',
     '/admin/users': 'users', 
     '/workspace/creatives': 'creatives',
+    '/workspace/landings': 'landings',
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
     '/settings': 'settings'
@@ -32,7 +34,8 @@ function Dashboard({ user, session, updateUser }) {
   const sectionToUrl = {
     'table': '/admin/tables',
     'users': '/admin/users',
-    'creatives': '/workspace/creatives', 
+    'creatives': '/workspace/creatives',
+    'landings': '/workspace/landings',
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
     'settings': '/settings'
@@ -45,7 +48,7 @@ function Dashboard({ user, session, updateUser }) {
     if (role === 'search_manager') return 'creatives';
     if (role === 'buyer') return 'creatives';
     if (role === 'teamlead') return 'analytics';
-    if (role === 'content_manager') return 'settings';
+    if (role === 'content_manager') return 'landings';
     if (role === 'product_manager') return 'settings';
     if (role === 'proofreader') return 'settings';
     return 'settings';
@@ -60,6 +63,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'teamlead';
       case 'creatives':
         return role === 'editor' || role === 'search_manager' || role === 'buyer';
+      case 'landings':
+        return role === 'content_manager';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -153,6 +158,8 @@ function Dashboard({ user, session, updateUser }) {
           return <CreativeBuyer user={user} />;
         }
         return null;
+      case 'landings':
+        return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
@@ -167,6 +174,8 @@ function Dashboard({ user, session, updateUser }) {
           return <CreativeSearch user={user} />;
         } else if (user?.role === 'buyer') {
           return <CreativeBuyer user={user} />;
+        } else if (user?.role === 'content_manager') {
+          return <LandingPanel user={user} />;
         } else if (user?.role === 'teamlead') {
           return <CreativeAnalytics user={user} />;
         } else {
