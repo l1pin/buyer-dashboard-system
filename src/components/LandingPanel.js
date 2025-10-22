@@ -2437,7 +2437,602 @@ function LandingPanel({ user }) {
               </h3>
               
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
-                <p className="text-center text-gray-500 py-8">Таблица в разработке...</p>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      {/* Редактировать */}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        ✏️
+                      </th>
+                      
+                      {/* Дата */}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Дата
+                      </th>
+                      
+                      {/* Артикул */}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Артикул
+                      </th>
+                      
+                      {/* Шаблон */}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Шаблон
+                      </th>
+                      
+                      {/* Теги */}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Теги
+                      </th>
+                      
+                      {/* Расширенная статистика */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        📊
+                      </th>
+                      
+                      {/* Лиды */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Users className="h-3 w-3 mr-1" />
+                          Лиды
+                        </div>
+                      </th>
+                      
+                      {/* CPL */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        CPL
+                      </th>
+                      
+                      {/* Расходы */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          Расходы
+                        </div>
+                      </th>
+                      
+                      {/* Клики */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <MousePointer className="h-3 w-3 mr-1" />
+                          Клики
+                        </div>
+                      </th>
+                      
+                      {/* CPC */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        CPC
+                      </th>
+                      
+                      {/* CTR */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        CTR
+                      </th>
+                      
+                      {/* CPM */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        CPM
+                      </th>
+                      
+                      {/* Показы */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Показы
+                        </div>
+                      </th>
+                      
+                      {/* Время */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Время
+                        </div>
+                      </th>
+                      
+                      {/* Дней */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          Дней
+                        </div>
+                      </th>
+                      
+                      {/* Зоны (цены) */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Зоны
+                      </th>
+                      
+                      {/* Текущая зона */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Текущая зона
+                      </th>
+                      
+                      {/* Trello */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Trello
+                      </th>
+                      
+                      {/* Статус */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        Статус
+                      </th>
+                      
+                      {/* Designer */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Palette className="h-3 w-3 mr-1" />
+                          Designer
+                        </div>
+                      </th>
+                      
+                      {/* Buyer */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <User className="h-3 w-3 mr-1" />
+                          Buyer
+                        </div>
+                      </th>
+                      
+                      {/* Searcher */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <Search className="h-3 w-3 mr-1" />
+                          Searcher
+                        </div>
+                      </th>
+                      
+                      {/* Комментарий */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          💬
+                        </div>
+                      </th>
+                      
+                      {/* История */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <svg className="h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z"/>
+                            <polyline points="12 8 12 12 14 14" />
+                            <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                          </svg>
+                          📜
+                        </div>
+                      </th>
+                      
+                      {/* Удалить */}
+                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        🗑️
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredLandings.map((landing) => {
+                      const formattedDateTime = formatKyivTime(landing.created_at);
+                      const aggregatedMetrics = getAggregatedLandingMetrics(landing);
+                      const isExpanded = expandedTags.has(landing.id);
+                      const isDropdownOpen = openDropdowns.has(landing.id);
+                      const isSyncing = syncingLandings.has(landing.id);
+                      const trelloStatus = getTrelloListName(landing.id);
+
+                      return (
+                        <tr key={landing.id} className="hover:bg-gray-50 transition-colors duration-150">
+                          {/* Редактировать */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => handleEditLanding(landing)}
+                              className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                              title="Редактировать лендинг"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </td>
+
+                          {/* Дата */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-xs">
+                              <div className="font-medium text-gray-900">{formattedDateTime.date}</div>
+                              <div className="text-gray-500">{formattedDateTime.time}</div>
+                            </div>
+                          </td>
+
+                          {/* Артикул */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2">
+                              {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                              <span className="text-sm font-medium text-gray-900">{landing.article}</span>
+                            </div>
+                          </td>
+
+                          {/* Шаблон */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900">{landing.template || '—'}</span>
+                          </td>
+
+                          {/* Теги */}
+                          <td className="px-3 py-4">
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {landing.tags && landing.tags.length > 0 ? (
+                                <>
+                                  {(isExpanded ? landing.tags : landing.tags.slice(0, 2)).map((tag, index) => (
+                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 whitespace-nowrap">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {landing.tags.length > 2 && (
+                                    <button
+                                      onClick={() => toggleTags(landing.id)}
+                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200"
+                                    >
+                                      {isExpanded ? (
+                                        <>
+                                          <ChevronUp className="h-3 w-3 mr-1" />
+                                          Скрыть
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown className="h-3 w-3 mr-1" />
+                                          +{landing.tags.length - 2}
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Расширенная статистика */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => {
+                                const newMode = new Map(detailMode);
+                                newMode.set(landing.id, !newMode.get(landing.id));
+                                setDetailMode(newMode);
+                              }}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
+                                detailMode.get(landing.id)
+                                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                              }`}
+                              title={detailMode.get(landing.id) ? 'Скрыть детальную статистику' : 'Показать детальную статистику'}
+                            >
+                              <BarChart3 className="h-4 w-4" />
+                            </button>
+                          </td>
+
+                          {/* Лиды */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm font-medium text-gray-900">
+                                {aggregatedMetrics.data.formatted.leads}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* CPL */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm font-semibold text-green-600">
+                                {aggregatedMetrics.data.formatted.cpl}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Расходы */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.cost}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Клики */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.clicks}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* CPC */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.cpc}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* CTR */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.ctr}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* CPM */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.cpm}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Показы */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.impressions}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Время */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.avg_duration}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Дней */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {loadingCreativeIds.has(landing.id) ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : aggregatedMetrics?.found ? (
+                              <span className="text-sm text-gray-900">
+                                {aggregatedMetrics.data.formatted.days}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Зоны (цены) */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <ZoneDataDisplay article={landing.article} />
+                          </td>
+
+                          {/* Текущая зона */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <CurrentZoneDisplay article={landing.article} metricsData={aggregatedMetrics} />
+                          </td>
+
+                          {/* Trello */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {landing.trello_link ? (
+                              
+                                href={landing.trello_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                title="Открыть карточку в Trello"
+                              >
+                                <ExternalLink className="h-4 w-4 mx-auto" />
+                              </a>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Статус */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {isSyncing ? (
+                              <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              </div>
+                            ) : trelloStatus !== '—' ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {trelloStatus}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+
+                          {/* Designer */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              {landing.designer_id ? (
+                                <>
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getDesignerAvatar(landing.designer_id) ? (
+                                      <img
+                                        src={getDesignerAvatar(landing.designer_id)}
+                                        alt="Designer"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getDesignerAvatar(landing.designer_id) ? 'hidden' : ''}`}>
+                                      <Palette className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900">{getDesignerName(landing.designer_id)}</span>
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Buyer */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              {landing.buyer_id ? (
+                                <>
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getBuyerAvatar(landing.buyer_id) ? (
+                                      <img
+                                        src={getBuyerAvatar(landing.buyer_id)}
+                                        alt="Buyer"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(landing.buyer_id) ? 'hidden' : ''}`}>
+                                      <User className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900">{getBuyerName(landing.buyer_id)}</span>
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Searcher */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              {landing.searcher_id ? (
+                                <>
+                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    {getSearcherAvatar(landing.searcher_id) ? (
+                                      <img
+                                        src={getSearcherAvatar(landing.searcher_id)}
+                                        alt="Searcher"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(landing.searcher_id) ? 'hidden' : ''}`}>
+                                      <Search className="h-3 w-3 text-gray-400" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm text-gray-900">{getSearcherName(landing.searcher_id)}</span>
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Комментарий */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {landing.comment && landing.comment.trim() ? (
+                              <button
+                                onClick={() => showComment(landing)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                title="Посмотреть комментарий"
+                              >
+                                <MessageCircle className="h-4 w-4 mx-auto" />
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* История */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {landingsWithHistory.has(landing.id) ? (
+                              <button
+                                onClick={() => showHistory(landing)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                title="Посмотреть историю изменений"
+                              >
+                                <svg className="h-4 w-4 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                  <path stroke="none" d="M0 0h24v24H0z"/>
+                                  <polyline points="12 8 12 12 14 14" />
+                                  <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Удалить */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => handleDeleteLanding(landing.id, landing.article)}
+                              className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                              title="Удалить лендинг"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
