@@ -893,6 +893,281 @@ export const cellService = {
 
 // Остальные сервисы (creativeService, metricsAnalyticsService) остаются без изменений
 
+// Сервис для работы с лендингами
+export const landingService = {
+  // Создать лендинг
+  async createLanding(landingData) {
+    console.log('📝 Создание лендинга с данными:', {
+      article: landingData.article,
+      template: landingData.template,
+      tagsCount: landingData.tags?.length || 0,
+      hasComment: !!landingData.comment,
+      is_poland: landingData.is_poland,
+      trello_link: landingData.trello_link,
+      designer_id: landingData.designer_id,
+      buyer_id: landingData.buyer_id,
+      searcher_id: landingData.searcher_id
+    });
+
+    const { data, error } = await supabase
+      .from('landings')
+      .insert([
+        {
+          user_id: landingData.user_id,
+          content_manager_name: landingData.content_manager_name,
+          article: landingData.article,
+          template: landingData.template,
+          tags: landingData.tags || [],
+          comment: landingData.comment || null,
+          is_poland: landingData.is_poland || false,
+          trello_link: landingData.trello_link || null,
+          designer_id: landingData.designer_id || null,
+          buyer_id: landingData.buyer_id || null,
+          searcher_id: landingData.searcher_id || null,
+          designer: landingData.designer || null,
+          buyer: landingData.buyer || null,
+          searcher: landingData.searcher || null,
+          created_at: getKyivTime()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка создания лендинга:', error);
+      throw error;
+    }
+
+    const landing = data[0];
+    console.log('✅ Лендинг создан успешно:', landing);
+
+    return landing;
+  },
+
+  // Получить лендинги пользователя
+  async getUserLandings(userId) {
+    try {
+      console.log('📡 Запрос лендингов пользователя:', userId);
+      
+      const { data, error } = await supabase
+        .from('landings')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getUserLandings:', error);
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getUserLandings завершен, получено лендингов:', result.length);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getUserLandings:', error);
+      return [];
+    }
+  },
+
+  // Получить все лендинги
+  async getAllLandings() {
+    try {
+      console.log('📡 Запрос к таблице landings...');
+      
+      const { data, error } = await supabase
+        .from('landings')
+        .select(`
+          *,
+          users!landings_user_id_fkey(name, email)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Ошибка в getAllLandings:', error);
+        throw error;
+      }
+      
+      const result = data || [];
+      console.log('✅ getAllLandings завершен успешно, получено записей:', result.length);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 Критическая ошибка в getAllLandings:', error);
+      return [];
+    }
+  },
+
+  // Обновить лендинг
+  async updateLanding(landingId, updates) {
+    console.log('📝 Обновление лендинга:', landingId, updates);
+
+    const { data, error } = await supabase
+      .from('landings')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', landingId)
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка обновления лендинга:', error);
+      throw error;
+    }
+
+    console.log('✅ Лендинг обновлен:', data[0]);
+    return data[0];
+  },
+
+  // Удалить лендинг
+  async deleteLanding(landingId) {
+    try {
+      console.log('🗑️ Начинаем удаление лендинга:', landingId);
+
+      // Проверяем, существует ли лендинг
+      const { data: checkData, error: checkError } = await supabase
+        .from('landings')
+        .select('id, article')
+        .eq('id', landingId)
+        .single();
+
+      if (checkError) {
+        console.error('❌ Лендинг не найден:', checkError);
+        throw new Error(`Лендинг не найден: ${checkError.message}`);
+      }
+
+      console.log('✅ Лендинг найден:', checkData);
+
+      // Удаляем историю изменений лендинга
+      console.log('📜 Удаление истории лендинга...');
+      const { error: historyError } = await supabase
+        .from('landing_history')
+        .delete()
+        .eq('landing_id', landingId);
+      
+      if (historyError) {
+        console.error('⚠️ Ошибка удаления истории лендинга:', historyError);
+      }
+
+      // Удаляем сам лендинг
+      console.log('🌐 Удаление лендинга из таблицы landings...');
+      const { data: deletedData, error: landingError } = await supabase
+        .from('landings')
+        .delete()
+        .eq('id', landingId)
+        .select();
+      
+      if (landingError) {
+        console.error('❌ ОШИБКА удаления лендинга:', landingError);
+        throw new Error(`Не удалось удалить лендинг: ${landingError.message}`);
+      }
+
+      if (!deletedData || deletedData.length === 0) {
+        throw new Error('Лендинг не был удален. Возможно, недостаточно прав доступа.');
+      }
+
+      console.log('✅ Лендинг полностью удален из системы');
+      return { success: true };
+
+    } catch (error) {
+      console.error('❌ Критическая ошибка удаления лендинга:', error);
+      throw error;
+    }
+  },
+
+  // Подписка на изменения лендингов пользователя
+  subscribeToUserLandings(userId, callback) {
+    return supabase
+      .channel(`user_landings_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'landings',
+          filter: `user_id=eq.${userId}`
+        },
+        callback
+      )
+      .subscribe();
+  }
+};
+
+// Сервис для работы с историей лендингов
+export const landingHistoryService = {
+  // Создать запись в истории
+  async createHistoryEntry(historyData) {
+    try {
+      console.log('📝 Создание записи истории лендинга:', historyData.landing_id);
+      
+      const dataToInsert = {
+        ...historyData,
+        changed_at: historyData.changed_at || getKyivTime(),
+        created_at: getKyivTime()
+      };
+      
+      const { data, error } = await supabase
+        .from('landing_history')
+        .insert([dataToInsert])
+        .select();
+
+      if (error) {
+        console.error('❌ Ошибка создания записи истории:', error);
+        throw error;
+      }
+
+      console.log('✅ Запись истории создана с киевским временем');
+      return data[0];
+    } catch (error) {
+      console.error('💥 Критическая ошибка создания записи истории:', error);
+      throw error;
+    }
+  },
+
+  // Получить всю историю для лендинга
+  async getLandingHistory(landingId) {
+    try {
+      console.log('📡 Запрос истории лендинга:', landingId);
+      
+      const { data, error } = await supabase
+        .from('landing_history')
+        .select('*')
+        .eq('landing_id', landingId)
+        .order('changed_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Ошибка получения истории:', error);
+        throw error;
+      }
+
+      console.log(`✅ Получено ${data?.length || 0} записей истории`);
+      return data || [];
+    } catch (error) {
+      console.error('💥 Критическая ошибка получения истории:', error);
+      return [];
+    }
+  },
+
+  // Проверить, есть ли история у лендинга
+  async hasHistory(landingId) {
+    try {
+      const { count, error } = await supabase
+        .from('landing_history')
+        .select('*', { count: 'exact', head: true })
+        .eq('landing_id', landingId);
+
+      if (error) throw error;
+
+      return count > 0;
+    } catch (error) {
+      console.error('Ошибка проверки наличия истории:', error);
+      return false;
+    }
+  }
+};
+
 // Сервис для работы с историей креативов
 export const creativeHistoryService = {
   // Создать запись в истории
