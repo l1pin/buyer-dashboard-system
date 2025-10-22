@@ -94,7 +94,10 @@ function LandingPanel({ user }) {
         trello_link: '',
         designer_id: null,
         buyer_id: null,
-        searcher_id: null
+        searcher_id: null,
+        is_test: false,
+        editor_id: null,
+        product_manager_id: null
     });
 
     const [editLanding, setEditLanding] = useState({
@@ -120,6 +123,11 @@ function LandingPanel({ user }) {
     const [showFilterSearcherDropdown, setShowFilterSearcherDropdown] = useState(false);
     const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
     const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+    const [showEditorDropdown, setShowEditorDropdown] = useState(false);
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const [isTestMode, setIsTestMode] = useState(false);
+    const [editors, setEditors] = useState([]);
+    const [productManagers, setProductManagers] = useState([]);
     const [fieldErrors, setFieldErrors] = useState({});
 
     // Доступные теги для лендингов
@@ -915,16 +923,20 @@ function LandingPanel({ user }) {
             setLoadingUsers(true);
             console.log('👥 Загрузка пользователей...');
 
-            const [buyersData, searchersData, designersData] = await Promise.all([
+            const [buyersData, searchersData, designersData, editorsData, productManagersData] = await Promise.all([
                 userService.getUsersByRole('buyer'),
                 userService.getUsersByRole('search_manager'),
-                userService.getUsersByRole('designer')
+                userService.getUsersByRole('designer'),
+                userService.getUsersByRole('proofreader'),
+                userService.getUsersByRole('product_manager')
             ]);
 
             setBuyers(buyersData);
             setSearchers(searchersData);
             setDesigners(designersData);
-            console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров и ${designersData.length} дизайнеров`);
+            setEditors(editorsData);
+            setProductManagers(productManagersData);
+            console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${editorsData.length} редакторов и ${productManagersData.length} продакт менеджеров`);
         } catch (error) {
             console.error('❌ Ошибка загрузки пользователей:', error);
         } finally {
@@ -945,6 +957,8 @@ function LandingPanel({ user }) {
             const buyerName = newLanding.buyer_id ? getBuyerName(newLanding.buyer_id) : null;
             const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
             const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
+            const editorName = newLanding.editor_id ? getEditorName(newLanding.editor_id) : null;
+            const productManagerName = newLanding.product_manager_id ? getProductManagerName(newLanding.product_manager_id) : null;
 
             const newLandingData = await landingService.createLanding({
                 user_id: user.id,
@@ -956,11 +970,16 @@ function LandingPanel({ user }) {
                 is_poland: newLanding.is_poland,
                 trello_link: newLanding.trello_link.trim(),
                 designer_id: newLanding.designer_id,
-                buyer_id: newLanding.buyer_id,
+                buyer_id: isTestMode ? null : newLanding.buyer_id,
                 searcher_id: newLanding.searcher_id,
                 designer: designerName !== '—' ? designerName : null,
-                buyer: buyerName !== '—' ? buyerName : null,
-                searcher: searcherName !== '—' ? searcherName : null
+                buyer: isTestMode ? null : (buyerName !== '—' ? buyerName : null),
+                searcher: searcherName !== '—' ? searcherName : null,
+                is_test: isTestMode,
+                editor_id: isTestMode ? newLanding.editor_id : null,
+                product_manager_id: isTestMode ? newLanding.product_manager_id : null,
+                editor: isTestMode ? (editorName !== '—' ? editorName : null) : null,
+                product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null
             });
 
             console.log('✅ Лендинг создан в БД:', newLandingData);
@@ -1209,8 +1228,11 @@ function LandingPanel({ user }) {
             if (!event.target.closest('.template-dropdown') && !event.target.closest('.template-trigger')) {
                 setShowTemplateDropdown(false);
             }
-            if (!event.target.closest('.tags-dropdown') && !event.target.closest('.tags-trigger')) {
-                setShowTagsDropdown(false);
+            if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
+                setShowEditorDropdown(false);
+            }
+            if (!event.target.closest('.product-dropdown') && !event.target.closest('.product-trigger')) {
+                setShowProductDropdown(false);
             }
 
             const periodMenuContainer = event.target.closest('.period-menu-container');
@@ -1431,9 +1453,38 @@ function LandingPanel({ user }) {
         return searchers.find(s => s.id === newLanding.searcher_id);
     };
 
-    const getSelectedDesigner = () => {
-        if (!newLanding.designer_id) return null;
-        return designers.find(d => d.id === newLanding.designer_id);
+    const getSelectedEditor = () => {
+        if (!newLanding.editor_id) return null;
+        return editors.find(e => e.id === newLanding.editor_id);
+    };
+
+    const getSelectedProductManager = () => {
+        if (!newLanding.product_manager_id) return null;
+        return productManagers.find(p => p.id === newLanding.product_manager_id);
+    };
+
+    const getEditorName = (editorId) => {
+        if (!editorId) return '—';
+        const editor = editors.find(e => e.id === editorId);
+        return editor ? editor.name : 'Удален';
+    };
+
+    const getProductManagerName = (pmId) => {
+        if (!pmId) return '—';
+        const pm = productManagers.find(p => p.id === pmId);
+        return pm ? pm.name : 'Удален';
+    };
+
+    const getEditorAvatar = (editorId) => {
+        if (!editorId) return null;
+        const editor = editors.find(e => e.id === editorId);
+        return editor ? editor.avatar_url : null;
+    };
+
+    const getProductManagerAvatar = (pmId) => {
+        if (!pmId) return null;
+        const pm = productManagers.find(p => p.id === pmId);
+        return pm ? pm.avatar_url : null;
     };
 
     const handleRefreshAll = async () => {
@@ -2956,14 +3007,54 @@ function LandingPanel({ user }) {
             {/* Create Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
+                    <div className={`relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md my-5 transition-all duration-500 ${
+                        isTestMode ? 'bg-yellow-50 border-yellow-200' : 'bg-white'
+                    }`}>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-medium text-gray-900">
                                 Создать новый лендинг
                             </h3>
+                            
+                            {/* Тумблер */}
+                            <div className="flex items-center space-x-3">
+                                <span className={`text-sm font-medium transition-colors duration-300 ${
+                                    !isTestMode ? 'text-gray-900' : 'text-gray-500'
+                                }`}>
+                                    Основной
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsTestMode(!isTestMode);
+                                        setNewLanding({
+                                            ...newLanding,
+                                            is_test: !isTestMode,
+                                            buyer_id: null,
+                                            editor_id: null,
+                                            product_manager_id: null
+                                        });
+                                    }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                                        isTestMode ? 'bg-yellow-500 focus:ring-yellow-500' : 'bg-gray-200 focus:ring-gray-500'
+                                    }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                                            isTestMode ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                    />
+                                </button>
+                                <span className={`text-sm font-medium transition-colors duration-300 ${
+                                    isTestMode ? 'text-gray-900' : 'text-gray-500'
+                                }`}>
+                                    Тест
+                                </span>
+                            </div>
+
                             <button
                                 onClick={() => {
                                     setShowCreateModal(false);
+                                    setIsTestMode(false);
                                     setNewLanding({
                                         article: '',
                                         template: '',
@@ -2973,11 +3064,16 @@ function LandingPanel({ user }) {
                                         trello_link: '',
                                         designer_id: null,
                                         buyer_id: null,
-                                        searcher_id: null
+                                        searcher_id: null,
+                                        is_test: false,
+                                        editor_id: null,
+                                        product_manager_id: null
                                     });
                                     setShowBuyerDropdown(false);
                                     setShowSearcherDropdown(false);
                                     setShowDesignerDropdown(false);
+                                    setShowEditorDropdown(false);
+                                    setShowProductDropdown(false);
                                     clearMessages();
                                 }}
                                 className="text-gray-400 hover:text-gray-600"
@@ -2985,6 +3081,14 @@ function LandingPanel({ user }) {
                                 <X className="h-6 w-6" />
                             </button>
                         </div>
+
+                        {/* Индикатор тестового режима */}
+                        {isTestMode && (
+                            <div className="mb-4 bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm flex items-center animate-pulse">
+                                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                                Создание тестового лендинга
+                            </div>
+                        )}
 
                         {error && (
                             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
@@ -3132,6 +3236,8 @@ function LandingPanel({ user }) {
                                                 setShowSearcherDropdown(false);
                                                 setShowTemplateDropdown(false);
                                                 setShowTagsDropdown(false);
+                                                setShowEditorDropdown(false);
+                                                setShowProductDropdown(false);
                                             }
                                         }}
                                         disabled={loadingUsers}
@@ -3233,6 +3339,8 @@ function LandingPanel({ user }) {
                                                 setShowDesignerDropdown(false);
                                                 setShowTemplateDropdown(false);
                                                 setShowTagsDropdown(false);
+                                                setShowEditorDropdown(false);
+                                                setShowProductDropdown(false);
                                             }
                                         }}
                                         disabled={loadingUsers}
@@ -3319,106 +3427,318 @@ function LandingPanel({ user }) {
                                 </div>
                             </div>
 
-                            {/* Buyer */}
-                            <div>
-                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.buyer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                                    Buyer *
-                                </label>
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (!loadingUsers) {
-                                                setShowBuyerDropdown(!showBuyerDropdown);
-                                                setShowSearcherDropdown(false);
-                                                setShowDesignerDropdown(false);
-                                                setShowTemplateDropdown(false);
-                                                setShowTagsDropdown(false);
-                                            }
-                                        }}
-                                        disabled={loadingUsers}
-                                        className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
-                                    >
-                                        <div className="flex items-center space-x-2 flex-1">
-                                            {getSelectedBuyer() ? (
-                                                <>
-                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                        {getSelectedBuyer().avatar_url ? (
-                                                            <img
-                                                                src={getSelectedBuyer().avatar_url}
-                                                                alt="Buyer"
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    e.target.style.display = 'none';
-                                                                    e.target.nextSibling.style.display = 'flex';
-                                                                }}
-                                                            />
-                                                        ) : null}
-                                                        <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
-                                                            <User className="h-3 w-3 text-gray-400" />
+                            {/* Buyer ИЛИ Editor + Product в зависимости от режима */}
+                            {!isTestMode ? (
+                                // Обычный режим - Buyer
+                                <div>
+                                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.buyer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                        Buyer *
+                                    </label>
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (!loadingUsers) {
+                                                    setShowBuyerDropdown(!showBuyerDropdown);
+                                                    setShowSearcherDropdown(false);
+                                                    setShowDesignerDropdown(false);
+                                                    setShowTemplateDropdown(false);
+                                                    setShowTagsDropdown(false);
+                                                    setShowEditorDropdown(false);
+                                                    setShowProductDropdown(false);
+                                                }
+                                            }}
+                                            disabled={loadingUsers}
+                                            className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                        >
+                                            <div className="flex items-center space-x-2 flex-1">
+                                                {getSelectedBuyer() ? (
+                                                    <>
+                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                            {getSelectedBuyer().avatar_url ? (
+                                                                <img
+                                                                    src={getSelectedBuyer().avatar_url}
+                                                                    alt="Buyer"
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                        e.target.nextSibling.style.display = 'flex';
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
+                                                                <User className="h-3 w-3 text-gray-400" />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <span className="text-gray-900 truncate">{getSelectedBuyer().name}</span>
-                                                </>
-                                            ) : (
-                                                <span className="text-gray-500">Выберите байера</span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center space-x-1">
-                                            {getSelectedBuyer() && (
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setNewLanding({ ...newLanding, buyer_id: null });
-                                                        clearFieldError('buyer_id');
-                                                    }}
-                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                                                    title="Очистить выбор"
-                                                >
-                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                                </button>
-                                            )}
-                                            <ChevronDown className="h-4 w-4 text-gray-400" />
-                                        </div>
-                                    </button>
+                                                        <span className="text-gray-900 truncate">{getSelectedBuyer().name}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-gray-500">Выберите байера</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center space-x-1">
+                                                {getSelectedBuyer() && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setNewLanding({ ...newLanding, buyer_id: null });
+                                                            clearFieldError('buyer_id');
+                                                        }}
+                                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                        title="Очистить выбор"
+                                                    >
+                                                        <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                    </button>
+                                                )}
+                                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                                            </div>
+                                        </button>
 
-                                    {showBuyerDropdown && !loadingUsers && (
-                                        <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                            {buyers.map((buyer) => (
-                                                <button
-                                                    key={buyer.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setNewLanding({ ...newLanding, buyer_id: buyer.id });
-                                                        setShowBuyerDropdown(false);
-                                                        clearFieldError('buyer_id');
-                                                    }}
-                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                                                >
-                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                        {buyer.avatar_url ? (
-                                                            <img
-                                                                src={buyer.avatar_url}
-                                                                alt="Buyer"
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    e.target.style.display = 'none';
-                                                                    e.target.nextSibling.style.display = 'flex';
-                                                                }}
-                                                            />
-                                                        ) : null}
-                                                        <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
-                                                            <User className="h-3 w-3 text-gray-400" />
+                                        {showBuyerDropdown && !loadingUsers && (
+                                            <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                                {buyers.map((buyer) => (
+                                                    <button
+                                                        key={buyer.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setNewLanding({ ...newLanding, buyer_id: buyer.id });
+                                                            setShowBuyerDropdown(false);
+                                                            clearFieldError('buyer_id');
+                                                        }}
+                                                        className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                    >
+                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                            {buyer.avatar_url ? (
+                                                                <img
+                                                                    src={buyer.avatar_url}
+                                                                    alt="Buyer"
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                        e.target.nextSibling.style.display = 'flex';
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                                                <User className="h-3 w-3 text-gray-400" />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <span className="text-gray-900 truncate">{buyer.name}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                                        <span className="text-gray-900 truncate">{buyer.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                // Тестовый режим - Editor и Product
+                                <>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-2 ${fieldErrors.editor_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                            Editor *
+                                        </label>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!loadingUsers) {
+                                                        setShowEditorDropdown(!showEditorDropdown);
+                                                        setShowProductDropdown(false);
+                                                        setShowBuyerDropdown(false);
+                                                        setShowSearcherDropdown(false);
+                                                        setShowDesignerDropdown(false);
+                                                        setShowTemplateDropdown(false);
+                                                        setShowTagsDropdown(false);
+                                                    }
+                                                }}
+                                                disabled={loadingUsers}
+                                                className="editor-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                            >
+                                                <div className="flex items-center space-x-2 flex-1">
+                                                    {getSelectedEditor() ? (
+                                                        <>
+                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                {getSelectedEditor().avatar_url ? (
+                                                                    <img
+                                                                        src={getSelectedEditor().avatar_url}
+                                                                        alt="Editor"
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                            e.target.nextSibling.style.display = 'flex';
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <div className={`w-full h-full flex items-center justify-center ${getSelectedEditor().avatar_url ? 'hidden' : ''}`}>
+                                                                    <Edit className="h-3 w-3 text-gray-400" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-gray-900 truncate">{getSelectedEditor().name}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-gray-500">Выберите редактора</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    {getSelectedEditor() && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setNewLanding({ ...newLanding, editor_id: null });
+                                                                clearFieldError('editor_id');
+                                                            }}
+                                                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                            title="Очистить выбор"
+                                                        >
+                                                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                        </button>
+                                                    )}
+                                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                                </div>
+                                            </button>
+
+                                            {showEditorDropdown && !loadingUsers && (
+                                                <div className="editor-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                                    {editors.map((editor) => (
+                                                        <button
+                                                            key={editor.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setNewLanding({ ...newLanding, editor_id: editor.id });
+                                                                setShowEditorDropdown(false);
+                                                                clearFieldError('editor_id');
+                                                            }}
+                                                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                {editor.avatar_url ? (
+                                                                    <img
+                                                                        src={editor.avatar_url}
+                                                                        alt="Editor"
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                            e.target.nextSibling.style.display = 'flex';
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <div className={`w-full h-full flex items-center justify-center ${editor.avatar_url ? 'hidden' : ''}`}>
+                                                                    <Edit className="h-3 w-3 text-gray-400" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-gray-900 truncate">{editor.name}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-2 ${fieldErrors.product_manager_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                            Product *
+                                        </label>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!loadingUsers) {
+                                                        setShowProductDropdown(!showProductDropdown);
+                                                        setShowEditorDropdown(false);
+                                                        setShowBuyerDropdown(false);
+                                                        setShowSearcherDropdown(false);
+                                                        setShowDesignerDropdown(false);
+                                                        setShowTemplateDropdown(false);
+                                                        setShowTagsDropdown(false);
+                                                    }
+                                                }}
+                                                disabled={loadingUsers}
+                                                className="product-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                            >
+                                                <div className="flex items-center space-x-2 flex-1">
+                                                    {getSelectedProductManager() ? (
+                                                        <>
+                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                {getSelectedProductManager().avatar_url ? (
+                                                                    <img
+                                                                        src={getSelectedProductManager().avatar_url}
+                                                                        alt="Product"
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                            e.target.nextSibling.style.display = 'flex';
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManager().avatar_url ? 'hidden' : ''}`}>
+                                                                    <Target className="h-3 w-3 text-gray-400" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-gray-900 truncate">{getSelectedProductManager().name}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-gray-500">Выберите продакт менеджера</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    {getSelectedProductManager() && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setNewLanding({ ...newLanding, product_manager_id: null });
+                                                                clearFieldError('product_manager_id');
+                                                            }}
+                                                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                            title="Очистить выбор"
+                                                        >
+                                                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                        </button>
+                                                    )}
+                                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                                </div>
+                                            </button>
+
+                                            {showProductDropdown && !loadingUsers && (
+                                                <div className="product-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                                    {productManagers.map((pm) => (
+                                                        <button
+                                                            key={pm.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setNewLanding({ ...newLanding, product_manager_id: pm.id });
+                                                                setShowProductDropdown(false);
+                                                                clearFieldError('product_manager_id');
+                                                            }}
+                                                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                {pm.avatar_url ? (
+                                                                    <img
+                                                                        src={pm.avatar_url}
+                                                                        alt="Product"
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                            e.target.nextSibling.style.display = 'flex';
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <div className={`w-full h-full flex items-center justify-center ${pm.avatar_url ? 'hidden' : ''}`}>
+                                                                    <Target className="h-3 w-3 text-gray-400" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-gray-900 truncate">{pm.name}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
                             {/* Комментарий */}
                             <div>
@@ -3555,6 +3875,7 @@ function LandingPanel({ user }) {
                             <button
                                 onClick={() => {
                                     setShowCreateModal(false);
+                                    setIsTestMode(false);
                                     setNewLanding({
                                         article: '',
                                         template: '',
@@ -3564,13 +3885,18 @@ function LandingPanel({ user }) {
                                         trello_link: '',
                                         designer_id: null,
                                         buyer_id: null,
-                                        searcher_id: null
+                                        searcher_id: null,
+                                        is_test: false,
+                                        editor_id: null,
+                                        product_manager_id: null
                                     });
                                     setShowBuyerDropdown(false);
                                     setShowSearcherDropdown(false);
                                     setShowDesignerDropdown(false);
                                     setShowTemplateDropdown(false);
                                     setShowTagsDropdown(false);
+                                    setShowEditorDropdown(false);
+                                    setShowProductDropdown(false);
                                     clearMessages();
                                 }}
                                 disabled={creating}
@@ -3581,7 +3907,11 @@ function LandingPanel({ user }) {
                             <button
                                 onClick={handleCreateLanding}
                                 disabled={creating}
-                                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 ${
+                                    isTestMode 
+                                        ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500' 
+                                        : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                                }`}
                             >
                                 {creating ? (
                                     <div className="flex items-center">
@@ -3590,7 +3920,7 @@ function LandingPanel({ user }) {
                                     </div>
                                 ) : (
                                     <div className="flex items-center">
-                                        <span>Создать лендинг</span>
+                                        <span>{isTestMode ? 'Создать тестовый лендинг' : 'Создать лендинг'}</span>
                                         <div className="ml-2">
                                             {newLanding.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                         </div>
