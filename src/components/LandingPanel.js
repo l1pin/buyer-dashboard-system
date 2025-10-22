@@ -1116,20 +1116,6 @@ function LandingPanel({ user }) {
     }
   };
 
-  const handleDeleteLanding = async (landingId, article) => {
-    if (!window.confirm(`Вы уверены, что хотите удалить лендинг "${article}"?`)) {
-      return;
-    }
-
-    try {
-      await landingService.deleteLanding(landingId);
-      await loadLandings();
-      setSuccess('Лендинг удален');
-    } catch (error) {
-      setError('Ошибка удаления лендинга: ' + error.message);
-    }
-  };
-
   const handleTagChange = (tag, isChecked) => {
     let updatedTags;
     if (isChecked) {
@@ -2439,16 +2425,26 @@ function LandingPanel({ user }) {
               <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr>
-                      {/* Редактировать */}
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        ✏️
-                      </th>
-                      
-                      {/* Дата */}
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Дата
-                      </th>
+  <tr>
+    {/* Редактировать */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      <Edit className="h-4 w-4 mx-auto" />
+    </th>
+    
+    {/* Комментарий */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      <MessageCircle className="h-4 w-4 mx-auto" />
+    </th>
+    
+    {/* История */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      <Clock className="h-4 w-4 mx-auto" />
+    </th>
+    
+    {/* Дата */}
+    <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Дата
+    </th>
                       
                       {/* Артикул */}
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -2472,10 +2468,7 @@ function LandingPanel({ user }) {
                       
                       {/* Лиды */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Users className="h-3 w-3 mr-1" />
-                          Лиды
-                        </div>
+                        Лиды
                       </th>
                       
                       {/* CPL */}
@@ -2485,18 +2478,12 @@ function LandingPanel({ user }) {
                       
                       {/* Расходы */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          Расходы
-                        </div>
+                        Расходы
                       </th>
                       
                       {/* Клики */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <MousePointer className="h-3 w-3 mr-1" />
-                          Клики
-                        </div>
+                        Клики
                       </th>
                       
                       {/* CPC */}
@@ -2516,26 +2503,17 @@ function LandingPanel({ user }) {
                       
                       {/* Показы */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Eye className="h-3 w-3 mr-1" />
-                          Показы
-                        </div>
+                        Показы
                       </th>
                       
                       {/* Время */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          Время
-                        </div>
+                        Время
                       </th>
                       
                       {/* Дней */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          Дней
-                        </div>
+                        Дней
                       </th>
                       
                       {/* Зоны (цены) */}
@@ -2560,52 +2538,19 @@ function LandingPanel({ user }) {
                       
                       {/* Designer */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Palette className="h-3 w-3 mr-1" />
-                          Designer
-                        </div>
+                        Designer
                       </th>
                       
                       {/* Buyer */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <User className="h-3 w-3 mr-1" />
-                          Buyer
-                        </div>
+                        Buyer
                       </th>
                       
                       {/* Searcher */}
                       <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <Search className="h-3 w-3 mr-1" />
-                          Searcher
-                        </div>
+                        Searcher
                       </th>
                       
-                      {/* Комментарий */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <MessageCircle className="h-3 w-3 mr-1" />
-                          💬
-                        </div>
-                      </th>
-                      
-                      {/* История */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <svg className="h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                            <path stroke="none" d="M0 0h24v24H0z"/>
-                            <polyline points="12 8 12 12 14 14" />
-                            <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
-                          </svg>
-                          📜
-                        </div>
-                      </th>
-                      
-                      {/* Удалить */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        🗑️
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -2628,6 +2573,36 @@ function LandingPanel({ user }) {
                             >
                               <Edit className="h-4 w-4" />
                             </button>
+                          </td>
+
+                          {/* Комментарий */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {landing.comment && landing.comment.trim() ? (
+                              <button
+                                onClick={() => showComment(landing)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                title="Посмотреть комментарий"
+                              >
+                                <MessageCircle className="h-4 w-4 mx-auto" />
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* История */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {landingsWithHistory.has(landing.id) ? (
+                              <button
+                                onClick={() => showHistory(landing)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                title="Посмотреть историю изменений"
+                              >
+                                <Clock className="h-4 w-4 mx-auto" />
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
                           </td>
 
                           {/* Дата */}
@@ -2984,50 +2959,6 @@ function LandingPanel({ user }) {
                             </div>
                           </td>
 
-                          {/* Комментарий */}
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {landing.comment && landing.comment.trim() ? (
-                              <button
-                                onClick={() => showComment(landing)}
-                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
-                                title="Посмотреть комментарий"
-                              >
-                                <MessageCircle className="h-4 w-4 mx-auto" />
-                              </button>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )}
-                          </td>
-
-                          {/* История */}
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {landingsWithHistory.has(landing.id) ? (
-                              <button
-                                onClick={() => showHistory(landing)}
-                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
-                                title="Посмотреть историю изменений"
-                              >
-                                <svg className="h-4 w-4 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                  <path stroke="none" d="M0 0h24v24H0z"/>
-                                  <polyline points="12 8 12 12 14 14" />
-                                  <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
-                                </svg>
-                              </button>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )}
-                          </td>
-
-                          {/* Удалить */}
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleDeleteLanding(landing.id, landing.article)}
-                              className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                              title="Удалить лендинг"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
                         </tr>
                       );
                     })}
