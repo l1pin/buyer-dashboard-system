@@ -34,6 +34,9 @@ async function initializeTrello() {
     console.log('   - Креативов с ссылками:', result.stats.creativesWithLinks);
     console.log('   - Синхронизировано:', result.stats.synced);
     console.log('   - Не найдено:', result.stats.notFound);
+    if (result.stats.landingsWithLinks !== undefined) {
+      console.log('   - Лендингов с ссылками:', result.stats.landingsWithLinks);
+    }
     console.log('\n🎉 Trello интеграция активна! Статусы будут обновляться автоматически.\n');
     
   } catch (error) {
