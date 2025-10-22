@@ -1193,6 +1193,15 @@ function LandingPanel({ user }) {
             if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
                 setShowSearcherDropdown(false);
             }
+            if (!event.target.closest('.designer-dropdown') && !event.target.closest('.designer-trigger')) {
+                setShowDesignerDropdown(false);
+            }
+            if (!event.target.closest('.template-dropdown') && !event.target.closest('.template-trigger')) {
+                setShowTemplateDropdown(false);
+            }
+            if (!event.target.closest('.tags-dropdown') && !event.target.closest('.tags-trigger')) {
+                setShowTagsDropdown(false);
+            }
 
             const periodMenuContainer = event.target.closest('.period-menu-container');
             if (!periodMenuContainer && showPeriodMenu) {
@@ -1206,7 +1215,7 @@ function LandingPanel({ user }) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showPeriodMenu, customDateFrom, customDateTo]);
+    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown]);
 
     const handlePeriodChange = (period) => {
         console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
@@ -2587,10 +2596,11 @@ function LandingPanel({ user }) {
 
                                                     <td className="px-3 py-4 whitespace-nowrap text-center">
                                                         {landing.tags && landing.tags.length > 0 ? (
-                                                            <div className="space-y-1">
-                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-800 border-gray-300 cursor-text select-text`}>
-                                                                    Теги ({landing.tags.length})
-                                                                </span>
+                                                        <div className="space-y-1">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white text-gray-700 border-gray-300 cursor-text select-text`}>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1.5"></span>
+                                                                Теги ({landing.tags.length})
+                                                            </span>
 
                                                                 <div>
                                                                     <button
@@ -2617,11 +2627,23 @@ function LandingPanel({ user }) {
 
                                                                 {isExpanded && (
                                                                     <div className="mt-2 space-y-1 max-w-xs">
-                                                                        {landing.tags.map((tag, index) => (
-                                                                            <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
-                                                                                <span className="truncate cursor-text select-text">{tag}</span>
-                                                                            </div>
-                                                                        ))}
+                                                                        {landing.tags.map((tag, index) => {
+                                                                            const tagStyles = {
+                                                                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-200', bg: 'bg-purple-50' },
+                                                                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-200', bg: 'bg-blue-50' },
+                                                                                'Анимация': { dot: 'bg-green-500', border: 'border-green-200', bg: 'bg-green-50' },
+                                                                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-200', bg: 'bg-yellow-50' },
+                                                                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-200', bg: 'bg-red-50' },
+                                                                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-200', bg: 'bg-indigo-50' }
+                                                                            };
+                                                                            const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-200', bg: 'bg-gray-50' };
+                                                                            return (
+                                                                                <div key={index} className={`text-xs text-gray-700 ${style.bg} px-2 py-1 rounded flex items-center border ${style.border}`}>
+                                                                                    <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
+                                                                                    <span className="truncate cursor-text select-text">{tag}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -3408,19 +3430,21 @@ function LandingPanel({ user }) {
                                                 {newLanding.tags.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
                                                         {newLanding.tags.map((tag, index) => {
-                                                            const tagColors = {
-                                                                'SEO': 'bg-purple-100 text-purple-800 border-purple-200',
-                                                                'Адаптив': 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                'Анимация': 'bg-green-100 text-green-800 border-green-200',
-                                                                'Форма': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                                                'Интеграция': 'bg-red-100 text-red-800 border-red-200',
-                                                                'Мультиязычность': 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                                                            const tagStyles = {
+                                                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
+                                                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
+                                                                'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
+                                                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
+                                                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
+                                                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' }
                                                             };
+                                                            const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' };
                                                             return (
                                                                 <span 
                                                                     key={index} 
-                                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${tagColors[tag] || 'bg-gray-100 text-gray-800 border-gray-200'}`}
+                                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white ${style.border} ${style.text}`}
                                                                 >
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
                                                                     {tag}
                                                                 </span>
                                                             );
@@ -3437,14 +3461,15 @@ function LandingPanel({ user }) {
                                     {showTagsDropdown && (
                                         <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2">
                                             {availableTags.map((tag) => {
-                                                const tagColors = {
-                                                    'SEO': 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
-                                                    'Адаптив': 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
-                                                    'Анимация': 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
-                                                    'Форма': 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
-                                                    'Интеграция': 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
-                                                    'Мультиязычность': 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200'
+                                                const tagStyles = {
+                                                    'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
+                                                    'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
+                                                    'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
+                                                    'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
+                                                    'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
+                                                    'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' }
                                                 };
+                                                const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' };
                                                 const isSelected = newLanding.tags.includes(tag);
                                                 return (
                                                     <button
@@ -3460,13 +3485,16 @@ function LandingPanel({ user }) {
                                                             setNewLanding({ ...newLanding, tags: updatedTags });
                                                             clearFieldError('tags');
                                                         }}
-                                                        className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between border ${
+                                                        className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between ${
                                                             isSelected 
-                                                                ? tagColors[tag] || 'bg-gray-100 text-gray-800 border-gray-200'
-                                                                : 'hover:bg-gray-50 border-transparent'
+                                                                ? `bg-white border ${style.border} ${style.text}`
+                                                                : `${style.hover} border border-transparent hover:border-gray-200`
                                                         }`}
                                                     >
-                                                        <span className="text-sm font-medium">{tag}</span>
+                                                        <div className="flex items-center">
+                                                            <span className={`w-2 h-2 rounded-full ${style.dot} mr-2`}></span>
+                                                            <span className="text-sm font-medium">{tag}</span>
+                                                        </div>
                                                         {isSelected && (
                                                             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                                                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
