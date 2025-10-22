@@ -1453,6 +1453,11 @@ function LandingPanel({ user }) {
         return searchers.find(s => s.id === newLanding.searcher_id);
     };
 
+    const getSelectedDesigner = () => {
+        if (!newLanding.designer_id) return null;
+        return designers.find(d => d.id === newLanding.designer_id);
+    };
+
     const getSelectedEditor = () => {
         if (!newLanding.editor_id) return null;
         return editors.find(e => e.id === newLanding.editor_id);
