@@ -3077,7 +3077,23 @@ function LandingPanel({ user }) {
                                         <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
                                             {newLanding.template || 'Выберите шаблон'}
                                         </span>
-                                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        <div className="flex items-center space-x-1">
+                                            {newLanding.template && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setNewLanding({ ...newLanding, template: '' });
+                                                        clearFieldError('template');
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
                                     </button>
 
                                     {showTemplateDropdown && (
@@ -3464,7 +3480,23 @@ function LandingPanel({ user }) {
                                                     <span className="text-gray-500">Выберите теги</span>
                                                 )}
                                             </div>
-                                            <ChevronDown className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                                            <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
+                                                {newLanding.tags.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setNewLanding({ ...newLanding, tags: [] });
+                                                            clearFieldError('tags');
+                                                        }}
+                                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                        title="Очистить все теги"
+                                                    >
+                                                        <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                    </button>
+                                                )}
+                                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                                            </div>
                                         </div>
                                     </button>
 
