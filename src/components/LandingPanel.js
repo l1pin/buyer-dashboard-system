@@ -116,6 +116,8 @@ function LandingPanel({ user }) {
     const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
     const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
     const [showDesignerDropdown, setShowDesignerDropdown] = useState(false);
+    const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+    const [showTagsDropdown, setShowTagsDropdown] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
 
     // Доступные теги для лендингов
@@ -2960,6 +2962,7 @@ function LandingPanel({ user }) {
                         )}
 
                         <div className="space-y-4">
+                            {/* Артикул + страна */}
                             <div>
                                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
                                     Артикул *
@@ -3000,80 +3003,7 @@ function LandingPanel({ user }) {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.template ? 'text-red-600' : 'text-gray-700'}`}>
-                                    Шаблон *
-                                </label>
-                                <select
-                                    value={newLanding.template}
-                                    onChange={(e) => {
-                                        setNewLanding({ ...newLanding, template: e.target.value });
-                                        clearFieldError('template');
-                                    }}
-                                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.template
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900'
-                                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                                        }`}
-                                >
-                                    <option value="">Выберите шаблон</option>
-                                    {templateOptions.map((template) => (
-                                        <option key={template} value={template}>
-                                            {template}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.tags ? 'text-red-600' : 'text-gray-700'}`}>
-                                    Теги * ({newLanding.tags.length} выбрано)
-                                </label>
-                                <div className={`max-h-48 overflow-y-auto border rounded-md p-3 bg-gray-50 ${fieldErrors.tags ? 'border-red-300' : 'border-gray-300'
-                                    }`}>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        {availableTags.map((tag) => (
-                                            <label key={tag} className="flex items-center p-2 hover:bg-white rounded cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newLanding.tags.includes(tag)}
-                                                    onChange={(e) => {
-                                                        let updatedTags;
-                                                        if (e.target.checked) {
-                                                            updatedTags = [...newLanding.tags, tag];
-                                                        } else {
-                                                            updatedTags = newLanding.tags.filter(t => t !== tag);
-                                                        }
-                                                        setNewLanding({ ...newLanding, tags: updatedTags });
-                                                        clearFieldError('tags');
-                                                    }}
-                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700 select-none">{tag}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                                {newLanding.tags.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1">
-                                        {newLanding.tags.map((tag, index) => (
-                                            <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                                                {tag}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const updatedTags = newLanding.tags.filter(t => t !== tag);
-                                                        setNewLanding({ ...newLanding, tags: updatedTags });
-                                                    }}
-                                                    className="ml-1 text-blue-600 hover:text-blue-800"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
+                            {/* Карточка Trello */}
                             <div>
                                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.trello_link ? 'text-red-600' : 'text-gray-700'}`}>
                                     Карточка Trello *
@@ -3097,305 +3027,352 @@ function LandingPanel({ user }) {
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                {/* Designer Dropdown */}
-                                <div>
-                                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                                        Designer *
-                                    </label>
-                                    <div className="relative">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (!loadingUsers) {
-                                                    setShowDesignerDropdown(!showDesignerDropdown);
-                                                    setShowBuyerDropdown(false);
-                                                    setShowSearcherDropdown(false);
-                                                }
-                                            }}
-                                            disabled={loadingUsers}
-                                            className="designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
-                                        >
-                                            <div className="flex items-center space-x-2 flex-1">
-                                                {getSelectedDesigner() ? (
-                                                    <>
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {getSelectedDesigner().avatar_url ? (
-                                                                <img
-                                                                    src={getSelectedDesigner().avatar_url}
-                                                                    alt="Designer"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${getSelectedDesigner().avatar_url ? 'hidden' : ''}`}>
-                                                                <User className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{getSelectedDesigner().name}</span>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-gray-500">Выберите</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                                {getSelectedDesigner() && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setNewLanding({ ...newLanding, designer_id: null });
-                                                            clearFieldError('designer_id');
-                                                        }}
-                                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                                                        title="Очистить выбор"
-                                                    >
-                                                        <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                                    </button>
-                                                )}
-                                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                                            </div>
-                                        </button>
+                            {/* Шаблон - стилизованный dropdown */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.template ? 'text-red-600' : 'text-gray-700'}`}>
+                                    Шаблон *
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                                        className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${
+                                            fieldErrors.template
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                        }`}
+                                    >
+                                        <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
+                                            {newLanding.template || 'Выберите шаблон'}
+                                        </span>
+                                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                                    </button>
 
-                                        {showDesignerDropdown && !loadingUsers && (
-                                            <div className="designer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                                {designers.map((designer) => (
-                                                    <button
-                                                        key={designer.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setNewLanding({ ...newLanding, designer_id: designer.id });
-                                                            setShowDesignerDropdown(false);
-                                                            clearFieldError('designer_id');
-                                                        }}
-                                                        className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                                                    >
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {designer.avatar_url ? (
-                                                                <img
-                                                                    src={designer.avatar_url}
-                                                                    alt="Designer"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${designer.avatar_url ? 'hidden' : ''}`}>
-                                                                <User className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{designer.name}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Buyer Dropdown */}
-                                <div>
-                                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.buyer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                                        Buyer *
-                                    </label>
-                                    <div className="relative">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (!loadingUsers) {
-                                                    setShowBuyerDropdown(!showBuyerDropdown);
-                                                    setShowSearcherDropdown(false);
-                                                    setShowDesignerDropdown(false);
-                                                }
-                                            }}
-                                            disabled={loadingUsers}
-                                            className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
-                                        >
-                                            <div className="flex items-center space-x-2 flex-1">
-                                                {getSelectedBuyer() ? (
-                                                    <>
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {getSelectedBuyer().avatar_url ? (
-                                                                <img
-                                                                    src={getSelectedBuyer().avatar_url}
-                                                                    alt="Buyer"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
-                                                                <User className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{getSelectedBuyer().name}</span>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-gray-500">Выберите</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                                {getSelectedBuyer() && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setNewLanding({ ...newLanding, buyer_id: null });
-                                                            clearFieldError('buyer_id');
-                                                        }}
-                                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                                                        title="Очистить выбор"
-                                                    >
-                                                        <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                                    </button>
-                                                )}
-                                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                                            </div>
-                                        </button>
-
-                                        {showBuyerDropdown && !loadingUsers && (
-                                            <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                                {buyers.map((buyer) => (
-                                                    <button
-                                                        key={buyer.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setNewLanding({ ...newLanding, buyer_id: buyer.id });
-                                                            setShowBuyerDropdown(false);
-                                                            clearFieldError('buyer_id');
-                                                        }}
-                                                        className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                                                    >
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {buyer.avatar_url ? (
-                                                                <img
-                                                                    src={buyer.avatar_url}
-                                                                    alt="Buyer"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
-                                                                <User className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{buyer.name}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Searcher Dropdown */}
-                                <div>
-                                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
-                                        Searcher *
-                                    </label>
-                                    <div className="relative">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (!loadingUsers) {
-                                                    setShowSearcherDropdown(!showSearcherDropdown);
-                                                    setShowBuyerDropdown(false);
-                                                    setShowDesignerDropdown(false);
-                                                }
-                                            }}
-                                            disabled={loadingUsers}
-                                            className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
-                                        >
-                                            <div className="flex items-center space-x-2 flex-1">
-                                                {getSelectedSearcher() ? (
-                                                    <>
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {getSelectedSearcher().avatar_url ? (
-                                                                <img
-                                                                    src={getSelectedSearcher().avatar_url}
-                                                                    alt="Searcher"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${getSelectedSearcher().avatar_url ? 'hidden' : ''}`}>
-                                                                <Search className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{getSelectedSearcher().name}</span>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-gray-500">Выберите</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                                {getSelectedSearcher() && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setNewLanding({ ...newLanding, searcher_id: null });
-                                                            clearFieldError('searcher_id');
-                                                        }}
-                                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                                                        title="Очистить выбор"
-                                                    >
-                                                        <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                                    </button>
-                                                )}
-                                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                                            </div>
-                                        </button>
-
-                                        {showSearcherDropdown && !loadingUsers && (
-                                            <div className="searcher-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                                {searchers.map((searcher) => (
-                                                    <button
-                                                        key={searcher.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setNewLanding({ ...newLanding, searcher_id: searcher.id });
-                                                            setShowSearcherDropdown(false);
-                                                            clearFieldError('searcher_id');
-                                                        }}
-                                                        className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                                                    >
-                                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                            {searcher.avatar_url ? (
-                                                                <img
-                                                                    src={searcher.avatar_url}
-                                                                    alt="Searcher"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.nextSibling.style.display = 'flex';
-                                                                    }}
-                                                                />
-                                                            ) : null}
-                                                            <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
-                                                                <Search className="h-3 w-3 text-gray-400" />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-gray-900 truncate">{searcher.name}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                    {showTemplateDropdown && (
+                                        <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                                            {templateOptions.map((template) => (
+                                                <button
+                                                    key={template}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewLanding({ ...newLanding, template });
+                                                        setShowTemplateDropdown(false);
+                                                        clearFieldError('template');
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                                >
+                                                    {template}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
+                            {/* Designer */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                    Designer *
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!loadingUsers) {
+                                                setShowDesignerDropdown(!showDesignerDropdown);
+                                                setShowBuyerDropdown(false);
+                                                setShowSearcherDropdown(false);
+                                                setShowTemplateDropdown(false);
+                                                setShowTagsDropdown(false);
+                                            }
+                                        }}
+                                        disabled={loadingUsers}
+                                        className="designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1">
+                                            {getSelectedDesigner() ? (
+                                                <>
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {getSelectedDesigner().avatar_url ? (
+                                                            <img
+                                                                src={getSelectedDesigner().avatar_url}
+                                                                alt="Designer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${getSelectedDesigner().avatar_url ? 'hidden' : ''}`}>
+                                                            <User className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{getSelectedDesigner().name}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500">Выберите дизайнера</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            {getSelectedDesigner() && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setNewLanding({ ...newLanding, designer_id: null });
+                                                        clearFieldError('designer_id');
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </button>
+
+                                    {showDesignerDropdown && !loadingUsers && (
+                                        <div className="designer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {designers.map((designer) => (
+                                                <button
+                                                    key={designer.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewLanding({ ...newLanding, designer_id: designer.id });
+                                                        setShowDesignerDropdown(false);
+                                                        clearFieldError('designer_id');
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {designer.avatar_url ? (
+                                                            <img
+                                                                src={designer.avatar_url}
+                                                                alt="Designer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${designer.avatar_url ? 'hidden' : ''}`}>
+                                                            <User className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{designer.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Searcher */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                    Searcher *
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!loadingUsers) {
+                                                setShowSearcherDropdown(!showSearcherDropdown);
+                                                setShowBuyerDropdown(false);
+                                                setShowDesignerDropdown(false);
+                                                setShowTemplateDropdown(false);
+                                                setShowTagsDropdown(false);
+                                            }
+                                        }}
+                                        disabled={loadingUsers}
+                                        className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1">
+                                            {getSelectedSearcher() ? (
+                                                <>
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {getSelectedSearcher().avatar_url ? (
+                                                            <img
+                                                                src={getSelectedSearcher().avatar_url}
+                                                                alt="Searcher"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${getSelectedSearcher().avatar_url ? 'hidden' : ''}`}>
+                                                            <Search className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{getSelectedSearcher().name}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500">Выберите серчера</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            {getSelectedSearcher() && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setNewLanding({ ...newLanding, searcher_id: null });
+                                                        clearFieldError('searcher_id');
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </button>
+
+                                    {showSearcherDropdown && !loadingUsers && (
+                                        <div className="searcher-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {searchers.map((searcher) => (
+                                                <button
+                                                    key={searcher.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewLanding({ ...newLanding, searcher_id: searcher.id });
+                                                        setShowSearcherDropdown(false);
+                                                        clearFieldError('searcher_id');
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {searcher.avatar_url ? (
+                                                            <img
+                                                                src={searcher.avatar_url}
+                                                                alt="Searcher"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                                                            <Search className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{searcher.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Buyer */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.buyer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                                    Buyer *
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!loadingUsers) {
+                                                setShowBuyerDropdown(!showBuyerDropdown);
+                                                setShowSearcherDropdown(false);
+                                                setShowDesignerDropdown(false);
+                                                setShowTemplateDropdown(false);
+                                                setShowTagsDropdown(false);
+                                            }
+                                        }}
+                                        disabled={loadingUsers}
+                                        className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1">
+                                            {getSelectedBuyer() ? (
+                                                <>
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {getSelectedBuyer().avatar_url ? (
+                                                            <img
+                                                                src={getSelectedBuyer().avatar_url}
+                                                                alt="Buyer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
+                                                            <User className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{getSelectedBuyer().name}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500">Выберите байера</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            {getSelectedBuyer() && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setNewLanding({ ...newLanding, buyer_id: null });
+                                                        clearFieldError('buyer_id');
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </button>
+
+                                    {showBuyerDropdown && !loadingUsers && (
+                                        <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {buyers.map((buyer) => (
+                                                <button
+                                                    key={buyer.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewLanding({ ...newLanding, buyer_id: buyer.id });
+                                                        setShowBuyerDropdown(false);
+                                                        clearFieldError('buyer_id');
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {buyer.avatar_url ? (
+                                                            <img
+                                                                src={buyer.avatar_url}
+                                                                alt="Buyer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                                            <User className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{buyer.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Комментарий */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Комментарий
@@ -3409,6 +3386,98 @@ function LandingPanel({ user }) {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="Добавьте комментарий к лендингу (необязательно)"
                                 />
+                            </div>
+
+                            {/* Теги - красивый множественный dropdown */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${fieldErrors.tags ? 'text-red-600' : 'text-gray-700'}`}>
+                                    Теги * ({newLanding.tags.length} выбрано)
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+                                        className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${
+                                            fieldErrors.tags
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                {newLanding.tags.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {newLanding.tags.map((tag, index) => {
+                                                            const tagColors = {
+                                                                'SEO': 'bg-purple-100 text-purple-800 border-purple-200',
+                                                                'Адаптив': 'bg-blue-100 text-blue-800 border-blue-200',
+                                                                'Анимация': 'bg-green-100 text-green-800 border-green-200',
+                                                                'Форма': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                                'Интеграция': 'bg-red-100 text-red-800 border-red-200',
+                                                                'Мультиязычность': 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                                                            };
+                                                            return (
+                                                                <span 
+                                                                    key={index} 
+                                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${tagColors[tag] || 'bg-gray-100 text-gray-800 border-gray-200'}`}
+                                                                >
+                                                                    {tag}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-500">Выберите теги</span>
+                                                )}
+                                            </div>
+                                            <ChevronDown className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                                        </div>
+                                    </button>
+
+                                    {showTagsDropdown && (
+                                        <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2">
+                                            {availableTags.map((tag) => {
+                                                const tagColors = {
+                                                    'SEO': 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
+                                                    'Адаптив': 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
+                                                    'Анимация': 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+                                                    'Форма': 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
+                                                    'Интеграция': 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+                                                    'Мультиязычность': 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200'
+                                                };
+                                                const isSelected = newLanding.tags.includes(tag);
+                                                return (
+                                                    <button
+                                                        key={tag}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            let updatedTags;
+                                                            if (isSelected) {
+                                                                updatedTags = newLanding.tags.filter(t => t !== tag);
+                                                            } else {
+                                                                updatedTags = [...newLanding.tags, tag];
+                                                            }
+                                                            setNewLanding({ ...newLanding, tags: updatedTags });
+                                                            clearFieldError('tags');
+                                                        }}
+                                                        className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between border ${
+                                                            isSelected 
+                                                                ? tagColors[tag] || 'bg-gray-100 text-gray-800 border-gray-200'
+                                                                : 'hover:bg-gray-50 border-transparent'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm font-medium">{tag}</span>
+                                                        {isSelected && (
+                                                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -3430,6 +3499,8 @@ function LandingPanel({ user }) {
                                     setShowBuyerDropdown(false);
                                     setShowSearcherDropdown(false);
                                     setShowDesignerDropdown(false);
+                                    setShowTemplateDropdown(false);
+                                    setShowTagsDropdown(false);
                                     clearMessages();
                                 }}
                                 disabled={creating}
