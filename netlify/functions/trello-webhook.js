@@ -134,12 +134,6 @@ exports.handler = async (event, context) => {
             .from('creatives')
             .select('id, trello_link, article')
             .not('trello_link', 'is', null);
-          
-          // Получаем все лендинги с trello_link
-          const { data: allLandings, error: landingsError } = await supabase
-            .from('landings')
-            .select('id, trello_link, article')
-            .not('trello_link', 'is', null);
 
           if (creativesError) {
             console.error('❌ Error fetching creatives:', creativesError);
@@ -152,13 +146,7 @@ exports.handler = async (event, context) => {
               return normalizedCreativeUrl === normalizedCardUrl;
             });
             
-            const matchedLandings = allLandings ? allLandings.filter(landing => {
-              const normalizedLandingUrl = normalizeUrl(landing.trello_link);
-              return normalizedLandingUrl === normalizedCardUrl;
-            }) : [];
-            
             console.log(`📦 Found ${matchedCreatives.length} matching creative(s)`);
-            console.log(`🌐 Found ${matchedLandings.length} matching landing(s)`);
             
             for (const creative of matchedCreatives) {
               console.log(`✅ Updating creative: ${creative.article}`);
@@ -180,30 +168,6 @@ exports.handler = async (event, context) => {
                 console.log(`✅ Updated status for ${creative.article}`);
               } else {
                 console.error('⚠️ Error upserting status:', upsertError);
-              }
-            }
-            
-            // Обрабатываем лендинги
-            for (const landing of matchedLandings) {
-              console.log(`✅ Updating landing: ${landing.article}`);
-              
-              const { error: upsertError } = await supabase
-                .from('trello_card_statuses')
-                .upsert({
-                  creative_id: landing.id,
-                  trello_card_id: cardId,
-                  list_id: listAfter.id,
-                  list_name: listAfter.name,
-                  last_updated: new Date().toISOString()
-                }, {
-                  onConflict: 'creative_id'
-                });
-
-              if (!upsertError) {
-                updatedCount++;
-                console.log(`✅ Updated status for landing ${landing.article}`);
-              } else {
-                console.error('⚠️ Error upserting landing status:', upsertError);
               }
             }
           }
