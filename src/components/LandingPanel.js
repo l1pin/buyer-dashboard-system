@@ -2868,7 +2868,7 @@ function LandingPanel({ user }) {
                           {/* Trello */}
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             {landing.trello_link ? (
-                              
+                              <a
                                 href={landing.trello_link}
                                 target="_blank"
                                 rel="noopener noreferrer"
