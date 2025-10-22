@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
-import { 
+import {
   Plus, 
   X, 
   Calendar,
@@ -2445,114 +2445,113 @@ function LandingPanel({ user }) {
     <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
       Дата
     </th>
-                      
-                      {/* Артикул */}
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Артикул
-                      </th>
-                      
-                      {/* Шаблон */}
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Шаблон
-                      </th>
-                      
-                      {/* Теги */}
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Теги
-                      </th>
-                      
-                      {/* Расширенная статистика */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        📊
-                      </th>
-                      
-                      {/* Лиды */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Лиды
-                      </th>
-                      
-                      {/* CPL */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        CPL
-                      </th>
-                      
-                      {/* Расходы */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Расходы
-                      </th>
-                      
-                      {/* Клики */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Клики
-                      </th>
-                      
-                      {/* CPC */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        CPC
-                      </th>
-                      
-                      {/* CTR */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        CTR
-                      </th>
-                      
-                      {/* CPM */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        CPM
-                      </th>
-                      
-                      {/* Показы */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Показы
-                      </th>
-                      
-                      {/* Время */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Время
-                      </th>
-                      
-                      {/* Дней */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Дней
-                      </th>
-                      
-                      {/* Зоны (цены) */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Зоны
-                      </th>
-                      
-                      {/* Текущая зона */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Текущая зона
-                      </th>
-                      
-                      {/* Trello */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Trello
-                      </th>
-                      
-                      {/* Статус */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Статус
-                      </th>
-                      
-                      {/* Designer */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Designer
-                      </th>
-                      
-                      {/* Buyer */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Buyer
-                      </th>
-                      
-                      {/* Searcher */}
-                      <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        Searcher
-                      </th>
-                      
-                    </tr>
-                  </thead>
+    
+    {/* Артикул */}
+    <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Артикул
+    </th>
+    
+    {/* Шаблон */}
+    <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Шаблон
+    </th>
+    
+    {/* Теги */}
+    <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Теги
+    </th>
+    
+    {/* Расширенная статистика */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      📊
+    </th>
+    
+    {/* Лиды */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Лиды
+    </th>
+    
+    {/* CPL */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      CPL
+    </th>
+    
+    {/* Расходы */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Расходы
+    </th>
+    
+    {/* Клики */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Клики
+    </th>
+    
+    {/* CPC */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      CPC
+    </th>
+    
+    {/* CTR */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      CTR
+    </th>
+    
+    {/* CPM */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      CPM
+    </th>
+    
+    {/* Показы */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Показы
+    </th>
+    
+    {/* Время */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Время
+    </th>
+    
+    {/* Дней */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Дней
+    </th>
+    
+    {/* Зоны (цены) */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Зоны
+    </th>
+    
+    {/* Текущая зона */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Текущая зона
+    </th>
+    
+    {/* Trello */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Trello
+    </th>
+    
+    {/* Статус */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Статус
+    </th>
+    
+    {/* Designer */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Designer
+    </th>
+    
+    {/* Buyer */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Buyer
+    </th>
+    
+    {/* Searcher */}
+    <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      Searcher
+    </th>
+  </tr>
+</thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredLandings.map((landing) => {
                       const formattedDateTime = formatKyivTime(landing.created_at);
