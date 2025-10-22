@@ -4,7 +4,6 @@ const fetch = require('node-fetch');
 const TRELLO_KEY = process.env.TRELLO_API_KEY || 'e83894111117e54746d899c1fc2f7043';
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN || 'ATTAb29683ffc0c87de7b5d1ce766ca8c2d28a61b3c722660564d74dae0a955456aeED83F79A';
 const TRELLO_BOARD_SHORT_ID = process.env.TRELLO_BOARD_ID || 'JWuFAH6M';
-const TRELLO_BOARD_LANDING_SHORT_ID = process.env.TRELLO_BOARD_LANDING_ID || '6muoYGe8';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -166,12 +165,6 @@ exports.handler = async (event, context) => {
       .from('creatives')
       .select('id, article, trello_link')
       .not('trello_link', 'is', null);
-    
-    // Получаем все лендинги с trello_link
-    const { data: landings, error: landingsError } = await supabase
-      .from('landings')
-      .select('id, article, trello_link')
-      .not('trello_link', 'is', null);
 
     if (creativesError) {
       console.error('❌ Error fetching creatives:', creativesError);
@@ -179,7 +172,6 @@ exports.handler = async (event, context) => {
     }
 
     console.log(`📦 Found ${creatives?.length || 0} creatives with Trello links`);
-    console.log(`🌐 Found ${landings?.length || 0} landings with Trello links`);
 
     // НОВАЯ ЛОГИКА: Создаем карту карточек по SHORT ID (более надежно)
     const cardsByShortId = new Map();
@@ -199,9 +191,9 @@ exports.handler = async (event, context) => {
 
     console.log(`🗺️ Created Short ID map with ${cardsByShortId.size} entries`);
 
-    // Обновляем статусы карточек креативов
-    let syncedCreativesCount = 0;
-    let notFoundCreativesCount = 0;
+    // Обновляем статусы карточек
+    let syncedCount = 0;
+    let notFoundCount = 0;
     
     for (const creative of creatives || []) {
       const trelloUrl = creative.trello_link;
@@ -219,7 +211,7 @@ exports.handler = async (event, context) => {
       
       if (!shortIdMatch) {
         console.log(`   ❌ INVALID TRELLO URL FORMAT`);
-        notFoundCreativesCount++;
+        notFoundCount++;
         continue;
       }
       
@@ -252,7 +244,7 @@ exports.handler = async (event, context) => {
           if (statusError) {
             console.error(`   ❌ ERROR SYNCING:`, statusError);
           } else {
-            syncedCreativesCount++;
+            syncedCount++;
             console.log(`   ✅ SYNCED TO DATABASE:`, statusData);
             
             // Проверяем что запись действительно создана
@@ -272,7 +264,7 @@ exports.handler = async (event, context) => {
           console.log(`   ❌ LIST NOT FOUND`);
         }
       } else {
-        notFoundCreativesCount++;
+        notFoundCount++;
         console.log(`   ❌ CARD NOT FOUND BY SHORT ID: ${shortId}`);
         
         // Попробуем найти похожие короткие ID
@@ -288,99 +280,8 @@ exports.handler = async (event, context) => {
       }
     }
 
-    console.log(`✅ Synced ${syncedCreativesCount} creative card statuses`);
-    console.log(`⚠️ ${notFoundCreativesCount} creative cards not found`);
-    
-    // Синхронизируем лендинги для второй доски
-    if (landings && landings.length > 0) {
-      console.log('📥 Fetching lists for landing board...');
-      const landingBoardUrl = `https://api.trello.com/1/boards/${TRELLO_BOARD_LANDING_SHORT_ID}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-      const landingBoardResponse = await fetch(landingBoardUrl);
-      
-      if (landingBoardResponse.ok) {
-        const landingBoardInfo = await landingBoardResponse.json();
-        const TRELLO_LANDING_BOARD_ID = landingBoardInfo.id;
-        
-        // Получаем списки для доски лендингов
-        const landingListsUrl = `https://api.trello.com/1/boards/${TRELLO_LANDING_BOARD_ID}/lists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        const landingListsResponse = await fetch(landingListsUrl);
-        
-        if (landingListsResponse.ok) {
-          const landingLists = await landingListsResponse.json();
-          console.log(`📋 Found ${landingLists.length} lists for landing board`);
-          
-          // Получаем карточки доски лендингов
-          const landingCardsUrl = `https://api.trello.com/1/boards/${TRELLO_LANDING_BOARD_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-          const landingCardsResponse = await fetch(landingCardsUrl);
-          
-          if (landingCardsResponse.ok) {
-            const landingCards = await landingCardsResponse.json();
-            console.log(`🎴 Found ${landingCards.length} cards for landing board`);
-            
-            // Создаем карту карточек по SHORT ID для лендингов
-            const landingCardsByShortId = new Map();
-            
-            landingCards.forEach(card => {
-              const urlToCheck = card.shortUrl || card.url;
-              if (urlToCheck) {
-                const shortIdMatch = urlToCheck.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
-                if (shortIdMatch) {
-                  const shortId = shortIdMatch[1].toLowerCase();
-                  landingCardsByShortId.set(shortId, card);
-                }
-              }
-            });
-            
-            // Обновляем статусы карточек лендингов
-            let syncedLandingsCount = 0;
-            let notFoundLandingsCount = 0;
-            
-            for (const landing of landings || []) {
-              const trelloUrl = landing.trello_link;
-              
-              if (!trelloUrl) continue;
-              
-              const shortIdMatch = trelloUrl.match(/\/c\/([a-zA-Z0-9]+)(?:\/|$)/);
-              
-              if (!shortIdMatch) {
-                notFoundLandingsCount++;
-                continue;
-              }
-              
-              const shortId = shortIdMatch[1].toLowerCase();
-              const card = landingCardsByShortId.get(shortId);
-              
-              if (card) {
-                const list = landingLists.find(l => l.id === card.idList);
-                if (list) {
-                  const { error: statusError } = await supabase
-                    .from('trello_card_statuses')
-                    .upsert({
-                      creative_id: landing.id,
-                      trello_card_id: card.id,
-                      list_id: list.id,
-                      list_name: list.name,
-                      last_updated: new Date().toISOString()
-                    }, {
-                      onConflict: 'creative_id'
-                    })
-                    .select();
-                  
-                  if (!statusError) {
-                    syncedLandingsCount++;
-                  }
-                }
-              } else {
-                notFoundLandingsCount++;
-              }
-            }
-            
-            console.log(`✅ Synced ${syncedLandingsCount} landing card statuses`);
-            console.log(`⚠️ ${notFoundLandingsCount} landing cards not found`);
-          }
-        }
-      }
-    }
+    console.log(`✅ Synced ${syncedCount} card statuses`);
+    console.log(`⚠️ ${notFoundCount} cards not found`);
 
     return {
       statusCode: 200,
@@ -400,10 +301,9 @@ exports.handler = async (event, context) => {
         stats: {
           lists: lists.length,
           cards: cards.length,
-          synced: syncedCreativesCount,
-          notFound: notFoundCreativesCount,
-          creativesWithLinks: creatives?.length || 0,
-          landingsWithLinks: landings?.length || 0
+          synced: syncedCount,
+          notFound: notFoundCount,
+          creativesWithLinks: creatives?.length || 0
         }
       })
     };
