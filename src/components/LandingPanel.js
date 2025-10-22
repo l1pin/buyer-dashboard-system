@@ -3013,7 +3013,7 @@ function LandingPanel({ user }) {
             {showCreateModal && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
                     <div className={`relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md my-5 transition-all duration-500 ${
-                        isTestMode ? 'bg-yellow-50 border-yellow-200' : 'bg-white'
+                        isTestMode ? 'bg-gray-50 border-gray-300' : 'bg-white'
                     }`}>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-medium text-gray-900">
