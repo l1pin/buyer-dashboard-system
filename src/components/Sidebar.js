@@ -15,7 +15,8 @@ import {
   Code2,
   Palette,
   Package,
-  Pencil
+  Pencil,
+  Globe
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -61,6 +62,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       label: 'Креативы',
       icon: Video,
       show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
+    },
+    {
+      id: 'landings',
+      label: 'Лендинги',
+      icon: Globe,
+      show: user?.role === 'content_manager'
     },
     {
       id: 'analytics',
