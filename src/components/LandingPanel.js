@@ -116,6 +116,8 @@ function LandingPanel({ user }) {
     const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
     const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
     const [showDesignerDropdown, setShowDesignerDropdown] = useState(false);
+    const [showFilterBuyerDropdown, setShowFilterBuyerDropdown] = useState(false);
+    const [showFilterSearcherDropdown, setShowFilterSearcherDropdown] = useState(false);
     const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
     const [showTagsDropdown, setShowTagsDropdown] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
@@ -1187,11 +1189,19 @@ function LandingPanel({ user }) {
             if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
                 setShowPeriodDropdown(false);
             }
+            // Модальные dropdowns
             if (!event.target.closest('.buyer-dropdown') && !event.target.closest('.buyer-trigger')) {
                 setShowBuyerDropdown(false);
             }
             if (!event.target.closest('.searcher-dropdown') && !event.target.closest('.searcher-trigger')) {
                 setShowSearcherDropdown(false);
+            }
+            // Фильтры dropdowns
+            if (!event.target.closest('.filter-buyer-dropdown') && !event.target.closest('.filter-buyer-trigger')) {
+                setShowFilterBuyerDropdown(false);
+            }
+            if (!event.target.closest('.filter-searcher-dropdown') && !event.target.closest('.filter-searcher-trigger')) {
+                setShowFilterSearcherDropdown(false);
             }
             if (!event.target.closest('.designer-dropdown') && !event.target.closest('.designer-trigger')) {
                 setShowDesignerDropdown(false);
@@ -1215,7 +1225,7 @@ function LandingPanel({ user }) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown]);
+    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown]);
 
     const handlePeriodChange = (period) => {
         console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
@@ -1842,8 +1852,8 @@ function LandingPanel({ user }) {
 
                         <div className="relative">
                             <button
-                                onClick={() => setShowBuyerDropdown(!showBuyerDropdown)}
-                                className="buyer-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                onClick={() => setShowFilterBuyerDropdown(!showFilterBuyerDropdown)}
+                                className="filter-buyer-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                             >
                                 <div className="flex items-center space-x-2">
                                     {selectedBuyer === 'all' ? (
@@ -1873,13 +1883,13 @@ function LandingPanel({ user }) {
                                 </svg>
                             </button>
 
-                            {showBuyerDropdown && (
-                                <div className="buyer-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                            {showFilterBuyerDropdown && (
+                                <div className="filter-buyer-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
                                     <div className="py-1">
                                         <button
                                             onClick={() => {
                                                 setSelectedBuyer('all');
-                                                setShowBuyerDropdown(false);
+                                                setShowFilterBuyerDropdown(false);
                                             }}
                                             className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedBuyer === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                                 }`}
@@ -1893,7 +1903,7 @@ function LandingPanel({ user }) {
                                                 key={buyer.id}
                                                 onClick={() => {
                                                     setSelectedBuyer(buyer.id);
-                                                    setShowBuyerDropdown(false);
+                                                    setShowFilterBuyerDropdown(false);
                                                 }}
                                                 className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedBuyer === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                                     }`}
@@ -1924,8 +1934,8 @@ function LandingPanel({ user }) {
 
                         <div className="relative">
                             <button
-                                onClick={() => setShowSearcherDropdown(!showSearcherDropdown)}
-                                className="searcher-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                onClick={() => setShowFilterSearcherDropdown(!showFilterSearcherDropdown)}
+                                className="filter-searcher-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                             >
                                 <div className="flex items-center space-x-2">
                                     {selectedSearcher === 'all' ? (
@@ -1955,13 +1965,13 @@ function LandingPanel({ user }) {
                                 </svg>
                             </button>
 
-                            {showSearcherDropdown && (
-                                <div className="searcher-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                            {showFilterSearcherDropdown && (
+                                <div className="filter-searcher-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
                                     <div className="py-1">
                                         <button
                                             onClick={() => {
                                                 setSelectedSearcher('all');
-                                                setShowSearcherDropdown(false);
+                                                setShowFilterSearcherDropdown(false);
                                             }}
                                             className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedSearcher === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                                 }`}
@@ -1975,7 +1985,7 @@ function LandingPanel({ user }) {
                                                 key={searcher.id}
                                                 onClick={() => {
                                                     setSelectedSearcher(searcher.id);
-                                                    setShowSearcherDropdown(false);
+                                                    setShowFilterSearcherDropdown(false);
                                                 }}
                                                 className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedSearcher === searcher.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                                     }`}
