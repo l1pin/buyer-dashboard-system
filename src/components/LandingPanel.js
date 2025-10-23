@@ -172,8 +172,8 @@ function LandingPanel({ user }) {
     );
 
     const TestBadge = () => (
-        <div className="w-6 h-6 rounded-full bg-yellow-400 border-2 border-yellow-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-orange-600 font-bold text-sm">T</span>
+        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-orange-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200">
+            <span className="tracking-wide">TEST</span>
         </div>
     );
 
@@ -2749,13 +2749,11 @@ data-rt-sub16="${createdLandingUuid}"
                                                                 )}
                                                             </div>
 
-                                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                                                {landing.is_test && (
-                                                                    <div title="Тестовый лендинг">
-                                                                        <TestBadge />
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                            {landing.is_test && (
+                                                                <div title="Тестовый лендинг" className="flex-shrink-0">
+                                                                    <TestBadge />
+                                                                </div>
+                                                            )}
 
                                                             {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
 
