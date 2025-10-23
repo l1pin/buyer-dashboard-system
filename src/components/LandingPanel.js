@@ -2,7 +2,7 @@
 // Заменяет все упоминания креативов на лендинги
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import {
@@ -730,7 +730,7 @@ function LandingPanel({ user }) {
                         setTimeout(async () => {
                             try {
                                 console.log('🔍 Проверяем статус для', payload.new.id);
-                                const status = await trelloService.getCardStatus(payload.new.id);
+                                const status = await trelloLandingService.getCardStatus(payload.new.id);
 
                                 if (status) {
                                     console.log('✅ Статус получен:', status.list_name);
@@ -754,7 +754,7 @@ function LandingPanel({ user }) {
             .subscribe();
 
         // Подписка на изменения статусов Trello
-        const trelloSubscription = trelloService.subscribeToCardStatuses((payload) => {
+        const trelloSubscription = trelloLandingService.subscribeToCardStatuses((payload) => {
             console.log('🔄 Trello status changed:', payload);
 
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -802,7 +802,7 @@ function LandingPanel({ user }) {
         try {
             console.log('🟢 loadTrelloStatuses СТАРТ');
 
-            const lists = await trelloService.getAllLists();
+            const lists = await trelloLandingService.getAllLists();
             setTrelloLists(lists);
             console.log(`✅ Загружено ${lists.length} списков Trello`);
 
@@ -810,7 +810,7 @@ function LandingPanel({ user }) {
             console.log(`🔍 Запрос статусов для ${landingIds.length} лендингов`);
 
             if (landingIds.length > 0) {
-                const statusMap = await trelloService.getBatchCardStatuses(landingIds);
+                const statusMap = await trelloLandingService.getBatchCardStatuses(landingIds);
                 setTrelloStatuses(statusMap);
                 console.log(`✅ Установлено ${statusMap.size} статусов в состояние`);
             }
@@ -850,9 +850,10 @@ function LandingPanel({ user }) {
                 try {
                     console.log(`🔄 Синхронизация ${landing.article}...`);
 
-                    const result = await trelloService.syncSingleCreative(
+                    const result = await trelloLandingService.syncSingleLanding(
                         landing.id,
-                        landing.trello_link
+                        landing.trello_link,
+                        landing.is_test
                     );
 
                     if (result.success) {
@@ -1005,16 +1006,17 @@ function LandingPanel({ user }) {
             if (newLandingData.trello_link) {
                 console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
                 try {
-                    const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            creativeId: newLandingData.id,
-                            trelloLink: newLandingData.trello_link
-                        })
-                    });
+                    const syncResponse = await fetch('/.netlify/functions/trello-landing-sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        landingId: newLandingData.id,
+                        trelloLink: newLandingData.trello_link,
+                        isTest: isTestMode
+                    })
+                });
 
                     if (syncResponse.ok) {
                         const syncResult = await syncResponse.json();
