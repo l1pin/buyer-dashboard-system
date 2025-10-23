@@ -2707,12 +2707,14 @@ data-rt-sub16="${createdLandingUuid}"
 
 
                                                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        <div className="flex items-center justify-center space-x-2">
-                                                            {landing.is_test && (
-                                                                <div title="Тестовый лендинг" className="flex-shrink-0">
-                                                                    <TestBadge />
-                                                                </div>
-                                                            )}
+                                                        <div className="flex items-center space-x-2">
+                                                            <div className="w-16 flex items-center justify-center flex-shrink-0">
+                                                                {landing.is_test && (
+                                                                    <div title="Тестовый лендинг">
+                                                                        <TestBadge />
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <div className="cursor-text select-text text-center">
                                                                 <div className="font-medium">{formattedDateTime.date}</div>
                                                                 <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
