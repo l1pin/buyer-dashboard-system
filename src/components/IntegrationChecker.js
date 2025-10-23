@@ -190,7 +190,7 @@ function IntegrationChecker({ landingUuid }) {
 
                     {/* Ссылка на проверенную страницу */}
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                        
+                        <a
                             href={checkUrl}
                             target="_blank"
                             rel="noopener noreferrer"
