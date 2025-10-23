@@ -139,6 +139,8 @@ function LandingPanel({ user }) {
     const [gifers, setGifers] = useState([]);
     const [fieldErrors, setFieldErrors] = useState({});
     const [createdLandingUuid, setCreatedLandingUuid] = useState('');
+    const [verifiedUrls, setVerifiedUrls] = useState([]);
+    const [loadingUrls, setLoadingUrls] = useState(false);
 
     // Доступные теги для лендингов
     const availableTags = [
@@ -1245,10 +1247,22 @@ function LandingPanel({ user }) {
         setOpenDropdowns(newOpenDropdowns);
     };
 
-    const showUuidCode = (landingId) => {
+    const showUuidCode = async (landingId) => {
         setSelectedLandingUuid(landingId);
         setShowUuidModal(true);
         setCopiedUuid(false);
+        setLoadingUrls(true);
+        setVerifiedUrls([]);
+        
+        try {
+            const urls = await landingService.getVerifiedUrls(landingId);
+            setVerifiedUrls(urls);
+        } catch (error) {
+            console.error('Ошибка загрузки верифицированных URL:', error);
+            setVerifiedUrls([]);
+        } finally {
+            setLoadingUrls(false);
+        }
     };
 
     const handleCopyUuid = () => {
@@ -5145,6 +5159,155 @@ data-rt-sub16="${createdLandingUuid}"
                                     setShowUuidModal(false);
                                     setSelectedLandingUuid(null);
                                     setCopiedUuid(false);
+                                    setVerifiedUrls([]);
+                                    setLoadingUrls(false);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800 mb-2 font-medium">
+                                    <AlertCircle className="h-4 w-4 inline mr-2" />
+                                    Используйте этот код для интеграции:
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-900 rounded-lg p-4 relative">
+                                <pre className="text-sm text-green-400 font-mono overflow-x-auto">
+{`<div 
+id="rt-meta" 
+data-rt-sub16="${selectedLandingUuid}"
+></div>`}
+                                </pre>
+                                
+                                <button
+                                    onClick={handleCopyUuid}
+                                    className={`absolute top-3 right-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                                        copiedUuid 
+                                            ? 'bg-green-600 text-white' 
+                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                    title="Копировать код"
+                                >
+                                    {copiedUuid ? (
+                                        <div className="flex items-center space-x-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <span>Скопировано!</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center space-x-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                            <span>Копировать</span>
+                                        </div>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p className="text-sm text-gray-600 mb-2">
+                                    <strong>UUID лендинга:</strong>
+                                </p>
+                                <p className="text-sm font-mono text-gray-900 bg-white px-3 py-2 rounded border border-gray-300">
+                                    {selectedLandingUuid}
+                                </p>
+                            </div>
+
+                            {/* Список верифицированных URL */}
+                            {verifiedUrls && verifiedUrls.length > 0 && (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div className="flex items-center mb-3">
+                                        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                                        <h4 className="text-sm font-medium text-green-900">
+                                            Верифицированные интеграции ({verifiedUrls.length})
+                                        </h4>
+                                    </div>
+                                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                                        {verifiedUrls.map((url, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-white rounded px-3 py-2 border border-green-100">
+                                                <a
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sm text-green-600 hover:text-green-800 truncate flex items-center flex-1"
+                                                >
+                                                    <ExternalLink className="h-3 w-3 mr-2 flex-shrink-0" />
+                                                    <span className="truncate">{url}</span>
+                                                </a>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {loadingUrls && (
+                                <div className="flex items-center justify-center py-4">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                    <span className="ml-2 text-sm text-gray-600">Загрузка верифицированных ссылок...</span>
+                                </div>
+                            )}
+
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-sm text-yellow-800">
+                                    <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Вставьте этот код в HTML вашего лендинга для правильной работы трекинга
+                                </p>
+                            </div>
+
+                            {/* Разделитель */}
+                            <div className="border-t border-gray-200 pt-4">
+                                <h4 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+                                    <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                                    Проверка интеграции
+                                </h4>
+                                
+                                {/* Компонент проверки интеграции */}
+                                <IntegrationChecker landingUuid={selectedLandingUuid} />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+                            <button
+                                onClick={() => {
+                                    setShowUuidModal(false);
+                                    setSelectedLandingUuid(null);
+                                    setCopiedUuid(false);
+                                    setVerifiedUrls([]);
+                                    setLoadingUrls(false);
+                                }}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium"
+                            >
+                                Закрыть
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900">
+                                    Код интеграции лендинга
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowUuidModal(false);
+                                    setSelectedLandingUuid(null);
+                                    setCopiedUuid(false);
                                 }}
                                 className="text-gray-400 hover:text-gray-600 transition-colors"
                             >
@@ -5238,7 +5401,6 @@ data-rt-sub16="${selectedLandingUuid}"
                             </button>
                         </div>
                     </div>
-                </div>
             )}
 
             {/* History Modal - ПОЛНАЯ РЕАЛИЗАЦИЯ */}
@@ -5408,8 +5570,5 @@ data-rt-sub16="${selectedLandingUuid}"
                     </div>
                 </div>
             )}
-        </div>
-    );
-}
-
+            
 export default LandingPanel;
