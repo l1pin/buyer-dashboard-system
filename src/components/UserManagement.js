@@ -19,7 +19,8 @@ import {
   Search,
   Code2,
   Package,
-  Pencil
+  Pencil,
+  Image
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -400,6 +401,8 @@ function UserManagement({ user }) {
         return 'Product Manager';
       case 'proofreader':
         return 'Editor';
+      case 'gif_creator':
+        return 'GIF Creator';
       default:
         return 'Unknown';
     }
@@ -423,6 +426,8 @@ function UserManagement({ user }) {
         return <Package className="h-6 w-6 text-amber-600" />;
       case 'proofreader':
         return <Pencil className="h-6 w-6 text-teal-600" />;
+      case 'gif_creator':
+        return <Image className="h-6 w-6 text-cyan-600" />;
       default:
         return <User className="h-6 w-6 text-gray-600" />;
     }
@@ -446,6 +451,8 @@ function UserManagement({ user }) {
         return 'bg-amber-100 text-amber-800';
       case 'proofreader':
         return 'bg-teal-100 text-teal-800';
+      case 'gif_creator':
+        return 'bg-cyan-100 text-cyan-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -459,8 +466,9 @@ function UserManagement({ user }) {
     const contentManagersCount = users.filter(u => u.role === 'content_manager').length;
     const productManagersCount = users.filter(u => u.role === 'product_manager').length;
     const proofreadersCount = users.filter(u => u.role === 'proofreader').length;
+    const gifCreatorsCount = users.filter(u => u.role === 'gif_creator').length;
     const teamleadCount = users.filter(u => u.role === 'teamlead').length;
-    return { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, teamleadCount };
+    return { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, gifCreatorsCount, teamleadCount };
   };
 
   const clearMessages = () => {
@@ -469,7 +477,7 @@ function UserManagement({ user }) {
     setShowPassword(false);
   };
 
-  const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, teamleadCount } = getUserStats();
+  const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, gifCreatorsCount, teamleadCount } = getUserStats();
 
   if (loading) {
     return (
@@ -672,6 +680,26 @@ function UserManagement({ user }) {
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {proofreadersCount}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Image className="h-8 w-8 text-cyan-500" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      GIF Creators
+                    </dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {gifCreatorsCount}
                     </dd>
                   </dl>
                 </div>
@@ -995,6 +1023,7 @@ function UserManagement({ user }) {
                   <option value="content_manager">Content Manager</option>
                   <option value="product_manager">Product Manager</option>
                   <option value="proofreader">Editor</option>
+                  <option value="gif_creator">GIF Creator</option>
                   <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
@@ -1005,6 +1034,7 @@ function UserManagement({ user }) {
                   {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {newUser.role === 'product_manager' && 'Доступ к управлению продуктами'}
                   {newUser.role === 'proofreader' && 'Доступ к редактированию контента'}
+                  {newUser.role === 'gif_creator' && 'Доступ к созданию GIF-файлов'}
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
@@ -1181,6 +1211,7 @@ function UserManagement({ user }) {
                   <option value="content_manager">Content Manager</option>
                   <option value="product_manager">Product Manager</option>
                   <option value="proofreader">Editor</option>
+                  <option value="gif_creator">GIF Creator</option>
                   <option value="teamlead">Team Lead</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
@@ -1191,6 +1222,7 @@ function UserManagement({ user }) {
                   {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
                   {editUserData.role === 'product_manager' && 'Доступ к управлению продуктами'}
                   {editUserData.role === 'proofreader' && 'Доступ к редактированию контента'}
+                  {editUserData.role === 'gif_creator' && 'Доступ к созданию GIF-файлов'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
