@@ -2758,7 +2758,7 @@ data-rt-sub16="${createdLandingUuid}"
                                                                         e.stopPropagation();
                                                                         showUuidCode(landing.id);
                                                                     }}
-                                                                    className="text-purple-600 hover:text-purple-800 p-1 rounded-full hover:bg-purple-100 transition-colors duration-200"
+                                                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                                                     title="Показать UUID код"
                                                                 >
                                                                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -5129,8 +5129,8 @@ data-rt-sub16="${createdLandingUuid}"
                     <div className="relative top-20 mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center space-x-3">
-                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                                     </svg>
                                 </div>
@@ -5219,7 +5219,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                     setSelectedLandingUuid(null);
                                     setCopiedUuid(false);
                                 }}
-                                className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors font-medium"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium"
                             >
                                 Закрыть
                             </button>
