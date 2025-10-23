@@ -906,7 +906,11 @@ export const landingService = {
       trello_link: landingData.trello_link,
       designer_id: landingData.designer_id,
       buyer_id: landingData.buyer_id,
-      searcher_id: landingData.searcher_id
+      searcher_id: landingData.searcher_id,
+      gifer_id: landingData.gifer_id,
+      is_test: landingData.is_test,
+      editor_id: landingData.editor_id,
+      product_manager_id: landingData.product_manager_id
     });
 
     const { data, error } = await supabase
@@ -924,9 +928,16 @@ export const landingService = {
           designer_id: landingData.designer_id || null,
           buyer_id: landingData.buyer_id || null,
           searcher_id: landingData.searcher_id || null,
+          gifer_id: landingData.gifer_id || null,
           designer: landingData.designer || null,
           buyer: landingData.buyer || null,
           searcher: landingData.searcher || null,
+          gifer: landingData.gifer || null,
+          is_test: landingData.is_test || false,
+          editor_id: landingData.editor_id || null,
+          product_manager_id: landingData.product_manager_id || null,
+          editor: landingData.editor || null,
+          product_manager: landingData.product_manager || null,
           created_at: getKyivTime()
         }
       ])
