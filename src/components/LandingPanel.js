@@ -97,7 +97,8 @@ function LandingPanel({ user }) {
         searcher_id: null,
         is_test: false,
         editor_id: null,
-        product_manager_id: null
+        product_manager_id: null,
+        gifer_id: null
     });
 
     const [editLanding, setEditLanding] = useState({
@@ -125,9 +126,11 @@ function LandingPanel({ user }) {
     const [showTagsDropdown, setShowTagsDropdown] = useState(false);
     const [showEditorDropdown, setShowEditorDropdown] = useState(false);
     const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const [showGiferDropdown, setShowGiferDropdown] = useState(false);
     const [isTestMode, setIsTestMode] = useState(false);
     const [editors, setEditors] = useState([]);
     const [productManagers, setProductManagers] = useState([]);
+    const [gifers, setGifers] = useState([]);
     const [fieldErrors, setFieldErrors] = useState({});
 
     // Доступные теги для лендингов
@@ -923,12 +926,13 @@ function LandingPanel({ user }) {
             setLoadingUsers(true);
             console.log('👥 Загрузка пользователей...');
 
-            const [buyersData, searchersData, designersData, editorsData, productManagersData] = await Promise.all([
+            const [buyersData, searchersData, designersData, editorsData, productManagersData, gifersData] = await Promise.all([
                 userService.getUsersByRole('buyer'),
                 userService.getUsersByRole('search_manager'),
                 userService.getUsersByRole('designer'),
                 userService.getUsersByRole('proofreader'),
-                userService.getUsersByRole('product_manager')
+                userService.getUsersByRole('product_manager'),
+                userService.getUsersByRole('gif_creator')
             ]);
 
             setBuyers(buyersData);
@@ -936,7 +940,8 @@ function LandingPanel({ user }) {
             setDesigners(designersData);
             setEditors(editorsData);
             setProductManagers(productManagersData);
-            console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${editorsData.length} редакторов и ${productManagersData.length} продакт менеджеров`);
+            setGifers(gifersData);
+            console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${editorsData.length} редакторов, ${productManagersData.length} продакт менеджеров и ${gifersData.length} гиферов`);
         } catch (error) {
             console.error('❌ Ошибка загрузки пользователей:', error);
         } finally {
@@ -1237,6 +1242,9 @@ function LandingPanel({ user }) {
             if (!event.target.closest('.product-dropdown') && !event.target.closest('.product-trigger')) {
                 setShowProductDropdown(false);
             }
+            if (!event.target.closest('.gifer-dropdown') && !event.target.closest('.gifer-trigger')) {
+                setShowGiferDropdown(false);
+            }
 
             const periodMenuContainer = event.target.closest('.period-menu-container');
             if (!periodMenuContainer && showPeriodMenu) {
@@ -1250,7 +1258,7 @@ function LandingPanel({ user }) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showEditorDropdown, showProductDropdown]);
+    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showEditorDropdown, showProductDropdown, showGiferDropdown]);
 
     const handlePeriodChange = (period) => {
         console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
@@ -1509,6 +1517,23 @@ function LandingPanel({ user }) {
         if (!pmId) return null;
         const pm = productManagers.find(p => p.id === pmId);
         return pm ? pm.avatar_url : null;
+    };
+
+    const getSelectedGifer = () => {
+        if (!newLanding.gifer_id) return null;
+        return gifers.find(g => g.id === newLanding.gifer_id);
+    };
+
+    const getGiferName = (giferId) => {
+        if (!giferId) return '—';
+        const gifer = gifers.find(g => g.id === giferId);
+        return gifer ? gifer.name : 'Удален';
+    };
+
+    const getGiferAvatar = (giferId) => {
+        if (!giferId) return null;
+        const gifer = gifers.find(g => g.id === giferId);
+        return gifer ? gifer.avatar_url : null;
     };
 
     const handleRefreshAll = async () => {
@@ -3061,7 +3086,8 @@ function LandingPanel({ user }) {
                                             searcher_id: null,
                                             is_test: !isTestMode,
                                             editor_id: null,
-                                            product_manager_id: null
+                                            product_manager_id: null,
+                                            gifer_id: null
                                         });
                                         // Закрываем все dropdowns
                                         setShowBuyerDropdown(false);
@@ -3071,6 +3097,7 @@ function LandingPanel({ user }) {
                                         setShowTagsDropdown(false);
                                         setShowEditorDropdown(false);
                                         setShowProductDropdown(false);
+                                        setShowGiferDropdown(false);
                                         // Очищаем ошибки
                                         clearMessages();
                                     }}
@@ -3107,13 +3134,15 @@ function LandingPanel({ user }) {
                                         searcher_id: null,
                                         is_test: false,
                                         editor_id: null,
-                                        product_manager_id: null
+                                        product_manager_id: null,
+                                        gifer_id: null
                                     });
                                     setShowBuyerDropdown(false);
                                     setShowSearcherDropdown(false);
                                     setShowDesignerDropdown(false);
                                     setShowEditorDropdown(false);
                                     setShowProductDropdown(false);
+                                    setShowGiferDropdown(false);
                                     clearMessages();
                                 }}
                                 className="text-gray-400 hover:text-gray-600"
@@ -3470,6 +3499,110 @@ function LandingPanel({ user }) {
                                                         </div>
                                                     </div>
                                                     <span className="text-gray-900 truncate">{searcher.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* GIFer - необязательное поле для обоих режимов */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2 text-gray-700">
+                                    GIFer
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!loadingUsers) {
+                                                setShowGiferDropdown(!showGiferDropdown);
+                                                setShowBuyerDropdown(false);
+                                                setShowSearcherDropdown(false);
+                                                setShowDesignerDropdown(false);
+                                                setShowTemplateDropdown(false);
+                                                setShowTagsDropdown(false);
+                                                setShowEditorDropdown(false);
+                                                setShowProductDropdown(false);
+                                            }
+                                        }}
+                                        disabled={loadingUsers}
+                                        className={`gifer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                                            isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                        }`}
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1">
+                                            {getSelectedGifer() ? (
+                                                <>
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {getSelectedGifer().avatar_url ? (
+                                                            <img
+                                                                src={getSelectedGifer().avatar_url}
+                                                                alt="GIFer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${getSelectedGifer().avatar_url ? 'hidden' : ''}`}>
+                                                            <Palette className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{getSelectedGifer().name}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500">Выберите гифера (необязательно)</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            {getSelectedGifer() && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setNewLanding({ ...newLanding, gifer_id: null });
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </button>
+
+                                    {showGiferDropdown && !loadingUsers && (
+                                        <div className="gifer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {gifers.map((gifer) => (
+                                                <button
+                                                    key={gifer.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewLanding({ ...newLanding, gifer_id: gifer.id });
+                                                        setShowGiferDropdown(false);
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {gifer.avatar_url ? (
+                                                            <img
+                                                                src={gifer.avatar_url}
+                                                                alt="GIFer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${gifer.avatar_url ? 'hidden' : ''}`}>
+                                                            <Palette className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{gifer.name}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -3942,7 +4075,8 @@ function LandingPanel({ user }) {
                                         searcher_id: null,
                                         is_test: false,
                                         editor_id: null,
-                                        product_manager_id: null
+                                        product_manager_id: null,
+                                        gifer_id: null
                                     });
                                     setShowBuyerDropdown(false);
                                     setShowSearcherDropdown(false);
@@ -3951,6 +4085,7 @@ function LandingPanel({ user }) {
                                     setShowTagsDropdown(false);
                                     setShowEditorDropdown(false);
                                     setShowProductDropdown(false);
+                                    setShowGiferDropdown(false);
                                     clearMessages();
                                 }}
                                 disabled={creating}
