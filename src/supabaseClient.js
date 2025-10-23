@@ -1600,6 +1600,154 @@ export const creativeService = {
   }
 };
 
+// Сервис для работы с Trello статусами лендингов (отдельный от креативов)
+export const trelloLandingService = {
+  // Получить статус карточки для лендинга
+  async getCardStatus(landingId) {
+    try {
+      const { data, error } = await supabase
+        .from('trello_landing_statuses')
+        .select('*')
+        .eq('landing_id', landingId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Ошибка получения статуса Trello карточки для лендинга:', error);
+      return null;
+    }
+  },
+
+  // Получить статусы для нескольких лендингов
+  async getBatchCardStatuses(landingIds) {
+    try {
+      console.log('🔵 getBatchCardStatuses для лендингов вызван с', landingIds.length, 'ID');
+      
+      const { data, error } = await supabase
+        .from('trello_landing_statuses')
+        .select('*')
+        .in('landing_id', landingIds);
+
+      if (error) {
+        console.error('❌ Ошибка запроса к trello_landing_statuses:', error);
+        throw error;
+      }
+      
+      console.log('📦 Получено из БД:', data?.length || 0, 'статусов');
+      
+      // Преобразуем в Map для быстрого доступа
+      const statusMap = new Map();
+      (data || []).forEach(status => {
+        statusMap.set(status.landing_id, status);
+      });
+      
+      console.log('✅ Map создан, размер:', statusMap.size);
+      
+      return statusMap;
+    } catch (error) {
+      console.error('❌ Ошибка получения батча статусов Trello для лендингов:', error);
+      return new Map();
+    }
+  },
+
+  // Получить все списки для лендингов
+  async getAllLists(boardType = null) {
+    try {
+      let query = supabase
+        .from('trello_landing_lists')
+        .select('*')
+        .order('position', { ascending: true });
+      
+      if (boardType) {
+        query = query.eq('board_type', boardType);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Ошибка получения списков Trello для лендингов:', error);
+      return [];
+    }
+  },
+
+  // Синхронизация статуса для одного лендинга
+  async syncSingleLanding(landingId, trelloLink, isTest) {
+    try {
+      console.log('🔄 syncSingleLanding через Netlify Function:', { landingId, trelloLink, isTest });
+      
+      if (!trelloLink) {
+        throw new Error('Нет ссылки на Trello');
+      }
+
+      // Вызываем серверную Netlify Function
+      const response = await fetch('/.netlify/functions/trello-landing-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          landingId: landingId,
+          trelloLink: trelloLink,
+          isTest: isTest
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Ошибка Netlify Function:', response.status, errorText);
+        throw new Error(`Ошибка синхронизации: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Результат синхронизации:', result);
+
+      return result;
+      
+    } catch (error) {
+      console.error('❌ syncSingleLanding ERROR:', error);
+      throw error;
+    }
+  },
+
+  // Подписка на изменения статусов
+  subscribeToCardStatuses(callback) {
+    return supabase
+      .channel('trello_landing_statuses_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trello_landing_statuses'
+        },
+        callback
+      )
+      .subscribe();
+  },
+
+  // Настройка досок
+  async setupBoards() {
+    try {
+      const response = await fetch('/.netlify/functions/trello-landing-setup', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Setup failed');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Ошибка настройки Trello досок для лендингов:', error);
+      throw error;
+    }
+  }
+};
+
 // Сервис для работы со статусами карточек Trello
 export const trelloService = {
   // Получить статус карточки для креатива
