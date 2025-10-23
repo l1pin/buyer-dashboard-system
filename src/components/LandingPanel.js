@@ -52,6 +52,9 @@ function LandingPanel({ user }) {
     const [historyData, setHistoryData] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [landingsWithHistory, setLandingsWithHistory] = useState(new Set());
+    const [showUuidModal, setShowUuidModal] = useState(false);
+    const [selectedLandingUuid, setSelectedLandingUuid] = useState(null);
+    const [copiedUuid, setCopiedUuid] = useState(false);
     const [creating, setCreating] = useState(false);
     const [updating, setUpdating] = useState(false);
     const [metricsPeriod, setMetricsPeriod] = useState('all');
@@ -133,9 +136,7 @@ function LandingPanel({ user }) {
     const [productManagers, setProductManagers] = useState([]);
     const [gifers, setGifers] = useState([]);
     const [fieldErrors, setFieldErrors] = useState({});
-    const [showUuidModal, setShowUuidModal] = useState(false);
     const [createdLandingUuid, setCreatedLandingUuid] = useState('');
-    const [copiedUuid, setCopiedUuid] = useState(false);
 
     // Доступные теги для лендингов
     const availableTags = [
@@ -1061,6 +1062,11 @@ function LandingPanel({ user }) {
             setSuccess(`Лендинг создан! Страна: ${country} | Шаблон: ${newLanding.template} | Теги: ${newLanding.tags.length}`);
 
             // Показываем модальное окно с UUID
+            setSelectedLandingUuid(newLandingData.id);
+            setShowUuidModal(true);
+            setCopiedUuid(false);
+
+            // Показываем модальное окно с UUID
             setCreatedLandingUuid(newLandingData.id);
             setShowUuidModal(true);
             setCopiedUuid(false);
@@ -1235,6 +1241,26 @@ function LandingPanel({ user }) {
             newOpenDropdowns.add(landingId);
         }
         setOpenDropdowns(newOpenDropdowns);
+    };
+
+    const showUuidCode = (landingId) => {
+        setSelectedLandingUuid(landingId);
+        setShowUuidModal(true);
+        setCopiedUuid(false);
+    };
+
+    const handleCopyUuid = () => {
+        const codeSnippet = `<div 
+id="rt-meta" 
+data-rt-sub16="${selectedLandingUuid}"
+></div>`;
+        
+        navigator.clipboard.writeText(codeSnippet).then(() => {
+            setCopiedUuid(true);
+            setTimeout(() => setCopiedUuid(false), 2000);
+        }).catch(err => {
+            console.error('Ошибка копирования:', err);
+        });
     };
 
     useEffect(() => {
@@ -2726,6 +2752,21 @@ data-rt-sub16="${createdLandingUuid}"
 
                                                     <td className="px-3 py-4 whitespace-nowrap">
                                                         <div className="flex items-center space-x-2">
+                                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        showUuidCode(landing.id);
+                                                                    }}
+                                                                    className="text-purple-600 hover:text-purple-800 p-1 rounded-full hover:bg-purple-100 transition-colors duration-200"
+                                                                    title="Показать UUID код"
+                                                                >
+                                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+
                                                             <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                                                 {landing.comment && (
                                                                     <button
@@ -5076,6 +5117,111 @@ data-rt-sub16="${createdLandingUuid}"
                                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium"
                             >
                                 Понятно, закрыть
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* UUID Modal - Показ кода интеграции */}
+            {showUuidModal && selectedLandingUuid && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900">
+                                    Код интеграции лендинга
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowUuidModal(false);
+                                    setSelectedLandingUuid(null);
+                                    setCopiedUuid(false);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800 mb-2 font-medium">
+                                    <AlertCircle className="h-4 w-4 inline mr-2" />
+                                    Используйте этот код для интеграции:
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-900 rounded-lg p-4 relative">
+                                <pre className="text-sm text-green-400 font-mono overflow-x-auto">
+{`<div 
+id="rt-meta" 
+data-rt-sub16="${selectedLandingUuid}"
+></div>`}
+                                </pre>
+                                
+                                <button
+                                    onClick={handleCopyUuid}
+                                    className={`absolute top-3 right-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                                        copiedUuid 
+                                            ? 'bg-green-600 text-white' 
+                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                    title="Копировать код"
+                                >
+                                    {copiedUuid ? (
+                                        <div className="flex items-center space-x-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <span>Скопировано!</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center space-x-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                            <span>Копировать</span>
+                                        </div>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p className="text-sm text-gray-600 mb-2">
+                                    <strong>UUID лендинга:</strong>
+                                </p>
+                                <p className="text-sm font-mono text-gray-900 bg-white px-3 py-2 rounded border border-gray-300">
+                                    {selectedLandingUuid}
+                                </p>
+                            </div>
+
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-sm text-yellow-800">
+                                    <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Вставьте этот код в HTML вашего лендинга для правильной работы трекинга
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+                            <button
+                                onClick={() => {
+                                    setShowUuidModal(false);
+                                    setSelectedLandingUuid(null);
+                                    setCopiedUuid(false);
+                                }}
+                                className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors font-medium"
+                            >
+                                Закрыть
                             </button>
                         </div>
                     </div>
