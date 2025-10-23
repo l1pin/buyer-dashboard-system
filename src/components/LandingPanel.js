@@ -2,6 +2,7 @@
 // Заменяет все упоминания креативов на лендинги
 
 import React, { useState, useEffect, useMemo } from 'react';
+import IntegrationChecker from './IntegrationChecker';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
@@ -34,7 +35,8 @@ import {
     ChevronRight,
     Search,
     Filter,
-    Palette
+    Palette,
+    CheckCircle
 } from 'lucide-react';
 
 function LandingPanel({ user }) {
@@ -5126,7 +5128,7 @@ data-rt-sub16="${createdLandingUuid}"
             {/* UUID Modal - Показ кода интеграции */}
             {showUuidModal && selectedLandingUuid && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative top-20 mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
+                    <div className="relative top-20 mx-auto p-6 border w-full max-w-3xl shadow-lg rounded-lg bg-white my-5" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center space-x-3">
                                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -5209,6 +5211,17 @@ data-rt-sub16="${selectedLandingUuid}"
                                     </svg>
                                     Вставьте этот код в HTML вашего лендинга для правильной работы трекинга
                                 </p>
+                            </div>
+
+                            {/* Разделитель */}
+                            <div className="border-t border-gray-200 pt-4">
+                                <h4 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+                                    <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                                    Проверка интеграции
+                                </h4>
+                                
+                                {/* Компонент проверки интеграции */}
+                                <IntegrationChecker landingUuid={selectedLandingUuid} />
                             </div>
                         </div>
 
