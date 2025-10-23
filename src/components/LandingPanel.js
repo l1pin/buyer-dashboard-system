@@ -1228,6 +1228,9 @@ function LandingPanel({ user }) {
             if (!event.target.closest('.template-dropdown') && !event.target.closest('.template-trigger')) {
                 setShowTemplateDropdown(false);
             }
+            if (!event.target.closest('.tags-dropdown') && !event.target.closest('.tags-trigger')) {
+                setShowTagsDropdown(false);
+            }
             if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
                 setShowEditorDropdown(false);
             }
@@ -1247,7 +1250,7 @@ function LandingPanel({ user }) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown]);
+    }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showEditorDropdown, showProductDropdown]);
 
     const handlePeriodChange = (period) => {
         console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
