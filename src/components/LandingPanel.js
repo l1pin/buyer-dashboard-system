@@ -2707,54 +2707,60 @@ data-rt-sub16="${createdLandingUuid}"
 
 
                                                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                        <div className="cursor-text select-text">
-                                                            <div className="font-medium">{formattedDateTime.date}</div>
-                                                            <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                                        <div className="flex items-center justify-center space-x-2">
+                                                            <div className="cursor-text select-text">
+                                                                <div className="font-medium">{formattedDateTime.date}</div>
+                                                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                                            </div>
+
+                                                            <div className="flex items-center space-x-1">
+                                                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                    {landing.is_test && (
+                                                                        <div title="Тестовый лендинг" className="flex-shrink-0">
+                                                                            <TestBadge />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                    {landing.comment && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                showComment(landing);
+                                                                            }}
+                                                                            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                                                            title="Показать комментарий"
+                                                                        >
+                                                                            <MessageCircle className="h-4 w-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                    {landingsWithHistory.has(landing.id) && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                showHistory(landing);
+                                                                            }}
+                                                                            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                                                            title="Показать историю изменений"
+                                                                        >
+                                                                            <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                                                                <path stroke="none" d="M0 0h24v24H0z" />
+                                                                                <polyline points="12 8 12 12 14 14" />
+                                                                                <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </td>
 
                                                     <td className="px-3 py-4 whitespace-nowrap">
                                                         <div className="flex items-center space-x-2">
-                                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                                                {landing.comment && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            showComment(landing);
-                                                                        }}
-                                                                        className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                                                        title="Показать комментарий"
-                                                                    >
-                                                                        <MessageCircle className="h-4 w-4" />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                                                {landingsWithHistory.has(landing.id) && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            showHistory(landing);
-                                                                        }}
-                                                                        className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                                                        title="Показать историю изменений"
-                                                                    >
-                                                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                                                            <path stroke="none" d="M0 0h24v24H0z" />
-                                                                            <polyline points="12 8 12 12 14 14" />
-                                                                            <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
-                                                                        </svg>
-                                                                    </button>
-                                                                )}
-                                                            </div>
-
-                                                            {landing.is_test && (
-                                                                <div title="Тестовый лендинг" className="flex-shrink-0">
-                                                                    <TestBadge />
-                                                                </div>
-                                                            )}
-
                                                             {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
 
                                                             <div className="text-sm font-medium text-gray-900 cursor-text select-text">
