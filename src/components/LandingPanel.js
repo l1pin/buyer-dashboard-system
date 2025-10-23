@@ -110,7 +110,8 @@ function LandingPanel({ user }) {
         trello_link: '',
         designer_id: null,
         buyer_id: null,
-        searcher_id: null
+        searcher_id: null,
+        gifer_id: null
     });
 
     const [buyers, setBuyers] = useState([]);
@@ -964,6 +965,7 @@ function LandingPanel({ user }) {
             const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
             const editorName = newLanding.editor_id ? getEditorName(newLanding.editor_id) : null;
             const productManagerName = newLanding.product_manager_id ? getProductManagerName(newLanding.product_manager_id) : null;
+            const giferName = newLanding.gifer_id ? getGiferName(newLanding.gifer_id) : null;
 
             const newLandingData = await landingService.createLanding({
                 user_id: user.id,
@@ -977,9 +979,11 @@ function LandingPanel({ user }) {
                 designer_id: newLanding.designer_id,
                 buyer_id: isTestMode ? null : newLanding.buyer_id,
                 searcher_id: newLanding.searcher_id,
+                gifer_id: newLanding.gifer_id,
                 designer: designerName !== '—' ? designerName : null,
                 buyer: isTestMode ? null : (buyerName !== '—' ? buyerName : null),
                 searcher: searcherName !== '—' ? searcherName : null,
+                gifer: giferName !== '—' ? giferName : null,
                 is_test: isTestMode,
                 editor_id: isTestMode ? newLanding.editor_id : null,
                 product_manager_id: isTestMode ? newLanding.product_manager_id : null,
@@ -1065,7 +1069,8 @@ function LandingPanel({ user }) {
             trello_link: landing.trello_link || '',
             designer_id: landing.designer_id || null,
             buyer_id: landing.buyer_id || null,
-            searcher_id: landing.searcher_id || null
+            searcher_id: landing.searcher_id || null,
+            gifer_id: landing.gifer_id || null
         });
         setShowEditModal(true);
         clearMessages();
@@ -1084,6 +1089,7 @@ function LandingPanel({ user }) {
             const buyerName = editLanding.buyer_id ? getBuyerName(editLanding.buyer_id) : null;
             const searcherName = editLanding.searcher_id ? getSearcherName(editLanding.searcher_id) : null;
             const designerName = editLanding.designer_id ? getDesignerName(editLanding.designer_id) : null;
+            const giferName = editLanding.gifer_id ? getGiferName(editLanding.gifer_id) : null;
 
             // Сохраняем старое состояние в историю ПЕРЕД обновлением
             await landingHistoryService.createHistoryEntry({
@@ -1097,9 +1103,16 @@ function LandingPanel({ user }) {
                 designer_id: editingLanding.designer_id,
                 buyer_id: editingLanding.buyer_id,
                 searcher_id: editingLanding.searcher_id,
+                gifer_id: editingLanding.gifer_id,
                 designer: editingLanding.designer,
                 buyer: editingLanding.buyer,
                 searcher: editingLanding.searcher,
+                gifer: editingLanding.gifer,
+                is_test: editingLanding.is_test,
+                editor_id: editingLanding.editor_id,
+                product_manager_id: editingLanding.product_manager_id,
+                editor: editingLanding.editor,
+                product_manager: editingLanding.product_manager,
                 changed_by_id: user.id,
                 changed_by_name: user.name,
                 change_type: 'updated'
@@ -1114,9 +1127,11 @@ function LandingPanel({ user }) {
                 designer_id: editLanding.designer_id,
                 buyer_id: editLanding.buyer_id,
                 searcher_id: editLanding.searcher_id,
+                gifer_id: editLanding.gifer_id,
                 designer: designerName !== '—' ? designerName : null,
                 buyer: buyerName !== '—' ? buyerName : null,
-                searcher: searcherName !== '—' ? searcherName : null
+                searcher: searcherName !== '—' ? searcherName : null,
+                gifer: giferName !== '—' ? giferName : null
             });
 
             setEditLanding({
@@ -1128,7 +1143,8 @@ function LandingPanel({ user }) {
                 trello_link: '',
                 designer_id: null,
                 buyer_id: null,
-                searcher_id: null
+                searcher_id: null,
+                gifer_id: null
             });
             setEditingLanding(null);
             setShowEditModal(false);
@@ -4607,6 +4623,107 @@ function LandingPanel({ user }) {
                                 </div>
                             </div>
 
+
+                            {/* GIFer Dropdown - необязательное поле */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2 text-gray-700">
+                                    GIFer
+                                </label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!loadingUsers) {
+                                                setShowGiferDropdown(!showGiferDropdown);
+                                                setShowBuyerDropdown(false);
+                                                setShowSearcherDropdown(false);
+                                                setShowDesignerDropdown(false);
+                                            }
+                                        }}
+                                        disabled={loadingUsers}
+                                        className="gifer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1">
+                                            {editLanding.gifer_id ? (
+                                                <>
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {getGiferAvatar(editLanding.gifer_id) ? (
+                                                            <img
+                                                                src={getGiferAvatar(editLanding.gifer_id)}
+                                                                alt="GIFer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${getGiferAvatar(editLanding.gifer_id) ? 'hidden' : ''}`}>
+                                                            <Palette className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{getGiferName(editLanding.gifer_id)}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500">Выберите гифера (необязательно)</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            {editLanding.gifer_id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditLanding({ ...editLanding, gifer_id: null });
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                                                    title="Очистить выбор"
+                                                >
+                                                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                                                </button>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                    </button>
+
+                                    {showGiferDropdown && !loadingUsers && (
+                                        <div className="gifer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {gifers.map((gifer) => (
+                                                <button
+                                                    key={gifer.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditLanding({ ...editLanding, gifer_id: gifer.id });
+                                                        setShowGiferDropdown(false);
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        {gifer.avatar_url ? (
+                                                            <img
+                                                                src={gifer.avatar_url}
+                                                                alt="GIFer"
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div className={`w-full h-full flex items-center justify-center ${gifer.avatar_url ? 'hidden' : ''}`}>
+                                                            <Palette className="h-3 w-3 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-gray-900 truncate">{gifer.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {loadingUsers && (
+                                    <p className="mt-1 text-xs text-gray-500">Загрузка гиферов...</p>
+                                )}
+                            </div>        
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Комментарий
