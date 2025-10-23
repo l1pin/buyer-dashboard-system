@@ -48,6 +48,18 @@ function IntegrationChecker({ landingUuid }) {
 
             if (response.ok) {
                 setCheckResult(data);
+                
+                // Если интеграция успешна, сохраняем URL
+                if (data.found && landingUuid) {
+                    try {
+                        // Импортируем landingService (добавьте в начало файла если нет)
+                        const { landingService } = await import('../supabaseClient');
+                        await landingService.addVerifiedUrl(landingUuid, checkUrl);
+                        console.log('✅ URL сохранен как верифицированный');
+                    } catch (saveError) {
+                        console.error('⚠️ Не удалось сохранить верифицированный URL:', saveError);
+                    }
+                }
             } else {
                 setError(data.error || 'Ошибка проверки интеграции');
             }
