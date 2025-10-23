@@ -3075,7 +3075,7 @@ function LandingPanel({ user }) {
                                         clearMessages();
                                     }}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                                        isTestMode ? 'bg-blue-500 focus:ring-blue-500' : 'bg-gray-200 focus:ring-gray-500'
+                                        isTestMode ? 'bg-yellow-500 focus:ring-yellow-500' : 'bg-gray-200 focus:ring-gray-500'
                                     }`}
                                 >
                                     <span
@@ -3154,7 +3154,9 @@ function LandingPanel({ user }) {
                                             }}
                                             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.article
                                                 ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                                                : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                                : isTestMode
+                                                    ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                                                    : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                                                 }`}
                                             placeholder="Введите артикул лендинга"
                                         />
@@ -3193,7 +3195,9 @@ function LandingPanel({ user }) {
                                     }}
                                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.trello_link
                                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                        : isTestMode
+                                            ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                                            : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                                         }`}
                                     placeholder="https://trello.com/c/..."
                                 />
@@ -3215,7 +3219,9 @@ function LandingPanel({ user }) {
                                         className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${
                                             fieldErrors.template
                                                 ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                                : isTestMode
+                                                    ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                                                    : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                                         }`}
                                     >
                                         <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
@@ -3281,7 +3287,9 @@ function LandingPanel({ user }) {
                                             }
                                         }}
                                         disabled={loadingUsers}
-                                        className="designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                        className={`designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                                            isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                        }`}
                                     >
                                         <div className="flex items-center space-x-2 flex-1">
                                             {getSelectedDesigner() ? (
@@ -3384,7 +3392,9 @@ function LandingPanel({ user }) {
                                             }
                                         }}
                                         disabled={loadingUsers}
-                                        className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                        className={`searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                                            isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                        }`}
                                     >
                                         <div className="flex items-center space-x-2 flex-1">
                                             {getSelectedSearcher() ? (
@@ -3791,7 +3801,9 @@ function LandingPanel({ user }) {
                                         setNewLanding({ ...newLanding, comment: e.target.value });
                                     }}
                                     rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                                        isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                    }`}
                                     placeholder="Добавьте комментарий к лендингу (необязательно)"
                                 />
                             </div>
@@ -3808,7 +3820,9 @@ function LandingPanel({ user }) {
                                         className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${
                                             fieldErrors.tags
                                                 ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                                : isTestMode
+                                                    ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                                                    : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                                         }`}
                                     >
                                         <div className="flex items-center justify-between">
@@ -4134,7 +4148,9 @@ function LandingPanel({ user }) {
                                     }}
                                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.trello_link
                                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                                        : isTestMode
+                                            ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                                            : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                                         }`}
                                     placeholder="https://trello.com/c/..."
                                 />
@@ -4161,7 +4177,9 @@ function LandingPanel({ user }) {
                                                 }
                                             }}
                                             disabled={loadingUsers}
-                                            className="designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                            className={`designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                                            isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                        }`}
                                         >
                                             <div className="flex items-center space-x-2 flex-1">
                                                 {editLanding.designer_id ? (
@@ -4365,7 +4383,9 @@ function LandingPanel({ user }) {
                                                 }
                                             }}
                                             disabled={loadingUsers}
-                                            className="searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                                            className={`searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                                            isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                        }`}
                                         >
                                             <div className="flex items-center space-x-2 flex-1">
                                                 {editLanding.searcher_id ? (
@@ -4462,7 +4482,9 @@ function LandingPanel({ user }) {
                                         setEditLanding({ ...editLanding, comment: e.target.value });
                                     }}
                                     rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                                        isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                                    }`}
                                     placeholder="Добавьте комментарий к лендингу (необязательно)"
                                 />
                             </div>
