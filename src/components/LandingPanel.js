@@ -171,6 +171,12 @@ function LandingPanel({ user }) {
         </div>
     );
 
+    const TestBadge = () => (
+        <div className="w-6 h-6 rounded-full bg-yellow-400 border-2 border-yellow-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="text-orange-600 font-bold text-sm">T</span>
+        </div>
+    );
+
     // Фильтрация лендингов
     const filteredLandings = useMemo(() => {
         let landingsToFilter = landings;
@@ -2740,6 +2746,14 @@ data-rt-sub16="${createdLandingUuid}"
                                                                             <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
                                                                         </svg>
                                                                     </button>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                {landing.is_test && (
+                                                                    <div title="Тестовый лендинг">
+                                                                        <TestBadge />
+                                                                    </div>
                                                                 )}
                                                             </div>
 
