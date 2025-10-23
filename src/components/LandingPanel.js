@@ -3843,7 +3843,7 @@ function LandingPanel({ user }) {
                                     </button>
 
                                     {showTagsDropdown && (
-                                        <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2">
+                                        <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2 max-h-[220px] overflow-y-auto">
                                             {availableTags.map((tag) => {
                                                 const tagStyles = {
                                                     'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
