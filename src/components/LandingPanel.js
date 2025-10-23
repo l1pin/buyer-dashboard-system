@@ -1352,6 +1352,7 @@ function LandingPanel({ user }) {
         const errors = {};
         const errorMessages = [];
 
+        // Общие обязательные поля
         if (!newLanding.article.trim()) {
             errors.article = true;
             errorMessages.push('Артикул обязателен для заполнения');
@@ -1372,11 +1373,6 @@ function LandingPanel({ user }) {
             errorMessages.push('Выберите серчера');
         }
 
-        if (!newLanding.buyer_id) {
-            errors.buyer_id = true;
-            errorMessages.push('Выберите байера');
-        }
-
         if (newLanding.tags.length === 0) {
             errors.tags = true;
             errorMessages.push('Выберите хотя бы один тег');
@@ -1391,6 +1387,26 @@ function LandingPanel({ user }) {
                 !trimmedTrelloLink.startsWith('trello.com/c/')) {
                 errors.trello_link = true;
                 errorMessages.push('Проверьте правильность ссылки на Trello');
+            }
+        }
+
+        // Проверка в зависимости от режима
+        if (isTestMode) {
+            // Для тестового режима - обязательны Editor и Product
+            if (!newLanding.editor_id) {
+                errors.editor_id = true;
+                errorMessages.push('Выберите редактора');
+            }
+
+            if (!newLanding.product_manager_id) {
+                errors.product_manager_id = true;
+                errorMessages.push('Выберите продакт менеджера');
+            }
+        } else {
+            // Для обычного режима - обязателен Buyer
+            if (!newLanding.buyer_id) {
+                errors.buyer_id = true;
+                errorMessages.push('Выберите байера');
             }
         }
 
@@ -3012,9 +3028,7 @@ function LandingPanel({ user }) {
             {/* Create Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className={`relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md my-5 transition-all duration-500 ${
-                        isTestMode ? 'bg-gray-50 border-gray-300' : 'bg-white'
-                    }`}>
+                    <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-medium text-gray-900">
                                 Создать новый лендинг
@@ -4710,5 +4724,3 @@ function LandingPanel({ user }) {
 }
 
 export default LandingPanel;
-
-                            
