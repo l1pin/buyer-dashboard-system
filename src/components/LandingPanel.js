@@ -2659,6 +2659,15 @@ data-rt-sub16="${createdLandingUuid}"
                                             <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                                                 Searcher
                                             </th>
+                                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                                                Editor
+                                            </th>
+                                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                                                Product
+                                            </th>
+                                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                                                GIFer
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -3079,6 +3088,90 @@ data-rt-sub16="${createdLandingUuid}"
                                                                 </div>
                                                                 <span className="text-sm text-gray-900 cursor-text select-text">
                                                                     {landing.searcher_id ? getSearcherName(landing.searcher_id) : landing.searcher}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400 cursor-text select-text">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {(landing.editor_id || landing.editor) ? (
+                                                            <div className="flex items-center space-x-2">
+                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                    {getEditorAvatar(landing.editor_id) ? (
+                                                                        <img
+                                                                            src={getEditorAvatar(landing.editor_id)}
+                                                                            alt="Editor"
+                                                                            className="w-full h-full object-cover"
+                                                                            onError={(e) => {
+                                                                                e.target.style.display = 'none';
+                                                                                e.target.nextSibling.style.display = 'flex';
+                                                                            }}
+                                                                        />
+                                                                    ) : null}
+                                                                    <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(landing.editor_id) ? 'hidden' : ''}`}>
+                                                                        <Edit className="h-3 w-3 text-gray-400" />
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                                                    {landing.editor_id ? getEditorName(landing.editor_id) : landing.editor}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400 cursor-text select-text">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {(landing.product_manager_id || landing.product_manager) ? (
+                                                            <div className="flex items-center space-x-2">
+                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                    {getProductManagerAvatar(landing.product_manager_id) ? (
+                                                                        <img
+                                                                            src={getProductManagerAvatar(landing.product_manager_id)}
+                                                                            alt="Product"
+                                                                            className="w-full h-full object-cover"
+                                                                            onError={(e) => {
+                                                                                e.target.style.display = 'none';
+                                                                                e.target.nextSibling.style.display = 'flex';
+                                                                            }}
+                                                                        />
+                                                                    ) : null}
+                                                                    <div className={`w-full h-full flex items-center justify-center ${getProductManagerAvatar(landing.product_manager_id) ? 'hidden' : ''}`}>
+                                                                        <Target className="h-3 w-3 text-gray-400" />
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                                                    {landing.product_manager_id ? getProductManagerName(landing.product_manager_id) : landing.product_manager}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400 cursor-text select-text">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {(landing.gifer_id || landing.gifer) ? (
+                                                            <div className="flex items-center space-x-2">
+                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                    {getGiferAvatar(landing.gifer_id) ? (
+                                                                        <img
+                                                                            src={getGiferAvatar(landing.gifer_id)}
+                                                                            alt="GIFer"
+                                                                            className="w-full h-full object-cover"
+                                                                            onError={(e) => {
+                                                                                e.target.style.display = 'none';
+                                                                                e.target.nextSibling.style.display = 'flex';
+                                                                            }}
+                                                                        />
+                                                                    ) : null}
+                                                                    <div className={`w-full h-full flex items-center justify-center ${getGiferAvatar(landing.gifer_id) ? 'hidden' : ''}`}>
+                                                                        <Palette className="h-3 w-3 text-gray-400" />
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                                                    {landing.gifer_id ? getGiferName(landing.gifer_id) : landing.gifer}
                                                                 </span>
                                                             </div>
                                                         ) : (
