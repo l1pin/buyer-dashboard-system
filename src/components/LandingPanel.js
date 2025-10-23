@@ -3048,16 +3048,34 @@ function LandingPanel({ user }) {
                                     type="button"
                                     onClick={() => {
                                         setIsTestMode(!isTestMode);
+                                        // Полная очистка формы при переключении режима
                                         setNewLanding({
-                                            ...newLanding,
-                                            is_test: !isTestMode,
+                                            article: '',
+                                            template: '',
+                                            tags: [],
+                                            comment: '',
+                                            is_poland: false,
+                                            trello_link: '',
+                                            designer_id: null,
                                             buyer_id: null,
+                                            searcher_id: null,
+                                            is_test: !isTestMode,
                                             editor_id: null,
                                             product_manager_id: null
                                         });
+                                        // Закрываем все dropdowns
+                                        setShowBuyerDropdown(false);
+                                        setShowSearcherDropdown(false);
+                                        setShowDesignerDropdown(false);
+                                        setShowTemplateDropdown(false);
+                                        setShowTagsDropdown(false);
+                                        setShowEditorDropdown(false);
+                                        setShowProductDropdown(false);
+                                        // Очищаем ошибки
+                                        clearMessages();
                                     }}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                                        isTestMode ? 'bg-yellow-500 focus:ring-yellow-500' : 'bg-gray-200 focus:ring-gray-500'
+                                        isTestMode ? 'bg-blue-500 focus:ring-blue-500' : 'bg-gray-200 focus:ring-gray-500'
                                     }`}
                                 >
                                     <span
