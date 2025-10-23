@@ -16,7 +16,8 @@ import {
   Palette,
   Package,
   Pencil,
-  Globe
+  Globe,
+  Image
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -111,6 +112,8 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return 'Product Manager';
       case 'proofreader':
         return 'Editor';
+      case 'gif_creator':
+        return 'GIF Creator';
       default:
         return 'Unknown';
     }
@@ -134,6 +137,8 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
         return <Package className="h-5 w-5 text-gray-600" />;
       case 'proofreader':
         return <Pencil className="h-5 w-5 text-gray-600" />;
+      case 'gif_creator':
+        return <Image className="h-5 w-5 text-gray-600" />;
       default:
         return <Shield className="h-5 w-5 text-gray-600" />;
     }
