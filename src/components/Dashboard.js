@@ -51,6 +51,7 @@ function Dashboard({ user, session, updateUser }) {
     if (role === 'content_manager') return 'landings';
     if (role === 'product_manager') return 'settings';
     if (role === 'proofreader') return 'settings';
+    if (role === 'gif_creator') return 'settings';
     return 'settings';
   };
 
