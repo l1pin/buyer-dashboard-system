@@ -1032,6 +1032,70 @@ export const landingService = {
     return data[0];
   },
 
+  // Добавить верифицированную ссылку к лендингу
+  async addVerifiedUrl(landingId, url) {
+    try {
+      console.log('➕ Добавление верифицированной ссылки:', { landingId, url });
+      
+      // Получаем текущий лендинг
+      const { data: landing, error: fetchError } = await supabase
+        .from('landings')
+        .select('verified_urls')
+        .eq('id', landingId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Получаем текущий массив ссылок или создаем новый
+      const currentUrls = landing.verified_urls || [];
+      
+      // Проверяем, есть ли уже такая ссылка
+      if (currentUrls.includes(url)) {
+        console.log('⚠️ Ссылка уже существует в списке');
+        return landing;
+      }
+
+      // Добавляем новую ссылку
+      const updatedUrls = [...currentUrls, url];
+
+      // Обновляем лендинг
+      const { data, error } = await supabase
+        .from('landings')
+        .update({
+          verified_urls: updatedUrls,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', landingId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ Верифицированная ссылка добавлена');
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка добавления верифицированной ссылки:', error);
+      throw error;
+    }
+  },
+
+  // Получить все верифицированные ссылки лендинга
+  async getVerifiedUrls(landingId) {
+    try {
+      const { data, error } = await supabase
+        .from('landings')
+        .select('verified_urls')
+        .eq('id', landingId)
+        .single();
+
+      if (error) throw error;
+      return data?.verified_urls || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения верифицированных ссылок:', error);
+      return [];
+    }
+  },
+
   // Удалить лендинг
   async deleteLanding(landingId) {
     try {
