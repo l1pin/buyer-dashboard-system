@@ -913,6 +913,23 @@ export const landingService = {
       product_manager_id: landingData.product_manager_id
     });
 
+    // Получаем количество лендингов с таким же артикулом
+    const { data: existingLandings, error: countError } = await supabase
+      .from('landings')
+      .select('website')
+      .eq('article', landingData.article);
+
+    if (countError) {
+      console.error('❌ Ошибка проверки артикула:', countError);
+      throw countError;
+    }
+
+    // Вычисляем номер сайта
+    const websiteNumber = (existingLandings?.length || 0) + 1;
+    const website = `Сайт №${websiteNumber}`;
+
+    console.log(`📊 Для артикула ${landingData.article} будет создан: ${website}`);
+
     const { data, error } = await supabase
       .from('landings')
       .insert([
@@ -938,6 +955,7 @@ export const landingService = {
           product_manager_id: landingData.product_manager_id || null,
           editor: landingData.editor || null,
           product_manager: landingData.product_manager || null,
+          website: website,
           created_at: getKyivTime()
         }
       ])
