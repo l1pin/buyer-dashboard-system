@@ -103,8 +103,7 @@ function LandingPanel({ user }) {
     is_test: false,
     editor_id: null,
     product_manager_id: null,
-    gifer_id: null,
-    website: 'Сайт №1'
+    gifer_id: null
   });
 
   const [editLanding, setEditLanding] = useState({
@@ -1037,8 +1036,7 @@ function LandingPanel({ user }) {
         editor_id: isTestMode ? newLanding.editor_id : null,
         product_manager_id: isTestMode ? newLanding.product_manager_id : null,
         editor: isTestMode ? (editorName !== '—' ? editorName : null) : null,
-        product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null,
-        website: 'Сайт №1'
+        product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null
       });
 
       console.log('✅ Лендинг создан в БД:', newLandingData);
@@ -1090,8 +1088,7 @@ function LandingPanel({ user }) {
         trello_link: '',
         designer_id: null,
         buyer_id: null,
-        searcher_id: null,
-        website: 'Сайт №1'
+        searcher_id: null
       });
       setShowCreateModal(false);
 
@@ -3379,8 +3376,7 @@ data-rt-sub16="${createdLandingUuid}"
                       is_test: !isTestMode,
                       editor_id: null,
                       product_manager_id: null,
-                      gifer_id: null,
-                      website: 'Сайт №1'
+                      gifer_id: null
                     });
                     // Закрываем все dropdowns
                     setShowBuyerDropdown(false);
@@ -3425,8 +3421,7 @@ data-rt-sub16="${createdLandingUuid}"
                     is_test: false,
                     editor_id: null,
                     product_manager_id: null,
-                    gifer_id: null,
-                    website: 'Сайт №1'
+                    gifer_id: null
                   });
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
@@ -4360,8 +4355,7 @@ data-rt-sub16="${createdLandingUuid}"
                     is_test: false,
                     editor_id: null,
                     product_manager_id: null,
-                    gifer_id: null,
-                    website: 'Сайт №1'
+                    gifer_id: null
                   });
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
