@@ -925,11 +925,33 @@ function LandingPanel({ user }) {
       setError('');
       console.log('📡 Загрузка лендингов пользователя...');
       const data = await landingService.getUserLandings(user.id);
-      setLandings(data);
-      console.log(`✅ Загружено ${data.length} лендингов`);
+      
+      // Загружаем данные о verified_urls для каждого лендинга
+      const landingsWithUrls = await Promise.all(
+        data.map(async (landing) => {
+          try {
+            const { data: landingData, error } = await supabase
+              .from('landings')
+              .select('verified_urls')
+              .eq('id', landing.id)
+              .single();
+            
+            if (!error && landingData) {
+              return { ...landing, verified_urls: landingData.verified_urls || [] };
+            }
+            return { ...landing, verified_urls: [] };
+          } catch (err) {
+            console.error(`Ошибка загрузки verified_urls для ${landing.id}:`, err);
+            return { ...landing, verified_urls: [] };
+          }
+        })
+      );
+      
+      setLandings(landingsWithUrls);
+      console.log(`✅ Загружено ${landingsWithUrls.length} лендингов`);
 
       const landingsWithHistorySet = new Set();
-      for (const landing of data) {
+      for (const landing of landingsWithUrls) {
         const hasHistory = await landingHistoryService.hasHistory(landing.id);
         if (hasHistory) {
           landingsWithHistorySet.add(landing.id);
@@ -937,7 +959,7 @@ function LandingPanel({ user }) {
       }
       setLandingsWithHistory(landingsWithHistorySet);
 
-      return data;
+      return landingsWithUrls;
     } catch (error) {
       console.error('❌ Ошибка загрузки лендингов:', error);
       setError('Ошибка загрузки лендингов: ' + error.message);
@@ -2784,8 +2806,16 @@ data-rt-sub16="${createdLandingUuid}"
                                     e.stopPropagation();
                                     showUuidCode(landing.id);
                                   }}
-                                  className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                  title="Показать UUID код"
+                                  className={`p-1 rounded-full transition-colors duration-200 ${
+                                    landing.verified_urls && landing.verified_urls.length > 0
+                                      ? 'text-green-600 hover:text-green-800 hover:bg-green-100'
+                                      : 'text-red-600 hover:text-red-800 hover:bg-red-100'
+                                  }`}
+                                  title={
+                                    landing.verified_urls && landing.verified_urls.length > 0
+                                      ? `Интеграция подтверждена (${landing.verified_urls.length} URL)`
+                                      : 'Интеграция не найдена'
+                                  }
                                 >
                                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
