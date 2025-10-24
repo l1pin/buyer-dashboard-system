@@ -6,8 +6,8 @@ const TRELLO_TOKEN = process.env.TRELLO_TOKEN || 'ATTAb29683ffc0c87de7b5d1ce766c
 
 // Конфигурация досок для лендингов
 const LANDING_BOARDS = {
-  main: '6muoYGe8', // Основные лендинги
-  test: 'zDMOMvHt'  // Тестовые лендинги
+  main: '642bf848f1f26d0ecc5231da', // Основные лендинги
+  test: '63f75d0ae75b1dc37ad0252b'  // Тестовые лендинги
 };
 
 const supabase = createClient(
