@@ -73,8 +73,8 @@ exports.handler = async (event, context) => {
         
         // Определяем тип доски
         const LANDING_BOARDS = {
-          main: '6muoYGe8',
-          test: 'zDMOMvHt'
+          main: '642bf848f1f26d0ecc5231da',
+          test: '63f75d0ae75b1dc37ad0252b'
         };
         
         let boardType = null;
