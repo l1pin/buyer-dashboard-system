@@ -763,17 +763,27 @@ function LandingPanel({ user }) {
             console.log('🔄 Trello status changed:', payload);
 
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                console.log('➕ Обновляем статус для лендинга:', payload.new.creative_id);
+                console.log('➕ Обновляем статус для лендинга:', payload.new.landing_id);
                 setTrelloStatuses(prev => {
                     const newMap = new Map(prev);
-                    newMap.set(payload.new.creative_id, payload.new);
+                    newMap.set(payload.new.landing_id, payload.new);
                     return newMap;
                 });
+                
+                // Обновляем лендинг в списке если он уже загружен
+                setLandings(prevLandings => {
+                    return prevLandings.map(landing => {
+                        if (landing.id === payload.new.landing_id) {
+                            console.log(`🔄 Обновляем статус лендинга ${landing.article} на ${payload.new.list_name}`);
+                        }
+                        return landing;
+                    });
+                });
             } else if (payload.eventType === 'DELETE') {
-                console.log('➖ Удаляем статус для лендинга:', payload.old.creative_id);
+                console.log('➖ Удаляем статус для лендинга:', payload.old.landing_id);
                 setTrelloStatuses(prev => {
                     const newMap = new Map(prev);
-                    newMap.delete(payload.old.creative_id);
+                    newMap.delete(payload.old.landing_id);
                     return newMap;
                 });
             }
