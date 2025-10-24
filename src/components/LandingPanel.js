@@ -104,7 +104,7 @@ function LandingPanel({ user }) {
     editor_id: null,
     product_manager_id: null,
     gifer_id: null,
-    website: 'Сайт №1'
+    website: 'Сайт 1'
   });
 
   const [editLanding, setEditLanding] = useState({
@@ -1038,7 +1038,7 @@ function LandingPanel({ user }) {
         product_manager_id: isTestMode ? newLanding.product_manager_id : null,
         editor: isTestMode ? (editorName !== '—' ? editorName : null) : null,
         product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null,
-        website: 'Сайт №1'
+        website: 'Сайт 1'
       });
 
       console.log('✅ Лендинг создан в БД:', newLandingData);
@@ -1091,7 +1091,7 @@ function LandingPanel({ user }) {
         designer_id: null,
         buyer_id: null,
         searcher_id: null,
-        website: 'Сайт №1'
+        website: 'Сайт 1'
       });
       setShowCreateModal(false);
 
@@ -2904,7 +2904,7 @@ data-rt-sub16="${createdLandingUuid}"
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="text-center">
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                {landing.website || 'Сайт №1'}
+                                {landing.website || 'Сайт 1'}
                               </span>
                             </div>
                           </td>
@@ -3382,7 +3382,7 @@ data-rt-sub16="${createdLandingUuid}"
                       editor_id: null,
                       product_manager_id: null,
                       gifer_id: null,
-                      website: 'Сайт №1'
+                      website: 'Сайт 1'
                     });
                     // Закрываем все dropdowns
                     setShowBuyerDropdown(false);
@@ -3428,7 +3428,7 @@ data-rt-sub16="${createdLandingUuid}"
                     editor_id: null,
                     product_manager_id: null,
                     gifer_id: null,
-                    website: 'Сайт №1'
+                    website: 'Сайт 1'
                   });
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
@@ -4363,7 +4363,7 @@ data-rt-sub16="${createdLandingUuid}"
                     editor_id: null,
                     product_manager_id: null,
                     gifer_id: null,
-                    website: 'Сайт №1'
+                    website: 'Сайт 1'
                   });
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
