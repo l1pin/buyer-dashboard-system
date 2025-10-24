@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, Loader, ExternalLink, AlertCircle } from 'lucide-react';
 
-function IntegrationChecker({ landingUuid }) {
+function IntegrationChecker({ landingUuid, onIntegrationVerified }) {
     const [checkUrl, setCheckUrl] = useState('');
     const [checking, setChecking] = useState(false);
     const [checkResult, setCheckResult] = useState(null);
@@ -56,6 +56,11 @@ function IntegrationChecker({ landingUuid }) {
                         const { landingService } = await import('../supabaseClient');
                         await landingService.addVerifiedUrl(landingUuid, checkUrl);
                         console.log('✅ URL сохранен как верифицированный');
+                        
+                        // Вызываем callback для обновления родительского компонента
+                        if (onIntegrationVerified) {
+                            onIntegrationVerified([checkUrl]);
+                        }
                     } catch (saveError) {
                         console.error('⚠️ Не удалось сохранить верифицированный URL:', saveError);
                     }
