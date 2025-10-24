@@ -1778,7 +1778,7 @@ export const trelloLandingService = {
 
   // Подписка на изменения статусов
   subscribeToCardStatuses(callback) {
-    return supabase
+    const channel = supabase
       .channel('trello_landing_statuses_changes')
       .on(
         'postgres_changes',
@@ -1787,9 +1787,18 @@ export const trelloLandingService = {
           schema: 'public',
           table: 'trello_landing_statuses'
         },
-        callback
+        (payload) => {
+          console.log('📡 Получено обновление статуса Trello для лендинга:', payload);
+          callback(payload);
+        }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Подписка на изменения статусов Trello лендингов активна');
+        }
+      });
+    
+    return channel;
   },
 
   // Настройка досок
