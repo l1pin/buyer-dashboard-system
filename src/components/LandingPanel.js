@@ -141,6 +141,7 @@ function LandingPanel({ user }) {
   const [createdLandingUuid, setCreatedLandingUuid] = useState('');
   const [verifiedUrls, setVerifiedUrls] = useState([]);
   const [loadingUrls, setLoadingUrls] = useState(false);
+  const [landingsWithIntegration, setLandingsWithIntegration] = useState(new Map());
 
   // Доступные теги для лендингов
   const availableTags = [
@@ -1289,6 +1290,13 @@ function LandingPanel({ user }) {
     try {
       const urls = await landingService.getVerifiedUrls(landingId);
       setVerifiedUrls(urls);
+      
+      // Обновляем Map с информацией об интеграции
+      setLandingsWithIntegration(prev => {
+        const newMap = new Map(prev);
+        newMap.set(landingId, urls && urls.length > 0);
+        return newMap;
+      });
     } catch (error) {
       console.error('Ошибка загрузки верифицированных URL:', error);
       setVerifiedUrls([]);
@@ -1429,6 +1437,27 @@ data-rt-sub16="${createdLandingUuid}"
     setShowUuidModal(false);
     setCreatedLandingUuid('');
     setCopiedUuid(false);
+  };
+
+  // Функция для обновления статуса интеграции после успешной проверки
+  const handleIntegrationVerified = (landingId, urls) => {
+    console.log('✅ Интеграция подтверждена для лендинга:', landingId, 'URLs:', urls);
+    
+    // Обновляем Map с информацией об интеграции
+    setLandingsWithIntegration(prev => {
+      const newMap = new Map(prev);
+      newMap.set(landingId, true);
+      return newMap;
+    });
+    
+    // Обновляем список лендингов с новыми verified_urls
+    setLandings(prevLandings => 
+      prevLandings.map(landing => 
+        landing.id === landingId 
+          ? { ...landing, verified_urls: urls }
+          : landing
+      )
+    );
   };
 
   const validateEditFields = () => {
@@ -2807,13 +2836,13 @@ data-rt-sub16="${createdLandingUuid}"
                                     showUuidCode(landing.id);
                                   }}
                                   className={`p-1 rounded-full transition-colors duration-200 ${
-                                    landing.verified_urls && landing.verified_urls.length > 0
+                                    (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
                                       ? 'text-green-600 hover:text-green-800 hover:bg-green-100'
                                       : 'text-red-600 hover:text-red-800 hover:bg-red-100'
                                   }`}
                                   title={
-                                    landing.verified_urls && landing.verified_urls.length > 0
-                                      ? `Интеграция подтверждена (${landing.verified_urls.length} URL)`
+                                    (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
+                                      ? `Интеграция подтверждена ${landing.verified_urls ? `(${landing.verified_urls.length} URL)` : ''}`
                                       : 'Интеграция не найдена'
                                   }
                                 >
@@ -5292,7 +5321,10 @@ data-rt-sub16="${selectedLandingUuid}"
                 </h4>
 
                 {/* Компонент проверки интеграции */}
-                <IntegrationChecker landingUuid={selectedLandingUuid} />
+                <IntegrationChecker 
+                  landingUuid={selectedLandingUuid} 
+                  onIntegrationVerified={(urls) => handleIntegrationVerified(selectedLandingUuid, urls)}
+                />
               </div>
             </div>
 
