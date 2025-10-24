@@ -764,20 +764,27 @@ function LandingPanel({ user }) {
 
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                 console.log('➕ Обновляем статус для лендинга:', payload.new.landing_id);
+                
+                // Обновляем Map статусов
                 setTrelloStatuses(prev => {
                     const newMap = new Map(prev);
                     newMap.set(payload.new.landing_id, payload.new);
+                    console.log(`✅ Статус обновлен в Map для landing_id ${payload.new.landing_id}: ${payload.new.list_name}`);
                     return newMap;
                 });
                 
-                // Обновляем лендинг в списке если он уже загружен
+                // Принудительно обновляем компонент
                 setLandings(prevLandings => {
-                    return prevLandings.map(landing => {
+                    const updated = prevLandings.map(landing => {
                         if (landing.id === payload.new.landing_id) {
                             console.log(`🔄 Обновляем статус лендинга ${landing.article} на ${payload.new.list_name}`);
+                            // Возвращаем новый объект, чтобы React увидел изменение
+                            return { ...landing, _trelloStatusUpdate: Date.now() };
                         }
                         return landing;
                     });
+                    console.log('🔄 Список лендингов обновлен, компонент перерисуется');
+                    return updated;
                 });
             } else if (payload.eventType === 'DELETE') {
                 console.log('➖ Удаляем статус для лендинга:', payload.old.landing_id);
@@ -785,6 +792,16 @@ function LandingPanel({ user }) {
                     const newMap = new Map(prev);
                     newMap.delete(payload.old.landing_id);
                     return newMap;
+                });
+                
+                // Принудительно обновляем компонент
+                setLandings(prevLandings => {
+                    return prevLandings.map(landing => {
+                        if (landing.id === payload.old.landing_id) {
+                            return { ...landing, _trelloStatusUpdate: Date.now() };
+                        }
+                        return landing;
+                    });
                 });
             }
         });
@@ -802,6 +819,18 @@ function LandingPanel({ user }) {
             loadTrelloStatuses();
         }
     }, [landings]);
+
+    // Отслеживание изменений в trelloStatuses для отладки
+    useEffect(() => {
+        console.log(`🗺️ trelloStatuses Map обновлена, размер: ${trelloStatuses.size}`);
+        if (trelloStatuses.size > 0) {
+            const entries = Array.from(trelloStatuses.entries());
+            console.log('📋 Последние 3 статуса:', entries.slice(0, 3).map(([id, status]) => ({
+                landingId: id,
+                listName: status.list_name
+            })));
+        }
+    }, [trelloStatuses]);
 
     const loadLastUpdateTime = async () => {
         try {
@@ -916,7 +945,14 @@ function LandingPanel({ user }) {
     // Получить название списка для лендинга
     const getTrelloListName = (landingId) => {
         const status = trelloStatuses.get(landingId);
-        return status?.list_name || '—';
+        const listName = status?.list_name || '—';
+        // Отладочный лог только при изменении
+        if (status && window._lastTrelloStatus?.[landingId] !== listName) {
+            console.log(`📊 getTrelloListName для ${landingId}: ${listName}`);
+            if (!window._lastTrelloStatus) window._lastTrelloStatus = {};
+            window._lastTrelloStatus[landingId] = listName;
+        }
+        return listName;
     };
 
     const loadLandings = async () => {
