@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 // Утилита для получения времени по Киеву с автоматическим учетом летнего/зимнего времени
 const getKyivTime = () => {
   const now = new Date();
-  
+
   // Получаем компоненты времени в часовом поясе Europe/Kiev
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Kiev',
@@ -19,10 +19,10 @@ const getKyivTime = () => {
     second: '2-digit',
     hour12: false
   });
-  
+
   const parts = formatter.formatToParts(now);
   const getValue = (type) => parts.find(p => p.type === type)?.value;
-  
+
   const year = getValue('year');
   const month = getValue('month');
   const day = getValue('day');
@@ -30,13 +30,13 @@ const getKyivTime = () => {
   const minute = getValue('minute');
   const second = getValue('second');
   const ms = String(now.getMilliseconds()).padStart(3, '0');
-  
+
   // Определяем текущий offset для Киева (зимой +02:00, летом +03:00)
   const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
   const kyivDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
   const diffHours = Math.round((kyivDate - utcDate) / (1000 * 60 * 60));
   const offset = diffHours === 3 ? '+03:00' : '+02:00';
-  
+
   return `${year}-${month}-${day}T${hour}:${minute}:${second}.${ms}${offset}`;
 };
 
@@ -77,7 +77,7 @@ export const userService = {
       .select('*')
       .eq('id', userId)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -93,7 +93,7 @@ export const userService = {
 
       // Полная проверка существующих пользователей (и в users, и в auth)
       const emailToCheck = userData.email.trim().toLowerCase();
-      
+
       // Проверяем в таблице users
       const { data: existingUsers, error: checkError } = await supabase
         .from('users')
@@ -126,7 +126,7 @@ export const userService = {
       // Метод 1: Используем административный клиент (рекомендуемый)
       if (adminClient) {
         console.log('🔧 Используем административный клиент...');
-        
+
         const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
           email: userData.email,
           password: userData.password,
@@ -139,13 +139,13 @@ export const userService = {
 
         if (authError) {
           console.error('❌ Ошибка админ API:', authError);
-          
-          if (authError.message?.includes('already registered') || 
-              authError.message?.includes('already exists') ||
-              authError.message?.includes('User already registered')) {
+
+          if (authError.message?.includes('already registered') ||
+            authError.message?.includes('already exists') ||
+            authError.message?.includes('User already registered')) {
             throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе.`);
           }
-          
+
           throw new Error(`Ошибка создания пользователя: ${authError.message}`);
         }
 
@@ -178,7 +178,7 @@ export const userService = {
 
         if (profileError) {
           console.error('❌ Ошибка создания/обновления профиля:', profileError);
-          
+
           // Проверяем, может профиль уже существует и нужно просто его получить
           const { data: existingProfile, error: getProfileError } = await supabase
             .from('users')
@@ -188,7 +188,7 @@ export const userService = {
 
           if (!getProfileError && existingProfile) {
             console.log('✅ Профиль уже существует, используем существующий');
-            
+
             // КРИТИЧЕСКИ ВАЖНО: Восстанавливаем сессию тим лида
             if (currentSession) {
               console.log('🔄 Восстанавливаем сессию тим лида...');
@@ -199,7 +199,7 @@ export const userService = {
             console.log('✅ Пользователь успешно создан (профиль был создан автоматически)');
             return { user: authData.user, profile: existingProfile };
           }
-          
+
           // Если всё равно не удалось, очищаем auth пользователя
           try {
             await adminClient.auth.admin.deleteUser(authData.user.id);
@@ -207,7 +207,7 @@ export const userService = {
           } catch (cleanupError) {
             console.error('⚠️ Ошибка очистки auth пользователя:', cleanupError);
           }
-          
+
           throw new Error(`Ошибка создания профиля: ${profileError.message}`);
         }
 
@@ -224,7 +224,7 @@ export const userService = {
 
       // Метод 2: Обычная регистрация (НЕ рекомендуется, так как меняет сессию)
       console.log('🔧 Используем обычный клиент (внимание: может изменить текущую сессию)...');
-      
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -243,7 +243,7 @@ export const userService = {
         if (authError.message?.includes('User already registered')) {
           throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе.`);
         }
-        
+
         if (authError.message?.includes('signup is disabled')) {
           throw new Error('Регистрация новых пользователей отключена. Обратитесь к администратору системы.');
         }
@@ -278,7 +278,7 @@ export const userService = {
 
       if (profileError) {
         console.error('❌ Ошибка создания/обновления профиля:', profileError);
-        
+
         // Проверяем, может профиль уже существует и нужно просто его получить
         const { data: existingProfile, error: getProfileError } = await supabase
           .from('users')
@@ -288,7 +288,7 @@ export const userService = {
 
         if (!getProfileError && existingProfile) {
           console.log('✅ Профиль уже существует, используем существующий');
-          
+
           // КРИТИЧЕСКИ ВАЖНО: Восстанавливаем сессию тим лида
           if (currentSession) {
             console.log('🔄 Восстанавливаем сессию тим лида...');
@@ -299,7 +299,7 @@ export const userService = {
           console.log('✅ Пользователь создан через обычный клиент (профиль был создан автоматически)');
           return { user: authData.user, profile: existingProfile };
         }
-        
+
         throw new Error(`Ошибка создания профиля пользователя: ${profileError.message}`);
       }
 
@@ -323,7 +323,7 @@ export const userService = {
   async checkSupabaseConfig() {
     try {
       console.log('🔍 Проверка конфигурации Supabase...');
-      
+
       // Просто проверяем доступность админ API и базовых настроек
       const config = {
         signUpEnabled: true, // Предполагаем что включено, если админ API доступен
@@ -379,13 +379,13 @@ export const userService = {
       // Удаляем связанные данные
       await supabase.from('tables').delete().eq('user_id', userId);
       await supabase.from('creatives').delete().eq('user_id', userId);
-      
+
       // Удаляем профиль
       const { error: profileError } = await supabase
         .from('users')
         .delete()
         .eq('id', userId);
-      
+
       if (profileError) {
         console.error('❌ Ошибка удаления профиля:', profileError);
       }
@@ -403,7 +403,7 @@ export const userService = {
       }
 
       console.log('✅ Пользователь удален');
-      
+
     } catch (error) {
       console.error('❌ Ошибка удаления пользователя:', error);
       throw error;
@@ -440,7 +440,7 @@ export const userService = {
       if (password && password.trim()) {
         if (adminClient) {
           console.log('🔧 Обновление пароля через админ API...');
-          
+
           const { error: passwordError } = await adminClient.auth.admin.updateUserById(id, {
             password: password.trim()
           });
@@ -449,7 +449,7 @@ export const userService = {
             console.error('❌ Ошибка обновления пароля:', passwordError);
             throw new Error(`Ошибка обновления пароля: ${passwordError.message}`);
           }
-          
+
           console.log('✅ Пароль успешно обновлен');
         } else {
           console.warn('⚠️ Admin API недоступен, пароль не может быть обновлен');
@@ -460,10 +460,10 @@ export const userService = {
       // Обновляем email в auth если он изменился
       if (profileUpdates.email) {
         const emailToUpdate = profileUpdates.email.trim().toLowerCase();
-        
+
         if (adminClient) {
           console.log('📧 Обновление email через админ API...');
-          
+
           const { error: emailError } = await adminClient.auth.admin.updateUserById(id, {
             email: emailToUpdate,
             email_confirm: true // Автоматически подтверждаем новый email
@@ -471,25 +471,25 @@ export const userService = {
 
           if (emailError) {
             console.error('❌ Ошибка обновления email:', emailError);
-            
-            if (emailError.message?.includes('already registered') || 
-                emailError.message?.includes('already exists')) {
+
+            if (emailError.message?.includes('already registered') ||
+              emailError.message?.includes('already exists')) {
               throw new Error(`Email "${profileUpdates.email}" уже используется другим пользователем`);
             }
-            
+
             throw new Error(`Ошибка обновления email: ${emailError.message}`);
           }
-          
+
           console.log('✅ Email успешно обновлен в auth');
         }
-        
+
         // Обновляем email в профиле
         profileUpdates.email = emailToUpdate;
       }
 
       // Обновляем профиль в таблице users
       console.log('👤 Обновление профиля пользователя...');
-      
+
       const { data: updatedProfile, error: profileError } = await supabase
         .from('users')
         .update({
@@ -502,11 +502,11 @@ export const userService = {
 
       if (profileError) {
         console.error('❌ Ошибка обновления профиля:', profileError);
-        
+
         if (profileError.code === '23505') {
           throw new Error(`Пользователь с такими данными уже существует`);
         }
-        
+
         throw new Error(`Ошибка обновления профиля: ${profileError.message}`);
       }
 
@@ -571,7 +571,7 @@ export const userService = {
       .select('*')
       .eq('role', 'buyer')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -583,7 +583,7 @@ export const userService = {
       .select('*')
       .eq('role', role)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -595,7 +595,7 @@ export const userService = {
       .select('*')
       .in('role', roles)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -604,12 +604,12 @@ export const userService = {
   async getAllUsers() {
     try {
       console.log('📡 Запрос к таблице users...');
-      
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getAllUsers:', error);
         console.error('📋 Детали ошибки:', {
@@ -619,16 +619,16 @@ export const userService = {
         });
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getAllUsers завершен успешно, получено пользователей:', result.length);
-      
+
       // Показываем сколько монтажеров найдено
       const editors = result.filter(u => u.role === 'editor');
       console.log('👥 Найдено монтажеров:', editors.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getAllUsers:', error);
       return [];
@@ -645,7 +645,7 @@ export const tableService = {
       .select('*')
       .eq('user_id', userId)
       .single();
-    
+
     if (error && error.code !== 'PGRST116') throw error;
     return data;
   },
@@ -687,7 +687,7 @@ export const tableService = {
       if (deleteError) throw deleteError;
 
       const cellsToInsert = [];
-      
+
       parsedData.data.forEach((row, rowIndex) => {
         row.forEach((cellValue, colIndex) => {
           if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
@@ -710,7 +710,7 @@ export const tableService = {
           const { error: cellsError } = await supabase
             .from('cells')
             .insert(batch);
-          
+
           if (cellsError) {
             console.error('Error inserting cells batch:', cellsError);
             throw cellsError;
@@ -733,7 +733,7 @@ export const tableService = {
         users!tables_user_id_fkey(name, email)
       `)
       .order('updated_at', { ascending: false });
-    
+
     if (error) throw error;
     return data;
   }
@@ -748,14 +748,14 @@ export const cellService = {
       .eq('table_id', tableId)
       .order('row_index')
       .order('column_index');
-    
+
     if (error) throw error;
     return data;
   },
 
   async getTableDataForGrid(tableId) {
     const cells = await this.getTableCells(tableId);
-    
+
     if (cells.length === 0) {
       return { columnDefs: [], rowData: [] };
     }
@@ -778,9 +778,9 @@ export const cellService = {
           editable: true,
           minWidth: 100,
           flex: 1,
-          cellStyle: { 
+          cellStyle: {
             fontSize: '11px',
-            padding: '2px 4px' 
+            padding: '2px 4px'
           }
         });
       });
@@ -870,7 +870,7 @@ export const cellService = {
 
   async exportTableToCSV(tableId) {
     const cells = await this.getTableCells(tableId);
-    
+
     if (cells.length === 0) {
       return '';
     }
@@ -958,23 +958,23 @@ export const landingService = {
   async getUserLandings(userId) {
     try {
       console.log('📡 Запрос лендингов пользователя:', userId);
-      
+
       const { data, error } = await supabase
         .from('landings')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getUserLandings:', error);
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getUserLandings завершен, получено лендингов:', result.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getUserLandings:', error);
       return [];
@@ -985,7 +985,7 @@ export const landingService = {
   async getAllLandings() {
     try {
       console.log('📡 Запрос к таблице landings...');
-      
+
       const { data, error } = await supabase
         .from('landings')
         .select(`
@@ -993,17 +993,17 @@ export const landingService = {
           users!landings_user_id_fkey(name, email)
         `)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getAllLandings:', error);
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getAllLandings завершен успешно, получено записей:', result.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getAllLandings:', error);
       return [];
@@ -1036,7 +1036,7 @@ export const landingService = {
   async addVerifiedUrl(landingId, url) {
     try {
       console.log('➕ Добавление верифицированной ссылки:', { landingId, url });
-      
+
       // Получаем текущий лендинг
       const { data: landing, error: fetchError } = await supabase
         .from('landings')
@@ -1048,7 +1048,7 @@ export const landingService = {
 
       // Получаем текущий массив ссылок или создаем новый
       const currentUrls = landing.verified_urls || [];
-      
+
       // Проверяем, есть ли уже такая ссылка
       if (currentUrls.includes(url)) {
         console.log('⚠️ Ссылка уже существует в списке');
@@ -1121,7 +1121,7 @@ export const landingService = {
         .from('landing_history')
         .delete()
         .eq('landing_id', landingId);
-      
+
       if (historyError) {
         console.error('⚠️ Ошибка удаления истории лендинга:', historyError);
       }
@@ -1133,7 +1133,7 @@ export const landingService = {
         .delete()
         .eq('id', landingId)
         .select();
-      
+
       if (landingError) {
         console.error('❌ ОШИБКА удаления лендинга:', landingError);
         throw new Error(`Не удалось удалить лендинг: ${landingError.message}`);
@@ -1176,13 +1176,13 @@ export const landingHistoryService = {
   async createHistoryEntry(historyData) {
     try {
       console.log('📝 Создание записи истории лендинга:', historyData.landing_id);
-      
+
       const dataToInsert = {
         ...historyData,
         changed_at: historyData.changed_at || getKyivTime(),
         created_at: getKyivTime()
       };
-      
+
       const { data, error } = await supabase
         .from('landing_history')
         .insert([dataToInsert])
@@ -1205,7 +1205,7 @@ export const landingHistoryService = {
   async getLandingHistory(landingId) {
     try {
       console.log('📡 Запрос истории лендинга:', landingId);
-      
+
       const { data, error } = await supabase
         .from('landing_history')
         .select('*')
@@ -1249,14 +1249,14 @@ export const creativeHistoryService = {
   async createHistoryEntry(historyData) {
     try {
       console.log('📝 Создание записи истории креатива:', historyData.creative_id);
-      
+
       // Устанавливаем киевское время, если не передано
       const dataToInsert = {
         ...historyData,
         changed_at: historyData.changed_at || getKyivTime(),
         created_at: getKyivTime() // Всегда используем киевское время для created_at
       };
-      
+
       const { data, error } = await supabase
         .from('creative_history')
         .insert([dataToInsert])
@@ -1279,7 +1279,7 @@ export const creativeHistoryService = {
   async getCreativeHistory(creativeId) {
     try {
       console.log('📡 Запрос истории креатива:', creativeId);
-      
+
       const { data, error } = await supabase
         .from('creative_history')
         .select('*')
@@ -1394,26 +1394,26 @@ export const creativeService = {
   async getUserCreatives(userId) {
     try {
       console.log('📡 Запрос креативов пользователя:', userId);
-      
+
       const { data, error } = await supabase
         .from('creatives')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getUserCreatives:', error);
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getUserCreatives завершен, получено креативов:', result.length);
-      
+
       const withComments = result.filter(c => c.comment && c.comment.trim());
       console.log('💬 Креативов с комментариями:', withComments.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getUserCreatives:', error);
       return [];
@@ -1423,26 +1423,26 @@ export const creativeService = {
   async getCreativesByBuyerId(buyerId) {
     try {
       console.log('📡 Запрос креативов для байера:', buyerId);
-      
+
       const { data, error } = await supabase
         .from('creatives')
         .select('*')
         .eq('buyer_id', buyerId)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getCreativesByBuyerId:', error);
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getCreativesByBuyerId завершен, получено креативов:', result.length);
-      
+
       const withComments = result.filter(c => c.comment && c.comment.trim());
       console.log('💬 Креативов с комментариями:', withComments.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getCreativesByBuyerId:', error);
       return [];
@@ -1452,7 +1452,7 @@ export const creativeService = {
   async getAllCreatives() {
     try {
       console.log('📡 Запрос к таблице creatives...');
-      
+
       const { data, error } = await supabase
         .from('creatives')
         .select(`
@@ -1460,7 +1460,7 @@ export const creativeService = {
           users!creatives_user_id_fkey(name, email)
         `)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('❌ Ошибка в getAllCreatives:', error);
         console.error('📋 Детали ошибки:', {
@@ -1471,10 +1471,10 @@ export const creativeService = {
         });
         throw error;
       }
-      
+
       const result = data || [];
       console.log('✅ getAllCreatives завершен успешно, получено записей:', result.length);
-      
+
       if (result.length > 0) {
         console.log('📋 Пример записи креатива:', {
           id: result[0].id,
@@ -1486,12 +1486,12 @@ export const creativeService = {
           hasUsers: !!result[0].users
         });
       }
-      
+
       const withComments = result.filter(c => c.comment && c.comment.trim());
       console.log('💬 Креативов с комментариями:', withComments.length);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Критическая ошибка в getAllCreatives:', error);
       return [];
@@ -1517,8 +1517,8 @@ export const creativeService = {
   },
 
   async updateCreativeComment(creativeId, comment) {
-    return this.updateCreative(creativeId, { 
-      comment: comment && comment.trim() ? comment.trim() : null 
+    return this.updateCreative(creativeId, {
+      comment: comment && comment.trim() ? comment.trim() : null
     });
   },
 
@@ -1547,7 +1547,7 @@ export const creativeService = {
         .delete()
         .eq('creative_id', creativeId)
         .select();
-      
+
       if (historyError) {
         console.error('⚠️ Ошибка удаления истории креатива:', historyError);
       } else {
@@ -1561,7 +1561,7 @@ export const creativeService = {
         .delete()
         .eq('creative_id', creativeId)
         .select();
-      
+
       if (cacheError) {
         console.error('⚠️ Ошибка удаления кэша метрик:', cacheError);
       } else {
@@ -1575,7 +1575,7 @@ export const creativeService = {
         .delete()
         .eq('id', creativeId)
         .select();
-      
+
       if (creativeError) {
         console.error('❌ ОШИБКА удаления креатива:', {
           error: creativeError,
@@ -1649,14 +1649,14 @@ export const creativeService = {
       }
 
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      
+
       const result = data || [];
       console.log(`✅ Получено ${result.length} креативов для загрузки метрик`);
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('💥 Ошибка получения креативов с метриками:', error);
       return [];
@@ -1687,7 +1687,7 @@ export const trelloLandingService = {
   async getBatchCardStatuses(landingIds) {
     try {
       console.log('🔵 getBatchCardStatuses для лендингов вызван с', landingIds.length, 'ID');
-      
+
       const { data, error } = await supabase
         .from('trello_landing_statuses')
         .select('*')
@@ -1697,17 +1697,17 @@ export const trelloLandingService = {
         console.error('❌ Ошибка запроса к trello_landing_statuses:', error);
         throw error;
       }
-      
+
       console.log('📦 Получено из БД:', data?.length || 0, 'статусов');
-      
+
       // Преобразуем в Map для быстрого доступа
       const statusMap = new Map();
       (data || []).forEach(status => {
         statusMap.set(status.landing_id, status);
       });
-      
+
       console.log('✅ Map создан, размер:', statusMap.size);
-      
+
       return statusMap;
     } catch (error) {
       console.error('❌ Ошибка получения батча статусов Trello для лендингов:', error);
@@ -1722,7 +1722,7 @@ export const trelloLandingService = {
         .from('trello_landing_lists')
         .select('*')
         .order('position', { ascending: true });
-      
+
       if (boardType) {
         query = query.eq('board_type', boardType);
       }
@@ -1741,7 +1741,7 @@ export const trelloLandingService = {
   async syncSingleLanding(landingId, trelloLink, isTest) {
     try {
       console.log('🔄 syncSingleLanding через Netlify Function:', { landingId, trelloLink, isTest });
-      
+
       if (!trelloLink) {
         throw new Error('Нет ссылки на Trello');
       }
@@ -1769,7 +1769,7 @@ export const trelloLandingService = {
       console.log('✅ Результат синхронизации:', result);
 
       return result;
-      
+
     } catch (error) {
       console.error('❌ syncSingleLanding ERROR:', error);
       throw error;
@@ -1797,7 +1797,7 @@ export const trelloLandingService = {
           console.log('✅ Подписка на изменения статусов Trello лендингов активна');
         }
       });
-    
+
     return channel;
   },
 
@@ -1807,12 +1807,12 @@ export const trelloLandingService = {
       const response = await fetch('/.netlify/functions/trello-landing-setup', {
         method: 'POST'
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Setup failed');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Ошибка настройки Trello досок для лендингов:', error);
@@ -1844,7 +1844,7 @@ export const trelloService = {
   async getBatchCardStatuses(creativeIds) {
     try {
       console.log('🔵 getBatchCardStatuses вызван с', creativeIds.length, 'ID');
-      
+
       const { data, error } = await supabase
         .from('trello_card_statuses')
         .select('*')
@@ -1854,21 +1854,21 @@ export const trelloService = {
         console.error('❌ Ошибка запроса к trello_card_statuses:', error);
         throw error;
       }
-      
+
       console.log('📦 Получено из БД:', data?.length || 0, 'статусов');
       if (data && data.length > 0) {
         console.log('📋 Первый статус:', data[0]);
       }
-      
+
       // Преобразуем в Map для быстрого доступа
       const statusMap = new Map();
       (data || []).forEach(status => {
         statusMap.set(status.creative_id, status);
       });
-      
+
       console.log('✅ Map создан, размер:', statusMap.size);
       console.log('🗺️ Ключи Map (первые 5):', Array.from(statusMap.keys()).slice(0, 5));
-      
+
       return statusMap;
     } catch (error) {
       console.error('❌ Ошибка получения батча статусов Trello:', error);
@@ -1895,32 +1895,32 @@ export const trelloService = {
   // Массовая синхронизация статусов
   async syncMultipleCreatives(creatives) {
     console.log(`🔄 Массовая синхронизация ${creatives.length} креативов...`);
-    
+
     const results = {
       success: [],
       errors: []
     };
-    
+
     for (const creative of creatives) {
       try {
         console.log(`📋 Синхронизация ${creative.article}...`);
-        
+
         const result = await this.syncSingleCreative(creative.id, creative.trello_link);
-        
+
         results.success.push({
           creativeId: creative.id,
           article: creative.article,
           listName: result.listName
         });
-        
+
         console.log(`✅ ${creative.article}: ${result.listName}`);
-        
+
         // Задержка между запросами (300ms)
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
       } catch (error) {
         console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
-        
+
         results.errors.push({
           creativeId: creative.id,
           article: creative.article,
@@ -1928,9 +1928,9 @@ export const trelloService = {
         });
       }
     }
-    
+
     console.log(`🎉 Массовая синхронизация завершена: ${results.success.length} успешно, ${results.errors.length} ошибок`);
-    
+
     return results;
   },
 
@@ -1956,12 +1956,12 @@ export const trelloService = {
       const response = await fetch('/.netlify/functions/trello-setup', {
         method: 'POST'
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Setup failed');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Ошибка настройки Trello webhook:', error);
@@ -1973,7 +1973,7 @@ export const trelloService = {
   async syncSingleCreative(creativeId, trelloLink) {
     try {
       console.log('🔄 syncSingleCreative через Netlify Function:', { creativeId, trelloLink });
-      
+
       if (!trelloLink) {
         throw new Error('Нет ссылки на Trello');
       }
@@ -2000,7 +2000,7 @@ export const trelloService = {
       console.log('✅ Результат синхронизации:', result);
 
       return result;
-      
+
     } catch (error) {
       console.error('❌ syncSingleCreative ERROR:', error);
       throw error;
@@ -2024,11 +2024,11 @@ export const metricsAnalyticsService = {
 
       const batchSize = 50;
       let successfullyInserted = 0;
-      
+
       for (let i = 0; i < metricsData.length; i += batchSize) {
         const batch = metricsData.slice(i, i + batchSize);
-        console.log(`📤 Загрузка батча ${Math.floor(i/batchSize) + 1}/${Math.ceil(metricsData.length/batchSize)} (записи ${i + 1}-${Math.min(i + batchSize, metricsData.length)})`);
-        
+        console.log(`📤 Загрузка батча ${Math.floor(i / batchSize) + 1}/${Math.ceil(metricsData.length / batchSize)} (записи ${i + 1}-${Math.min(i + batchSize, metricsData.length)})`);
+
         const { data, error: insertError } = await supabase
           .from('metrics_analytics')
           .insert(batch)
@@ -2045,7 +2045,7 @@ export const metricsAnalyticsService = {
           });
           continue;
         }
-        
+
         successfullyInserted += data?.length || batch.length;
         console.log(`✅ Батч успешно загружен, всего записей: ${successfullyInserted}`);
       }
@@ -2112,7 +2112,7 @@ export const metricsAnalyticsService = {
 
       const actualCount = metrics?.length || 0;
       console.log(`✅ Получены метрики аналитики: ${actualCount} записей`);
-      
+
       if (count && actualCount < count) {
         console.warn(`⚠️ Получено ${actualCount} записей из ${count} в базе. Возможно, нужна пагинация.`);
       }
@@ -2171,7 +2171,7 @@ export const metricsAnalyticsService = {
   async getAllMetricsLarge() {
     try {
       console.log('📡 Запрос всех метрик (режим больших таблиц)...');
-      
+
       let allMetrics = [];
       let page = 0;
       const pageSize = 1000;
@@ -2182,9 +2182,9 @@ export const metricsAnalyticsService = {
         allMetrics = [...allMetrics, ...result.metrics];
         hasMore = result.hasMore;
         page++;
-        
+
         console.log(`📄 Загружена страница ${page}, всего записей: ${allMetrics.length}`);
-        
+
         if (page > 50) {
           console.warn('⚠️ Достигнут лимит страниц (50), прерываем загрузку');
           break;
@@ -2293,7 +2293,7 @@ export const metricsAnalyticsService = {
     try {
       // Извлекаем только базовые метрики из metricsData
       const rawMetrics = metricsData.raw || metricsData;
-      
+
       // 🔥 ДИАГНОСТИКА: Проверяем rawMetrics перед сохранением
       console.log('🔥 rawMetrics ПЕРЕД СОХРАНЕНИЕМ В SUPABASE:', {
         creative_id: creativeId,
@@ -2303,7 +2303,7 @@ export const metricsAnalyticsService = {
         clicks_on_link: rawMetrics.clicks_on_link,
         allKeys: Object.keys(rawMetrics)
       });
-      
+
       const dataToSave = {
         creative_id: creativeId,
         article: article,
@@ -2321,12 +2321,12 @@ export const metricsAnalyticsService = {
         clicks_on_link: rawMetrics.clicks_on_link || 0,
         cached_at: new Date().toISOString()
       };
-      
+
       console.log('🔥 dataToSave ПЕРЕД UPSERT:', {
         cost_from_sources: dataToSave.cost_from_sources,
         clicks_on_link: dataToSave.clicks_on_link
       });
-      
+
       const { data, error } = await supabase
         .from('metrics_cache')
         .upsert([dataToSave], {
@@ -2335,7 +2335,7 @@ export const metricsAnalyticsService = {
         .select();
 
       if (error) throw error;
-      
+
       console.log('🔥 РЕЗУЛЬТАТ ПОСЛЕ СОХРАНЕНИЯ В SUPABASE:', data);
       return data[0];
     } catch (error) {
@@ -2363,7 +2363,7 @@ export const metricsAnalyticsService = {
 
       // Подготавливаем данные для вставки
       const dataToInsert = [];
-      
+
       metricsArray.forEach((m, index) => {
         console.log(`🔍 Обработка метрики ${index + 1}:`, {
           creativeId: m.creativeId,
@@ -2376,24 +2376,24 @@ export const metricsAnalyticsService = {
 
         // Проверяем наличие данных
         const hasData = m.hasData !== false && m.metricsData?.raw;
-        
+
         if (hasData) {
           console.log(`✅ Метрика ${index + 1} С ДАННЫМИ`);
           // Метрики с данными
           const rawMetrics = m.metricsData.raw;
-          
+
           // КРИТИЧНО: Извлекаем дополнительные поля с fallback
           const cost_from_sources = Number(
-            rawMetrics.cost_from_sources || 
-            rawMetrics['cost_from_sources'] || 
+            rawMetrics.cost_from_sources ||
+            rawMetrics['cost_from_sources'] ||
             0
           );
           const clicks_on_link = Number(
-            rawMetrics.clicks_on_link || 
-            rawMetrics['clicks_on_link'] || 
+            rawMetrics.clicks_on_link ||
+            rawMetrics['clicks_on_link'] ||
             0
           );
-          
+
           console.log(`🔥🔥🔥 Метрика ${index + 1} ПОЛНАЯ ДИАГНОСТИКА:`, {
             'cost_from_sources (переменная)': cost_from_sources,
             'clicks_on_link (переменная)': clicks_on_link,
@@ -2406,7 +2406,7 @@ export const metricsAnalyticsService = {
             'ВСЕ КЛЮЧИ rawMetrics': Object.keys(rawMetrics),
             'ВЕСЬ rawMetrics': rawMetrics
           });
-          
+
           dataToInsert.push({
             creative_id: m.creativeId,
             article: m.article,
@@ -2460,8 +2460,8 @@ export const metricsAnalyticsService = {
 
       for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);
-        
-        console.log(`🚀 Отправка батча ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(dataToInsert.length/BATCH_SIZE)}: ${batch.length} записей`);
+
+        console.log(`🚀 Отправка батча ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(dataToInsert.length / BATCH_SIZE)}: ${batch.length} записей`);
         console.log('🔥🔥🔥 ПЕРВАЯ ЗАПИСЬ БАТЧА ПЕРЕД UPSERT:', {
           'batch[0]': batch[0],
           'batch[0].cost_from_sources': batch[0]?.cost_from_sources,
@@ -2469,7 +2469,7 @@ export const metricsAnalyticsService = {
           'typeof cost_from_sources': typeof batch[0]?.cost_from_sources,
           'typeof clicks_on_link': typeof batch[0]?.clicks_on_link
         });
-        
+
         const { data, error } = await supabase
           .from('metrics_cache')
           .upsert(batch, {
@@ -2489,7 +2489,7 @@ export const metricsAnalyticsService = {
           continue;
         }
 
-        console.log(`✅ Батч ${Math.floor(i/BATCH_SIZE) + 1} сохранен успешно:`, {
+        console.log(`✅ Батч ${Math.floor(i / BATCH_SIZE) + 1} сохранен успешно:`, {
           inserted: data?.length || batch.length,
           dataReturned: !!data
         });
@@ -2521,14 +2521,14 @@ export const metricsAnalyticsService = {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      
+
       // Преобразуем данные из колонок в формат с вычисленными метриками
       if (data) {
         const reconstructed = this.reconstructMetricsFromCache(data);
         // Возвращаем только поле data из reconstructed для совместимости
         return reconstructed;
       }
-      
+
       return null;
     } catch (error) {
       console.error('Ошибка получения кэша метрик:', error);
@@ -2554,18 +2554,18 @@ export const metricsAnalyticsService = {
         console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
         throw error;
       }
-      
+
       console.log('📦 Получены данные из metrics_cache:', {
         isArray: Array.isArray(data),
         count: data?.length || 0,
         firstItemKeys: data?.[0] ? Object.keys(data[0]) : [],
         firstItem: data?.[0]
       });
-      
+
       // Преобразуем каждую запись из колонок в формат с вычисленными метриками
       if (data && data.length > 0) {
         console.log(`🔄 Преобразуем ${data.length} записей кэша через reconstructMetricsFromCache...`);
-        
+
         const reconstructed = data.map((cache, index) => {
           console.log(`📋 Преобразование записи ${index + 1}:`, {
             creative_id: cache.creative_id,
@@ -2573,22 +2573,22 @@ export const metricsAnalyticsService = {
             leads: cache.leads,
             cost: cache.cost
           });
-          
+
           const result = this.reconstructMetricsFromCache(cache);
-          
+
           console.log(`✅ Результат преобразования ${index + 1}:`, {
             found: result?.found,
             hasData: !!result?.data,
             leads: result?.data?.formatted?.leads
           });
-          
+
           return result;
         });
-        
+
         console.log(`✅ Батч преобразован: ${reconstructed.length} записей`);
         return reconstructed;
       }
-      
+
       console.log('⚠️ Нет данных в кэше для преобразования');
       return [];
     } catch (error) {
@@ -2613,10 +2613,10 @@ export const metricsAnalyticsService = {
     });
 
     // КРИТИЧНО: Проверяем, все ли поля NULL (нет данных)
-    const isAllNull = cacheData.leads === null && 
-                      cacheData.cost === null && 
-                      cacheData.clicks === null && 
-                      cacheData.impressions === null;
+    const isAllNull = cacheData.leads === null &&
+      cacheData.cost === null &&
+      cacheData.clicks === null &&
+      cacheData.impressions === null;
 
     if (isAllNull) {
       console.log('⚪ Все метрики NULL - возвращаем found: false');
@@ -2789,7 +2789,7 @@ export const metricsAnalyticsService = {
       const { count, error: countError } = await supabase
         .from('metrics_analytics')
         .select('*', { count: 'exact', head: true });
-      
+
       if (!countError) {
         console.log(`📊 Всего записей в metrics_analytics: ${count}`);
       }
@@ -2798,20 +2798,20 @@ export const metricsAnalyticsService = {
       if ((!data || data.length === 0) && cleanArticles.length > 0) {
         const searchPattern = cleanArticles[0];
         console.log(`🔍 Ищем похожие артикулы для: "${searchPattern}"`);
-        
+
         const { data: similarData, error: similarError } = await supabase
           .from('metrics_analytics')
           .select('article')
           .ilike('article', `%${searchPattern.substring(0, 3)}%`)
           .limit(10);
-        
+
         if (!similarError && similarData) {
           console.log('🔍 Найдены похожие артикулы:', similarData.map(d => d.article));
         }
       }
 
       const zoneDataMap = new Map();
-      
+
       if (data && data.length > 0) {
         data.forEach(item => {
           console.log(`✅ Найдены зоны для "${item.article}":`, {
@@ -2820,7 +2820,7 @@ export const metricsAnalyticsService = {
             gold: item.gold_zone_price,
             green: item.green_zone_price
           });
-          
+
           zoneDataMap.set(item.article, {
             red_zone_price: item.red_zone_price,
             pink_zone_price: item.pink_zone_price,
