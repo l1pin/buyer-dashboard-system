@@ -66,6 +66,7 @@ function LandingPanel({ user }) {
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
   const [syncingLandings, setSyncingLandings] = useState(new Set());
+  const [recentlyUpdatedStatuses, setRecentlyUpdatedStatuses] = useState(new Set());
 
   // Состояния для фильтрации по периоду дат
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
@@ -758,40 +759,57 @@ function LandingPanel({ user }) {
       )
       .subscribe();
 
-    // Подписка на изменения статусов Trello
-    const trelloSubscription = trelloLandingService.subscribeToCardStatuses((payload) => {
-      console.log('🔄 Trello status changed:', payload);
+    // Подписка на изменения статусов Trello через БД
+    const trelloStatusesSubscription = supabase
+      .channel('trello_landing_statuses_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trello_landing_statuses'
+        },
+        (payload) => {
+          console.log('🔔 Изменение в trello_landing_statuses:', payload);
 
-      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-        console.log('➕ Обновляем статус для лендинга:', payload.new.landing_id);
-        setTrelloStatuses(prev => {
-          const newMap = new Map(prev);
-          newMap.set(payload.new.landing_id, payload.new);
-          return newMap;
-        });
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            console.log('✨ Статус обновлен в реальном времени:', payload.new.landing_id, '→', payload.new.list_name);
+            setTrelloStatuses(prev => {
+              const newMap = new Map(prev);
+              newMap.set(payload.new.landing_id, payload.new);
+              return newMap;
+            });
 
-        // Обновляем лендинг в списке если он уже загружен
-        setLandings(prevLandings => {
-          return prevLandings.map(landing => {
-            if (landing.id === payload.new.landing_id) {
-              console.log(`🔄 Обновляем статус лендинга ${landing.article} на ${payload.new.list_name}`);
-            }
-            return landing;
-          });
-        });
-      } else if (payload.eventType === 'DELETE') {
-        console.log('➖ Удаляем статус для лендинга:', payload.old.landing_id);
-        setTrelloStatuses(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(payload.old.landing_id);
-          return newMap;
-        });
-      }
-    });
+            // Добавляем анимацию обновления
+            setRecentlyUpdatedStatuses(prev => {
+              const newSet = new Set(prev);
+              newSet.add(payload.new.landing_id);
+              return newSet;
+            });
+
+            // Убираем анимацию через 2 секунды
+            setTimeout(() => {
+              setRecentlyUpdatedStatuses(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(payload.new.landing_id);
+                return newSet;
+              });
+            }, 2000);
+          } else if (payload.eventType === 'DELETE') {
+            console.log('🗑️ Статус удален:', payload.old.landing_id);
+            setTrelloStatuses(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(payload.old.landing_id);
+              return newMap;
+            });
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       landingsSubscription.unsubscribe();
-      trelloSubscription.unsubscribe();
+      trelloStatusesSubscription.unsubscribe();
     };
   }, []);
 
@@ -3089,7 +3107,11 @@ data-rt-sub16="${createdLandingUuid}"
                                 <span className="ml-2 text-xs text-blue-600">Синхронизация...</span>
                               </div>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-text select-text">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border cursor-text select-text transition-all duration-300 ${
+                                recentlyUpdatedStatuses.has(landing.id)
+                                  ? 'bg-green-100 text-green-700 border-green-300 animate-pulse'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                              }`}>
                                 {getTrelloListName(landing.id)}
                               </span>
                             )}
