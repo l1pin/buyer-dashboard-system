@@ -760,7 +760,7 @@ function LandingPanel({ user }) {
     setShowCalendar(false);
   };
 
-  useEffect(() => {
+useEffect(() => {
     const init = async () => {
       loadUsers();
       await loadLandings();
@@ -768,8 +768,9 @@ function LandingPanel({ user }) {
     };
     
     init();
+  }, []);
 
-// Автозагрузка метрик после загрузки лендингов
+  // Автозагрузка метрик после загрузки лендингов
   useEffect(() => {
     if (filteredLandings.length > 0 && !landingMetricsLoading) {
       console.log('🔄 Автозагрузка метрик для загруженных лендингов');
@@ -778,6 +779,7 @@ function LandingPanel({ user }) {
     }
   }, [filteredLandings.length]);
 
+  useEffect(() => {
     // Подписка на создание новых лендингов
     const landingsSubscription = supabase
       .channel('landings_changes')
