@@ -17,7 +17,7 @@ export class LandingMetricsService {
       return { success: false, results: [] };
     }
 
-    console.log(`🚀 Загрузка метрик для ${landingUuids.length} лендингов`);
+    console.log(`🚀 Загрузка метрик для ${landingUuids.length} лендингов через landing-metrics-proxy`);
 
     try {
       const requestBody = {
@@ -26,6 +26,8 @@ export class LandingMetricsService {
 
       if (dateFrom) requestBody.date_from = dateFrom;
       if (dateTo) requestBody.date_to = dateTo;
+
+      console.log('📤 Отправка запроса:', LANDING_METRICS_API_URL, requestBody);
 
       const response = await fetch(LANDING_METRICS_API_URL, {
         method: 'POST',
@@ -38,13 +40,15 @@ export class LandingMetricsService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ API error:', response.status, errorText);
         throw new Error(`API error ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
 
       console.log(`✅ Получены метрики для лендингов:`, {
-        resultsCount: data.results?.length || 0
+        resultsCount: data.results?.length || 0,
+        sample: data.results?.[0]
       });
 
       return {
