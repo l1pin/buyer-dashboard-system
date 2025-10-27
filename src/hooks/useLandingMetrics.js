@@ -85,7 +85,7 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
       }
 
       // Шаг 2: Загружаем из API
-      console.log('🌐 Загрузка метрик из API...');
+      console.log('🌐 Загрузка метрик из API через landing-metrics-proxy...');
 
       const batchResult = await LandingMetricsService.getBatchLandingMetrics(landingUuids);
 
@@ -94,10 +94,13 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
       }
 
       console.log(`✅ Получено ${batchResult.results.length} результатов из API`);
+      console.log('📊 Пример результата:', batchResult.results[0]);
 
       // Обрабатываем результаты
       batchResult.results.forEach(result => {
         const { uuid, source, adv_id, found, daily } = result;
+
+        console.log(`🔍 Обработка: uuid=${uuid}, source=${source}, adv_id=${adv_id}, found=${found}, daily=${daily?.length || 0}`);
 
         const key = `${uuid}_${source}`;
 
@@ -105,18 +108,22 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
           // Вычисляем метрики
           const allDailyData = daily.map(d => ({
             date: d.date,
-            leads: d.leads,
-            cost: d.cost,
-            clicks: d.clicks,
-            impressions: d.impressions,
-            avg_duration: d.avg_duration,
-            cost_from_sources: d.cost_from_sources,
-            clicks_on_link: d.clicks_on_link
+            leads: Number(d.leads) || 0,
+            cost: Number(d.cost) || 0,
+            clicks: Number(d.clicks) || 0,
+            impressions: Number(d.impressions) || 0,
+            avg_duration: Number(d.avg_duration) || 0,
+            cost_from_sources: Number(d.cost_from_sources) || 0,
+            clicks_on_link: Number(d.clicks_on_link) || 0
           }));
+
+          console.log(`📊 Агрегирование ${allDailyData.length} дневных записей для ${uuid}_${source}`);
 
           const aggregates = LandingMetricsService.aggregateDailyData(allDailyData);
           const metrics = LandingMetricsService.computeDerivedMetrics(aggregates);
           const formatted = LandingMetricsService.formatMetrics(metrics);
+
+          console.log(`✅ Метрики для ${uuid}_${source}:`, { leads: metrics.leads, cost: metrics.cost });
 
           metricsMap.set(key, {
             landing_id: uuid,
@@ -135,6 +142,7 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
             fromCache: false
           });
         } else {
+          console.log(`⚠️ Нет данных для ${uuid}_${source}`);
           metricsMap.set(key, {
             landing_id: uuid,
             source: source,
