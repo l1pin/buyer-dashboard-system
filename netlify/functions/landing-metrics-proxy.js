@@ -13,6 +13,31 @@ function escapeString(str) {
   return String(str).replace(/'/g, "''");
 }
 
+// Преобразование массива массивов в массив объектов
+function transformArrayResponse(data) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+
+  // Первый элемент - заголовки
+  const headers = data[0];
+  if (!Array.isArray(headers)) {
+    console.log('⚠️ Некорректный формат заголовков');
+    return [];
+  }
+
+  // Остальные элементы - строки данных
+  const rows = data.slice(1);
+  
+  return rows.map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index];
+    });
+    return obj;
+  });
+}
+
 // Fetch с повторами
 async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -55,8 +80,16 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       const parsed = JSON.parse(text);
       console.log(`✅ Распарсено ${Array.isArray(parsed) ? parsed.length : 'не массив'} записей`);
       
-      // КРИТИЧЕСКИ ВАЖНО: API может вернуть объект вместо массива
-      return Array.isArray(parsed) ? parsed : [];
+      // КРИТИЧЕСКИ ВАЖНО: API возвращает массив массивов, нужно преобразовать
+      if (!Array.isArray(parsed)) {
+        console.log('⚠️ API вернул не массив');
+        return [];
+      }
+
+      const transformed = transformArrayResponse(parsed);
+      console.log(`🔄 Преобразовано в ${transformed.length} объектов`);
+      
+      return transformed;
 
     } catch (error) {
       console.error(`❌ Ошибка на попытке ${attempt + 1}:`, error.message);
