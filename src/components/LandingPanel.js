@@ -319,7 +319,7 @@ function LandingPanel({ user }) {
 
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
-    console.log(`🔍 Получение метрик для лендинга: ${landing.id}`);
+    console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article})`);
     
     // Получаем все метрики для этого лендинга (по всем источникам)
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
@@ -331,17 +331,33 @@ function LandingPanel({ user }) {
       return null;
     }
 
-    const validMetrics = allMetricsForLanding.filter(metric => metric.found && metric.data);
+    const validMetrics = allMetricsForLanding.filter(metric => {
+      const isValid = metric.found && metric.data && metric.data.raw;
+      if (!isValid) {
+        console.log(`❌ Пропущена невалидная метрика для ${landing.id}:`, {
+          found: metric.found,
+          hasData: !!metric.data,
+          hasRaw: metric.data ? !!metric.data.raw : false
+        });
+      }
+      return isValid;
+    });
 
     console.log(`✅ Валидных метрик для ${landing.id}:`, validMetrics.length);
 
     if (validMetrics.length === 0) {
+      console.log(`⚠️ Нет валидных метрик для отображения для ${landing.id}`);
       return null;
     }
 
     const aggregated = validMetrics.reduce((acc, metric) => {
       const data = metric.data.raw;
-      console.log(`➕ Агрегация метрик из источника ${metric.source}:`, data);
+      console.log(`➕ Агрегация метрик из источника ${metric.source}:`, {
+        leads: data.leads,
+        cost: data.cost,
+        clicks: data.clicks,
+        impressions: data.impressions
+      });
       return {
         leads: acc.leads + (data.leads || 0),
         cost: acc.cost + (data.cost || 0),
@@ -372,7 +388,7 @@ function LandingPanel({ user }) {
     const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
     const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
 
-    return {
+    const result = {
       found: true,
       videoCount: validMetrics.length,
       totalVideos: allMetricsForLanding.length,
@@ -399,6 +415,14 @@ function LandingPanel({ user }) {
         }
       }
     };
+
+    console.log(`✅ Возвращаем агрегированные метрики для ${landing.id}:`, {
+      leads: result.data.formatted.leads,
+      cost: result.data.formatted.cost,
+      cpl: result.data.formatted.cpl
+    });
+
+    return result;
   };
 
   // Компонент отображения зональных данных
@@ -737,15 +761,22 @@ function LandingPanel({ user }) {
   };
 
   useEffect(() => {
-    loadUsers();
-    loadLandings();
-    loadLastUpdateTime();
+    const init = async () => {
+      loadUsers();
+      await loadLandings();
+      loadLastUpdateTime();
+    };
     
-    // Автозагрузка метрик лендингов при монтировании
-    if (filteredLandings.length > 0) {
-      console.log('🔄 Автозагрузка метрик лендингов при монтировании');
+    init();
+
+// Автозагрузка метрик после загрузки лендингов
+  useEffect(() => {
+    if (filteredLandings.length > 0 && !landingMetricsLoading) {
+      console.log('🔄 Автозагрузка метрик для загруженных лендингов');
+      console.log(`📋 Количество лендингов для загрузки метрик: ${filteredLandings.length}`);
       refreshLandingMetrics();
     }
+  }, [filteredLandings.length]);
 
     // Подписка на создание новых лендингов
     const landingsSubscription = supabase
@@ -1726,13 +1757,23 @@ data-rt-sub16="${createdLandingUuid}"
     console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
     console.log(`📋 UUID лендингов:`, filteredLandings.map(l => l.id));
     
+    setError('');
+    setSuccess('');
+    
     try {
       console.log('🚀 Вызов refreshLandingMetrics...');
       await refreshLandingMetrics();
       console.log('✅ Метрики лендингов обновлены');
+      
+      // Небольшая задержка для обновления состояния
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setSuccess('Метрики успешно обновлены!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('❌ Ошибка обновления метрик лендингов:', error);
       setError('Ошибка обновления метрик: ' + error.message);
+      setTimeout(() => setError(''), 5000);
     }
     
     try {
