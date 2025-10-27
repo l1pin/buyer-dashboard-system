@@ -2903,9 +2903,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                     e.stopPropagation();
                                     showUuidCode(landing.id);
                                   }}
-                                  className={`p-1 rounded-full transition-colors duration-200 ${(landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
-                                      ? 'text-green-600 hover:text-green-800 hover:bg-green-100'
-                                      : 'text-red-600 hover:text-red-800 hover:bg-red-100'
+                                  className={`p-1 rounded-full transition-all duration-200 ${(landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
+                                      ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-900 hover:scale-110'
+                                      : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-900 hover:scale-110'
                                     }`}
                                   title={
                                     (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
