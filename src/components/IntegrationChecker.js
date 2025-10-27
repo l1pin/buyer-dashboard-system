@@ -188,8 +188,8 @@ function IntegrationChecker({ landingUuid, onIntegrationVerified }) {
                                         <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
                                             <li>Код размещен на правильной странице</li>
                                             <li>Код вставлен полностью, без изменений</li>
-                                            <li>Страница доступна и не требует авторизации</li>
-                                            <li>На странице нет ошибок JavaScript</li>
+                                            <li>Страница открывается</li>
+                                            <li>Страница опубликована после вставки кода</li>
                                         </ul>
                                     </div>
                                 </div>
