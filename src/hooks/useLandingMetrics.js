@@ -89,22 +89,33 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
 
       const batchResult = await LandingMetricsService.getBatchLandingMetrics(landingUuids);
 
-      if (!batchResult.success || !batchResult.results) {
+      if (!batchResult.success) {
         throw new Error(batchResult.error || 'Не удалось загрузить метрики');
       }
 
-      console.log(`✅ Получено ${batchResult.results.length} результатов из API`);
-      console.log('📊 Пример результата:', batchResult.results[0]);
+      const results = batchResult.results || [];
+      console.log(`✅ Получено ${results.length} результатов из API`);
+      
+      if (results.length > 0) {
+        console.log('📊 Пример результата:', results[0]);
+      } else {
+        console.warn('⚠️ API вернул пустой массив результатов');
+      }
 
       // Обрабатываем результаты
-      batchResult.results.forEach(result => {
+      results.forEach(result => {
+        if (!result) {
+          console.warn('⚠️ Пропущен пустой результат');
+          return;
+        }
+
         const { uuid, source, adv_id, found, daily } = result;
 
         console.log(`🔍 Обработка: uuid=${uuid}, source=${source}, adv_id=${adv_id}, found=${found}, daily=${daily?.length || 0}`);
 
         const key = `${uuid}_${source}`;
 
-        if (found && daily && daily.length > 0) {
+        if (found && daily && Array.isArray(daily) && daily.length > 0) {
           // Вычисляем метрики
           const allDailyData = daily.map(d => ({
             date: d.date,
@@ -123,7 +134,13 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
           const metrics = LandingMetricsService.computeDerivedMetrics(aggregates);
           const formatted = LandingMetricsService.formatMetrics(metrics);
 
-          console.log(`✅ Метрики для ${uuid}_${source}:`, { leads: metrics.leads, cost: metrics.cost });
+          console.log(`✅ Метрики для ${uuid}_${source}:`, { 
+            leads: metrics.leads, 
+            cost: metrics.cost,
+            cpl: metrics.cpl,
+            clicks: metrics.clicks,
+            impressions: metrics.impressions
+          });
 
           metricsMap.set(key, {
             landing_id: uuid,
@@ -146,14 +163,16 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
           metricsMap.set(key, {
             landing_id: uuid,
             source: source,
-            adv_id: adv_id,
+            adv_id: adv_id || null,
             found: false,
             data: null,
-            error: 'Нет данных',
+            error: found === false ? 'Нет данных' : 'Некорректный формат данных',
             fromCache: false
           });
         }
       });
+
+      console.log(`📊 Всего обработано записей в metricsMap: ${metricsMap.size}`);
 
       // Шаг 3: Сохраняем в кэш
       const metricsToSave = [];
