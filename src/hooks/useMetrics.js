@@ -70,17 +70,17 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       // Шаг 1: Проверяем кэш Supabase для периода "all"
       const rawMetricsMap = new Map();
       const videosToLoadFromApi = [];
-      
+
       if (!forceRefresh) {
         console.log(`📦 Проверка кэша Supabase для периода "all"...`);
         const creativeIds = creatives.map(c => c.id);
-        
+
         try {
           const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
-          
+
           if (cachedData && cachedData.length > 0) {
             console.log(`📦 Найдено в кэше: ${cachedData.length} записей`);
-            
+
             cachedData.forEach(cache => {
               if (cache && cache.found && cache.data) {
                 const videoKey = `${cache.creative_id}_${cache.video_index}`;
@@ -117,10 +117,10 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             console.log('⚠️ Кэш пуст, загружаем все из API');
             videosToLoadFromApi.push(...videosToLoad);
           }
-          
+
         } catch (cacheError) {
           console.error('❌ Ошибка чтения кэша:', cacheError);
-          
+
           if (!forceRefresh) {
             console.log('⚠️ Автозагрузка: возвращаем пустой результат при ошибке кэша');
             setRawBatchMetrics(new Map());
@@ -130,7 +130,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             setLoading(false);
             return;
           }
-          
+
           videosToLoadFromApi.push(...videosToLoad);
         }
       } else {
@@ -142,17 +142,17 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       if (!forceRefresh && videosToLoadFromApi.length > 0) {
         console.log(`⚠️ Автозагрузка: ${videosToLoadFromApi.length} видео без кэша - НЕ загружаем`);
         console.log(`✅ Возвращаем только ${rawMetricsMap.size} метрик из кэша`);
-        
+
         setRawBatchMetrics(rawMetricsMap);
         setLastUpdated(new Date());
         setLoading(false);
-        
+
         if (rawMetricsMap.size === 0) {
           setError(`Кэш пуст. Нажмите "Обновить" для загрузки метрик.`);
         } else {
           setError(`Загружено ${rawMetricsMap.size} метрик из кэша. Нажмите "Обновить" для загрузки остальных.`);
         }
-        
+
         return;
       }
 
@@ -160,7 +160,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       if (videosToLoadFromApi.length > 0) {
         console.log(`🌐 Батчевая загрузка ${videosToLoadFromApi.length} видео из API...`);
         console.log('📋 Примеры названий для загрузки:', videosToLoadFromApi.slice(0, 5));
-        
+
         const batchResult = await MetricsService.getBatchVideoMetrics(videosToLoadFromApi, {
           kind: 'daily_first4_total',
           useCache: true
@@ -176,7 +176,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
         if (batchResult.success && batchResult.results) {
           console.log(`✅ Батчевый запрос выполнен: ${batchResult.results.length} результатов`);
-          
+
           // КРИТИЧНО: Логируем первые результаты
           console.log('📋 Первые 3 результата:');
           for (let i = 0; i < Math.min(3, batchResult.results.length); i++) {
@@ -188,44 +188,44 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               hasTotal: !!batchResult.results[i].total
             });
           }
-          
+
           // Обрабатываем результаты и добавляем в Map
           batchResult.results.forEach(videoResult => {
             // КРИТИЧНО: Проверяем точность совпадения названий
             const matchingKeys = [];
-            
+
             videoMap.forEach((metadata, videoKey) => {
               // Точное совпадение
               if (metadata.videoTitle === videoResult.videoName) {
                 matchingKeys.push(videoKey);
               }
             });
-            
+
             if (matchingKeys.length === 0) {
               console.warn(`⚠️ Не найдено совпадений для видео "${videoResult.videoName}" в videoMap`);
-              
+
               // Ищем похожие для диагностики
               const similar = [];
               videoMap.forEach((metadata, videoKey) => {
                 if (metadata.videoTitle.toLowerCase().includes(videoResult.videoName.toLowerCase()) ||
-                    videoResult.videoName.toLowerCase().includes(metadata.videoTitle.toLowerCase())) {
+                  videoResult.videoName.toLowerCase().includes(metadata.videoTitle.toLowerCase())) {
                   similar.push({ key: videoKey, title: metadata.videoTitle });
                 }
               });
-              
+
               if (similar.length > 0) {
                 console.log(`  Похожие названия:`, similar);
               }
-              
+
               return; // Пропускаем этот результат
             }
-            
+
             console.log(`✅ Найдено ${matchingKeys.length} совпадений для "${videoResult.videoName}"`);
-            
+
             // Обрабатываем все совпадения
             matchingKeys.forEach(videoKey => {
               const metadata = videoMap.get(videoKey);
-              
+
               if (metadata.videoTitle === videoResult.videoName) {
                 if (videoResult.found && videoResult.daily && videoResult.daily.length > 0) {
                   // Преобразуем к формату rawMetrics
@@ -297,7 +297,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       console.log(`  📦 Всего записей в Map: ${rawMetricsMap.size}`);
       console.log(`  ✅ С данными (found=true): ${Array.from(rawMetricsMap.values()).filter(m => m.found).length}`);
       console.log(`  ❌ Без данных (found=false): ${Array.from(rawMetricsMap.values()).filter(m => !m.found).length}`);
-      
+
       // Примеры записей
       const entries = Array.from(rawMetricsMap.entries());
       if (entries.length > 0) {
@@ -315,37 +315,37 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
       // 🆕 ШАГ 4: АДАПТИВНЫЙ LIKE поиск для видео без метрик (только при forceRefresh)
       console.log('🔥 ПРОВЕРКА: forceRefresh =', forceRefresh);
-      
+
       if (forceRefresh) {
         console.log('🚀 ШАГ 4: Начинаем АДАПТИВНЫЙ LIKE поиск для видео без метрик');
-        
+
         const videosWithoutMetrics = [];
         const videosWithoutMetricsMap = new Map();
-        
+
         console.log('📊 Анализируем videoMap, размер:', videoMap.size);
         console.log('📊 Анализируем rawMetricsMap, размер:', rawMetricsMap.size);
-        
+
         // 🎯 Группируем видео по креативам
         const creativeGroups = new Map(); // creativeId -> { hasMetrics: boolean, videos: [] }
-        
+
         videoMap.forEach((metadata, videoKey) => {
           const creativeId = metadata.creativeId;
-          
+
           if (!creativeGroups.has(creativeId)) {
             creativeGroups.set(creativeId, {
               hasMetrics: false,
               videos: []
             });
           }
-          
+
           const group = creativeGroups.get(creativeId);
           const existingMetric = rawMetricsMap.get(videoKey);
-          
+
           // Если хотя бы одно видео из креатива имеет метрики - помечаем креатив
           if (existingMetric && existingMetric.found && !existingMetric.noData) {
             group.hasMetrics = true;
           }
-          
+
           group.videos.push({
             videoKey,
             videoTitle: metadata.videoTitle,
@@ -353,13 +353,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             hasMetrics: existingMetric && existingMetric.found && !existingMetric.noData
           });
         });
-        
+
         console.log(`📦 Сгруппировано по креативам: ${creativeGroups.size} креативов`);
-        
+
         // 🎯 Добавляем в LIKE поиск только видео из креативов БЕЗ метрик
         let creativesNeedingLike = 0;
         let creativesSkipped = 0;
-        
+
         creativeGroups.forEach((group, creativeId) => {
           if (group.hasMetrics) {
             // Пропускаем креатив - хотя бы одно видео нашлось
@@ -369,11 +369,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             // Добавляем ВСЕ видео креатива в LIKE поиск
             creativesNeedingLike++;
             console.log(`❌ Креатив ${creativeId}: 0/${group.videos.length} видео найдено, добавляем в LIKE`);
-            
+
             group.videos.forEach(video => {
               const videoTitle = video.videoTitle;
               const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-              
+
               videosWithoutMetrics.push(nameWithoutExt);
               videosWithoutMetricsMap.set(nameWithoutExt, {
                 videoKey: video.videoKey,
@@ -383,20 +383,20 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             });
           }
         });
-        
+
         console.log(`📊 ИТОГОВАЯ СТАТИСТИКА:`);
         console.log(`  ✅ Креативов с метриками (пропущено): ${creativesSkipped}`);
         console.log(`  ❌ Креативов БЕЗ метрик (LIKE поиск): ${creativesNeedingLike}`);
         console.log(`  📋 Видео для LIKE поиска: ${videosWithoutMetrics.length}`);
-        
+
         console.log(`📋 ИТОГО для LIKE поиска: ${videosWithoutMetrics.length} видео`);
-        
+
         if (videosWithoutMetrics.length > 0) {
           console.log('═══════════════════════════════════════════════');
           console.log('🔍 НАЧАЛО АДАПТИВНОГО LIKE ПОИСКА');
           console.log('═══════════════════════════════════════════════');
           console.log(`📊 Видео БЕЗ метрик: ${videosWithoutMetrics.length}`);
-          
+
           try {
             // 🚀 АДАПТИВНАЯ СИСТЕМА БАТЧИНГА
             // Уровни агрессивности: 1 (агрессивный), 2 (сбалансированный), 3 (консервативный)
@@ -405,51 +405,51 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               2: { parallel: 2, batchSize: 20, timeout: 32000, delay: 150, name: 'Сбалансированный' },
               3: { parallel: 1, batchSize: 10, timeout: 35000, delay: 200, name: 'Консервативный' }
             };
-            
+
             let currentLevel = 2; // Начинаем со сбалансированного уровня
             let errorRate = 0;
             let totalProcessed = 0;
             let totalErrors = 0;
-            
+
             const allLikeResults = [];
-            
+
             // Функция для обработки одного батча с повторами
             const processBatchWithRetry = async (batch, attempt = 1, maxAttempts = 3) => {
               const level = LEVELS[currentLevel];
-              
+
               try {
                 console.log(`📡 Попытка ${attempt}/${maxAttempts}: ${batch.length} видео (уровень: ${level.name})`);
-                
+
                 const likeBatchResult = await MetricsService.getBatchVideoMetrics(batch, {
                   kind: 'daily_first4_total',
                   useCache: false,
                   useLike: true
                 });
-                
+
                 if (likeBatchResult.success && likeBatchResult.results) {
                   console.log(`✅ Батч успешно обработан: ${likeBatchResult.results.length} результатов`);
                   return { success: true, results: likeBatchResult.results };
                 } else {
                   throw new Error(likeBatchResult.error || 'Нет результатов');
                 }
-                
+
               } catch (error) {
                 console.error(`❌ Ошибка батча (попытка ${attempt}):`, error.message);
-                
+
                 // Если не последняя попытка и батч можно разделить
                 if (attempt < maxAttempts && batch.length > 1) {
                   console.log(`🔄 Разбиваем батч пополам и повторяем...`);
-                  
+
                   const mid = Math.ceil(batch.length / 2);
                   const batch1 = batch.slice(0, mid);
                   const batch2 = batch.slice(mid);
-                  
+
                   // Обрабатываем половинки последовательно
                   const [result1, result2] = await Promise.allSettled([
                     processBatchWithRetry(batch1, attempt + 1, maxAttempts),
                     processBatchWithRetry(batch2, attempt + 1, maxAttempts)
                   ]);
-                  
+
                   const combinedResults = [];
                   if (result1.status === 'fulfilled' && result1.value.success) {
                     combinedResults.push(...result1.value.results);
@@ -457,15 +457,15 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   if (result2.status === 'fulfilled' && result2.value.success) {
                     combinedResults.push(...result2.value.results);
                   }
-                  
+
                   return { success: true, results: combinedResults };
                 }
-                
+
                 // Последняя попытка или батч из 1 видео
                 return { success: false, error: error.message };
               }
             };
-            
+
             // Разбиваем на батчи согласно текущему уровню
             const createBatches = (videos, batchSize) => {
               const batches = [];
@@ -474,29 +474,29 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               }
               return batches;
             };
-            
+
             let remainingVideos = [...videosWithoutMetrics];
-            
+
             while (remainingVideos.length > 0) {
               const level = LEVELS[currentLevel];
               const batches = createBatches(remainingVideos, level.batchSize);
-              
+
               console.log(`\n🎯 Уровень ${currentLevel} (${level.name}): ${level.parallel} параллельных × ${level.batchSize} видео`);
               console.log(`📦 Создано батчей: ${batches.length}, осталось видео: ${remainingVideos.length}`);
-              
+
               // Обрабатываем батчи группами (по parallel штук параллельно)
               for (let i = 0; i < batches.length; i += level.parallel) {
                 const batchGroup = batches.slice(i, i + level.parallel);
                 console.log(`\n⚡ Параллельная группа ${Math.floor(i / level.parallel) + 1}: ${batchGroup.length} батчей`);
-                
+
                 const groupResults = await Promise.allSettled(
                   batchGroup.map(batch => processBatchWithRetry(batch))
                 );
-                
+
                 // Собираем результаты
                 groupResults.forEach((result, idx) => {
                   totalProcessed++;
-                  
+
                   if (result.status === 'fulfilled' && result.value.success) {
                     allLikeResults.push(...result.value.results);
                     console.log(`✅ Батч ${i + idx + 1}: ${result.value.results.length} результатов`);
@@ -505,12 +505,12 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     console.error(`❌ Батч ${i + idx + 1}: провал`);
                   }
                 });
-                
+
                 // Пересчитываем error rate каждые 10 батчей
                 if (totalProcessed > 0 && totalProcessed % 10 === 0) {
                   errorRate = totalErrors / totalProcessed;
                   console.log(`\n📊 Статистика: обработано ${totalProcessed}, ошибок ${totalErrors} (${(errorRate * 100).toFixed(1)}%)`);
-                  
+
                   // Адаптация уровня
                   if (errorRate > 0.3 && currentLevel < 3) {
                     currentLevel++;
@@ -520,27 +520,27 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     console.log(`⬆️ ПОВЫШЕНИЕ до уровня ${currentLevel} (${LEVELS[currentLevel].name})`);
                   }
                 }
-                
+
                 // Задержка между группами батчей
                 if (level.delay > 0 && i + level.parallel < batches.length) {
                   await new Promise(resolve => setTimeout(resolve, level.delay));
                 }
               }
-              
+
               // Удаляем обработанные видео
               const processedCount = batches.reduce((sum, b) => sum + b.length, 0);
               remainingVideos = remainingVideos.slice(processedCount);
             }
-            
+
             console.log('═══════════════════════════════════════════════');
             console.log(`🎯 LIKE поиск завершен: всего найдено ${allLikeResults.length} результатов`);
             console.log('═══════════════════════════════════════════════');
-            
+
             if (allLikeResults.length > 0) {
               console.log('═══════════════════════════════════════════════');
               console.log(`✅ Обработка ${allLikeResults.length} результатов LIKE поиска`);
               console.log('═══════════════════════════════════════════════');
-              
+
               // Выводим ВСЕ найденные результаты
               console.log('📋 ВСЕ результаты LIKE поиска:');
               allLikeResults.forEach((result, idx) => {
@@ -550,11 +550,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   dailyCount: result.daily?.length || 0
                 });
               });
-              
+
               // Обрабатываем результаты LIKE поиска
               let matchedCount = 0;
               let notMatchedCount = 0;
-              
+
               allLikeResults.forEach((videoResult, resultIdx) => {
                 console.log('─────────────────────────────────────────────');
                 console.log(`🔍 Обработка результата [${resultIdx}]: "${videoResult.videoName}"`);
@@ -563,31 +563,31 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   hasDailyData: !!videoResult.daily,
                   dailyLength: videoResult.daily?.length || 0
                 });
-                
+
                 if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
                   console.log('  ⚠️ Пропускаем: нет данных');
                   notMatchedCount++;
                   return;
                 }
-                
+
                 // Находим соответствующий videoKey по частичному совпадению
                 let matchedVideoKey = null;
                 let matchedMetadata = null;
-                
+
                 console.log('  🔎 Ищем совпадение среди', videosWithoutMetricsMap.size, 'названий без метрик...');
-                
+
                 for (const [nameWithoutExt, info] of videosWithoutMetricsMap.entries()) {
                   // Проверяем оба направления совпадения
                   const dbIncludesOurs = videoResult.videoName.includes(nameWithoutExt);
                   const oursIncludesDb = nameWithoutExt.includes(videoResult.videoName);
-                  
+
                   console.log(`    🔍 Сравнение:`, {
                     nameWithoutExt: nameWithoutExt,
                     videoResultName: videoResult.videoName,
                     dbIncludesOurs: dbIncludesOurs,
                     oursIncludesDb: oursIncludesDb
                   });
-                  
+
                   if (dbIncludesOurs || oursIncludesDb) {
                     matchedVideoKey = info.videoKey;
                     matchedMetadata = info.metadata;
@@ -598,7 +598,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     break;
                   }
                 }
-                
+
                 if (!matchedVideoKey) {
                   console.log(`  ❌ НЕ НАЙДЕНО совпадение для: "${videoResult.videoName}"`);
                   console.log('  📋 Доступные названия для сопоставления:');
@@ -613,23 +613,23 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   notMatchedCount++;
                   return;
                 }
-                
+
                 console.log(`  🎯 Совпадение найдено! Обрабатываем метрики...`);
                 matchedCount++;
-                
-                // Преобразуем к формату rawMetrics
-const allDailyData = videoResult.daily.map(d => ({
-              date: d.date,
-              leads: d.leads,
-              cost: d.cost,
-              clicks: d.clicks,
-              impressions: d.impressions,
-              avg_duration: d.avg_duration,
-              cost_from_sources: d.cost_from_sources || 0,
-              clicks_on_link: d.clicks_on_link || 0
-            }));
 
-            const aggregates = MetricsService.aggregateDailyData(allDailyData);
+                // Преобразуем к формату rawMetrics
+                const allDailyData = videoResult.daily.map(d => ({
+                  date: d.date,
+                  leads: d.leads,
+                  cost: d.cost,
+                  clicks: d.clicks,
+                  impressions: d.impressions,
+                  avg_duration: d.avg_duration,
+                  cost_from_sources: d.cost_from_sources || 0,
+                  clicks_on_link: d.clicks_on_link || 0
+                }));
+
+                const aggregates = MetricsService.aggregateDailyData(allDailyData);
                 const metrics = MetricsService.computeDerivedMetrics(aggregates);
                 const formatted = MetricsService.formatMetrics(metrics);
 
@@ -653,10 +653,10 @@ const allDailyData = videoResult.daily.map(d => ({
                   noData: false,
                   foundViaLike: true // 🏷️ Маркер LIKE поиска
                 });
-                
+
                 console.log(`🎯 LIKE метрика добавлена для: ${matchedMetadata.videoTitle}`);
               });
-              
+
               console.log('═══════════════════════════════════════════════');
               console.log('🎉 LIKE поиск завершен:');
               console.log(`  ✅ Совпадений найдено: ${matchedCount}`);
@@ -681,21 +681,21 @@ const allDailyData = videoResult.daily.map(d => ({
 
       // Шаг 3: БАТЧЕВОЕ сохранение в кэш Supabase (период "all" и "4days")
       // Сохраняем ВСЕ метрики, включая видео БЕЗ данных (с NULL)
-      const allMetricsToSave = Array.from(rawMetricsMap.values()).filter(m => 
+      const allMetricsToSave = Array.from(rawMetricsMap.values()).filter(m =>
         !m.fromCache // Только новые, не из кэша
       );
 
       if (allMetricsToSave.length > 0) {
         console.log(`💾 Батчевое сохранение ${allMetricsToSave.length} метрик в кэш (включая видео без данных)...`);
-        
+
         // Разделяем на метрики с данными и без данных
         const metricsWithData = allMetricsToSave.filter(m => m.found && m.data);
         const metricsWithoutData = allMetricsToSave.filter(m => !m.found || !m.data);
 
         console.log(`📊 С данными: ${metricsWithData.length}, без данных: ${metricsWithoutData.length}`);
-        
+
         // === СОХРАНЯЕМ ПЕРИОД "ALL" ===
-        
+
         // Метрики С ДАННЫМИ для периода "all"
         const metricsToSaveAll = metricsWithData.map(m => ({
           creativeId: m.creativeId,
@@ -720,24 +720,24 @@ const allDailyData = videoResult.daily.map(d => ({
 
         // Объединяем и сохраняем все метрики периода "all"
         const allPeriodAll = [...metricsToSaveAll, ...metricsToSaveAllNoData];
-        
+
         if (allPeriodAll.length > 0) {
           await metricsAnalyticsService.saveBatchMetricsCache(allPeriodAll);
           console.log(`✅ Период "all" сохранен: ${metricsToSaveAll.length} с данными + ${metricsToSaveAllNoData.length} без данных`);
         }
 
         // === СОХРАНЯЕМ ПЕРИОД "4DAYS" ===
-        
+
         // Метрики С ДАННЫМИ для периода "4days"
         const metricsToSave4Days = [];
-        
+
         metricsWithData.forEach(m => {
           const allDailyData = m.data.allDailyData || m.data.dailyData || [];
-          
+
           if (allDailyData.length > 0) {
             // Берем первые 4 дня
             const first4Days = allDailyData.slice(0, Math.min(4, allDailyData.length));
-            
+
             // Агрегируем данные за первые 4 дня
             const aggregated = {
               leads: 0,
@@ -749,7 +749,7 @@ const allDailyData = videoResult.daily.map(d => ({
               cost_from_sources: 0,
               clicks_on_link: 0
             };
-            
+
             first4Days.forEach(day => {
               aggregated.leads += day.leads || 0;
               aggregated.cost += day.cost || 0;
@@ -760,14 +760,14 @@ const allDailyData = videoResult.daily.map(d => ({
               aggregated.cost_from_sources += day.cost_from_sources || 0;
               aggregated.clicks_on_link += day.clicks_on_link || 0;
             });
-            
+
             // Вычисляем производные метрики
             const avg_duration = aggregated.days_count > 0 ? aggregated.duration_sum / aggregated.days_count : 0;
             const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
             const ctr_percent = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
             const cpc = aggregated.clicks > 0 ? aggregated.cost / aggregated.clicks : 0;
             const cpm = aggregated.impressions > 0 ? (aggregated.cost_from_sources / aggregated.impressions) * 1000 : 0;
-            
+
             const raw = {
               leads: aggregated.leads,
               cost: Number(aggregated.cost.toFixed(2)),
@@ -782,7 +782,7 @@ const allDailyData = videoResult.daily.map(d => ({
               cpc: Number(cpc.toFixed(2)),
               cpm: Number(cpm.toFixed(2))
             };
-            
+
             const formatted = {
               leads: String(Math.round(raw.leads)),
               cpl: raw.cpl.toFixed(2) + '$',
@@ -795,7 +795,7 @@ const allDailyData = videoResult.daily.map(d => ({
               avg_duration: raw.avg_duration.toFixed(1) + 'с',
               days: String(raw.days_count) + ' дн.'
             };
-            
+
             const data4Days = {
               raw: raw,
               formatted: formatted,
@@ -805,7 +805,7 @@ const allDailyData = videoResult.daily.map(d => ({
               period: '4days',
               updatedAt: m.data.updatedAt
             };
-            
+
             metricsToSave4Days.push({
               creativeId: m.creativeId,
               article: videoMap.get(`${m.creativeId}_${m.videoIndex}`)?.article || m.videoName,
@@ -831,7 +831,7 @@ const allDailyData = videoResult.daily.map(d => ({
 
         // Объединяем и сохраняем все метрики периода "4days"
         const allPeriod4Days = [...metricsToSave4Days, ...metricsToSave4DaysNoData];
-        
+
         if (allPeriod4Days.length > 0) {
           await metricsAnalyticsService.saveBatchMetricsCache(allPeriod4Days);
           console.log(`✅ Период "4days" сохранен: ${metricsToSave4Days.length} с данными + ${metricsToSave4DaysNoData.length} без данных`);
@@ -841,7 +841,7 @@ const allDailyData = videoResult.daily.map(d => ({
       // Обновляем время последнего обновления
       await metricsAnalyticsService.updateMetricsLastUpdate();
       setLastUpdated(new Date());
-      
+
       const successCount = Array.from(rawMetricsMap.values()).filter(m => m.found).length;
       console.log(`✅ Загрузка завершена: ${successCount}/${videosToLoad.length} метрик`);
 
@@ -881,9 +881,9 @@ const allDailyData = videoResult.daily.map(d => ({
 
         if (cachedData && cachedData.length > 0) {
           console.log(`✅ Найдено в кэше ${cachedData.length} записей для "4days"`);
-          
+
           const cachedMap = new Map();
-          
+
           cachedData.forEach(cache => {
             if (cache && cache.found && cache.data) {
               const videoKey = `${cache.creative_id}_${cache.video_index}`;
@@ -914,7 +914,7 @@ const allDailyData = videoResult.daily.map(d => ({
 
           // Дополняем недостающие через фильтрацию
           console.log(`⚡ ${cachedMap.size} из кэша, остальные через фильтрацию...`);
-          
+
           for (const [videoKey, rawMetric] of rawBatchMetrics) {
             if (cachedMap.has(videoKey)) continue;
 
@@ -961,7 +961,7 @@ const allDailyData = videoResult.daily.map(d => ({
 
     for (const [videoKey, rawMetric] of rawBatchMetrics) {
       totalCount++;
-      
+
       if (!rawMetric.found || !rawMetric.data) {
         filteredMap.set(videoKey, {
           ...rawMetric,
@@ -971,7 +971,7 @@ const allDailyData = videoResult.daily.map(d => ({
       }
 
       const filtered = MetricsService.filterRawMetricsByPeriod(rawMetric, targetPeriod);
-      
+
       if (filtered.found) {
         filteredMap.set(videoKey, {
           found: true,
@@ -1011,7 +1011,7 @@ const allDailyData = videoResult.daily.map(d => ({
     if (autoLoad && creatives) {
       loadRawBatchMetrics();
     }
-    
+
     return () => {
       loadingCancelRef.current = true;
     };
@@ -1034,11 +1034,11 @@ const allDailyData = videoResult.daily.map(d => ({
 
   const getCreativeMetrics = useCallback((creativeId) => {
     const creativeMetrics = [];
-    
+
     for (const [videoKey, metrics] of filteredBatchMetrics) {
       if (videoKey.startsWith(`${creativeId}_`)) {
         const videoIndex = parseInt(videoKey.split('_').pop());
-        
+
         if (!isNaN(videoIndex)) {
           creativeMetrics.push({
             videoIndex,
@@ -1047,9 +1047,9 @@ const allDailyData = videoResult.daily.map(d => ({
         }
       }
     }
-    
+
     creativeMetrics.sort((a, b) => a.videoIndex - b.videoIndex);
-    
+
     return creativeMetrics.length > 0 ? creativeMetrics : null;
   }, [filteredBatchMetrics]);
 
@@ -1080,14 +1080,14 @@ const allDailyData = videoResult.daily.map(d => ({
     }
 
     console.log(`🎯 Загрузка метрик ТОЛЬКО для креатива: ${creative.article}`);
-    
+
     // 🆕 Добавляем креатив в список загружающихся
     setLoadingCreativeIds(prev => new Set(prev).add(creative.id));
     setError('');
 
     try {
       // Собираем названия видео только этого креатива
-      const videoNames = creative.link_titles.filter(title => 
+      const videoNames = creative.link_titles.filter(title =>
         title && !title.startsWith('Видео ')
       );
 
@@ -1171,14 +1171,14 @@ const allDailyData = videoResult.daily.map(d => ({
 
       // ШАГ 2: АДАПТИВНЫЙ LIKE ПОИСК ДЛЯ НЕ НАЙДЕННЫХ
       console.log('🔥 ШАГ 2: АДАПТИВНЫЙ LIKE поиск для видео без метрик');
-      
+
       const videosWithoutMetrics = [];
       const videosWithoutMetricsMap = new Map();
-      
+
       videoNames.forEach((videoTitle, videoIndex) => {
         const videoKey = `${creative.id}_${videoIndex}`;
         const existingMetric = updatedRawMetrics.get(videoKey);
-        
+
         // Если метрики НЕ найдены или найдены но пустые
         if (!existingMetric || !existingMetric.found || existingMetric.noData) {
           const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
@@ -1190,42 +1190,42 @@ const allDailyData = videoResult.daily.map(d => ({
           });
         }
       });
-      
+
       console.log(`📊 Видео БЕЗ метрик после точного поиска: ${videosWithoutMetrics.length}`);
-      
+
       if (videosWithoutMetrics.length > 0) {
         console.log('═══════════════════════════════════════════════');
         console.log('🔍 НАЧАЛО LIKE ПОИСКА ДЛЯ НОВОГО КРЕАТИВА');
         console.log('═══════════════════════════════════════════════');
-        
+
         try {
           // Для одного креатива используем простой подход без адаптивности
           console.log(`📡 LIKE запрос для ${videosWithoutMetrics.length} видео...`);
-          
+
           const likeBatchResult = await MetricsService.getBatchVideoMetrics(videosWithoutMetrics, {
             kind: 'daily_first4_total',
             useCache: false,
             useLike: true
           });
-          
+
           if (likeBatchResult.success && likeBatchResult.results && likeBatchResult.results.length > 0) {
             console.log(`✅ LIKE поиск вернул ${likeBatchResult.results.length} результатов`);
-            
+
             let matchedCount = 0;
-            
+
             likeBatchResult.results.forEach((videoResult) => {
               if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
                 return;
               }
-              
+
               // Находим соответствующий videoKey
               let matchedVideoKey = null;
               let matchedInfo = null;
-              
+
               for (const [nameWithoutExt, info] of videosWithoutMetricsMap.entries()) {
                 const dbIncludesOurs = videoResult.videoName.includes(nameWithoutExt);
                 const oursIncludesDb = nameWithoutExt.includes(videoResult.videoName);
-                
+
                 if (dbIncludesOurs || oursIncludesDb) {
                   matchedVideoKey = info.videoKey;
                   matchedInfo = info;
@@ -1233,13 +1233,13 @@ const allDailyData = videoResult.daily.map(d => ({
                   break;
                 }
               }
-              
+
               if (!matchedVideoKey) {
                 return;
               }
-              
+
               matchedCount++;
-              
+
               // Преобразуем к формату rawMetrics
               const allDailyData = videoResult.daily.map(d => ({
                 date: d.date,
@@ -1276,12 +1276,12 @@ const allDailyData = videoResult.daily.map(d => ({
                 foundViaLike: true
               });
             });
-            
+
             console.log('═══════════════════════════════════════════════');
             console.log(`🎉 LIKE поиск завершен: найдено ${matchedCount} совпадений`);
             console.log('═══════════════════════════════════════════════');
           }
-          
+
         } catch (likeError) {
           console.error('❌ Ошибка LIKE поиска:', likeError);
           // Продолжаем без LIKE результатов
@@ -1295,7 +1295,7 @@ const allDailyData = videoResult.daily.map(d => ({
 
       // Сохраняем в кэш Supabase (включая LIKE результаты)
       const metricsToSave = [];
-      
+
       updatedRawMetrics.forEach((metric, videoKey) => {
         // Проверяем что это метрика этого креатива
         if (metric.creativeId === creative.id && metric.found && metric.data) {
@@ -1320,10 +1320,10 @@ const allDailyData = videoResult.daily.map(d => ({
       await metricsAnalyticsService.updateMetricsLastUpdate();
       setLastUpdated(new Date());
 
-      const foundCount = Array.from(updatedRawMetrics.values()).filter(m => 
+      const foundCount = Array.from(updatedRawMetrics.values()).filter(m =>
         m.creativeId === creative.id && m.found
       ).length;
-      
+
       console.log(`✅ Метрики для креатива ${creative.article} успешно загружены: ${foundCount}/${videoNames.length} видео`);
 
     } catch (error) {
@@ -1378,7 +1378,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', cre
 
     try {
       console.log(`🔍 Загружаем метрики для: ${videoTitle}`);
-      
+
       const result = await MetricsService.getVideoMetricsRaw(
         videoTitle,
         true,
@@ -1386,7 +1386,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', cre
         videoIndex,
         null
       );
-      
+
       if (result.found) {
         setRawMetrics(result);
         setLastUpdated(new Date());
@@ -1411,7 +1411,7 @@ export function useVideoMetrics(videoTitle, autoLoad = true, period = 'all', cre
     }
 
     console.log(`⚡ Фильтрация для ${videoTitle}: ${targetPeriod}`);
-    
+
     const filtered = MetricsService.filterRawMetricsByPeriod(rawData, targetPeriod);
     setFilteredMetrics(filtered);
   }, [videoTitle]);
@@ -1453,7 +1453,7 @@ export function useMetricsApi() {
     }
 
     setChecking(true);
-    
+
     try {
       const result = await MetricsService.checkApiStatus();
       const status = result.available ? 'available' : 'unavailable';
@@ -1531,11 +1531,11 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
     creatives.forEach(creative => {
       let creativeHasMetrics = false;
       const videoCount = creative.link_titles ? creative.link_titles.length : 0;
-      
+
       for (let videoIndex = 0; videoIndex < videoCount; videoIndex++) {
         const videoKey = `${creative.id}_${videoIndex}`;
         const metrics = batchMetricsMap.get(videoKey);
-        
+
         if (metrics && metrics.found && metrics.data) {
           const data = metrics.data.raw;
           totalLeads += data.leads || 0;
@@ -1549,7 +1549,7 @@ export function useMetricsStats(creatives, batchMetricsMap = null) {
           videosWithoutMetrics++;
         }
       }
-      
+
       if (creativeHasMetrics) {
         creativesWithMetrics++;
       } else {
