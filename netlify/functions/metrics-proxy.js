@@ -7,23 +7,23 @@ const CONFIG = {
   MAX_SQL_BYTES: 250000,        // 250 KB на один SQL-запрос
   NAMES_PER_CHUNK_SOFT: 300,    // Мягкий лимит имён на чанк
   MAX_VIDEO_NAMES: 50000,       // Максимум имён в одном запросе
-  
+
   // Параллелизм
   PARALLEL_CHUNKS: 4,            // Количество параллельных SQL-запросов
-  
+
   // Таймауты и ретраи
   FETCH_TIMEOUT_MS: 15000,       // 15 секунд на один SQL-запрос (обычный)
   LIKE_FETCH_TIMEOUT_MS: 25000,  // 25 секунд для LIKE запросов
   MAX_RETRIES: 2,                // Количество повторов при ошибках
   RETRY_DELAY_MS: 1000,          // Базовая задержка для экспоненциального бэкофа
-  
+
   // Кэширование
   CACHE_TTL_MS: 90000,           // 90 секунд TTL для кэша
   CACHE_MAX_SIZE: 100,           // Максимум записей в LRU кэше
-  
+
   // LIKE поиск
   MAX_LIKE_NAMES: 300,           // Максимум имён для LIKE запроса (увеличено для батчей)
-  
+
   // API
   API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php'
 };
@@ -44,31 +44,31 @@ class LRUCache {
   get(key) {
     const hashKey = this._hash(key);
     const entry = this.cache.get(hashKey);
-    
+
     if (!entry) return null;
-    
+
     // Проверяем TTL
     if (Date.now() - entry.timestamp > this.ttlMs) {
       this.cache.delete(hashKey);
       return null;
     }
-    
+
     // Обновляем позицию (LRU)
     this.cache.delete(hashKey);
     this.cache.set(hashKey, entry);
-    
+
     return entry.data;
   }
 
   set(key, data) {
     const hashKey = this._hash(key);
-    
+
     // Удаляем старые записи, если превышен лимит
     if (this.cache.size >= this.maxSize && !this.cache.has(hashKey)) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
-    
+
     this.cache.set(hashKey, {
       data,
       timestamp: Date.now()
@@ -95,7 +95,7 @@ class SQLBuilder {
     const perName = 15;     // Средний размер на одно имя ('name'),
     const dateFilter = dateFrom && dateTo ? 100 : 0;
     const kindOverhead = kind === 'daily_first4_total' ? 1000 : 200;
-    
+
     return baseQuery + (videoNames.length * perName) + dateFilter + kindOverhead;
   }
 
@@ -126,7 +126,7 @@ class SQLBuilder {
     const valuesClause = videoNames
       .map(name => `('${this.escapeString(name)}')`)
       .join(',\n    ');
-    
+
     console.log('📝 ПОЛНЫЙ VALUES clause:');
     console.log(valuesClause);
 
@@ -150,10 +150,10 @@ class SQLBuilder {
     // Вместо этого извлекаем названия из VALUES и формируем IN напрямую
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
     const inClause = names.join(',');
-    
+
     console.log('📋 IN clause для daily:');
     console.log(inClause);
-    
+
     return `
 SELECT 
   'daily' as kind,
@@ -177,7 +177,7 @@ ORDER BY t.video_name, t.adv_date`;
   static _buildFirst4SQL(valuesClause, dateFilter) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
     const inClause = names.join(',');
-    
+
     return `
 SELECT 
   'first4' as kind,
@@ -216,7 +216,7 @@ ORDER BY video_name`;
   static _buildTotalSQL(valuesClause, dateFilter) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
     const inClause = names.join(',');
-    
+
     return `
 SELECT 
   'total' as kind,
@@ -253,7 +253,7 @@ ORDER BY video_name`;
   static _buildDailyFirst4TotalSQL(valuesClause, dateFilter) {
     const names = valuesClause.match(/'([^']|'')+'/g) || [];
     const inClause = names.join(',');
-    
+
     return `
 SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link 
 FROM (
@@ -320,7 +320,7 @@ ORDER BY video_name, kind, adv_date`;
 
   static _buildLikeSQL(videoNames, dateFilter, kind) {
     console.log('🔍 Формирование LIKE SQL для', videoNames.length, 'видео');
-    
+
     // Обрезаем расширения и создаем LIKE условия
     const likeConditions = videoNames.map(name => {
       // Убираем расширение (.mp4, .mov и т.д.)
@@ -328,9 +328,9 @@ ORDER BY video_name, kind, adv_date`;
       const escaped = this.escapeString(nameWithoutExt);
       return `t.video_name LIKE '%${escaped}%'`;
     }).join(' OR ');
-    
+
     console.log('📝 LIKE условия сформированы для', videoNames.length, 'названий');
-    
+
     // Используем LIKE вместо IN
     if (kind === 'daily_first4_total') {
       return `
@@ -424,13 +424,13 @@ class Chunker {
   static splitIntoChunks(videoNames, dateFrom, dateTo, kind) {
     const chunks = [];
     let currentChunk = [];
-    
+
     for (const name of videoNames) {
       currentChunk.push(name);
-      
+
       // Проверяем размер потенциального SQL
       const estimatedSize = SQLBuilder.estimateSQLSize(currentChunk, dateFrom, dateTo, kind);
-      
+
       if (estimatedSize > CONFIG.MAX_SQL_BYTES || currentChunk.length >= CONFIG.NAMES_PER_CHUNK_SOFT) {
         // Если добавление этого имени превышает лимит, откатываемся
         if (currentChunk.length > 1) {
@@ -444,12 +444,12 @@ class Chunker {
         }
       }
     }
-    
+
     // Добавляем последний чанк
     if (currentChunk.length > 0) {
       chunks.push(currentChunk);
     }
-    
+
     return chunks;
   }
 }
@@ -463,7 +463,7 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false)
       console.log('  📋 SQL длина:', sql?.length, 'байт');
       console.log('  📋 SQL (первые 200 символов):', sql?.substring(0, 200));
       console.log('  🔥 LIKE режим:', isLike);
-      
+
       const controller = new AbortController();
       const timeoutMs = isLike ? CONFIG.LIKE_FETCH_TIMEOUT_MS : CONFIG.FETCH_TIMEOUT_MS;
       console.log('  ⏱️ Таймаут:', timeoutMs, 'мс');
@@ -501,14 +501,14 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false)
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        
+
         const errorText = await response.text();
         console.error('❌ Ошибка от API:', errorText.substring(0, 500));
         throw new Error(`API error ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
       const text = await response.text();
-      
+
       // КРИТИЧНО: Детальное логирование ответа
       console.log('📨 СЫРОЙ ОТВЕТ от PHP API:', {
         length: text?.length,
@@ -516,14 +516,14 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false)
         preview: text?.substring(0, 1000), // Увеличили до 1000 символов
         fullText: text // ПОЛНЫЙ текст ответа для диагностики
       });
-      
+
       if (!text || !text.trim()) {
         console.log('⚠️ Пустой ответ от API');
         return [];
       }
 
       const parsed = JSON.parse(text);
-      
+
       // КРИТИЧНО: Логируем распарсенный ответ
       console.log('📋 Распарсенный ответ:', {
         type: typeof parsed,
@@ -532,37 +532,37 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false)
         length: Array.isArray(parsed) ? parsed.length : undefined,
         firstItem: Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : undefined
       });
-      
+
       // КРИТИЧНО: Обрабатываем разные форматы ответа от PHP API
       if (Array.isArray(parsed)) {
         console.log('✅ Ответ - массив, возвращаем как есть');
         return parsed;
       }
-      
+
       // Если ответ - объект с полем data
       if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
         console.log('✅ Извлекаем массив из поля data');
         return parsed.data;
       }
-      
+
       // Если ответ - объект с полем results
       if (parsed && typeof parsed === 'object' && Array.isArray(parsed.results)) {
         console.log('✅ Извлекаем массив из поля results');
         return parsed.results;
       }
-      
+
       // Если это пустой объект
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length === 0) {
         console.log('⚠️ Пустой объект, возвращаем []');
         return [];
       }
-      
+
       console.error('❌ Неожиданный формат ответа от API:', {
         type: typeof parsed,
         value: parsed
       });
       return [];
-      
+
     } catch (error) {
       if (error.name === 'AbortError') {
         if (attempt < retries) {
@@ -573,7 +573,7 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES, isLike = false)
         }
         throw new Error('Таймаут запроса после всех ретраев');
       }
-      
+
       if (attempt === retries) {
         throw error;
       }
@@ -600,9 +600,9 @@ class WorkerPool {
     }
 
     await Promise.allSettled(workers);
-    
+
     console.log(`✅ Пул завершён: обработано ${results.length} чанков`);
-    
+
     // Объединяем результаты
     return results.flat();
   }
@@ -618,17 +618,17 @@ class WorkerPool {
         chunk.forEach((name, idx) => {
           console.log(`  [${idx}]: "${name}"`);
         });
-        
+
         const sql = SQLBuilder.buildBatchSQL(chunk, dateFrom, dateTo, kind, useLike);
         console.log('🔍 SQL сформирован, длина:', sql.length, 'байт', useLike ? '(LIKE)' : '(IN)');
         console.log('=====================================');
         console.log('📝 ПОЛНЫЙ SQL:');
         console.log(sql);
         console.log('=====================================');
-        
+
         console.log('🌐 Отправка SQL к PHP API...');
         const data = await fetchWithRetry(sql, CONFIG.MAX_RETRIES, useLike);
-        
+
         console.log('📥 ДЕТАЛЬНЫЙ результат от БД:', {
           type: typeof data,
           isArray: Array.isArray(data),
@@ -636,10 +636,10 @@ class WorkerPool {
           firstItem: data?.[0],
           firstThreeItems: data?.slice(0, 3)
         });
-        
+
         results.push(data);
         console.log(`✅ Чанк ${processed} выполнен, записей: ${data.length}`);
-        
+
       } catch (error) {
         console.error(`❌ Ошибка чанка ${processed}:`, error.message);
         // Продолжаем обработку других чанков
@@ -692,7 +692,7 @@ exports.handler = async (event, context) => {
     // ===== ОБРАТНАЯ СОВМЕСТИМОСТЬ: старый формат {sql: "..."} =====
     if (requestBody.sql && !requestBody.video_names) {
       console.log('🔄 Обратная совместимость: старый формат запроса');
-      
+
       if (!/^\s*select\b/i.test(requestBody.sql)) {
         return {
           statusCode: 400,
@@ -727,7 +727,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           error: 'video_names обязателен и должен быть непустым массивом',
           hint: 'Формат: {video_names: ["v1", "v2"], date_from: "2024-01-01", date_to: "2024-12-31", kind: "daily_first4_total"}'
         })
@@ -739,7 +739,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           error: `Превышен лимит: максимум ${CONFIG.MAX_VIDEO_NAMES} имён`,
           received: video_names.length,
           hint: 'Уменьшите количество имён или включите пагинацию'
@@ -749,12 +749,12 @@ exports.handler = async (event, context) => {
 
     // Проверка кэша (пропускаем если forceRefresh)
     const cacheKey = { video_names: video_names.sort(), date_from, date_to, kind };
-    
+
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
         console.log(`💾 Кэш HIT для ${video_names.length} имён (${cached.length} записей)`);
-        
+
         // КРИТИЧНО: Не возвращаем пустой кэш!
         if (cached.length > 0) {
           return {
@@ -790,8 +790,8 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      headers: { 
-        ...headers, 
+      headers: {
+        ...headers,
         'X-Cache': 'MISS',
         'X-Chunks-Processed': chunks.length.toString(),
         'X-Total-Records': normalizedResults.length.toString()
@@ -801,11 +801,11 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('💥 Критическая ошибка:', error);
-    
+
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         error: 'Внутренняя ошибка сервера',
         details: error.message
       })
@@ -835,32 +835,32 @@ function normalizeResults(rawResults) {
       type: typeof rawResults[i],
       isArray: Array.isArray(rawResults[i]),
       value: rawResults[i],
-      keys: typeof rawResults[i] === 'object' && !Array.isArray(rawResults[i]) 
-        ? Object.keys(rawResults[i]) 
+      keys: typeof rawResults[i] === 'object' && !Array.isArray(rawResults[i])
+        ? Object.keys(rawResults[i])
         : 'not an object'
     });
   }
 
   const firstItem = rawResults[0];
-  
+
   // Случай A: Массив объектов {kind: "daily", video_name: "..."}
   if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
     console.log('✅ ФОРМАТ A: Массив объектов');
     console.log('📋 Пример объекта:', firstItem);
-    
+
     let processedCount = 0;
     rawResults.forEach((row, index) => {
       if (!row.video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
         return;
       }
-      
+
       // 🔥🔥🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА
       const cost_from_sources_raw = row.cost_from_sources;
       const clicks_on_link_raw = row.clicks_on_link;
       const cost_from_sources_converted = Number(cost_from_sources_raw) || 0;
       const clicks_on_link_converted = Number(clicks_on_link_raw) || 0;
-      
+
       if (processedCount < 3) {
         console.log(`🔥🔥🔥 NETLIFY NORMALIZE ROW ${processedCount}:`, {
           'row.cost_from_sources (RAW)': cost_from_sources_raw,
@@ -872,7 +872,7 @@ function normalizeResults(rawResults) {
           'video_name': row.video_name
         });
       }
-      
+
       normalized.push({
         kind: row.kind || 'daily',
         video_name: row.video_name,
@@ -887,64 +887,64 @@ function normalizeResults(rawResults) {
       });
       processedCount++;
     });
-    
+
     console.log(`✅ Формат A: обработано ${processedCount} объектов`);
     return normalized;
   }
-  
+
   // Случай B: Массив массивов [[headers], [row1], [row2], ...]
   if (firstItem && Array.isArray(firstItem)) {
     console.log('✅ ФОРМАТ B: Массив массивов');
-    
+
     // КРИТИЧНО: Проверяем, все ли элементы - массивы
     const allArrays = rawResults.every(item => Array.isArray(item));
     console.log('🔍 Все элементы - массивы?', allArrays);
-    
+
     if (!allArrays) {
       console.error('❌ НЕ ВСЕ элементы - массивы!');
       // Пробуем обработать как смешанный формат
       return normalized;
     }
-    
+
     // Первый массив должен быть headers
     const headers = rawResults[0];
     console.log('📋 HEADERS:', headers);
     console.log('📋 HEADERS тип:', typeof headers, 'длина:', headers?.length);
-    
+
     // Проверяем наличие обязательных полей
     const hasVideoName = headers.includes('video_name');
     const hasKind = headers.includes('kind');
-    
+
     console.log('🔍 Проверка headers:', {
       hasVideoName,
       hasKind,
       headers
     });
-    
+
     if (!hasVideoName && !hasKind) {
       console.error('❌ Headers не содержат обязательных полей!');
       // Возможно, это не headers, а данные
       console.log('🔍 Пробуем интерпретировать все элементы как данные (без headers)');
-      
+
       // Предполагаем фиксированный порядок колонок: [kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration]
       const assumedHeaders = ['kind', 'video_name', 'adv_date', 'leads', 'cost', 'clicks', 'impressions', 'avg_duration'];
-      
+
       rawResults.forEach((row, index) => {
         if (!Array.isArray(row)) {
           console.warn(`⚠️ Строка ${index} не массив:`, row);
           return;
         }
-        
+
         const obj = {};
         assumedHeaders.forEach((header, i) => {
           obj[header] = row[i];
         });
-        
+
         if (!obj.video_name) {
           console.warn(`⚠️ Строка ${index} не содержит video_name после маппинга:`, obj);
           return;
         }
-        
+
         normalized.push({
           kind: obj.kind || 'daily',
           video_name: obj.video_name,
@@ -958,36 +958,36 @@ function normalizeResults(rawResults) {
           clicks_on_link: Number(obj.clicks_on_link) || 0
         });
       });
-      
+
       console.log(`✅ Формат B (без headers): обработано ${normalized.length} строк`);
       return normalized;
     }
-    
+
     // Стандартная обработка с headers
     const dataRows = rawResults.slice(1);
     console.log(`📊 Обработка ${dataRows.length} строк данных после headers`);
-    
+
     if (dataRows.length === 0) {
       console.warn('⚠️ Нет строк данных после headers!');
       return normalized;
     }
-    
+
     // Логируем первую строку данных
     console.log('📋 Первая строка данных:', dataRows[0]);
-    
+
     let processedCount = 0;
     dataRows.forEach((row, index) => {
       if (!Array.isArray(row)) {
         console.warn(`⚠️ Строка ${index} не массив:`, row);
         return;
       }
-      
+
       // Создаем объект из headers и row
       const obj = {};
       headers.forEach((header, i) => {
         obj[header] = row[i];
       });
-      
+
       // КРИТИЧНО: Проверяем наличие video_name
       if (!obj.video_name) {
         console.warn(`⚠️ Строка ${index} не содержит video_name:`, {
@@ -997,7 +997,7 @@ function normalizeResults(rawResults) {
         });
         return;
       }
-      
+
       normalized.push({
         kind: obj.kind || 'daily',
         video_name: obj.video_name,
@@ -1012,11 +1012,11 @@ function normalizeResults(rawResults) {
       });
       processedCount++;
     });
-    
+
     console.log(`✅ Формат B: обработано ${processedCount} из ${dataRows.length} строк`);
     return normalized;
   }
-  
+
   console.error('❌ НЕИЗВЕСТНЫЙ ФОРМАТ! Первый элемент:', firstItem);
   return normalized;
 }
