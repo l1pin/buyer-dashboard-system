@@ -74,6 +74,7 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
 // Получение adv_id из conversions_collection
 async function getAdvIdsFromConversions(uuids) {
   console.log(`🔍 Поиск adv_id для ${uuids.length} UUID в conversions_collection...`);
+  console.log('📋 Искомые UUID:', uuids);
 
   const uuidConditions = uuids.map(uuid => `'${escapeString(uuid)}'`).join(',');
 
@@ -81,6 +82,9 @@ async function getAdvIdsFromConversions(uuids) {
     SELECT 
       sub16 as uuid,
       source,
+      sub1,
+      sub5,
+      sub4,
       CASE 
         WHEN source = 'facebook' THEN sub1
         WHEN source = 'google' THEN sub5
@@ -97,7 +101,7 @@ async function getAdvIdsFromConversions(uuids) {
       )
   `;
 
-  console.log('📝 SQL для conversions_collection (первые 300 символов):', sql.substring(0, 300));
+  console.log('📝 SQL для conversions_collection (полный):', sql);
 
   try {
     const results = await fetchWithRetry(sql);
@@ -109,6 +113,28 @@ async function getAdvIdsFromConversions(uuids) {
     }
     
     console.log(`✅ Найдено ${results.length} соответствий в conversions_collection`);
+    
+    // НОВОЕ: Детальное логирование каждой найденной записи
+    if (results.length > 0) {
+      console.log('📊 Детали найденных записей:');
+      results.forEach((row, index) => {
+        console.log(`  [${index}] uuid=${row.uuid}, source=${row.source}, sub1=${row.sub1}, sub5=${row.sub5}, sub4=${row.sub4}, adv_id=${row.adv_id}`);
+      });
+    } else {
+      console.warn('⚠️ Не найдено ни одной записи! Проверяем первые 5 записей из conversions_collection...');
+      
+      // Диагностический запрос
+      const diagnosticSql = `SELECT sub16, source, sub1, sub5, sub4 FROM conversions_collection LIMIT 5`;
+      console.log('🔍 Диагностический SQL:', diagnosticSql);
+      
+      try {
+        const diagnosticResults = await fetchWithRetry(diagnosticSql);
+        console.log('📊 Первые 5 записей из conversions_collection:', diagnosticResults);
+      } catch (diagError) {
+        console.error('❌ Ошибка диагностического запроса:', diagError);
+      }
+    }
+    
     return results;
   } catch (error) {
     console.error('❌ Ошибка получения adv_id:', error);
@@ -202,8 +228,12 @@ exports.handler = async (event) => {
     // Шаг 1: Получаем adv_id из conversions_collection
     const conversions = await getAdvIdsFromConversions(landing_uuids);
 
+    console.log(`📊 Получено conversions: ${conversions.length}`);
+
     if (conversions.length === 0) {
       console.log('⚠️ Не найдено соответствий в conversions_collection');
+      console.log('🔍 Проверяем, существуют ли вообще записи с такими UUID...');
+      
       return {
         statusCode: 200,
         headers,
@@ -214,7 +244,12 @@ exports.handler = async (event) => {
     // Группируем по UUID
     const uuidToAdvIds = new Map();
     conversions.forEach(conv => {
-      if (!conv.adv_id) return;
+      console.log(`🔄 Обработка конверсии: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}`);
+      
+      if (!conv.adv_id) {
+        console.warn(`⚠️ Пропущена конверсия без adv_id: uuid=${conv.uuid}, source=${conv.source}`);
+        return;
+      }
       
       if (!uuidToAdvIds.has(conv.uuid)) {
         uuidToAdvIds.set(conv.uuid, []);
@@ -225,6 +260,12 @@ exports.handler = async (event) => {
         adv_id: conv.adv_id
       });
     });
+
+    console.log(`📊 Уникальных UUID с adv_id: ${uuidToAdvIds.size}`);
+    console.log('📋 Мапинг UUID → adv_id:', Array.from(uuidToAdvIds.entries()).map(([uuid, advIds]) => ({
+      uuid,
+      advIds: advIds.map(a => `${a.source}:${a.adv_id}`)
+    })));
 
     // Шаг 2: Получаем метрики из ads_collection
     const allAdvIds = conversions.map(c => c.adv_id).filter(Boolean);
