@@ -20,6 +20,8 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
 
+      console.log(`📤 Попытка ${attempt + 1}: отправка SQL запроса`);
+
       const response = await fetch(CONFIG.API_URL, {
         method: 'POST',
         headers: {
@@ -35,6 +37,7 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       if (!response.ok) {
         if ((response.status === 502 || response.status === 504) && attempt < retries) {
           const delay = CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt);
+          console.log(`⏳ Повтор через ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -42,11 +45,22 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       }
 
       const text = await response.text();
-      if (!text || !text.trim()) return [];
+      console.log(`📥 Получен ответ (${text.length} символов)`);
 
-      return JSON.parse(text);
+      if (!text || !text.trim()) {
+        console.log('⚠️ Пустой ответ от API');
+        return [];
+      }
+
+      const parsed = JSON.parse(text);
+      console.log(`✅ Распарсено ${Array.isArray(parsed) ? parsed.length : 'не массив'} записей`);
+      
+      // КРИТИЧЕСКИ ВАЖНО: API может вернуть объект вместо массива
+      return Array.isArray(parsed) ? parsed : [];
 
     } catch (error) {
+      console.error(`❌ Ошибка на попытке ${attempt + 1}:`, error.message);
+      
       if (error.name === 'AbortError' && attempt < retries) {
         const delay = CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -83,10 +97,17 @@ async function getAdvIdsFromConversions(uuids) {
       )
   `;
 
-  console.log('📝 SQL для conversions_collection:', sql.substring(0, 500));
+  console.log('📝 SQL для conversions_collection (первые 300 символов):', sql.substring(0, 300));
 
   try {
     const results = await fetchWithRetry(sql);
+    
+    // ВАЖНО: Проверяем что results это массив
+    if (!Array.isArray(results)) {
+      console.error('❌ conversions API вернул не массив:', typeof results);
+      return [];
+    }
+    
     console.log(`✅ Найдено ${results.length} соответствий в conversions_collection`);
     return results;
   } catch (error) {
@@ -130,6 +151,13 @@ async function getMetricsFromAdsCollection(advIds, dateFrom = null, dateTo = nul
 
   try {
     const results = await fetchWithRetry(sql);
+    
+    // ВАЖНО: Проверяем что results это массив
+    if (!Array.isArray(results)) {
+      console.error('❌ ads API вернул не массив:', typeof results);
+      return [];
+    }
+    
     console.log(`✅ Получено ${results.length} записей метрик из ads_collection`);
     return results;
   } catch (error) {
