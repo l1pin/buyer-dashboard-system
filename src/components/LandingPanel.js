@@ -320,7 +320,7 @@ function LandingPanel({ user }) {
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
     console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article})`);
-    
+
     // Получаем все метрики для этого лендинга (по всем источникам)
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
 
@@ -760,13 +760,13 @@ function LandingPanel({ user }) {
     setShowCalendar(false);
   };
 
-useEffect(() => {
+  useEffect(() => {
     const init = async () => {
       loadUsers();
       await loadLandings();
       loadLastUpdateTime();
     };
-    
+
     init();
   }, []);
 
@@ -989,7 +989,7 @@ useEffect(() => {
       setError('');
       console.log('📡 Загрузка лендингов пользователя...');
       const data = await landingService.getUserLandings(user.id);
-      
+
       // Загружаем данные о verified_urls для каждого лендинга
       const landingsWithUrls = await Promise.all(
         data.map(async (landing) => {
@@ -999,7 +999,7 @@ useEffect(() => {
               .select('verified_urls')
               .eq('id', landing.id)
               .single();
-            
+
             if (!error && landingData) {
               return { ...landing, verified_urls: landingData.verified_urls || [] };
             }
@@ -1010,7 +1010,7 @@ useEffect(() => {
           }
         })
       );
-      
+
       setLandings(landingsWithUrls);
       console.log(`✅ Загружено ${landingsWithUrls.length} лендингов`);
 
@@ -1353,7 +1353,7 @@ useEffect(() => {
     try {
       const urls = await landingService.getVerifiedUrls(landingId);
       setVerifiedUrls(urls);
-      
+
       // Обновляем Map с информацией об интеграции
       setLandingsWithIntegration(prev => {
         const newMap = new Map(prev);
@@ -1505,18 +1505,18 @@ data-rt-sub16="${createdLandingUuid}"
   // Функция для обновления статуса интеграции после успешной проверки
   const handleIntegrationVerified = (landingId, urls) => {
     console.log('✅ Интеграция подтверждена для лендинга:', landingId, 'URLs:', urls);
-    
+
     // Обновляем Map с информацией об интеграции
     setLandingsWithIntegration(prev => {
       const newMap = new Map(prev);
       newMap.set(landingId, true);
       return newMap;
     });
-    
+
     // Обновляем список лендингов с новыми verified_urls
-    setLandings(prevLandings => 
-      prevLandings.map(landing => 
-        landing.id === landingId 
+    setLandings(prevLandings =>
+      prevLandings.map(landing =>
+        landing.id === landingId
           ? { ...landing, verified_urls: urls }
           : landing
       )
@@ -1758,18 +1758,18 @@ data-rt-sub16="${createdLandingUuid}"
     console.log(`🔄 ЗАПУСК ОБНОВЛЕНИЯ метрик лендингов (период: ${metricsPeriod})`);
     console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
     console.log(`📋 UUID лендингов:`, filteredLandings.map(l => l.id));
-    
+
     setError('');
     setSuccess('');
-    
+
     try {
       console.log('🚀 Вызов refreshLandingMetrics...');
       await refreshLandingMetrics();
       console.log('✅ Метрики лендингов обновлены');
-      
+
       // Небольшая задержка для обновления состояния
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       setSuccess('Метрики успешно обновлены!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
@@ -1777,14 +1777,14 @@ data-rt-sub16="${createdLandingUuid}"
       setError('Ошибка обновления метрик: ' + error.message);
       setTimeout(() => setError(''), 5000);
     }
-    
+
     try {
       await refreshZoneData();
       console.log('✅ Зональные данные обновлены');
     } catch (error) {
       console.error('❌ Ошибка обновления зональных данных:', error);
     }
-    
+
     await loadLastUpdateTime();
   };
 
@@ -2795,7 +2795,7 @@ data-rt-sub16="${createdLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Сайт
+                        Версия
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2929,11 +2929,10 @@ data-rt-sub16="${createdLandingUuid}"
                                     e.stopPropagation();
                                     showUuidCode(landing.id);
                                   }}
-                                  className={`p-1 rounded-full transition-colors duration-200 ${
-                                    (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
+                                  className={`p-1 rounded-full transition-colors duration-200 ${(landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
                                       ? 'text-green-600 hover:text-green-800 hover:bg-green-100'
                                       : 'text-red-600 hover:text-red-800 hover:bg-red-100'
-                                  }`}
+                                    }`}
                                   title={
                                     (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
                                       ? `Интеграция подтверждена ${landing.verified_urls ? `(${landing.verified_urls.length} URL)` : ''}`
@@ -3622,10 +3621,10 @@ data-rt-sub16="${createdLandingUuid}"
                     type="button"
                     onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
                     className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${fieldErrors.template
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        : isTestMode
-                          ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : isTestMode
+                        ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
                   >
                     <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
@@ -4322,10 +4321,10 @@ data-rt-sub16="${createdLandingUuid}"
                     type="button"
                     onClick={() => setShowTagsDropdown(!showTagsDropdown)}
                     className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${fieldErrors.tags
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        : isTestMode
-                          ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : isTestMode
+                        ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
                   >
                     <div className="flex items-center justify-between">
@@ -4405,8 +4404,8 @@ data-rt-sub16="${createdLandingUuid}"
                               clearFieldError('tags');
                             }}
                             className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between ${isSelected
-                                ? `bg-white border ${style.border} ${style.text}`
-                                : `${style.hover} border border-transparent hover:border-gray-200`
+                              ? `bg-white border ${style.border} ${style.text}`
+                              : `${style.hover} border border-transparent hover:border-gray-200`
                               }`}
                           >
                             <div className="flex items-center">
@@ -4466,8 +4465,8 @@ data-rt-sub16="${createdLandingUuid}"
                 onClick={handleCreateLanding}
                 disabled={creating}
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 ${isTestMode
-                    ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
-                    : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                  ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
+                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
                   }`}
               >
                 {creating ? (
@@ -5238,8 +5237,8 @@ data-rt-sub16="${createdLandingUuid}"
                 <button
                   onClick={handleCopyUuidCode}
                   className={`absolute top-3 right-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${copiedUuid
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
                   title="Копировать код"
                 >
@@ -5421,8 +5420,8 @@ data-rt-sub16="${selectedLandingUuid}"
                 </h4>
 
                 {/* Компонент проверки интеграции */}
-                <IntegrationChecker 
-                  landingUuid={selectedLandingUuid} 
+                <IntegrationChecker
+                  landingUuid={selectedLandingUuid}
                   onIntegrationVerified={(urls) => handleIntegrationVerified(selectedLandingUuid, urls)}
                 />
               </div>
