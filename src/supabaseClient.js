@@ -2026,6 +2026,260 @@ export const trelloService = {
   }
 };
 
+// Сервис для работы с метриками лендингов
+export const landingMetricsService = {
+  // Батчевое сохранение метрик лендингов
+  async saveBatchLandingMetrics(metricsArray) {
+    try {
+      console.log('💾 Батчевое сохранение метрик лендингов:', metricsArray.length);
+
+      if (!metricsArray || metricsArray.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      const dataToInsert = [];
+
+      metricsArray.forEach((m) => {
+        const hasData = m.hasData !== false && m.metricsData?.raw;
+
+        if (hasData) {
+          const rawMetrics = m.metricsData.raw;
+
+          dataToInsert.push({
+            landing_id: m.landingId,
+            article: m.article,
+            period: m.period || 'all',
+            source: m.source,
+            adv_id: m.advId,
+            leads: rawMetrics.leads || 0,
+            cost: rawMetrics.cost || 0,
+            clicks: rawMetrics.clicks || 0,
+            impressions: rawMetrics.impressions || 0,
+            avg_duration: rawMetrics.avg_duration || 0,
+            days_count: rawMetrics.days_count || 0,
+            cost_from_sources: rawMetrics.cost_from_sources || 0,
+            clicks_on_link: rawMetrics.clicks_on_link || 0,
+            cached_at: new Date().toISOString()
+          });
+        } else {
+          dataToInsert.push({
+            landing_id: m.landingId,
+            article: m.article,
+            period: m.period || 'all',
+            source: m.source,
+            adv_id: m.advId,
+            leads: null,
+            cost: null,
+            clicks: null,
+            impressions: null,
+            avg_duration: null,
+            days_count: null,
+            cost_from_sources: null,
+            clicks_on_link: null,
+            cached_at: new Date().toISOString()
+          });
+        }
+      });
+
+      if (dataToInsert.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      const BATCH_SIZE = 100;
+      let totalSaved = 0;
+
+      for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
+        const batch = dataToInsert.slice(i, i + BATCH_SIZE);
+
+        const { error } = await supabase
+          .from('landing_metrics_cache')
+          .upsert(batch, {
+            onConflict: 'landing_id,period,source'
+          });
+
+        if (error) {
+          console.error('❌ Ошибка сохранения батча:', error);
+          continue;
+        }
+
+        totalSaved += batch.length;
+      }
+
+      console.log(`✅ Сохранено ${totalSaved} метрик лендингов`);
+      return { success: true, count: totalSaved };
+
+    } catch (error) {
+      console.error('❌ Ошибка батчевого сохранения метрик лендингов:', error);
+      return { success: false, count: 0, error: error.message };
+    }
+  },
+
+  // Получение кэша метрик для одного лендинга
+  async getLandingMetricsCache(landingId, period = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('landing_metrics_cache')
+        .select('*')
+        .eq('landing_id', landingId)
+        .eq('period', period);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        return data.map(cache => this.reconstructLandingMetrics(cache));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('❌ Ошибка получения кэша метрик лендинга:', error);
+      return [];
+    }
+  },
+
+  // Батчевое получение кэша метрик
+  async getBatchLandingMetricsCache(landingIds, period = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('landing_metrics_cache')
+        .select('*')
+        .in('landing_id', landingIds)
+        .eq('period', period);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        return data.map(cache => this.reconstructLandingMetrics(cache));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('❌ Ошибка батчевого получения кэша:', error);
+      return [];
+    }
+  },
+
+  // Восстановление метрик из кэша
+  reconstructLandingMetrics(cacheData) {
+    if (!cacheData) return null;
+
+    const isAllNull = cacheData.leads === null &&
+      cacheData.cost === null &&
+      cacheData.clicks === null &&
+      cacheData.impressions === null;
+
+    if (isAllNull) {
+      return {
+        landing_id: cacheData.landing_id,
+        source: cacheData.source,
+        adv_id: cacheData.adv_id,
+        period: cacheData.period,
+        found: false,
+        data: null,
+        fromCache: true
+      };
+    }
+
+    const leads = Number(cacheData.leads) || 0;
+    const cost = Number(cacheData.cost) || 0;
+    const clicks = Number(cacheData.clicks) || 0;
+    const impressions = Number(cacheData.impressions) || 0;
+    const avg_duration = Number(cacheData.avg_duration) || 0;
+    const days_count = Number(cacheData.days_count) || 0;
+    const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
+    const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
+
+    const cpl = leads > 0 ? cost / leads : 0;
+    const ctr_percent = impressions > 0 ? (clicks_on_link / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const cpm = impressions > 0 ? (cost_from_sources / impressions) * 1000 : 0;
+
+    const formatInt = (n) => String(Math.round(Number(n) || 0));
+    const formatMoney = (n) => (Number(n) || 0).toFixed(2) + "$";
+    const formatPercent = (n) => (Number(n) || 0).toFixed(2) + "%";
+    const formatDuration = (n) => (Number(n) || 0).toFixed(1) + "с";
+
+    return {
+      landing_id: cacheData.landing_id,
+      source: cacheData.source,
+      adv_id: cacheData.adv_id,
+      period: cacheData.period,
+      found: true,
+      data: {
+        raw: {
+          leads,
+          cost: Number(cost.toFixed(2)),
+          clicks,
+          impressions,
+          avg_duration: Number(avg_duration.toFixed(2)),
+          days_count,
+          cost_from_sources,
+          clicks_on_link,
+          cpl: Number(cpl.toFixed(2)),
+          ctr_percent: Number(ctr_percent.toFixed(2)),
+          cpc: Number(cpc.toFixed(2)),
+          cpm: Number(cpm.toFixed(2))
+        },
+        formatted: {
+          leads: formatInt(leads),
+          cpl: formatMoney(cpl),
+          cost: formatMoney(cost),
+          ctr: formatPercent(ctr_percent),
+          cpc: formatMoney(cpc),
+          cpm: formatMoney(cpm),
+          clicks: formatInt(clicks),
+          impressions: formatInt(impressions),
+          avg_duration: formatDuration(avg_duration),
+          days: formatInt(days_count) + " дн."
+        },
+        source: cacheData.source,
+        advId: cacheData.adv_id
+      },
+      fromCache: true
+    };
+  },
+
+  // Обновление времени последнего обновления
+  async updateLandingMetricsLastUpdate() {
+    try {
+      const { data, error } = await supabase
+        .from('landing_metrics_last_update')
+        .upsert([
+          {
+            id: 1,
+            last_updated: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'id'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка обновления времени:', error);
+      return null;
+    }
+  },
+
+  // Получение времени последнего обновления
+  async getLandingMetricsLastUpdate() {
+    try {
+      const { data, error } = await supabase
+        .from('landing_metrics_last_update')
+        .select('last_updated')
+        .eq('id', 1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data?.last_updated || null;
+    } catch (error) {
+      console.error('❌ Ошибка получения времени:', error);
+      return null;
+    }
+  }
+};
+
 export const metricsAnalyticsService = {
   async uploadMetrics(metricsData) {
     try {
