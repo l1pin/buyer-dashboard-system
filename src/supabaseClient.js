@@ -926,7 +926,7 @@ export const landingService = {
 
     // Вычисляем номер сайта
     const websiteNumber = (existingLandings?.length || 0) + 1;
-    const website = `Сайт ${websiteNumber}`;
+    const website = `Версия ${websiteNumber}`;
 
     console.log(`📊 Для артикула ${landingData.article} будет создан: ${website}`);
 
