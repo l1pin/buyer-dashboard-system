@@ -2042,6 +2042,8 @@ export const landingMetricsService = {
       metricsArray.forEach((m) => {
         const hasData = m.hasData !== false && m.metricsData?.raw;
 
+        console.log(`💾 Сохранение метрик для ${m.landingId}_${m.source}:`, { hasData, leads: m.metricsData?.raw?.leads });
+
         if (hasData) {
           const rawMetrics = m.metricsData.raw;
 
@@ -2051,14 +2053,14 @@ export const landingMetricsService = {
             period: m.period || 'all',
             source: m.source,
             adv_id: m.advId,
-            leads: rawMetrics.leads || 0,
-            cost: rawMetrics.cost || 0,
-            clicks: rawMetrics.clicks || 0,
-            impressions: rawMetrics.impressions || 0,
-            avg_duration: rawMetrics.avg_duration || 0,
-            days_count: rawMetrics.days_count || 0,
-            cost_from_sources: rawMetrics.cost_from_sources || 0,
-            clicks_on_link: rawMetrics.clicks_on_link || 0,
+            leads: Number(rawMetrics.leads) || 0,
+            cost: Number(rawMetrics.cost) || 0,
+            clicks: Number(rawMetrics.clicks) || 0,
+            impressions: Number(rawMetrics.impressions) || 0,
+            avg_duration: Number(rawMetrics.avg_duration) || 0,
+            days_count: Number(rawMetrics.days_count) || 0,
+            cost_from_sources: Number(rawMetrics.cost_from_sources) || 0,
+            clicks_on_link: Number(rawMetrics.clicks_on_link) || 0,
             cached_at: new Date().toISOString()
           });
         } else {
@@ -2080,6 +2082,8 @@ export const landingMetricsService = {
           });
         }
       });
+
+      console.log(`💾 Подготовлено ${dataToInsert.length} записей для сохранения`);
 
       if (dataToInsert.length === 0) {
         return { success: true, count: 0 };
