@@ -71,7 +71,7 @@ export class MetricsService {
         clearTimeout(timeoutId);
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        
+
         if (fetchError.name === 'AbortError') {
           throw new Error(`Таймаут ${timeout}ms превышен для ${videoNames.length} видео`);
         }
@@ -120,7 +120,7 @@ export class MetricsService {
     } catch (error) {
       const isTimeout = error.message.includes('Таймаут');
       console.error(`❌ Ошибка батчевой загрузки ${isTimeout ? '(TIMEOUT)' : ''}:`, error.message);
-      
+
       return {
         success: false,
         error: error.message,
@@ -592,9 +592,8 @@ export class MetricsService {
     if (filteredData.length === 0) {
       return {
         found: false,
-        error: `Нет данных за период: ${
-          targetPeriod === "4days" ? "первые 4 дня" : targetPeriod
-        }`,
+        error: `Нет данных за период: ${targetPeriod === "4days" ? "первые 4 дня" : targetPeriod
+          }`,
       };
     }
 
