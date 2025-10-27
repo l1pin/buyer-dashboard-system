@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
+import { useLandingMetrics } from '../hooks/useLandingMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import {
   Plus,
@@ -285,6 +286,18 @@ function LandingPanel({ user }) {
     loadingCreativeIds
   } = useBatchMetrics(filteredLandings, true, metricsPeriod);
 
+  // Хук для метрик лендингов
+  const {
+    landingMetrics,
+    loading: landingMetricsLoading,
+    error: landingMetricsError,
+    stats: landingMetricsStats,
+    refresh: refreshLandingMetrics,
+    getLandingMetrics,
+    getAllLandingMetrics,
+    hasMetrics: hasLandingMetrics
+  } = useLandingMetrics(filteredLandings, false, metricsPeriod);
+
   const {
     stats: aggregatedMetricsStats,
     formatStats,
@@ -306,13 +319,21 @@ function LandingPanel({ user }) {
 
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
-    const landingMetrics = getCreativeMetrics(landing.id);
+    console.log(`🔍 Получение метрик для лендинга: ${landing.id}`);
+    
+    // Получаем все метрики для этого лендинга (по всем источникам)
+    const allMetricsForLanding = getAllLandingMetrics(landing.id);
 
-    if (!landingMetrics || landingMetrics.length === 0) {
+    console.log(`📊 Найдено метрик для ${landing.id}:`, allMetricsForLanding.length);
+
+    if (!allMetricsForLanding || allMetricsForLanding.length === 0) {
+      console.log(`⚠️ Нет метрик для ${landing.id}`);
       return null;
     }
 
-    const validMetrics = landingMetrics.filter(metric => metric.found && metric.data);
+    const validMetrics = allMetricsForLanding.filter(metric => metric.found && metric.data);
+
+    console.log(`✅ Валидных метрик для ${landing.id}:`, validMetrics.length);
 
     if (validMetrics.length === 0) {
       return null;
@@ -320,6 +341,7 @@ function LandingPanel({ user }) {
 
     const aggregated = validMetrics.reduce((acc, metric) => {
       const data = metric.data.raw;
+      console.log(`➕ Агрегация метрик из источника ${metric.source}:`, data);
       return {
         leads: acc.leads + (data.leads || 0),
         cost: acc.cost + (data.cost || 0),
@@ -341,6 +363,8 @@ function LandingPanel({ user }) {
       clicks_on_link: 0
     });
 
+    console.log(`📈 Итоговые агрегированные метрики для ${landing.id}:`, aggregated);
+
     const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
 
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
@@ -351,7 +375,7 @@ function LandingPanel({ user }) {
     return {
       found: true,
       videoCount: validMetrics.length,
-      totalVideos: landingMetrics.length,
+      totalVideos: allMetricsForLanding.length,
       data: {
         raw: {
           ...aggregated,
@@ -716,6 +740,12 @@ function LandingPanel({ user }) {
     loadUsers();
     loadLandings();
     loadLastUpdateTime();
+    
+    // Автозагрузка метрик лендингов при монтировании
+    if (filteredLandings.length > 0) {
+      console.log('🔄 Автозагрузка метрик лендингов при монтировании');
+      refreshLandingMetrics();
+    }
 
     // Подписка на создание новых лендингов
     const landingsSubscription = supabase
@@ -1692,9 +1722,26 @@ data-rt-sub16="${createdLandingUuid}"
   };
 
   const handleRefreshAll = async () => {
-    console.log(`🔄 Обновление только метрик и зональных данных (период: ${metricsPeriod})`);
-    await refreshMetrics();
-    await refreshZoneData();
+    console.log(`🔄 ЗАПУСК ОБНОВЛЕНИЯ метрик лендингов (период: ${metricsPeriod})`);
+    console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
+    console.log(`📋 UUID лендингов:`, filteredLandings.map(l => l.id));
+    
+    try {
+      console.log('🚀 Вызов refreshLandingMetrics...');
+      await refreshLandingMetrics();
+      console.log('✅ Метрики лендингов обновлены');
+    } catch (error) {
+      console.error('❌ Ошибка обновления метрик лендингов:', error);
+      setError('Ошибка обновления метрик: ' + error.message);
+    }
+    
+    try {
+      await refreshZoneData();
+      console.log('✅ Зональные данные обновлены');
+    } catch (error) {
+      console.error('❌ Ошибка обновления зональных данных:', error);
+    }
+    
     await loadLastUpdateTime();
   };
 
