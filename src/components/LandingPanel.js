@@ -184,7 +184,7 @@ function LandingPanel({ user }) {
     </div>
   );
 
-  // Фильтрация лендингов
+  // Фильтрация лендингов (зависит от metricsDisplayPeriod для пересчёта метрик)
   const filteredLandings = useMemo(() => {
     let landingsToFilter = landings;
 
@@ -269,7 +269,7 @@ function LandingPanel({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, metricsDisplayPeriod]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -319,7 +319,7 @@ function LandingPanel({ user }) {
 
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
-    console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article})`);
+    console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article}), период: ${metricsDisplayPeriod}`);
 
     // Получаем все метрики для этого лендинга (по всем источникам)
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
@@ -365,15 +365,16 @@ function LandingPanel({ user }) {
       return null;
     }
 
-    // Собираем уникальные даты
+    // Собираем уникальные даты из отфильтрованных данных
     const uniqueDates = new Set();
-    
-    const aggregated = filteredDailyData.reduce((acc, day) => {
-      // Добавляем дату в Set уникальных дат
+    filteredDailyData.forEach(day => {
       if (day.date) {
         uniqueDates.add(day.date);
       }
-      
+    });
+
+    // Агрегируем только отфильтрованные данные
+    const aggregated = filteredDailyData.reduce((acc, day) => {
       return {
         leads: acc.leads + (day.leads || 0),
         cost: acc.cost + (day.cost || 0),
@@ -393,12 +394,13 @@ function LandingPanel({ user }) {
       clicks_on_link: 0
     });
 
-    // Количество уникальных дней
+    // Количество уникальных дней из отфильтрованных данных
     const uniqueDaysCount = uniqueDates.size;
 
-    console.log(`📈 Итоговые агрегированные метрики для ${landing.id}:`, {
+    console.log(`📈 Итоговые агрегированные метрики для ${landing.id} (период ${metricsDisplayPeriod}):`, {
       ...aggregated,
-      days_count: uniqueDaysCount
+      days_count: uniqueDaysCount,
+      unique_dates: Array.from(uniqueDates).sort()
     });
 
     const avgDuration = uniqueDaysCount > 0 ? aggregated.duration_sum / uniqueDaysCount : 0;
@@ -443,6 +445,7 @@ function LandingPanel({ user }) {
     };
 
     console.log(`✅ Возвращаем агрегированные метрики для ${landing.id}:`, {
+      period: metricsDisplayPeriod,
       leads: result.data.formatted.leads,
       cost: result.data.formatted.cost,
       cpl: result.data.formatted.cpl,
