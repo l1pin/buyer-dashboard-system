@@ -83,15 +83,22 @@ export class LandingMetricsService {
       };
     }
 
+    // Собираем уникальные даты
+    const uniqueDates = new Set();
+    
     const result = dailyData.reduce(
       (acc, day) => {
+        // Добавляем дату в Set уникальных дат
+        if (day.date) {
+          uniqueDates.add(day.date);
+        }
+        
         return {
           leads: acc.leads + day.leads,
           cost: acc.cost + day.cost,
           clicks: acc.clicks + day.clicks,
           impressions: acc.impressions + day.impressions,
           duration_sum: acc.duration_sum + (day.avg_duration || 0),
-          days_count: acc.days_count + 1,
           cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
           clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
         };
@@ -102,19 +109,21 @@ export class LandingMetricsService {
         clicks: 0,
         impressions: 0,
         duration_sum: 0,
-        days_count: 0,
         cost_from_sources: 0,
         clicks_on_link: 0
       }
     );
+
+    // Количество уникальных дней
+    const uniqueDaysCount = uniqueDates.size;
 
     return {
       leads: result.leads,
       cost: result.cost,
       clicks: result.clicks,
       impressions: result.impressions,
-      avg_duration: result.days_count > 0 ? result.duration_sum / result.days_count : 0,
-      days_count: result.days_count,
+      avg_duration: uniqueDaysCount > 0 ? result.duration_sum / uniqueDaysCount : 0,
+      days_count: uniqueDaysCount,
       cost_from_sources: result.cost_from_sources,
       clicks_on_link: result.clicks_on_link
     };
