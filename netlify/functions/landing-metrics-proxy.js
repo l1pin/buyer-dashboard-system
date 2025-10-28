@@ -287,8 +287,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // Группируем по UUID
+    // Группируем по UUID и собираем УНИКАЛЬНЫЕ комбинации (source, adv_id, date_of_click)
     const uuidToAdvIds = new Map();
+    const uniqueCombinations = new Set();
+    
     conversions.forEach(conv => {
       console.log(`🔄 Обработка конверсии: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}, date_of_click=${conv.date_of_click}`);
       
@@ -301,6 +303,17 @@ exports.handler = async (event) => {
         console.warn(`⚠️ Пропущена конверсия без date_of_click: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}`);
         return;
       }
+      
+      // Создаем уникальный ключ для комбинации
+      const combinationKey = `${conv.uuid}_${conv.source}_${conv.adv_id}_${conv.date_of_click}`;
+      
+      // Пропускаем дубликаты
+      if (uniqueCombinations.has(combinationKey)) {
+        console.log(`⏭️ Пропущен дубликат: ${combinationKey}`);
+        return;
+      }
+      
+      uniqueCombinations.add(combinationKey);
       
       if (!uuidToAdvIds.has(conv.uuid)) {
         uuidToAdvIds.set(conv.uuid, []);
