@@ -486,26 +486,35 @@ function LandingPanel({ user }) {
         return allDailyData;
     }
 
-    // Сортируем по дате
-    const sortedData = [...allDailyData].sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
+    // Шаг 1: Собираем все уникальные даты
+    const allUniqueDates = new Set();
+    allDailyData.forEach(item => {
+      if (item.date) {
+        allUniqueDates.add(item.date);
+      }
+    });
+
+    // Шаг 2: Сортируем даты
+    const sortedDates = Array.from(allUniqueDates).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
       return sortAscending ? dateA - dateB : dateB - dateA;
     });
 
-    // Берём уникальные даты
-    const uniqueDates = new Set();
-    const filteredData = [];
+    // Шаг 3: Берем нужное количество дат
+    const selectedDates = sortedDates.slice(0, daysToTake);
+    const selectedDatesSet = new Set(selectedDates);
 
-    for (const item of sortedData) {
-      if (uniqueDates.size >= daysToTake) {
-        break;
-      }
-      if (item.date && !uniqueDates.has(item.date)) {
-        uniqueDates.add(item.date);
-      }
-      filteredData.push(item);
-    }
+    // Шаг 4: Фильтруем все записи, которые попадают в выбранные даты
+    const filteredData = allDailyData.filter(item => 
+      item.date && selectedDatesSet.has(item.date)
+    );
+
+    console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
+    console.log(`   Всего уникальных дат: ${allUniqueDates.size}`);
+    console.log(`   Выбрано дат: ${selectedDates.length}`);
+    console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
+    console.log(`   Выбранные даты:`, selectedDates);
 
     return filteredData;
   };
