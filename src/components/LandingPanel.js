@@ -3593,7 +3593,11 @@ data-rt-sub16="${selectedLandingUuid}"
                       }
                     }}
                     disabled={loadingUsers}
-                    className={`designer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                    className={`designer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.designer_id
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : isTestMode
+                        ? 'border-gray-300 focus:ring-yellow-500'
+                        : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3696,7 +3700,11 @@ data-rt-sub16="${selectedLandingUuid}"
                       }
                     }}
                     disabled={loadingUsers}
-                    className={`searcher-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                    className={`searcher-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.searcher_id
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : isTestMode
+                        ? 'border-gray-300 focus:ring-yellow-500'
+                        : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3909,7 +3917,10 @@ data-rt-sub16="${selectedLandingUuid}"
                         }
                       }}
                       disabled={loadingUsers}
-                      className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                      className={`buyer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.buyer_id
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
                         {getSelectedBuyer() ? (
@@ -4012,7 +4023,10 @@ data-rt-sub16="${selectedLandingUuid}"
                           }
                         }}
                         disabled={loadingUsers}
-                        className="product-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                        className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.product_manager_id
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-300 focus:ring-yellow-500'
+                        }`}
                       >
                         <div className="flex items-center space-x-2 flex-1">
                           {getSelectedProductManager() ? (
@@ -4579,7 +4593,10 @@ data-rt-sub16="${selectedLandingUuid}"
                         }
                       }}
                       disabled={loadingUsers}
-                      className="buyer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
+                      className={`buyer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.buyer_id
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
                         {editLanding.buyer_id ? (
