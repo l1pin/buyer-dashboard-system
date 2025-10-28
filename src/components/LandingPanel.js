@@ -462,25 +462,32 @@ function LandingPanel({ user }) {
       return allDailyData;
     }
 
-    // Сортируем по дате (самые новые - первые)
-    const sortedData = [...allDailyData].sort((a, b) => {
-      return new Date(b.date) - new Date(a.date);
-    });
-
     let daysToTake = 0;
+    let sortAscending = false; // false = новые первые, true = старые первые
+    
     switch (displayPeriod) {
       case '4days':
         daysToTake = 4;
+        sortAscending = true; // Первые 4 дня (самые старые)
         break;
       case '14days':
         daysToTake = 14;
+        sortAscending = false; // Последние 14 дней (самые новые)
         break;
       case '30days':
         daysToTake = 30;
+        sortAscending = false; // Последние 30 дней (самые новые)
         break;
       default:
-        return sortedData;
+        return allDailyData;
     }
+
+    // Сортируем по дате
+    const sortedData = [...allDailyData].sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortAscending ? dateA - dateB : dateB - dateA;
+    });
 
     // Берём уникальные даты
     const uniqueDates = new Set();
