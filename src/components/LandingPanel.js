@@ -184,7 +184,7 @@ function LandingPanel({ user }) {
     </div>
   );
 
-  // Фильтрация лендингов (зависит от metricsDisplayPeriod для пересчёта метрик)
+  // Фильтрация лендингов
   const filteredLandings = useMemo(() => {
     let landingsToFilter = landings;
 
@@ -269,7 +269,7 @@ function LandingPanel({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, metricsDisplayPeriod]);
+  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -319,7 +319,7 @@ function LandingPanel({ user }) {
 
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
-    console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article}), период: ${metricsDisplayPeriod}`);
+    console.log(`🔍 Получение метрик для лендинга: ${landing.id} (${landing.article})`);
 
     // Получаем все метрики для этого лендинга (по всем источникам)
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
@@ -365,16 +365,15 @@ function LandingPanel({ user }) {
       return null;
     }
 
-    // Собираем уникальные даты из отфильтрованных данных
+    // Собираем уникальные даты
     const uniqueDates = new Set();
-    filteredDailyData.forEach(day => {
+    
+    const aggregated = filteredDailyData.reduce((acc, day) => {
+      // Добавляем дату в Set уникальных дат
       if (day.date) {
         uniqueDates.add(day.date);
       }
-    });
-
-    // Агрегируем только отфильтрованные данные
-    const aggregated = filteredDailyData.reduce((acc, day) => {
+      
       return {
         leads: acc.leads + (day.leads || 0),
         cost: acc.cost + (day.cost || 0),
@@ -394,13 +393,12 @@ function LandingPanel({ user }) {
       clicks_on_link: 0
     });
 
-    // Количество уникальных дней из отфильтрованных данных
+    // Количество уникальных дней
     const uniqueDaysCount = uniqueDates.size;
 
-    console.log(`📈 Итоговые агрегированные метрики для ${landing.id} (период ${metricsDisplayPeriod}):`, {
+    console.log(`📈 Итоговые агрегированные метрики для ${landing.id}:`, {
       ...aggregated,
-      days_count: uniqueDaysCount,
-      unique_dates: Array.from(uniqueDates).sort()
+      days_count: uniqueDaysCount
     });
 
     const avgDuration = uniqueDaysCount > 0 ? aggregated.duration_sum / uniqueDaysCount : 0;
@@ -445,7 +443,6 @@ function LandingPanel({ user }) {
     };
 
     console.log(`✅ Возвращаем агрегированные метрики для ${landing.id}:`, {
-      period: metricsDisplayPeriod,
       leads: result.data.formatted.leads,
       cost: result.data.formatted.cost,
       cpl: result.data.formatted.cpl,
@@ -461,16 +458,7 @@ function LandingPanel({ user }) {
       return [];
     }
 
-    console.log(`🔍 Фильтрация данных для периода: ${displayPeriod}`);
-    console.log(`📊 Всего записей до фильтрации: ${allDailyData.length}`);
-    
-    // Показываем все уникальные даты в данных
-    const allUniqueDates = new Set(allDailyData.map(d => d.date).filter(Boolean));
-    console.log(`📅 Уникальных дат в данных: ${allUniqueDates.size}`);
-    console.log(`📅 Даты:`, Array.from(allUniqueDates).sort());
-
     if (displayPeriod === 'all') {
-      console.log(`✅ Период "Все время" - возвращаем все ${allDailyData.length} записей`);
       return allDailyData;
     }
 
@@ -481,22 +469,18 @@ function LandingPanel({ user }) {
       case 'first_4days':
         daysToTake = 4;
         sortAscending = true; // Первые 4 дня (самые старые)
-        console.log(`📍 Выбран период: 4 ПЕРВЫХ дня (самые старые)`);
         break;
       case 'last_4days':
         daysToTake = 4;
         sortAscending = false; // Последние 4 дня (самые новые)
-        console.log(`📍 Выбран период: 4 ПОСЛЕДНИХ дня (самые новые)`);
         break;
       case '14days':
         daysToTake = 14;
         sortAscending = false; // Последние 14 дней (самые новые)
-        console.log(`📍 Выбран период: 14 ПОСЛЕДНИХ дней (самые новые)`);
         break;
       case '30days':
         daysToTake = 30;
         sortAscending = false; // Последние 30 дней (самые новые)
-        console.log(`📍 Выбран период: 30 ПОСЛЕДНИХ дней (самые новые)`);
         break;
       default:
         return allDailyData;
@@ -508,9 +492,6 @@ function LandingPanel({ user }) {
       const dateB = new Date(b.date);
       return sortAscending ? dateA - dateB : dateB - dateA;
     });
-
-    console.log(`🔄 Данные отсортированы (${sortAscending ? 'по возрастанию' : 'по убыванию'})`);
-    console.log(`📅 Первые 5 дат после сортировки:`, sortedData.slice(0, 5).map(d => d.date));
 
     // Берём уникальные даты
     const uniqueDates = new Set();
@@ -525,16 +506,6 @@ function LandingPanel({ user }) {
       }
       filteredData.push(item);
     }
-
-    console.log(`✅ После фильтрации:`);
-    console.log(`   Записей: ${filteredData.length}`);
-    console.log(`   Уникальных дат: ${uniqueDates.size}`);
-    console.log(`   Даты:`, Array.from(uniqueDates).sort());
-    
-    // Показываем сумму метрик
-    const totalLeads = filteredData.reduce((sum, d) => sum + (d.leads || 0), 0);
-    const totalCost = filteredData.reduce((sum, d) => sum + (d.cost || 0), 0);
-    console.log(`   Лиды: ${totalLeads}, Расход: ${totalCost.toFixed(2)}$`);
 
     return filteredData;
   };
