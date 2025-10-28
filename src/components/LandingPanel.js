@@ -61,7 +61,7 @@ function LandingPanel({ user }) {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [metricsPeriod, setMetricsPeriod] = useState('all');
-  const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('all');
+  const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('last_4days');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedTags, setExpandedTags] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
@@ -466,9 +466,13 @@ function LandingPanel({ user }) {
     let sortAscending = false; // false = новые первые, true = старые первые
     
     switch (displayPeriod) {
-      case '4days':
+      case 'first_4days':
         daysToTake = 4;
         sortAscending = true; // Первые 4 дня (самые старые)
+        break;
+      case 'last_4days':
+        daysToTake = 4;
+        sortAscending = false; // Последние 4 дня (самые новые)
         break;
       case '14days':
         daysToTake = 14;
@@ -1522,11 +1526,12 @@ data-rt-sub16="${selectedLandingUuid}"
 
   const getPeriodButtonText = () => {
     switch (metricsDisplayPeriod) {
-      case '4days': return '4 дня';
-      case '14days': return '14 дней';
-      case '30days': return '30 дней';
+      case 'first_4days': return '4 первых дня';
+      case 'last_4days': return '4 последних дня';
+      case '14days': return '14 последних дней';
+      case '30days': return '30 последних дней';
       case 'all': return 'Все время';
-      default: return 'Все время';
+      default: return '4 последних дня';
     }
   };
 
@@ -2183,15 +2188,23 @@ data-rt-sub16="${selectedLandingUuid}"
               </button>
 
               {showPeriodDropdown && (
-                <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                <div className="period-dropdown absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
                   <div className="py-1">
                     <button
-                      onClick={() => handlePeriodChange('4days')}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      onClick={() => handlePeriodChange('first_4days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === 'first_4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
-                      4 дня
+                      4 первых дня
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('last_4days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === 'last_4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      4 последних дня
                     </button>
                     <button
                       onClick={() => handlePeriodChange('14days')}
@@ -2199,7 +2212,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }`}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
-                      14 дней
+                      14 последних дней
                     </button>
                     <button
                       onClick={() => handlePeriodChange('30days')}
@@ -2207,7 +2220,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }`}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
-                      30 дней
+                      30 последних дней
                     </button>
                     <button
                       onClick={() => handlePeriodChange('all')}
