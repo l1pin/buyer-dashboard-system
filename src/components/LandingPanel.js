@@ -458,7 +458,16 @@ function LandingPanel({ user }) {
       return [];
     }
 
+    console.log(`🔍 Фильтрация данных для периода: ${displayPeriod}`);
+    console.log(`📊 Всего записей до фильтрации: ${allDailyData.length}`);
+    
+    // Показываем все уникальные даты в данных
+    const allUniqueDates = new Set(allDailyData.map(d => d.date).filter(Boolean));
+    console.log(`📅 Уникальных дат в данных: ${allUniqueDates.size}`);
+    console.log(`📅 Даты:`, Array.from(allUniqueDates).sort());
+
     if (displayPeriod === 'all') {
+      console.log(`✅ Период "Все время" - возвращаем все ${allDailyData.length} записей`);
       return allDailyData;
     }
 
@@ -469,18 +478,22 @@ function LandingPanel({ user }) {
       case 'first_4days':
         daysToTake = 4;
         sortAscending = true; // Первые 4 дня (самые старые)
+        console.log(`📍 Выбран период: 4 ПЕРВЫХ дня (самые старые)`);
         break;
       case 'last_4days':
         daysToTake = 4;
         sortAscending = false; // Последние 4 дня (самые новые)
+        console.log(`📍 Выбран период: 4 ПОСЛЕДНИХ дня (самые новые)`);
         break;
       case '14days':
         daysToTake = 14;
         sortAscending = false; // Последние 14 дней (самые новые)
+        console.log(`📍 Выбран период: 14 ПОСЛЕДНИХ дней (самые новые)`);
         break;
       case '30days':
         daysToTake = 30;
         sortAscending = false; // Последние 30 дней (самые новые)
+        console.log(`📍 Выбран период: 30 ПОСЛЕДНИХ дней (самые новые)`);
         break;
       default:
         return allDailyData;
@@ -492,6 +505,9 @@ function LandingPanel({ user }) {
       const dateB = new Date(b.date);
       return sortAscending ? dateA - dateB : dateB - dateA;
     });
+
+    console.log(`🔄 Данные отсортированы (${sortAscending ? 'по возрастанию' : 'по убыванию'})`);
+    console.log(`📅 Первые 5 дат после сортировки:`, sortedData.slice(0, 5).map(d => d.date));
 
     // Берём уникальные даты
     const uniqueDates = new Set();
@@ -506,6 +522,16 @@ function LandingPanel({ user }) {
       }
       filteredData.push(item);
     }
+
+    console.log(`✅ После фильтрации:`);
+    console.log(`   Записей: ${filteredData.length}`);
+    console.log(`   Уникальных дат: ${uniqueDates.size}`);
+    console.log(`   Даты:`, Array.from(uniqueDates).sort());
+    
+    // Показываем сумму метрик
+    const totalLeads = filteredData.reduce((sum, d) => sum + (d.leads || 0), 0);
+    const totalCost = filteredData.reduce((sum, d) => sum + (d.cost || 0), 0);
+    console.log(`   Лиды: ${totalLeads}, Расход: ${totalCost.toFixed(2)}$`);
 
     return filteredData;
   };
