@@ -61,7 +61,7 @@ function LandingPanel({ user }) {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [metricsPeriod, setMetricsPeriod] = useState('all');
-  const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('last_4days');
+  const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedTags, setExpandedTags] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
@@ -1531,7 +1531,7 @@ data-rt-sub16="${selectedLandingUuid}"
       case '14days': return '14 последних дней';
       case '30days': return '30 последних дней';
       case 'all': return 'Все время';
-      default: return '4 последних дня';
+      default: return 'Все время';
     }
   };
 
