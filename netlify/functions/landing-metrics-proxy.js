@@ -333,14 +333,11 @@ exports.handler = async (event) => {
 
     const metrics = await getMetricsFromAdsCollection(validConversions, date_from, date_to);
 
-    // Шаг 3: Группируем метрики по (adv_id, date)
+    // Шаг 3: Создаем Map для метрик по (adv_id, date) для быстрого поиска
     const metricsByAdvIdAndDate = new Map();
     metrics.forEach(metric => {
       const key = `${metric.adv_id}_${metric.adv_date}`;
-      if (!metricsByAdvIdAndDate.has(key)) {
-        metricsByAdvIdAndDate.set(key, []);
-      }
-      metricsByAdvIdAndDate.get(key).push({
+      metricsByAdvIdAndDate.set(key, {
         date: metric.adv_date,
         leads: Number(metric.leads) || 0,
         cost: Number(metric.cost) || 0,
@@ -352,21 +349,42 @@ exports.handler = async (event) => {
       });
     });
 
-    // Шаг 4: Формируем результаты по UUID
-    const results = [];
+    // Шаг 4: Группируем по (uuid, source, adv_id) и собираем все даты
+    const groupedResults = new Map();
     
     uuidToAdvIds.forEach((advIdList, uuid) => {
       advIdList.forEach(({ source, adv_id, date_of_click }) => {
-        const key = `${adv_id}_${date_of_click}`;
-        const dailyMetrics = metricsByAdvIdAndDate.get(key) || [];
+        const groupKey = `${uuid}_${source}_${adv_id}`;
         
-        results.push({
-          uuid: uuid,
-          source: source,
-          adv_id: adv_id,
-          found: dailyMetrics.length > 0,
-          daily: dailyMetrics
-        });
+        if (!groupedResults.has(groupKey)) {
+          groupedResults.set(groupKey, {
+            uuid: uuid,
+            source: source,
+            adv_id: adv_id,
+            daily: []
+          });
+        }
+        
+        // Ищем метрики для этой конкретной даты
+        const metricsKey = `${adv_id}_${date_of_click}`;
+        const dayMetrics = metricsByAdvIdAndDate.get(metricsKey);
+        
+        if (dayMetrics) {
+          groupedResults.get(groupKey).daily.push(dayMetrics);
+        }
+      });
+    });
+
+    // Шаг 5: Формируем итоговый массив результатов
+    const results = [];
+    
+    groupedResults.forEach((value) => {
+      results.push({
+        uuid: value.uuid,
+        source: value.source,
+        adv_id: value.adv_id,
+        found: value.daily.length > 0,
+        daily: value.daily
       });
     });
 
