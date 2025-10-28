@@ -104,9 +104,9 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   }
 }
 
-// Получение adv_id из conversions_collection
+// Получение adv_id и date_of_click из conversions_collection
 async function getAdvIdsFromConversions(uuids) {
-  console.log(`🔍 Поиск adv_id для ${uuids.length} UUID в conversions_collection...`);
+  console.log(`🔍 Поиск adv_id и date_of_click для ${uuids.length} UUID в conversions_collection...`);
   console.log('📋 Искомые UUID:', uuids);
 
   const uuidConditions = uuids.map(uuid => `'${escapeString(uuid)}'`).join(',');
@@ -118,6 +118,7 @@ async function getAdvIdsFromConversions(uuids) {
       sub1,
       sub5,
       sub4,
+      date_of_click,
       CASE 
         WHEN source = 'facebook' THEN sub1
         WHEN source = 'google' THEN sub5
@@ -127,6 +128,7 @@ async function getAdvIdsFromConversions(uuids) {
     FROM conversions_collection
     WHERE sub16 IN (${uuidConditions})
       AND source IN ('facebook', 'google', 'tiktok')
+      AND date_of_click IS NOT NULL
       AND (
         (source = 'facebook' AND sub1 IS NOT NULL AND sub1 != '') OR
         (source = 'google' AND sub5 IS NOT NULL AND sub5 != '') OR
@@ -151,13 +153,13 @@ async function getAdvIdsFromConversions(uuids) {
     if (results.length > 0) {
       console.log('📊 Детали найденных записей:');
       results.forEach((row, index) => {
-        console.log(`  [${index}] uuid=${row.uuid}, source=${row.source}, sub1=${row.sub1}, sub5=${row.sub5}, sub4=${row.sub4}, adv_id=${row.adv_id}`);
+        console.log(`  [${index}] uuid=${row.uuid}, source=${row.source}, sub1=${row.sub1}, sub5=${row.sub5}, sub4=${row.sub4}, adv_id=${row.adv_id}, date_of_click=${row.date_of_click}`);
       });
     } else {
       console.warn('⚠️ Не найдено ни одной записи! Проверяем первые 5 записей из conversions_collection...');
       
       // Диагностический запрос
-      const diagnosticSql = `SELECT sub16, source, sub1, sub5, sub4 FROM conversions_collection LIMIT 5`;
+      const diagnosticSql = `SELECT sub16, source, sub1, sub5, sub4, date_of_click FROM conversions_collection LIMIT 5`;
       console.log('🔍 Диагностический SQL:', diagnosticSql);
       
       try {
@@ -175,11 +177,22 @@ async function getAdvIdsFromConversions(uuids) {
   }
 }
 
-// Получение метрик из ads_collection по adv_id
-async function getMetricsFromAdsCollection(advIds, dateFrom = null, dateTo = null) {
-  console.log(`🔍 Поиск метрик для ${advIds.length} adv_id в ads_collection...`);
+// Получение метрик из ads_collection по adv_id и date_of_click
+async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dateTo = null) {
+  console.log(`🔍 Поиск метрик для ${conversionsData.length} записей в ads_collection...`);
 
-  const advIdConditions = advIds.map(id => `'${escapeString(id)}'`).join(',');
+  // Создаем условия для поиска по парам (adv_id, date_of_click)
+  const conditions = conversionsData
+    .filter(conv => conv.adv_id && conv.date_of_click)
+    .map(conv => {
+      return `(t.adv_id = '${escapeString(conv.adv_id)}' AND t.adv_date = '${escapeString(conv.date_of_click)}')`;
+    })
+    .join(' OR ');
+
+  if (!conditions) {
+    console.warn('⚠️ Нет валидных условий для поиска в ads_collection');
+    return [];
+  }
 
   let dateFilter = '';
   if (dateFrom && dateTo) {
@@ -199,7 +212,7 @@ async function getMetricsFromAdsCollection(advIds, dateFrom = null, dateTo = nul
       COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
       COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
     FROM ads_collection t
-    WHERE t.adv_id IN (${advIdConditions})
+    WHERE (${conditions})
       AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
       ${dateFilter}
     GROUP BY t.adv_id, t.adv_date
@@ -277,10 +290,15 @@ exports.handler = async (event) => {
     // Группируем по UUID
     const uuidToAdvIds = new Map();
     conversions.forEach(conv => {
-      console.log(`🔄 Обработка конверсии: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}`);
+      console.log(`🔄 Обработка конверсии: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}, date_of_click=${conv.date_of_click}`);
       
       if (!conv.adv_id) {
         console.warn(`⚠️ Пропущена конверсия без adv_id: uuid=${conv.uuid}, source=${conv.source}`);
+        return;
+      }
+
+      if (!conv.date_of_click) {
+        console.warn(`⚠️ Пропущена конверсия без date_of_click: uuid=${conv.uuid}, source=${conv.source}, adv_id=${conv.adv_id}`);
         return;
       }
       
@@ -290,22 +308,22 @@ exports.handler = async (event) => {
       
       uuidToAdvIds.get(conv.uuid).push({
         source: conv.source,
-        adv_id: conv.adv_id
+        adv_id: conv.adv_id,
+        date_of_click: conv.date_of_click
       });
     });
 
     console.log(`📊 Уникальных UUID с adv_id: ${uuidToAdvIds.size}`);
-    console.log('📋 Мапинг UUID → adv_id:', Array.from(uuidToAdvIds.entries()).map(([uuid, advIds]) => ({
+    console.log('📋 Мапинг UUID → adv_id → date:', Array.from(uuidToAdvIds.entries()).map(([uuid, advIds]) => ({
       uuid,
-      advIds: advIds.map(a => `${a.source}:${a.adv_id}`)
+      advIds: advIds.map(a => `${a.source}:${a.adv_id}:${a.date_of_click}`)
     })));
 
     // Шаг 2: Получаем метрики из ads_collection
-    const allAdvIds = conversions.map(c => c.adv_id).filter(Boolean);
-    const uniqueAdvIds = [...new Set(allAdvIds)];
+    const validConversions = conversions.filter(c => c.adv_id && c.date_of_click);
 
-    if (uniqueAdvIds.length === 0) {
-      console.log('⚠️ Нет валидных adv_id для поиска');
+    if (validConversions.length === 0) {
+      console.log('⚠️ Нет валидных пар (adv_id, date_of_click) для поиска');
       return {
         statusCode: 200,
         headers,
@@ -313,15 +331,16 @@ exports.handler = async (event) => {
       };
     }
 
-    const metrics = await getMetricsFromAdsCollection(uniqueAdvIds, date_from, date_to);
+    const metrics = await getMetricsFromAdsCollection(validConversions, date_from, date_to);
 
-    // Шаг 3: Группируем метрики по adv_id
-    const metricsByAdvId = new Map();
+    // Шаг 3: Группируем метрики по (adv_id, date)
+    const metricsByAdvIdAndDate = new Map();
     metrics.forEach(metric => {
-      if (!metricsByAdvId.has(metric.adv_id)) {
-        metricsByAdvId.set(metric.adv_id, []);
+      const key = `${metric.adv_id}_${metric.adv_date}`;
+      if (!metricsByAdvIdAndDate.has(key)) {
+        metricsByAdvIdAndDate.set(key, []);
       }
-      metricsByAdvId.get(metric.adv_id).push({
+      metricsByAdvIdAndDate.get(key).push({
         date: metric.adv_date,
         leads: Number(metric.leads) || 0,
         cost: Number(metric.cost) || 0,
@@ -337,8 +356,9 @@ exports.handler = async (event) => {
     const results = [];
     
     uuidToAdvIds.forEach((advIdList, uuid) => {
-      advIdList.forEach(({ source, adv_id }) => {
-        const dailyMetrics = metricsByAdvId.get(adv_id) || [];
+      advIdList.forEach(({ source, adv_id, date_of_click }) => {
+        const key = `${adv_id}_${date_of_click}`;
+        const dailyMetrics = metricsByAdvIdAndDate.get(key) || [];
         
         results.push({
           uuid: uuid,
