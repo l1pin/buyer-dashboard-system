@@ -1761,32 +1761,15 @@ data-rt-sub16="${selectedLandingUuid}"
     return designers.find(d => d.id === newLanding.designer_id);
   };
 
-  const getSelectedEditor = () => {
-    if (!newLanding.editor_id) return null;
-    return editors.find(e => e.id === newLanding.editor_id);
-  };
-
   const getSelectedProductManager = () => {
     if (!newLanding.product_manager_id) return null;
     return productManagers.find(p => p.id === newLanding.product_manager_id);
-  };
-
-  const getEditorName = (editorId) => {
-    if (!editorId) return '—';
-    const editor = editors.find(e => e.id === editorId);
-    return editor ? editor.name : 'Удален';
   };
 
   const getProductManagerName = (pmId) => {
     if (!pmId) return '—';
     const pm = productManagers.find(p => p.id === pmId);
     return pm ? pm.name : 'Удален';
-  };
-
-  const getEditorAvatar = (editorId) => {
-    if (!editorId) return null;
-    const editor = editors.find(e => e.id === editorId);
-    return editor ? editor.avatar_url : null;
   };
 
   const getProductManagerAvatar = (pmId) => {
@@ -3905,7 +3888,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* Buyer ИЛИ Editor + Product в зависимости от режима */}
+              {/* Buyer ИЛИ + Product в зависимости от режима */}
               {!isTestMode ? (
                 // Обычный режим - Buyer
                 <div>
