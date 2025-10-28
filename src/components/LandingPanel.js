@@ -2697,93 +2697,24 @@ data-rt-sub16="${selectedLandingUuid}"
               </div>
             </div>
 
-            {/* CPC */}
+            {/* CR */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPC</span>
+                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CR</span>
                     </div>
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
                       <dt className="text-xs font-medium text-gray-500 truncate">
-                        CPC
+                        CR
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {hasMetricsData ? (aggregatedMetricsStats.totalClicks > 0 ?
-                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalClicks).toFixed(2) + '$' :
-                          '0.00$') : '—'}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* CTR */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CTR</span>
-                    </div>
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        CTR
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? formatStats().avgCTR : '—'}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* CPM */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-[8px] sm:text-[9px] md:text-[10px]">CPM</span>
-                    </div>
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        CPM
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (aggregatedMetricsStats.totalImpressions > 0 ?
-                          ((aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalImpressions) * 1000).toFixed(2) + '$' :
-                          '0.00$') : '—'}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Показы */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Показы
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? Math.round(aggregatedMetricsStats.totalImpressions).toLocaleString() : '—'}
+                          ((aggregatedMetricsStats.totalLeads / aggregatedMetricsStats.totalClicks) * 100).toFixed(2) + '%' :
+                          '0.00%') : '—'}
                       </dd>
                     </dl>
                   </div>
@@ -2897,19 +2828,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Клики
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CPC
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CTR
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        CPM
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Показы
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Время
+                        CR
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дней
@@ -3211,63 +3130,10 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : aggregatedMetrics?.found ? (
                               <span className="font-bold text-sm cursor-text select-text text-black">
-                                {aggregatedMetrics.data.formatted.cpc}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                            {(metricsLoading || loadingCreativeIds.has(landing.id)) ? (
-                              <div className="flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                              </div>
-                            ) : aggregatedMetrics?.found ? (
-                              <span className="font-bold text-sm cursor-text select-text text-black">
-                                {aggregatedMetrics.data.formatted.ctr}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                            {(metricsLoading || loadingCreativeIds.has(landing.id)) ? (
-                              <div className="flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                              </div>
-                            ) : aggregatedMetrics?.found ? (
-                              <span className="font-bold text-sm cursor-text select-text text-black">
-                                {aggregatedMetrics.data.formatted.cpm}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                            {(metricsLoading || loadingCreativeIds.has(landing.id)) ? (
-                              <div className="flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                              </div>
-                            ) : aggregatedMetrics?.found ? (
-                              <span className="font-bold text-sm cursor-text select-text text-black">
-                                {aggregatedMetrics.data.formatted.impressions}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                            {(metricsLoading || loadingCreativeIds.has(landing.id)) ? (
-                              <div className="flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                              </div>
-                            ) : aggregatedMetrics?.found ? (
-                              <span className="font-bold text-sm cursor-text select-text text-black">
-                                {aggregatedMetrics.data.formatted.avg_duration || '0.0с'}
+                                {aggregatedMetrics.data.raw.clicks > 0 
+                                  ? ((aggregatedMetrics.data.raw.leads / aggregatedMetrics.data.raw.clicks) * 100).toFixed(2) + '%'
+                                  : '0.00%'
+                                }
                               </span>
                             ) : (
                               <span className="text-gray-400 cursor-text select-text">—</span>
