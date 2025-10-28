@@ -103,7 +103,6 @@ function LandingPanel({ user }) {
     buyer_id: null,
     searcher_id: null,
     is_test: false,
-    editor_id: null,
     product_manager_id: null,
     gifer_id: null
   });
@@ -131,12 +130,10 @@ function LandingPanel({ user }) {
   const [showFilterBuyerDropdown, setShowFilterBuyerDropdown] = useState(false);
   const [showFilterSearcherDropdown, setShowFilterSearcherDropdown] = useState(false);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
-  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
-  const [showEditorDropdown, setShowEditorDropdown] = useState(false);
+  const [showTagsDropdown, setShowTagsDropdown] = useState(false);  
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showGiferDropdown, setShowGiferDropdown] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
-  const [editors, setEditors] = useState([]);
   const [productManagers, setProductManagers] = useState([]);
   const [gifers, setGifers] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -1132,11 +1129,10 @@ function LandingPanel({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
 
-      const [buyersData, searchersData, designersData, editorsData, productManagersData, gifersData] = await Promise.all([
+      const [buyersData, searchersData, designersData, productManagersData, gifersData] = await Promise.all([
         userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager'),
         userService.getUsersByRole('designer'),
-        userService.getUsersByRole('proofreader'),
         userService.getUsersByRole('product_manager'),
         userService.getUsersByRole('gif_creator')
       ]);
@@ -1144,10 +1140,9 @@ function LandingPanel({ user }) {
       setBuyers(buyersData);
       setSearchers(searchersData);
       setDesigners(designersData);
-      setEditors(editorsData);
       setProductManagers(productManagersData);
       setGifers(gifersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${editorsData.length} редакторов, ${productManagersData.length} продакт менеджеров и ${gifersData.length} гиферов`);
+      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${productManagersData.length} продакт менеджеров и ${gifersData.length} гиферов`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1168,7 +1163,6 @@ function LandingPanel({ user }) {
       const buyerName = newLanding.buyer_id ? getBuyerName(newLanding.buyer_id) : null;
       const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
       const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
-      const editorName = newLanding.editor_id ? getEditorName(newLanding.editor_id) : null;
       const productManagerName = newLanding.product_manager_id ? getProductManagerName(newLanding.product_manager_id) : null;
       const giferName = newLanding.gifer_id ? getGiferName(newLanding.gifer_id) : null;
 
@@ -1190,9 +1184,9 @@ function LandingPanel({ user }) {
         searcher: searcherName !== '—' ? searcherName : null,
         gifer: giferName !== '—' ? giferName : null,
         is_test: isTestMode,
-        editor_id: isTestMode ? newLanding.editor_id : null,
+        editor_id: null,
         product_manager_id: isTestMode ? newLanding.product_manager_id : null,
-        editor: isTestMode ? (editorName !== '—' ? editorName : null) : null,
+        editor: null,
         product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null
       });
 
@@ -1245,7 +1239,8 @@ function LandingPanel({ user }) {
         trello_link: '',
         designer_id: null,
         buyer_id: null,
-        searcher_id: null
+        searcher_id: null,
+        gifer_id: null
       });
       setShowCreateModal(false);
 
@@ -1320,9 +1315,9 @@ function LandingPanel({ user }) {
         searcher: editingLanding.searcher,
         gifer: editingLanding.gifer,
         is_test: editingLanding.is_test,
-        editor_id: editingLanding.editor_id,
+        editor_id: null,
         product_manager_id: editingLanding.product_manager_id,
-        editor: editingLanding.editor,
+        editor: null,
         product_manager: editingLanding.product_manager,
         changed_by_id: user.id,
         changed_by_name: user.name,
@@ -1502,9 +1497,6 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.tags-dropdown') && !event.target.closest('.tags-trigger')) {
         setShowTagsDropdown(false);
       }
-      if (!event.target.closest('.editor-dropdown') && !event.target.closest('.editor-trigger')) {
-        setShowEditorDropdown(false);
-      }
       if (!event.target.closest('.product-dropdown') && !event.target.closest('.product-trigger')) {
         setShowProductDropdown(false);
       }
@@ -1524,7 +1516,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showEditorDropdown, showProductDropdown, showGiferDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -1623,11 +1615,6 @@ data-rt-sub16="${selectedLandingUuid}"
       errorMessages.push('Необходимо выбрать байера');
     }
 
-    if (editLanding.tags.length === 0) {
-      errors.tags = true;
-      errorMessages.push('Необходимо выбрать хотя бы один тег');
-    }
-
     if (!editLanding.trello_link.trim()) {
       errors.trello_link = true;
       errorMessages.push('Карточка Trello обязательна для заполнения');
@@ -1678,9 +1665,9 @@ data-rt-sub16="${selectedLandingUuid}"
       errorMessages.push('Выберите серчера');
     }
 
-    if (newLanding.tags.length === 0) {
-      errors.tags = true;
-      errorMessages.push('Выберите хотя бы один тег');
+    if (!newLanding.gifer_id) {
+      errors.gifer_id = true;
+      errorMessages.push('Выберите гифера');
     }
 
     if (!newLanding.trello_link.trim()) {
@@ -1697,12 +1684,7 @@ data-rt-sub16="${selectedLandingUuid}"
 
     // Проверка в зависимости от режима
     if (isTestMode) {
-      // Для тестового режима - обязательны Editor и Product
-      if (!newLanding.editor_id) {
-        errors.editor_id = true;
-        errorMessages.push('Выберите редактора');
-      }
-
+      // Для тестового режима - обязателен Product
       if (!newLanding.product_manager_id) {
         errors.product_manager_id = true;
         errorMessages.push('Выберите продакт менеджера');
@@ -2884,9 +2866,6 @@ data-rt-sub16="${selectedLandingUuid}"
                         Searcher
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Editor
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Product
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -3312,34 +3291,6 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {(landing.editor_id || landing.editor) ? (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                  {getEditorAvatar(landing.editor_id) ? (
-                                    <img
-                                      src={getEditorAvatar(landing.editor_id)}
-                                      alt="Editor"
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(landing.editor_id) ? 'hidden' : ''}`}>
-                                    <Edit className="h-3 w-3 text-gray-400" />
-                                  </div>
-                                </div>
-                                <span className="text-sm text-gray-900 cursor-text select-text">
-                                  {landing.editor_id ? getEditorName(landing.editor_id) : landing.editor}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             {(landing.product_manager_id || landing.product_manager) ? (
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
@@ -3437,7 +3388,6 @@ data-rt-sub16="${selectedLandingUuid}"
                       buyer_id: null,
                       searcher_id: null,
                       is_test: !isTestMode,
-                      editor_id: null,
                       product_manager_id: null,
                       gifer_id: null
                     });
@@ -3447,7 +3397,6 @@ data-rt-sub16="${selectedLandingUuid}"
                     setShowDesignerDropdown(false);
                     setShowTemplateDropdown(false);
                     setShowTagsDropdown(false);
-                    setShowEditorDropdown(false);
                     setShowProductDropdown(false);
                     setShowGiferDropdown(false);
                     // Очищаем ошибки
@@ -3482,14 +3431,12 @@ data-rt-sub16="${selectedLandingUuid}"
                     buyer_id: null,
                     searcher_id: null,
                     is_test: false,
-                    editor_id: null,
                     product_manager_id: null,
                     gifer_id: null
                   });
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
                   setShowDesignerDropdown(false);
-                  setShowEditorDropdown(false);
                   setShowProductDropdown(false);
                   setShowGiferDropdown(false);
                   clearMessages();
@@ -3659,7 +3606,6 @@ data-rt-sub16="${selectedLandingUuid}"
                         setShowSearcherDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowEditorDropdown(false);
                         setShowProductDropdown(false);
                       }
                     }}
@@ -3763,7 +3709,6 @@ data-rt-sub16="${selectedLandingUuid}"
                         setShowDesignerDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowEditorDropdown(false);
                         setShowProductDropdown(false);
                       }
                     }}
@@ -3852,10 +3797,10 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* GIFer - необязательное поле для обоих режимов */}
+              {/* GIFer - обязательное поле для обоих режимов */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">
-                  GIFer
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.gifer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                  GIFer *
                 </label>
                 <div className="relative">
                   <button
@@ -3868,12 +3813,15 @@ data-rt-sub16="${selectedLandingUuid}"
                         setShowDesignerDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowEditorDropdown(false);
                         setShowProductDropdown(false);
                       }
                     }}
                     disabled={loadingUsers}
-                    className={`gifer-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                    className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.gifer_id
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : isTestMode
+                        ? 'border-gray-300 focus:ring-yellow-500'
+                        : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3898,7 +3846,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           <span className="text-gray-900 truncate">{getSelectedGifer().name}</span>
                         </>
                       ) : (
-                        <span className="text-gray-500">Выберите гифера (необязательно)</span>
+                        <span className="text-gray-500">Выберите гифера</span>
                       )}
                     </div>
                     <div className="flex items-center space-x-1">
@@ -3908,6 +3856,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           onClick={(e) => {
                             e.stopPropagation();
                             setNewLanding({ ...newLanding, gifer_id: null });
+                            clearFieldError('gifer_id');
                           }}
                           className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                           title="Очистить выбор"
@@ -3928,6 +3877,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           onClick={() => {
                             setNewLanding({ ...newLanding, gifer_id: gifer.id });
                             setShowGiferDropdown(false);
+                            clearFieldError('gifer_id');
                           }}
                           className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                         >
@@ -3972,7 +3922,6 @@ data-rt-sub16="${selectedLandingUuid}"
                           setShowDesignerDropdown(false);
                           setShowTemplateDropdown(false);
                           setShowTagsDropdown(false);
-                          setShowEditorDropdown(false);
                           setShowProductDropdown(false);
                         }
                       }}
@@ -4060,110 +4009,8 @@ data-rt-sub16="${selectedLandingUuid}"
                   </div>
                 </div>
               ) : (
-                // Тестовый режим - Editor и Product
+                // Тестовый режим - Product
                 <>
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.editor_id ? 'text-red-600' : 'text-gray-700'}`}>
-                      Editor *
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!loadingUsers) {
-                            setShowEditorDropdown(!showEditorDropdown);
-                            setShowProductDropdown(false);
-                            setShowBuyerDropdown(false);
-                            setShowSearcherDropdown(false);
-                            setShowDesignerDropdown(false);
-                            setShowTemplateDropdown(false);
-                            setShowTagsDropdown(false);
-                          }
-                        }}
-                        disabled={loadingUsers}
-                        className="editor-trigger w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50"
-                      >
-                        <div className="flex items-center space-x-2 flex-1">
-                          {getSelectedEditor() ? (
-                            <>
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                {getSelectedEditor().avatar_url ? (
-                                  <img
-                                    src={getSelectedEditor().avatar_url}
-                                    alt="Editor"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${getSelectedEditor().avatar_url ? 'hidden' : ''}`}>
-                                  <Edit className="h-3 w-3 text-gray-400" />
-                                </div>
-                              </div>
-                              <span className="text-gray-900 truncate">{getSelectedEditor().name}</span>
-                            </>
-                          ) : (
-                            <span className="text-gray-500">Выберите редактора</span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {getSelectedEditor() && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNewLanding({ ...newLanding, editor_id: null });
-                                clearFieldError('editor_id');
-                              }}
-                              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                              title="Очистить выбор"
-                            >
-                              <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                            </button>
-                          )}
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        </div>
-                      </button>
-
-                      {showEditorDropdown && !loadingUsers && (
-                        <div className="editor-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {editors.map((editor) => (
-                            <button
-                              key={editor.id}
-                              type="button"
-                              onClick={() => {
-                                setNewLanding({ ...newLanding, editor_id: editor.id });
-                                setShowEditorDropdown(false);
-                                clearFieldError('editor_id');
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                {editor.avatar_url ? (
-                                  <img
-                                    src={editor.avatar_url}
-                                    alt="Editor"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${editor.avatar_url ? 'hidden' : ''}`}>
-                                  <Edit className="h-3 w-3 text-gray-400" />
-                                </div>
-                              </div>
-                              <span className="text-gray-900 truncate">{editor.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   <div>
                     <label className={`block text-sm font-medium mb-2 ${fieldErrors.product_manager_id ? 'text-red-600' : 'text-gray-700'}`}>
                       Product *
@@ -4174,7 +4021,6 @@ data-rt-sub16="${selectedLandingUuid}"
                         onClick={() => {
                           if (!loadingUsers) {
                             setShowProductDropdown(!showProductDropdown);
-                            setShowEditorDropdown(false);
                             setShowBuyerDropdown(false);
                             setShowSearcherDropdown(false);
                             setShowDesignerDropdown(false);
@@ -4287,18 +4133,16 @@ data-rt-sub16="${selectedLandingUuid}"
 
               {/* Теги - красивый множественный dropdown */}
               <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.tags ? 'text-red-600' : 'text-gray-700'}`}>
-                  Теги * ({newLanding.tags.length} выбрано)
+                <label className="block text-sm font-medium mb-2 text-gray-700">
+                  Теги ({newLanding.tags.length} выбрано)
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowTagsDropdown(!showTagsDropdown)}
-                    className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${fieldErrors.tags
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : isTestMode
-                        ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                    className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${isTestMode
+                      ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
                   >
                     <div className="flex items-center justify-between">
@@ -4337,7 +4181,6 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={(e) => {
                               e.stopPropagation();
                               setNewLanding({ ...newLanding, tags: [] });
-                              clearFieldError('tags');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить все теги"
@@ -4375,7 +4218,6 @@ data-rt-sub16="${selectedLandingUuid}"
                                 updatedTags = [...newLanding.tags, tag];
                               }
                               setNewLanding({ ...newLanding, tags: updatedTags });
-                              clearFieldError('tags');
                             }}
                             className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between ${isSelected
                               ? `bg-white border ${style.border} ${style.text}`
@@ -4416,7 +4258,6 @@ data-rt-sub16="${selectedLandingUuid}"
                     buyer_id: null,
                     searcher_id: null,
                     is_test: false,
-                    editor_id: null,
                     product_manager_id: null,
                     gifer_id: null
                   });
@@ -4425,7 +4266,6 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowDesignerDropdown(false);
                   setShowTemplateDropdown(false);
                   setShowTagsDropdown(false);
-                  setShowEditorDropdown(false);
                   setShowProductDropdown(false);
                   setShowGiferDropdown(false);
                   clearMessages();
@@ -4988,7 +4828,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           <span className="text-gray-900 truncate">{getGiferName(editLanding.gifer_id)}</span>
                         </>
                       ) : (
-                        <span className="text-gray-500">Выберите гифера (необязательно)</span>
+                        <span className="text-gray-500">Выберите гифера</span>
                       )}
                     </div>
                     <div className="flex items-center space-x-1">
