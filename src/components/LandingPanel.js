@@ -2805,9 +2805,6 @@ data-rt-sub16="${selectedLandingUuid}"
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Зона
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <BarChart3 className="h-4 w-4 mx-auto" />
-                      </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Лиды
@@ -2983,11 +2980,6 @@ data-rt-sub16="${selectedLandingUuid}"
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             {landing.tags && landing.tags.length > 0 ? (
                               <div className="space-y-1">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white text-gray-700 border-gray-300 cursor-text select-text`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1.5"></span>
-                                  Теги ({landing.tags.length})
-                                </span>
-
                                 <div>
                                   <button
                                     onClick={(e) => {
@@ -3040,12 +3032,6 @@ data-rt-sub16="${selectedLandingUuid}"
 
                           <td className="px-3 py-4 text-sm text-gray-900 text-center">
                             <CurrentZoneDisplay article={landing.article} metricsData={aggregatedMetrics} />
-                          </td>
-
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                            <div className="flex items-center justify-center">
-                              <div className="w-8 h-8"></div>
-                            </div>
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
