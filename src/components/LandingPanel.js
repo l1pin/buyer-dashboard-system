@@ -3103,7 +3103,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               >
                                 {aggregatedMetrics.data.formatted.cost}
                                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                  Расход FB: {aggregatedMetrics.data.raw.cost_from_sources?.toFixed(2)}$
+                                  Расход (источник): {aggregatedMetrics.data.raw.cost_from_sources?.toFixed(2)}$
                                 </span>
                               </span>
                             ) : (
@@ -3122,7 +3122,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               >
                                 {aggregatedMetrics.data.formatted.clicks}
                                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                  Клики FB: {aggregatedMetrics.data.raw.clicks_on_link}
+                                  Клики (источник): {aggregatedMetrics.data.raw.clicks_on_link}
                                 </span>
                               </span>
                             ) : (
@@ -3144,7 +3144,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   : '0.00%'
                                 }
                                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                  CR FB: {aggregatedMetrics.data.raw.clicks_on_link > 0 
+                                  CR (источник): {aggregatedMetrics.data.raw.clicks_on_link > 0 
                                     ? ((aggregatedMetrics.data.raw.leads / aggregatedMetrics.data.raw.clicks_on_link) * 100).toFixed(2) + '%'
                                     : '0.00%'
                                   }
