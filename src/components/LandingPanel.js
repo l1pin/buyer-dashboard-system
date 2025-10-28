@@ -61,6 +61,7 @@ function LandingPanel({ user }) {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [metricsPeriod, setMetricsPeriod] = useState('all');
+  const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedTags, setExpandedTags] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
@@ -331,12 +332,12 @@ function LandingPanel({ user }) {
     }
 
     const validMetrics = allMetricsForLanding.filter(metric => {
-      const isValid = metric.found && metric.data && metric.data.raw;
+      const isValid = metric.found && metric.data && metric.data.allDailyData;
       if (!isValid) {
         console.log(`❌ Пропущена невалидная метрика для ${landing.id}:`, {
           found: metric.found,
           hasData: !!metric.data,
-          hasRaw: metric.data ? !!metric.data.raw : false
+          hasAllDailyData: metric.data ? !!metric.data.allDailyData : false
         });
       }
       return isValid;
@@ -349,38 +350,58 @@ function LandingPanel({ user }) {
       return null;
     }
 
-    const aggregated = validMetrics.reduce((acc, metric) => {
-      const data = metric.data.raw;
-      console.log(`➕ Агрегация метрик из источника ${metric.source}:`, {
-        leads: data.leads,
-        cost: data.cost,
-        clicks: data.clicks,
-        impressions: data.impressions
-      });
+    // Собираем все дневные данные из всех источников
+    const allDailyDataCombined = validMetrics.flatMap(metric => metric.data.allDailyData || []);
+
+    console.log(`📊 Всего дневных записей до фильтрации: ${allDailyDataCombined.length}`);
+
+    // Фильтруем по периоду отображения
+    const filteredDailyData = filterMetricsByDisplayPeriod(allDailyDataCombined, metricsDisplayPeriod);
+
+    console.log(`📊 Отфильтровано дневных записей для периода ${metricsDisplayPeriod}: ${filteredDailyData.length}`);
+
+    if (filteredDailyData.length === 0) {
+      console.log(`⚠️ Нет данных после фильтрации для ${landing.id}`);
+      return null;
+    }
+
+    // Собираем уникальные даты
+    const uniqueDates = new Set();
+    
+    const aggregated = filteredDailyData.reduce((acc, day) => {
+      // Добавляем дату в Set уникальных дат
+      if (day.date) {
+        uniqueDates.add(day.date);
+      }
+      
       return {
-        leads: acc.leads + (data.leads || 0),
-        cost: acc.cost + (data.cost || 0),
-        clicks: acc.clicks + (data.clicks || 0),
-        impressions: acc.impressions + (data.impressions || 0),
-        avg_duration: acc.avg_duration + (data.avg_duration || 0),
-        days_count: Math.max(acc.days_count, data.days_count || 0),
-        cost_from_sources: acc.cost_from_sources + (data.cost_from_sources || 0),
-        clicks_on_link: acc.clicks_on_link + (data.clicks_on_link || 0)
+        leads: acc.leads + (day.leads || 0),
+        cost: acc.cost + (day.cost || 0),
+        clicks: acc.clicks + (day.clicks || 0),
+        impressions: acc.impressions + (day.impressions || 0),
+        duration_sum: acc.duration_sum + (day.avg_duration || 0),
+        cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
+        clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
       };
     }, {
       leads: 0,
       cost: 0,
       clicks: 0,
       impressions: 0,
-      avg_duration: 0,
-      days_count: 0,
+      duration_sum: 0,
       cost_from_sources: 0,
       clicks_on_link: 0
     });
 
-    console.log(`📈 Итоговые агрегированные метрики для ${landing.id}:`, aggregated);
+    // Количество уникальных дней
+    const uniqueDaysCount = uniqueDates.size;
 
-    const avgDuration = validMetrics.length > 0 ? aggregated.avg_duration / validMetrics.length : 0;
+    console.log(`📈 Итоговые агрегированные метрики для ${landing.id}:`, {
+      ...aggregated,
+      days_count: uniqueDaysCount
+    });
+
+    const avgDuration = uniqueDaysCount > 0 ? aggregated.duration_sum / uniqueDaysCount : 0;
 
     const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
     const ctr = aggregated.impressions > 0 ? (aggregated.clicks_on_link / aggregated.impressions) * 100 : 0;
@@ -393,8 +414,14 @@ function LandingPanel({ user }) {
       totalVideos: allMetricsForLanding.length,
       data: {
         raw: {
-          ...aggregated,
+          leads: aggregated.leads,
+          cost: aggregated.cost,
+          clicks: aggregated.clicks,
+          impressions: aggregated.impressions,
           avg_duration: Number(avgDuration.toFixed(2)),
+          days_count: uniqueDaysCount,
+          cost_from_sources: aggregated.cost_from_sources,
+          clicks_on_link: aggregated.clicks_on_link,
           cpl: Number(cpl.toFixed(2)),
           ctr_percent: Number(ctr.toFixed(2)),
           cpc: Number(cpc.toFixed(2)),
@@ -410,7 +437,7 @@ function LandingPanel({ user }) {
           clicks: String(Math.round(aggregated.clicks)),
           impressions: String(Math.round(aggregated.impressions)),
           avg_duration: `${avgDuration.toFixed(1)}с`,
-          days: String(aggregated.days_count)
+          days: String(uniqueDaysCount)
         }
       }
     };
@@ -418,10 +445,58 @@ function LandingPanel({ user }) {
     console.log(`✅ Возвращаем агрегированные метрики для ${landing.id}:`, {
       leads: result.data.formatted.leads,
       cost: result.data.formatted.cost,
-      cpl: result.data.formatted.cpl
+      cpl: result.data.formatted.cpl,
+      days: result.data.formatted.days
     });
 
     return result;
+  };
+
+// Фильтрация метрик по периоду отображения
+  const filterMetricsByDisplayPeriod = (allDailyData, displayPeriod) => {
+    if (!allDailyData || allDailyData.length === 0) {
+      return [];
+    }
+
+    if (displayPeriod === 'all') {
+      return allDailyData;
+    }
+
+    // Сортируем по дате (самые новые - первые)
+    const sortedData = [...allDailyData].sort((a, b) => {
+      return new Date(b.date) - new Date(a.date);
+    });
+
+    let daysToTake = 0;
+    switch (displayPeriod) {
+      case '4days':
+        daysToTake = 4;
+        break;
+      case '14days':
+        daysToTake = 14;
+        break;
+      case '30days':
+        daysToTake = 30;
+        break;
+      default:
+        return sortedData;
+    }
+
+    // Берём уникальные даты
+    const uniqueDates = new Set();
+    const filteredData = [];
+
+    for (const item of sortedData) {
+      if (uniqueDates.size >= daysToTake) {
+        break;
+      }
+      if (item.date && !uniqueDates.has(item.date)) {
+        uniqueDates.add(item.date);
+      }
+      filteredData.push(item);
+    }
+
+    return filteredData;
   };
 
   // Компонент отображения зональных данных
@@ -1432,14 +1507,20 @@ data-rt-sub16="${selectedLandingUuid}"
   }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showEditorDropdown, showProductDropdown, showGiferDropdown]);
 
   const handlePeriodChange = (period) => {
-    console.log(`🔄 МГНОВЕННАЯ смена периода метрик: ${metricsPeriod} -> ${period}`);
-    setMetricsPeriod(period);
+    console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
+    setMetricsDisplayPeriod(period);
     setShowPeriodDropdown(false);
     clearMessages();
   };
 
   const getPeriodButtonText = () => {
-    return metricsPeriod === 'all' ? 'Все время' : '4 дня';
+    switch (metricsDisplayPeriod) {
+      case '4days': return '4 дня';
+      case '14days': return '14 дней';
+      case '30days': return '30 дней';
+      case 'all': return 'Все время';
+      default: return 'Все время';
+    }
   };
 
   const formatKyivTime = (dateString) => {
@@ -2098,20 +2179,36 @@ data-rt-sub16="${selectedLandingUuid}"
                 <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
                   <div className="py-1">
                     <button
-                      onClick={() => handlePeriodChange('all')}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Все время
-                    </button>
-                    <button
                       onClick={() => handlePeriodChange('4days')}
-                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === '4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
                       4 дня
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('14days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === '14days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      14 дней
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('30days')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === '30days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      30 дней
+                    </button>
+                    <button
+                      onClick={() => handlePeriodChange('all')}
+                      className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${metricsDisplayPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Все время
                     </button>
                   </div>
                 </div>
