@@ -1600,6 +1600,11 @@ data-rt-sub16="${selectedLandingUuid}"
       errorMessages.push('Необходимо выбрать шаблон');
     }
 
+    if (!editLanding.gifer_id) {
+      errors.gifer_id = true;
+      errorMessages.push('Необходимо выбрать гифера');
+    }
+
     if (!editLanding.trello_link.trim()) {
       errors.trello_link = true;
       errorMessages.push('Карточка Trello обязательна для заполнения');
@@ -4708,8 +4713,8 @@ data-rt-sub16="${selectedLandingUuid}"
 
               {/* GIFer */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">
-                  GIFer
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.gifer_id ? 'text-red-600' : 'text-gray-700'}`}>
+                  GIFer *
                 </label>
                 <div className="relative">
                   <button
