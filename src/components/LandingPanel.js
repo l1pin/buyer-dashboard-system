@@ -91,6 +91,12 @@ function LandingPanel({ user }) {
 
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState('all');
+  const [selectedVerificationFilter, setSelectedVerificationFilter] = useState('all');
+  const [selectedCommentFilter, setSelectedCommentFilter] = useState('all');
+  const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
+  const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
+  const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
 
   const [newLanding, setNewLanding] = useState({
     article: '',
@@ -195,6 +201,31 @@ function LandingPanel({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.searcher_id === selectedSearcher);
     }
 
+    // Фильтрация по типу (основные/тестовые)
+    if (selectedTypeFilter === 'main') {
+      landingsToFilter = landingsToFilter.filter(l => !l.is_test);
+    } else if (selectedTypeFilter === 'test') {
+      landingsToFilter = landingsToFilter.filter(l => l.is_test);
+    }
+
+    // Фильтрация по верификации
+    if (selectedVerificationFilter === 'verified') {
+      landingsToFilter = landingsToFilter.filter(l => 
+        (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id)
+      );
+    } else if (selectedVerificationFilter === 'not_verified') {
+      landingsToFilter = landingsToFilter.filter(l => 
+        !(l.verified_urls && l.verified_urls.length > 0) && !landingsWithIntegration.get(l.id)
+      );
+    }
+
+    // Фильтрация по комментарию
+    if (selectedCommentFilter === 'with_comment') {
+      landingsToFilter = landingsToFilter.filter(l => l.comment && l.comment.trim());
+    } else if (selectedCommentFilter === 'without_comment') {
+      landingsToFilter = landingsToFilter.filter(l => !l.comment || !l.comment.trim());
+    }
+
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -266,7 +297,7 @@ function LandingPanel({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, selectedTypeFilter, selectedVerificationFilter, selectedCommentFilter, landingsWithIntegration]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1504,6 +1535,15 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.gifer-dropdown') && !event.target.closest('.gifer-trigger')) {
         setShowGiferDropdown(false);
       }
+      if (!event.target.closest('.type-filter-dropdown') && !event.target.closest('.type-filter-trigger')) {
+        setShowTypeFilterDropdown(false);
+      }
+      if (!event.target.closest('.verification-filter-dropdown') && !event.target.closest('.verification-filter-trigger')) {
+        setShowVerificationFilterDropdown(false);
+      }
+      if (!event.target.closest('.comment-filter-dropdown') && !event.target.closest('.comment-filter-trigger')) {
+        setShowCommentFilterDropdown(false);
+      }
 
       const periodMenuContainer = event.target.closest('.period-menu-container');
       if (!periodMenuContainer && showPeriodMenu) {
@@ -1517,7 +1557,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown, showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -2805,7 +2845,52 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Тип
+                        <div className="flex items-center justify-center space-x-2">
+                          <span>Тип</span>
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
+                              className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                              title="Фильтр по типу"
+                            >
+                              <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </button>
+
+                            {showTypeFilterDropdown && (
+                              <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTypeFilter('all');
+                                      setShowTypeFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Все
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTypeFilter('main');
+                                      setShowTypeFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'main' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Основные
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTypeFilter('test');
+                                      setShowTypeFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'test' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Тестовые
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2813,13 +2898,103 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
+                        <div className="flex items-center justify-center space-x-2">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                          </svg>
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
+                              className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                              title="Фильтр по верификации"
+                            >
+                              <Filter className={`h-3 w-3 ${selectedVerificationFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </button>
+
+                            {showVerificationFilterDropdown && (
+                              <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedVerificationFilter('all');
+                                      setShowVerificationFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Все
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedVerificationFilter('verified');
+                                      setShowVerificationFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    С верифом
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedVerificationFilter('not_verified');
+                                      setShowVerificationFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'not_verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Без верифа
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <MessageCircle className="h-4 w-4 mx-auto" />
+                        <div className="flex items-center justify-center space-x-2">
+                          <MessageCircle className="h-4 w-4" />
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
+                              className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                              title="Фильтр по комментарию"
+                            >
+                              <Filter className={`h-3 w-3 ${selectedCommentFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </button>
+
+                            {showCommentFilterDropdown && (
+                              <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCommentFilter('all');
+                                      setShowCommentFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Все
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCommentFilter('with_comment');
+                                      setShowCommentFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'with_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    С комментарием
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCommentFilter('without_comment');
+                                      setShowCommentFilterDropdown(false);
+                                    }}
+                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'without_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                  >
+                                    Без комментария
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
