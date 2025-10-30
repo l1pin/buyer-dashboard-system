@@ -1150,28 +1150,46 @@ function LandingEditor({ user }) {
   };
 
   const searchLandingsByUuid = async (searchText) => {
-    if (!searchText || searchText.length < 3) {
+    if (!searchText || searchText.length < 2) {
       setUuidSuggestions([]);
+      setShowUuidSuggestions(false);
       return;
     }
 
     try {
       console.log('🔍 Поиск лендингов по UUID:', searchText);
       
-      const { data, error } = await supabase
+      // Пробуем разные способы поиска
+      let query = supabase
         .from('landings')
-        .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags')
-        .ilike('id', `%${searchText}%`)
-        .limit(10);
+        .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags, is_poland, buyer_id')
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      if (error) throw error;
-
-      setUuidSuggestions(data || []);
-      setShowUuidSuggestions(true);
-      console.log(`✅ Найдено ${data?.length || 0} лендингов`);
+      // Если введен UUID формат (с дефисами)
+      if (searchText.includes('-')) {
+        // Точный поиск по началу UUID
+        const { data, error } = await query.ilike('id', `${searchText}%`);
+        
+        if (error) throw error;
+        
+        setUuidSuggestions(data || []);
+        setShowUuidSuggestions(data && data.length > 0);
+        console.log(`✅ Найдено ${data?.length || 0} лендингов по UUID`);
+      } else {
+        // Поиск по артикулу если не UUID
+        const { data, error } = await query.ilike('article', `%${searchText}%`);
+        
+        if (error) throw error;
+        
+        setUuidSuggestions(data || []);
+        setShowUuidSuggestions(data && data.length > 0);
+        console.log(`✅ Найдено ${data?.length || 0} лендингов по артикулу`);
+      }
     } catch (error) {
       console.error('❌ Ошибка поиска лендингов:', error);
       setUuidSuggestions([]);
+      setShowUuidSuggestions(false);
     }
   };
 
@@ -1574,6 +1592,9 @@ data-rt-sub16="${selectedLandingUuid}"
       }
       if (!event.target.closest('.gifer-dropdown') && !event.target.closest('.gifer-trigger')) {
         setShowGiferDropdown(false);
+      }
+      if (!event.target.closest('.uuid-suggestions') && !event.target.closest('.uuid-input')) {
+        setShowUuidSuggestions(false);
       }
 
       const periodMenuContainer = event.target.closest('.period-menu-container');
@@ -3504,16 +3525,21 @@ data-rt-sub16="${selectedLandingUuid}"
                       searchLandingsByUuid(e.target.value);
                       clearFieldError('uuid');
                     }}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.uuid
+                    onFocus={() => {
+                      if (searchingUuid.length >= 2) {
+                        searchLandingsByUuid(searchingUuid);
+                      }
+                    }}
+                    className={`uuid-input w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.uuid
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
                       : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
-                    placeholder="Начните вводить UUID лендинга"
+                    placeholder="Введите UUID или артикул лендинга"
                   />
 
                   {/* Dropdown с результатами поиска */}
                   {showUuidSuggestions && uuidSuggestions.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                    <div className="uuid-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                       {uuidSuggestions.map((landing) => (
                         <button
                           key={landing.id}
