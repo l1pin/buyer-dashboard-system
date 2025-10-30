@@ -2932,66 +2932,97 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showTypeFilterDropdown && (
-                            <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
-                              <div className="p-3">
-                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                                  <span className="text-xs font-semibold text-gray-700">Фильтровать по типу</span>
-                                  <button
-                                    onClick={() => setShowTypeFilterDropdown(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
+                            <div className="type-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                                 style={{ 
+                                   top: '50%', 
+                                   left: '50%', 
+                                   transform: 'translate(-50%, -50%)',
+                                   maxHeight: '80vh'
+                                 }}>
+                              <div className="flex flex-col h-full">
+                                {/* Header */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-gray-900">Фильтровать по типу</h3>
+                                    <button
+                                      onClick={() => setShowTypeFilterDropdown(false)}
+                                      className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
 
-                                <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                                {/* Search */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      placeholder="Поиск"
+                                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Select All */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded">
                                     <input
                                       type="checkbox"
                                       checked={selectedTypeFilter === 'all'}
                                       onChange={() => setSelectedTypeFilter('all')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Все</span>
-                                  </label>
-                                  
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedTypeFilter === 'main'}
-                                      onChange={() => setSelectedTypeFilter(selectedTypeFilter === 'main' ? 'all' : 'main')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">Основные</span>
-                                  </label>
-
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedTypeFilter === 'test'}
-                                      onChange={() => setSelectedTypeFilter(selectedTypeFilter === 'test' ? 'all' : 'test')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">Тестовые</span>
+                                    <span className="ml-3 text-sm text-gray-900 font-medium">Выбрать все</span>
                                   </label>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTypeFilter('all');
-                                      setShowTypeFilterDropdown(false);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                  >
-                                    Сбросить
-                                  </button>
-                                  <button
-                                    onClick={() => setShowTypeFilterDropdown(false)}
-                                    className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                                  >
-                                    OK
-                                  </button>
+                                {/* Options */}
+                                <div className="flex-1 overflow-y-auto px-4 py-2">
+                                  <div className="space-y-1">
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedTypeFilter === 'main'}
+                                        onChange={() => setSelectedTypeFilter(selectedTypeFilter === 'main' ? 'all' : 'main')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">Основные</span>
+                                      <span className="ml-auto text-xs text-gray-500">(42)</span>
+                                    </label>
+
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedTypeFilter === 'test'}
+                                        onChange={() => setSelectedTypeFilter(selectedTypeFilter === 'test' ? 'all' : 'test')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">Тестовые</span>
+                                      <span className="ml-auto text-xs text-gray-500">(8)</span>
+                                    </label>
+                                  </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                                  <div className="flex items-center justify-between">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTypeFilter('all');
+                                      }}
+                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      Очистить
+                                    </button>
+                                    <button
+                                      onClick={() => setShowTypeFilterDropdown(false)}
+                                      className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -3017,66 +3048,97 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showVerificationFilterDropdown && (
-                            <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
-                              <div className="p-3">
-                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                                  <span className="text-xs font-semibold text-gray-700">Фильтровать по верификации</span>
-                                  <button
-                                    onClick={() => setShowVerificationFilterDropdown(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
+                            <div className="verification-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                                 style={{ 
+                                   top: '50%', 
+                                   left: '50%', 
+                                   transform: 'translate(-50%, -50%)',
+                                   maxHeight: '80vh'
+                                 }}>
+                              <div className="flex flex-col h-full">
+                                {/* Header */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-gray-900">Фильтровать по верификации</h3>
+                                    <button
+                                      onClick={() => setShowVerificationFilterDropdown(false)}
+                                      className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
 
-                                <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                                {/* Search */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      placeholder="Поиск"
+                                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Select All */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded">
                                     <input
                                       type="checkbox"
                                       checked={selectedVerificationFilter === 'all'}
                                       onChange={() => setSelectedVerificationFilter('all')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Все</span>
-                                  </label>
-                                  
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedVerificationFilter === 'verified'}
-                                      onChange={() => setSelectedVerificationFilter(selectedVerificationFilter === 'verified' ? 'all' : 'verified')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">С верифом</span>
-                                  </label>
-
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedVerificationFilter === 'not_verified'}
-                                      onChange={() => setSelectedVerificationFilter(selectedVerificationFilter === 'not_verified' ? 'all' : 'not_verified')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">Без верифа</span>
+                                    <span className="ml-3 text-sm text-gray-900 font-medium">Выбрать все</span>
                                   </label>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedVerificationFilter('all');
-                                      setShowVerificationFilterDropdown(false);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                  >
-                                    Сбросить
-                                  </button>
-                                  <button
-                                    onClick={() => setShowVerificationFilterDropdown(false)}
-                                    className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                                  >
-                                    OK
-                                  </button>
+                                {/* Options */}
+                                <div className="flex-1 overflow-y-auto px-4 py-2">
+                                  <div className="space-y-1">
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedVerificationFilter === 'verified'}
+                                        onChange={() => setSelectedVerificationFilter(selectedVerificationFilter === 'verified' ? 'all' : 'verified')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">С верифом</span>
+                                      <span className="ml-auto text-xs text-gray-500">(35)</span>
+                                    </label>
+
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedVerificationFilter === 'not_verified'}
+                                        onChange={() => setSelectedVerificationFilter(selectedVerificationFilter === 'not_verified' ? 'all' : 'not_verified')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">Без верифа</span>
+                                      <span className="ml-auto text-xs text-gray-500">(15)</span>
+                                    </label>
+                                  </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                                  <div className="flex items-center justify-between">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedVerificationFilter('all');
+                                      }}
+                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      Очистить
+                                    </button>
+                                    <button
+                                      onClick={() => setShowVerificationFilterDropdown(false)}
+                                      className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -3096,66 +3158,97 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showCommentFilterDropdown && (
-                            <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
-                              <div className="p-3">
-                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                                  <span className="text-xs font-semibold text-gray-700">Фильтровать по комментарию</span>
-                                  <button
-                                    onClick={() => setShowCommentFilterDropdown(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
+                            <div className="comment-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                                 style={{ 
+                                   top: '50%', 
+                                   left: '50%', 
+                                   transform: 'translate(-50%, -50%)',
+                                   maxHeight: '80vh'
+                                 }}>
+                              <div className="flex flex-col h-full">
+                                {/* Header */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-gray-900">Фильтровать по комментарию</h3>
+                                    <button
+                                      onClick={() => setShowCommentFilterDropdown(false)}
+                                      className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
 
-                                <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                                {/* Search */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      placeholder="Поиск"
+                                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Select All */}
+                                <div className="px-4 py-2 border-b border-gray-200">
+                                  <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded">
                                     <input
                                       type="checkbox"
                                       checked={selectedCommentFilter === 'all'}
                                       onChange={() => setSelectedCommentFilter('all')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Все</span>
-                                  </label>
-                                  
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedCommentFilter === 'with_comment'}
-                                      onChange={() => setSelectedCommentFilter(selectedCommentFilter === 'with_comment' ? 'all' : 'with_comment')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">С комментарием</span>
-                                  </label>
-
-                                  <label className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedCommentFilter === 'without_comment'}
-                                      onChange={() => setSelectedCommentFilter(selectedCommentFilter === 'without_comment' ? 'all' : 'without_comment')}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">Без комментария</span>
+                                    <span className="ml-3 text-sm text-gray-900 font-medium">Выбрать все</span>
                                   </label>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedCommentFilter('all');
-                                      setShowCommentFilterDropdown(false);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                  >
-                                    Сбросить
-                                  </button>
-                                  <button
-                                    onClick={() => setShowCommentFilterDropdown(false)}
-                                    className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                                  >
-                                    OK
-                                  </button>
+                                {/* Options */}
+                                <div className="flex-1 overflow-y-auto px-4 py-2">
+                                  <div className="space-y-1">
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedCommentFilter === 'with_comment'}
+                                        onChange={() => setSelectedCommentFilter(selectedCommentFilter === 'with_comment' ? 'all' : 'with_comment')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">С комментарием</span>
+                                      <span className="ml-auto text-xs text-gray-500">(28)</span>
+                                    </label>
+
+                                    <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedCommentFilter === 'without_comment'}
+                                        onChange={() => setSelectedCommentFilter(selectedCommentFilter === 'without_comment' ? 'all' : 'without_comment')}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="ml-3 text-sm text-gray-700">Без комментария</span>
+                                      <span className="ml-auto text-xs text-gray-500">(22)</span>
+                                    </label>
+                                  </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                                  <div className="flex items-center justify-between">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedCommentFilter('all');
+                                      }}
+                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      Очистить
+                                    </button>
+                                    <button
+                                      onClick={() => setShowCommentFilterDropdown(false)}
+                                      className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
