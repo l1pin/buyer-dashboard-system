@@ -46,7 +46,7 @@ function Dashboard({ user, session, updateUser }) {
 
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
-    if (role === 'editor') return 'creatives';
+    if (role === 'editor') return 'landing-editor';
     if (role === 'designer') return 'settings';
     if (role === 'search_manager') return 'creatives';
     if (role === 'buyer') return 'creatives';
@@ -70,7 +70,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'landings':
         return role === 'content_manager';
       case 'landing-editor':
-        return role === 'proofreader';
+        return role === 'proofreader' || role === 'editor';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
