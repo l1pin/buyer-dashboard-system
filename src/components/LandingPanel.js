@@ -1600,21 +1600,6 @@ data-rt-sub16="${selectedLandingUuid}"
       errorMessages.push('Необходимо выбрать шаблон');
     }
 
-    if (!editLanding.designer_id) {
-      errors.designer_id = true;
-      errorMessages.push('Необходимо выбрать дизайнера');
-    }
-
-    if (!editLanding.searcher_id) {
-      errors.searcher_id = true;
-      errorMessages.push('Необходимо выбрать серчера');
-    }
-
-    if (!editLanding.buyer_id) {
-      errors.buyer_id = true;
-      errorMessages.push('Необходимо выбрать байера');
-    }
-
     if (!editLanding.trello_link.trim()) {
       errors.trello_link = true;
       errorMessages.push('Карточка Trello обязательна для заполнения');
@@ -1624,6 +1609,31 @@ data-rt-sub16="${selectedLandingUuid}"
         !trimmedTrelloLink.startsWith('trello.com/c/')) {
         errors.trello_link = true;
         errorMessages.push('Проверьте правильность ссылки на Trello');
+      }
+    }
+
+    // Проверка в зависимости от режима
+    if (editingLanding.is_test) {
+      // Для тестового режима - обязателен только Product
+      if (!editLanding.product_manager_id) {
+        errors.product_manager_id = true;
+        errorMessages.push('Необходимо выбрать продакт менеджера');
+      }
+    } else {
+      // Для обычного режима - обязательны Designer, Searcher, Buyer
+      if (!editLanding.designer_id) {
+        errors.designer_id = true;
+        errorMessages.push('Необходимо выбрать дизайнера');
+      }
+
+      if (!editLanding.searcher_id) {
+        errors.searcher_id = true;
+        errorMessages.push('Необходимо выбрать серчера');
+      }
+
+      if (!editLanding.buyer_id) {
+        errors.buyer_id = true;
+        errorMessages.push('Необходимо выбрать байера');
       }
     }
 
@@ -1655,16 +1665,6 @@ data-rt-sub16="${selectedLandingUuid}"
       errorMessages.push('Выберите шаблон');
     }
 
-    if (!newLanding.designer_id) {
-      errors.designer_id = true;
-      errorMessages.push('Выберите дизайнера');
-    }
-
-    if (!newLanding.searcher_id) {
-      errors.searcher_id = true;
-      errorMessages.push('Выберите серчера');
-    }
-
     if (!newLanding.gifer_id) {
       errors.gifer_id = true;
       errorMessages.push('Выберите гифера');
@@ -1684,13 +1684,23 @@ data-rt-sub16="${selectedLandingUuid}"
 
     // Проверка в зависимости от режима
     if (isTestMode) {
-      // Для тестового режима - обязателен Product
+      // Для тестового режима - обязательны только Product
       if (!newLanding.product_manager_id) {
         errors.product_manager_id = true;
         errorMessages.push('Выберите продакт менеджера');
       }
     } else {
-      // Для обычного режима - обязателен Buyer
+      // Для обычного режима - обязательны Designer, Searcher, Buyer
+      if (!newLanding.designer_id) {
+        errors.designer_id = true;
+        errorMessages.push('Выберите дизайнера');
+      }
+
+      if (!newLanding.searcher_id) {
+        errors.searcher_id = true;
+        errorMessages.push('Выберите серчера');
+      }
+
       if (!newLanding.buyer_id) {
         errors.buyer_id = true;
         errorMessages.push('Выберите байера');
@@ -3563,7 +3573,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Designer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Designer *
+                  Designer {!isTestMode && '*'}
                 </label>
                 <div className="relative">
                   <button
@@ -3670,7 +3680,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Searcher */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Searcher *
+                  Searcher {!isTestMode && '*'}
                 </label>
                 <div className="relative">
                   <button
@@ -4483,7 +4493,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Designer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Designer *
+                  Designer {!editingLanding.is_test && '*'}
                 </label>
                 <div className="relative">
                   <button
@@ -4591,7 +4601,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Searcher */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Searcher *
+                  Searcher {!editingLanding.is_test && '*'}
                 </label>
                 <div className="relative">
                   <button
@@ -4908,10 +4918,11 @@ data-rt-sub16="${selectedLandingUuid}"
                   </div>
                 </div>
               ) : (
+                
                 // Тестовый режим - Product
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700">
-                    Product
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.product_manager_id ? 'text-red-600' : 'text-gray-700'}`}>
+                    Product *
                   </label>
                   <div className="relative">
                     <button
