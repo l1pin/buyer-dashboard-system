@@ -97,6 +97,9 @@ function LandingPanel({ user }) {
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
+  const [typeFilterPosition, setTypeFilterPosition] = useState({ top: 0, left: 0 });
+  const [verificationFilterPosition, setVerificationFilterPosition] = useState({ top: 0, left: 0 });
+  const [commentFilterPosition, setCommentFilterPosition] = useState({ top: 0, left: 0 });
 
   const [newLanding, setNewLanding] = useState({
     article: '',
@@ -2924,7 +2927,14 @@ data-rt-sub16="${selectedLandingUuid}"
                         <div className="flex items-center justify-center relative">
                           <span>Тип</span>
                           <button
-                            onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTypeFilterPosition({
+                                top: rect.bottom + window.scrollY + 8,
+                                left: rect.left + window.scrollX - 280
+                              });
+                              setShowTypeFilterDropdown(!showTypeFilterDropdown);
+                            }}
                             className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors ml-1"
                             title="Фильтр по типу"
                           >
@@ -2934,8 +2944,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           {showTypeFilterDropdown && (
                             <div className="type-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
                                  style={{ 
-                                   top: '200px',
-                                   right: '20px',
+                                   top: `${typeFilterPosition.top}px`,
+                                   left: `${typeFilterPosition.left}px`,
                                    maxHeight: '80vh', 
                                    overflowY: 'auto' 
                                  }}>
@@ -3040,7 +3050,14 @@ data-rt-sub16="${selectedLandingUuid}"
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                           </svg>
                           <button
-                            onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setVerificationFilterPosition({
+                                top: rect.bottom + window.scrollY + 8,
+                                left: rect.left + window.scrollX - 280
+                              });
+                              setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
+                            }}
                             className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors ml-1"
                             title="Фильтр по верификации"
                           >
@@ -3050,8 +3067,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           {showVerificationFilterDropdown && (
                             <div className="verification-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
                                  style={{ 
-                                   top: '200px',
-                                   right: '20px',
+                                   top: `${verificationFilterPosition.top}px`,
+                                   left: `${verificationFilterPosition.left}px`,
                                    maxHeight: '80vh', 
                                    overflowY: 'auto' 
                                  }}>
@@ -3150,7 +3167,14 @@ data-rt-sub16="${selectedLandingUuid}"
                         <div className="flex items-center justify-center relative">
                           <MessageCircle className="h-4 w-4" />
                           <button
-                            onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCommentFilterPosition({
+                                top: rect.bottom + window.scrollY + 8,
+                                left: rect.left + window.scrollX - 280
+                              });
+                              setShowCommentFilterDropdown(!showCommentFilterDropdown);
+                            }}
                             className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors ml-1"
                             title="Фильтр по комментарию"
                           >
@@ -3160,8 +3184,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           {showCommentFilterDropdown && (
                             <div className="comment-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
                                  style={{ 
-                                   top: '200px',
-                                   right: '20px',
+                                   top: `${commentFilterPosition.top}px`,
+                                   left: `${commentFilterPosition.left}px`,
                                    maxHeight: '80vh', 
                                    overflowY: 'auto' 
                                  }}>
