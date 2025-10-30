@@ -2932,8 +2932,13 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showTypeFilterDropdown && (
-                            <div className="type-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
-                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                            <div className="type-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ 
+                                   top: '200px',
+                                   right: '20px',
+                                   maxHeight: '80vh', 
+                                   overflowY: 'auto' 
+                                 }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3043,8 +3048,13 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showVerificationFilterDropdown && (
-                            <div className="verification-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
-                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                            <div className="verification-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ 
+                                   top: '200px',
+                                   right: '20px',
+                                   maxHeight: '80vh', 
+                                   overflowY: 'auto' 
+                                 }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3148,8 +3158,13 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showCommentFilterDropdown && (
-                            <div className="comment-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
-                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                            <div className="comment-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ 
+                                   top: '200px',
+                                   right: '20px',
+                                   maxHeight: '80vh', 
+                                   overflowY: 'auto' 
+                                 }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
