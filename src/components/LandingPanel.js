@@ -2,7 +2,6 @@
 // Заменяет все упоминания креативов на лендинги
 
 import React, { useState, useEffect, useMemo } from 'react';
-import ReactDOM from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
@@ -40,23 +39,6 @@ import {
   Palette,
   CheckCircle
 } from 'lucide-react';
-
-// Компонент для рендеринга модального окна через портал
-const FilterModal = ({ children, isOpen }) => {
-  if (!isOpen) return null;
-  
-  return ReactDOM.createPortal(
-    <>
-      <div className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" />
-      <div className="fixed inset-0 z-[9999] pointer-events-none">
-        <div className="pointer-events-auto">
-          {children}
-        </div>
-      </div>
-    </>,
-    document.body
-  );
-};
 
 function LandingPanel({ user }) {
   const [landings, setLandings] = useState([]);
@@ -2940,27 +2922,30 @@ data-rt-sub16="${selectedLandingUuid}"
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
                         <span>Тип</span>
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="relative">
                           <button
                             onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
-                            className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-2 top-1/2 transform -translate-y-1/2"
                             title="Фильтр по типу"
                           >
                             <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
                           </button>
 
-                          <FilterModal isOpen={showTypeFilterDropdown}>
-                            <div 
-                              className="fixed inset-0" 
-                              onClick={() => setShowTypeFilterDropdown(false)}
-                            />
-                            <div className="fixed w-80 bg-white rounded-lg shadow-2xl"
-                                 style={{ 
-                                   top: '50%', 
-                                   left: '50%', 
-                                   transform: 'translate(-50%, -50%)',
-                                   maxHeight: '80vh'
-                                 }}>
+                          {showTypeFilterDropdown && (
+                            <>
+                              {/* Backdrop overlay */}
+                              <div 
+                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
+                                onClick={() => setShowTypeFilterDropdown(false)}
+                              />
+                              
+                              <div className="type-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]"
+                                   style={{ 
+                                     top: '50%', 
+                                     left: '50%', 
+                                     transform: 'translate(-50%, -50%)',
+                                     maxHeight: '80vh'
+                                   }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3048,7 +3033,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
-                          </FilterModal>
+                            </>
+                          )}
                         </div>
                       </th>
 
@@ -3060,10 +3046,10 @@ data-rt-sub16="${selectedLandingUuid}"
                         <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
-                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2">
+                        <div className="relative">
                           <button
                             onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
-                            className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-1 top-1/2 transform -translate-y-1/2"
                             title="Фильтр по верификации"
                           >
                             <Filter className={`h-3 w-3 ${selectedVerificationFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -3077,13 +3063,13 @@ data-rt-sub16="${selectedLandingUuid}"
                                 onClick={() => setShowVerificationFilterDropdown(false)}
                               />
                               
-                              <div className="verification-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
-                                 style={{ 
-                                   top: '50%', 
-                                   left: '50%', 
-                                   transform: 'translate(-50%, -50%)',
-                                   maxHeight: '80vh'
-                                 }}>
+                              <div className="verification-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
+                                   style={{ 
+                                     top: '50%', 
+                                     left: '50%', 
+                                     transform: 'translate(-50%, -50%)',
+                                     maxHeight: '80vh'
+                                   }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3178,10 +3164,10 @@ data-rt-sub16="${selectedLandingUuid}"
 
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
                         <MessageCircle className="h-4 w-4 mx-auto" />
-                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2">
+                        <div className="relative">
                           <button
                             onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
-                            className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-1 top-1/2 transform -translate-y-1/2"
                             title="Фильтр по комментарию"
                           >
                             <Filter className={`h-3 w-3 ${selectedCommentFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -3195,13 +3181,13 @@ data-rt-sub16="${selectedLandingUuid}"
                                 onClick={() => setShowCommentFilterDropdown(false)}
                               />
                               
-                              <div className="comment-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
-                                 style={{ 
-                                   top: '50%', 
-                                   left: '50%', 
-                                   transform: 'translate(-50%, -50%)',
-                                   maxHeight: '80vh'
-                                 }}>
+                              <div className="comment-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
+                                   style={{ 
+                                     top: '50%', 
+                                     left: '50%', 
+                                     transform: 'translate(-50%, -50%)',
+                                     maxHeight: '80vh'
+                                   }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
