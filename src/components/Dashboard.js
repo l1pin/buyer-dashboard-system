@@ -167,7 +167,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'landings':
         return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
       case 'landing-editor':
-        return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
+        return user?.role === 'proofreader' || user?.role === 'editor' ? <LandingEditor user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
