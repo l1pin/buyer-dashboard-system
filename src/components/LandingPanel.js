@@ -2971,11 +2971,11 @@ data-rt-sub16="${selectedLandingUuid}"
                         Дата
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
                         <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2">
                           <button
                             onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
                             className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
@@ -3020,9 +3020,9 @@ data-rt-sub16="${selectedLandingUuid}"
                         </div>
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
                         <MessageCircle className="h-4 w-4 mx-auto" />
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2">
                           <button
                             onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
                             className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
