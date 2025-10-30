@@ -2920,8 +2920,8 @@ data-rt-sub16="${selectedLandingUuid}"
                         </svg>
                       </th>
 
-                      <th className="px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
-                        <div className="flex items-center justify-center">
+                      <th className="px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <div className="flex items-center justify-center relative">
                           <span>Тип</span>
                           <button
                             onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
@@ -2932,20 +2932,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showTypeFilterDropdown && (
-                            <>
-                              {/* Backdrop overlay */}
-                              <div 
-                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
-                                onClick={() => setShowTypeFilterDropdown(false)}
-                              />
-                              
-                              <div className="type-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]"
-                                   style={{ 
-                                     top: '50%', 
-                                     left: '50%', 
-                                     transform: 'translate(-50%, -50%)',
-                                     maxHeight: '80vh'
-                                   }}>
+                            <div className="type-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3033,7 +3021,6 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
-                            </>
                           )}
                         </div>
                       </th>
@@ -3042,8 +3029,8 @@ data-rt-sub16="${selectedLandingUuid}"
                         Дата
                       </th>
 
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
-                        <div className="flex items-center justify-center">
+                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <div className="flex items-center justify-center relative">
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                           </svg>
@@ -3056,20 +3043,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showVerificationFilterDropdown && (
-                            <>
-                              {/* Backdrop overlay */}
-                              <div 
-                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
-                                onClick={() => setShowVerificationFilterDropdown(false)}
-                              />
-                              
-                              <div className="verification-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
-                                   style={{ 
-                                     top: '50%', 
-                                     left: '50%', 
-                                     transform: 'translate(-50%, -50%)',
-                                     maxHeight: '80vh'
-                                   }}>
+                            <div className="verification-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3157,13 +3132,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
-                            </>
                           )}
                         </div>
                       </th>
 
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
-                        <div className="flex items-center justify-center">
+                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <div className="flex items-center justify-center relative">
                           <MessageCircle className="h-4 w-4" />
                           <button
                             onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
@@ -3174,20 +3148,8 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showCommentFilterDropdown && (
-                            <>
-                              {/* Backdrop overlay */}
-                              <div 
-                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
-                                onClick={() => setShowCommentFilterDropdown(false)}
-                              />
-                              
-                              <div className="comment-filter-dropdown fixed w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
-                                   style={{ 
-                                     top: '50%', 
-                                     left: '50%', 
-                                     transform: 'translate(-50%, -50%)',
-                                     maxHeight: '80vh'
-                                   }}>
+                            <div className="comment-filter-dropdown absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl z-[9999] border border-gray-200"
+                                 style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                               <div className="flex flex-col h-full">
                                 {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-200">
@@ -3275,7 +3237,6 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
-                            </>
                           )}
                         </div>
                       </th>
