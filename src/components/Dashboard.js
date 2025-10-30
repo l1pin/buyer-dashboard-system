@@ -11,6 +11,7 @@ import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import LandingPanel from './LandingPanel';
+import LandingEditor from './LandingEditor';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
@@ -25,6 +26,7 @@ function Dashboard({ user, session, updateUser }) {
     '/admin/users': 'users', 
     '/workspace/creatives': 'creatives',
     '/workspace/landings': 'landings',
+    '/workspace/landing-editor': 'landing-editor',
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
     '/settings': 'settings'
@@ -36,6 +38,7 @@ function Dashboard({ user, session, updateUser }) {
     'users': '/admin/users',
     'creatives': '/workspace/creatives',
     'landings': '/workspace/landings',
+    'landing-editor': '/workspace/landing-editor',
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
     'settings': '/settings'
@@ -50,7 +53,7 @@ function Dashboard({ user, session, updateUser }) {
     if (role === 'teamlead') return 'analytics';
     if (role === 'content_manager') return 'landings';
     if (role === 'product_manager') return 'settings';
-    if (role === 'proofreader') return 'settings';
+    if (role === 'proofreader') return 'landing-editor';
     if (role === 'gif_creator') return 'settings';
     return 'settings';
   };
@@ -66,6 +69,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'editor' || role === 'search_manager' || role === 'buyer';
       case 'landings':
         return role === 'content_manager';
+      case 'landing-editor':
+        return role === 'proofreader';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -161,6 +166,8 @@ function Dashboard({ user, session, updateUser }) {
         return null;
       case 'landings':
         return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
+      case 'landing-editor':
+        return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
