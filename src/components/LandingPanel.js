@@ -176,8 +176,8 @@ function LandingPanel({ user }) {
   );
 
   const TestBadge = () => (
-    <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-orange-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200">
-      <span className="tracking-wide">TEST</span>
+    <div className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-orange-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200">
+      <span className="tracking-wide">T</span>
     </div>
   );
 
@@ -2804,7 +2804,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         </svg>
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         Тип
                       </th>
 
@@ -2813,13 +2813,13 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="h-5 w-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <MessageCircle className="h-4 w-4 mx-auto" />
+                        <MessageCircle className="h-5 w-5 mx-auto" />
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2917,8 +2917,8 @@ data-rt-sub16="${selectedLandingUuid}"
                             </button>
                           </td>
 
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            <div className="w-16 flex items-center justify-center mx-auto">
+                          <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="flex items-center justify-center">
                               {landing.is_test && (
                                 <div title="Тестовый лендинг">
                                   <TestBadge />
