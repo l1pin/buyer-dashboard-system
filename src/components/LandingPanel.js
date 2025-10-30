@@ -2999,7 +2999,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">Основные</span>
-                                      <span className="ml-auto text-xs text-gray-500">(42)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => !l.is_test).length})</span>
                                     </label>
 
                                     <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
@@ -3010,7 +3010,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">Тестовые</span>
-                                      <span className="ml-auto text-xs text-gray-500">(8)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => l.is_test).length})</span>
                                     </label>
                                   </div>
                                 </div>
@@ -3021,6 +3021,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <button
                                       onClick={() => {
                                         setSelectedTypeFilter('all');
+                                        setShowTypeFilterDropdown(false);
                                       }}
                                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                     >
@@ -3122,7 +3123,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">С верифом</span>
-                                      <span className="ml-auto text-xs text-gray-500">(35)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id)).length})</span>
                                     </label>
 
                                     <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
@@ -3133,7 +3134,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">Без верифа</span>
-                                      <span className="ml-auto text-xs text-gray-500">(15)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => !(l.verified_urls && l.verified_urls.length > 0) && !landingsWithIntegration.get(l.id)).length})</span>
                                     </label>
                                   </div>
                                 </div>
@@ -3144,6 +3145,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <button
                                       onClick={() => {
                                         setSelectedVerificationFilter('all');
+                                        setShowVerificationFilterDropdown(false);
                                       }}
                                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                     >
@@ -3239,7 +3241,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">С комментарием</span>
-                                      <span className="ml-auto text-xs text-gray-500">(28)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => l.comment && l.comment.trim()).length})</span>
                                     </label>
 
                                     <label className="flex items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded">
@@ -3250,7 +3252,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                       />
                                       <span className="ml-3 text-sm text-gray-700">Без комментария</span>
-                                      <span className="ml-auto text-xs text-gray-500">(22)</span>
+                                      <span className="ml-auto text-xs text-gray-500">({landings.filter(l => !l.comment || !l.comment.trim()).length})</span>
                                     </label>
                                   </div>
                                 </div>
@@ -3261,6 +3263,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <button
                                       onClick={() => {
                                         setSelectedCommentFilter('all');
+                                        setShowCommentFilterDropdown(false);
                                       }}
                                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                     >
