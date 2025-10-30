@@ -70,7 +70,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'landings':
         return role === 'content_manager';
       case 'landing-editor':
-        return role === 'proofreader' || role === 'editor';
+        return role === 'proofreader';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -184,6 +184,8 @@ function Dashboard({ user, session, updateUser }) {
           return <CreativeBuyer user={user} />;
         } else if (user?.role === 'content_manager') {
           return <LandingPanel user={user} />;
+        } else if (user?.role === 'proofreader') {
+          return <LandingEditor user={user} />;
         } else if (user?.role === 'teamlead') {
           return <CreativeAnalytics user={user} />;
         } else {
