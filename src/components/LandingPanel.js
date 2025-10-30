@@ -4285,7 +4285,7 @@ data-rt-sub16="${selectedLandingUuid}"
         </div>
       )}
 
-      {/* Edit Modal - ПОЛНАЯ ВЕРСИЯ */}
+      {/* Edit Modal */}
       {showEditModal && editingLanding && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
@@ -4294,14 +4294,14 @@ data-rt-sub16="${selectedLandingUuid}"
                 Редактировать лендинг
               </h3>
 
-              {/* Тумблер для тестового режима */}
+              {/* Тумблер для тестового режима (ТОЛЬКО ВИЗУАЛЬНЫЙ) */}
               <div className="flex items-center space-x-3">
                 <span className={`text-sm font-medium transition-colors duration-300 ${!editingLanding.is_test ? 'text-gray-900' : 'text-gray-500'
                   }`}>
                   Основной
                 </span>
                 <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${editingLanding.is_test ? 'bg-yellow-500' : 'bg-gray-200'
-                  }`}>
+                  } cursor-not-allowed opacity-75`}>
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${editingLanding.is_test ? 'translate-x-6' : 'translate-x-1'
                       }`}
@@ -4332,6 +4332,8 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
                   setShowDesignerDropdown(false);
+                  setShowTemplateDropdown(false);
+                  setShowTagsDropdown(false);
                   setShowProductDropdown(false);
                   setShowGiferDropdown(false);
                   clearMessages();
@@ -4478,116 +4480,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* Теги - красивый множественный dropdown */}
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">
-                  Теги ({editLanding.tags.length} выбрано)
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowTagsDropdown(!showTagsDropdown)}
-                    className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${editingLanding.is_test
-                      ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        {editLanding.tags.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {editLanding.tags.map((tag, index) => {
-                              const tagStyles = {
-                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
-                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
-                                'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
-                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
-                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
-                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' }
-                              };
-                              const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' };
-                              return (
-                                <span
-                                  key={index}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white ${style.border} ${style.text}`}
-                                >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
-                                  {tag}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span className="text-gray-500">Выберите теги</span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
-                        {editLanding.tags.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditLanding({ ...editLanding, tags: [] });
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                            title="Очистить все теги"
-                          >
-                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                          </button>
-                        )}
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      </div>
-                    </div>
-                  </button>
-
-                  {showTagsDropdown && (
-                    <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2 max-h-[220px] overflow-y-auto">
-                      {availableTags.map((tag) => {
-                        const tagStyles = {
-                          'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
-                          'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
-                          'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
-                          'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
-                          'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
-                          'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' }
-                        };
-                        const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' };
-                        const isSelected = editLanding.tags.includes(tag);
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => {
-                              let updatedTags;
-                              if (isSelected) {
-                                updatedTags = editLanding.tags.filter(t => t !== tag);
-                              } else {
-                                updatedTags = [...editLanding.tags, tag];
-                              }
-                              setEditLanding({ ...editLanding, tags: updatedTags });
-                            }}
-                            className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between ${isSelected
-                              ? `bg-white border ${style.border} ${style.text}`
-                              : `${style.hover} border border-transparent hover:border-gray-200`
-                              }`}
-                          >
-                            <div className="flex items-center">
-                              <span className={`w-2 h-2 rounded-full ${style.dot} mr-2`}></span>
-                              <span className="text-sm font-medium">{tag}</span>
-                            </div>
-                            {isSelected && (
-                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-                  {/* Designer */}
+              {/* Designer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
                   Designer *
@@ -4803,10 +4696,10 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* GIFer - обязательное поле для обоих режимов */}
+              {/* GIFer */}
               <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.gifer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  GIFer *
+                <label className="block text-sm font-medium mb-2 text-gray-700">
+                  GIFer
                 </label>
                 <div className="relative">
                   <button
@@ -4823,9 +4716,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       }
                     }}
                     disabled={loadingUsers}
-                    className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.gifer_id
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : editingLanding.is_test
+                    className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${editingLanding.is_test
                         ? 'border-gray-300 focus:ring-yellow-500'
                         : 'border-gray-300 focus:ring-blue-500'
                       }`}
@@ -4907,10 +4798,6 @@ data-rt-sub16="${selectedLandingUuid}"
                     </div>
                   )}
                 </div>
-                {loadingUsers && (
-                  <p className="mt-1 text-xs text-gray-500">Загрузка гиферов...</p>
-                )}
-              </div>
               </div>
 
               {/* Buyer ИЛИ Product в зависимости от режима */}
@@ -4976,7 +4863,7 @@ data-rt-sub16="${selectedLandingUuid}"
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
-                          >
+                        >
                             <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
                           </button>
                         )}
@@ -5023,8 +4910,8 @@ data-rt-sub16="${selectedLandingUuid}"
               ) : (
                 // Тестовый режим - Product
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.product_manager_id ? 'text-red-600' : 'text-gray-700'}`}>
-                    Product *
+                  <label className="block text-sm font-medium mb-2 text-gray-700">
+                    Product
                   </label>
                   <div className="relative">
                     <button
@@ -5041,10 +4928,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }
                       }}
                       disabled={loadingUsers}
-                      className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.product_manager_id
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        : 'border-gray-300 focus:ring-yellow-500'
-                      }`}
+                      className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 border-gray-300 focus:ring-yellow-500`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
                         {editLanding.product_manager_id ? (
@@ -5078,7 +4962,6 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditLanding({ ...editLanding, product_manager_id: null });
-                              clearFieldError('product_manager_id');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -5099,7 +4982,6 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={() => {
                               setEditLanding({ ...editLanding, product_manager_id: pm.id });
                               setShowProductDropdown(false);
-                              clearFieldError('product_manager_id');
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
@@ -5130,7 +5012,6 @@ data-rt-sub16="${selectedLandingUuid}"
 
               {/* Комментарий */}
               <div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Комментарий
                 </label>
@@ -5144,6 +5025,116 @@ data-rt-sub16="${selectedLandingUuid}"
                     }`}
                   placeholder="Добавьте комментарий к лендингу (необязательно)"
                 />
+              </div>
+
+              {/* Теги - красивый множественный dropdown */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-700">
+                  Теги ({editLanding.tags.length} выбрано)
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+                    className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${editingLanding.is_test
+                      ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        {editLanding.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {editLanding.tags.map((tag, index) => {
+                              const tagStyles = {
+                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
+                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
+                                'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
+                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
+                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
+                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' }
+                              };
+                              const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' };
+                              return (
+                                <span
+                                  key={index}
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white ${style.border} ${style.text}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
+                                  {tag}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-gray-500">Выберите теги</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
+                        {editLanding.tags.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditLanding({ ...editLanding, tags: [] });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить все теги"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </button>
+
+                  {showTagsDropdown && (
+                    <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2 max-h-[220px] overflow-y-auto">
+                      {availableTags.map((tag) => {
+                        const tagStyles = {
+                          'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
+                          'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
+                          'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
+                          'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
+                          'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
+                          'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' }
+                        };
+                        const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' };
+                        const isSelected = editLanding.tags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => {
+                              let updatedTags;
+                              if (isSelected) {
+                                updatedTags = editLanding.tags.filter(t => t !== tag);
+                              } else {
+                                updatedTags = [...editLanding.tags, tag];
+                              }
+                              setEditLanding({ ...editLanding, tags: updatedTags });
+                            }}
+                            className={`w-full px-3 py-2 mb-1 text-left rounded-md transition-colors flex items-center justify-between ${isSelected
+                              ? `bg-white border ${style.border} ${style.text}`
+                              : `${style.hover} border border-transparent hover:border-gray-200`
+                              }`}
+                          >
+                            <div className="flex items-center">
+                              <span className={`w-2 h-2 rounded-full ${style.dot} mr-2`}></span>
+                              <span className="text-sm font-medium">{tag}</span>
+                            </div>
+                            {isSelected && (
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
