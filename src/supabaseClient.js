@@ -1006,10 +1006,7 @@ export const landingService = {
 
       const { data, error } = await supabase
         .from('landings')
-        .select(`
-          *,
-          users!landings_user_id_fkey(name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
