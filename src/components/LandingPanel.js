@@ -2811,6 +2811,17 @@ data-rt-sub16="${selectedLandingUuid}"
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <svg className="h-5 w-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        </svg>
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <MessageCircle className="h-5 w-5 mx-auto" />
+                      </th>
+
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
@@ -2923,45 +2934,49 @@ data-rt-sub16="${selectedLandingUuid}"
                             </div>
                           </td>
 
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="w-6 h-6 flex items-center justify-center mx-auto">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  showUuidCode(landing.id);
+                                }}
+                                className={`p-1 rounded-full transition-all duration-200 ${(landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-900 hover:scale-110'
+                                    : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-900 hover:scale-110'
+                                  }`}
+                                title={
+                                  (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
+                                    ? `Интеграция подтверждена ${landing.verified_urls ? `(${landing.verified_urls.length} URL)` : ''}`
+                                    : 'Интеграция не найдена'
+                                }
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="w-6 h-6 flex items-center justify-center mx-auto">
+                              {landing.comment && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    showUuidCode(landing.id);
+                                    showComment(landing);
                                   }}
-                                  className={`p-1 rounded-full transition-all duration-200 ${(landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
-                                      ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-900 hover:scale-110'
-                                      : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-900 hover:scale-110'
-                                    }`}
-                                  title={
-                                    (landing.verified_urls && landing.verified_urls.length > 0) || landingsWithIntegration.get(landing.id)
-                                      ? `Интеграция подтверждена ${landing.verified_urls ? `(${landing.verified_urls.length} URL)` : ''}`
-                                      : 'Интеграция не найдена'
-                                  }
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                  title="Показать комментарий"
                                 >
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                                  </svg>
+                                  <MessageCircle className="h-4 w-4" />
                                 </button>
-                              </div>
+                              )}
+                            </div>
+                          </td>
 
-                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                {landing.comment && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      showComment(landing);
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                    title="Показать комментарий"
-                                  >
-                                    <MessageCircle className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </div>
-
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2">
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                 {landingsWithHistory.has(landing.id) && (
                                   <button
