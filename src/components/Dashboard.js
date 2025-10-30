@@ -46,7 +46,7 @@ function Dashboard({ user, session, updateUser }) {
 
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
-    if (role === 'editor') return 'landing-editor';
+    if (role === 'editor') return 'creatives';
     if (role === 'designer') return 'settings';
     if (role === 'search_manager') return 'creatives';
     if (role === 'buyer') return 'creatives';
@@ -70,7 +70,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'landings':
         return role === 'content_manager';
       case 'landing-editor':
-        return role === 'proofreader';
+        return role === 'proofreader' || role === 'editor';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -167,7 +167,7 @@ function Dashboard({ user, session, updateUser }) {
       case 'landings':
         return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
       case 'landing-editor':
-        return user?.role === 'proofreader' || user?.role === 'editor' ? <LandingEditor user={user} /> : null;
+        return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
