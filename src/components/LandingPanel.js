@@ -2805,6 +2805,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Тип
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -2902,21 +2906,20 @@ data-rt-sub16="${selectedLandingUuid}"
                             </button>
                           </td>
 
-
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="w-16 flex items-center justify-center mx-auto">
+                              {landing.is_test && (
+                                <div title="Тестовый лендинг">
+                                  <TestBadge />
+                                </div>
+                              )}
+                            </div>
+                          </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-16 flex items-center justify-center flex-shrink-0">
-                                {landing.is_test && (
-                                  <div title="Тестовый лендинг">
-                                    <TestBadge />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="cursor-text select-text text-center">
-                                <div className="font-medium">{formattedDateTime.date}</div>
-                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                              </div>
+                            <div className="cursor-text select-text text-center">
+                              <div className="font-medium">{formattedDateTime.date}</div>
+                              <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                             </div>
                           </td>
 
