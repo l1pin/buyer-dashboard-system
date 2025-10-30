@@ -2923,7 +2923,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         </svg>
                       </th>
 
-                      <th className="px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="pl-3 pr-8 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <div className="flex items-center justify-center relative">
                           <span>Тип</span>
                           <button
@@ -2935,7 +2935,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               });
                               setShowTypeFilterDropdown(!showTypeFilterDropdown);
                             }}
-                            className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-0"
+                            className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-1"
                             title="Фильтр по типу"
                           >
                             <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -3045,7 +3045,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Дата
                       </th>
 
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="pl-6 pr-10 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <div className="flex items-center justify-center relative">
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -3059,7 +3059,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               });
                               setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
                             }}
-                            className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-0"
+                            className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-1"
                             title="Фильтр по верификации"
                           >
                             <Filter className={`h-3 w-3 ${selectedVerificationFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -3165,7 +3165,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         </div>
                       </th>
 
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="pl-6 pr-10 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <div className="flex items-center justify-center relative">
                           <MessageCircle className="h-4 w-4" />
                           <button
@@ -3177,7 +3177,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               });
                               setShowCommentFilterDropdown(!showCommentFilterDropdown);
                             }}
-                            className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-0"
+                            className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors absolute right-1"
                             title="Фильтр по комментарию"
                           >
                             <Filter className={`h-3 w-3 ${selectedCommentFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
