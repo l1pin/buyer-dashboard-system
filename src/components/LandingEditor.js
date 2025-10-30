@@ -40,7 +40,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-function LandingPanel({ user }) {
+function LandingEditor({ user }) {
   const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1078,8 +1078,8 @@ function LandingPanel({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка лендингов пользователя...');
-      const data = await landingService.getUserLandings(user.id);
+      console.log('📡 Загрузка всех лендингов для Editor...');
+      const data = await landingService.getAllLandings();
 
       // Загружаем данные о verified_urls для каждого лендинга
       const landingsWithUrls = await Promise.all(
@@ -2775,15 +2775,8 @@ data-rt-sub16="${selectedLandingUuid}"
               Нет лендингов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый лендинг
+              Нет доступных лендингов для редактирования
             </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать лендинг
-            </button>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -2886,6 +2879,9 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         GIFer
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Content Manager
                       </th>
                     </tr>
                   </thead>
@@ -3352,6 +3348,17 @@ data-rt-sub16="${selectedLandingUuid}"
                             ) : (
                               <span className="text-gray-400 cursor-text select-text">—</span>
                             )}
+                          </td>
+
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                              <span className="text-sm text-gray-900 cursor-text select-text">
+                                {landing.content_manager_name || '—'}
+                              </span>
+                            </div>
                           </td>
 
                         </tr>
@@ -5626,4 +5633,4 @@ data-rt-sub16="${selectedLandingUuid}"
   );
 }
 
-export default LandingPanel;
+export default LandingEditor;
