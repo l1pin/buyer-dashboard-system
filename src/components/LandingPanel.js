@@ -2920,52 +2920,50 @@ data-rt-sub16="${selectedLandingUuid}"
                         </svg>
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center">
-                          <span>Тип</span>
-                          <div className="relative ml-1">
-                            <button
-                              onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
-                              className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
-                              title="Фильтр по типу"
-                            >
-                              <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
-                            </button>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                        <span>Тип</span>
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <button
+                            onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
+                            className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Фильтр по типу"
+                          >
+                            <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                          </button>
 
-                            {showTypeFilterDropdown && (
-                              <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTypeFilter('all');
-                                      setShowTypeFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Все
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTypeFilter('main');
-                                      setShowTypeFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'main' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Основные
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTypeFilter('test');
-                                      setShowTypeFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'test' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Тестовые
-                                  </button>
-                                </div>
+                          {showTypeFilterDropdown && (
+                            <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedTypeFilter('all');
+                                    setShowTypeFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Все
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedTypeFilter('main');
+                                    setShowTypeFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'main' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Основные
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedTypeFilter('test');
+                                    setShowTypeFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedTypeFilter === 'test' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Тестовые
+                                </button>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </th>
 
@@ -2973,103 +2971,99 @@ data-rt-sub16="${selectedLandingUuid}"
                         Дата
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center">
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                          </svg>
-                          <div className="relative ml-1">
-                            <button
-                              onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
-                              className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
-                              title="Фильтр по верификации"
-                            >
-                              <Filter className={`h-3 w-3 ${selectedVerificationFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
-                            </button>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                        <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        </svg>
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <button
+                            onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
+                            className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Фильтр по верификации"
+                          >
+                            <Filter className={`h-3 w-3 ${selectedVerificationFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                          </button>
 
-                            {showVerificationFilterDropdown && (
-                              <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedVerificationFilter('all');
-                                      setShowVerificationFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Все
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedVerificationFilter('verified');
-                                      setShowVerificationFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    С верифом
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedVerificationFilter('not_verified');
-                                      setShowVerificationFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'not_verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Без верифа
-                                  </button>
-                                </div>
+                          {showVerificationFilterDropdown && (
+                            <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedVerificationFilter('all');
+                                    setShowVerificationFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Все
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedVerificationFilter('verified');
+                                    setShowVerificationFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  С верифом
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedVerificationFilter('not_verified');
+                                    setShowVerificationFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedVerificationFilter === 'not_verified' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Без верифа
+                                </button>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center">
-                          <MessageCircle className="h-4 w-4" />
-                          <div className="relative ml-1">
-                            <button
-                              onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
-                              className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
-                              title="Фильтр по комментарию"
-                            >
-                              <Filter className={`h-3 w-3 ${selectedCommentFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
-                            </button>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                        <MessageCircle className="h-4 w-4 mx-auto" />
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <button
+                            onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
+                            className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Фильтр по комментарию"
+                          >
+                            <Filter className={`h-3 w-3 ${selectedCommentFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
+                          </button>
 
-                            {showCommentFilterDropdown && (
-                              <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedCommentFilter('all');
-                                      setShowCommentFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Все
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedCommentFilter('with_comment');
-                                      setShowCommentFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'with_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    С комментарием
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedCommentFilter('without_comment');
-                                      setShowCommentFilterDropdown(false);
-                                    }}
-                                    className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'without_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
-                                  >
-                                    Без комментария
-                                  </button>
-                                </div>
+                          {showCommentFilterDropdown && (
+                            <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedCommentFilter('all');
+                                    setShowCommentFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Все
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedCommentFilter('with_comment');
+                                    setShowCommentFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'with_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  С комментарием
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedCommentFilter('without_comment');
+                                    setShowCommentFilterDropdown(false);
+                                  }}
+                                  className={`flex items-center w-full px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${selectedCommentFilter === 'without_comment' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                  Без комментария
+                                </button>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </th>
 
