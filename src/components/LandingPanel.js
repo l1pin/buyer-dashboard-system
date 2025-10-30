@@ -2931,7 +2931,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               const rect = e.currentTarget.getBoundingClientRect();
                               setTypeFilterPosition({
                                 top: rect.bottom + window.scrollY + 8,
-                                left: rect.left + window.scrollX - 280
+                                left: rect.left + window.scrollX + (rect.width / 2) - 160
                               });
                               setShowTypeFilterDropdown(!showTypeFilterDropdown);
                             }}
@@ -3054,7 +3054,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               const rect = e.currentTarget.getBoundingClientRect();
                               setVerificationFilterPosition({
                                 top: rect.bottom + window.scrollY + 8,
-                                left: rect.left + window.scrollX - 280
+                                left: rect.left + window.scrollX + (rect.width / 2) - 160
                               });
                               setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
                             }}
@@ -3171,7 +3171,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               const rect = e.currentTarget.getBoundingClientRect();
                               setCommentFilterPosition({
                                 top: rect.bottom + window.scrollY + 8,
-                                left: rect.left + window.scrollX - 280
+                                left: rect.left + window.scrollX + (rect.width / 2) - 160
                               });
                               setShowCommentFilterDropdown(!showCommentFilterDropdown);
                             }}
