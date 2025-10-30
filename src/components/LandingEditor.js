@@ -1157,34 +1157,57 @@ function LandingEditor({ user }) {
     }
 
     try {
-      console.log('🔍 Поиск лендингов по UUID:', searchText);
+      console.log('🔍 Поиск лендингов по UUID или артикулу:', searchText);
       
-      // Пробуем разные способы поиска
-      let query = supabase
+      // Сначала получаем ВСЕ лендинги
+      const { data: allLandings, error } = await supabase
         .from('landings')
         .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags, is_poland, buyer_id')
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .order('created_at', { ascending: false });
 
-      // Если введен UUID формат (с дефисами)
-      if (searchText.includes('-')) {
-        // Точный поиск по началу UUID
-        const { data, error } = await query.ilike('id', `${searchText}%`);
+      if (error) throw error;
+
+      if (!allLandings || allLandings.length === 0) {
+        setUuidSuggestions([]);
+        setShowUuidSuggestions(false);
+        return;
+      }
+
+      // Фильтруем на клиенте
+      const searchLower = searchText.toLowerCase();
+      const filtered = allLandings.filter(landing => {
+        // Проверяем UUID (id)
+        const idMatch = landing.id && landing.id.toLowerCase().includes(searchLower);
+        // Проверяем артикул
+        const articleMatch = landing.article && landing.article.toLowerCase().includes(searchLower);
         
-        if (error) throw error;
+        return idMatch || articleMatch;
+      });
+
+      // Сортируем результаты - точные совпадения первыми
+      filtered.sort((a, b) => {
+        const aIdStarts = a.id && a.id.toLowerCase().startsWith(searchLower);
+        const bIdStarts = b.id && b.id.toLowerCase().startsWith(searchLower);
+        const aArticleStarts = a.article && a.article.toLowerCase().startsWith(searchLower);
+        const bArticleStarts = b.article && b.article.toLowerCase().startsWith(searchLower);
         
-        setUuidSuggestions(data || []);
-        setShowUuidSuggestions(data && data.length > 0);
-        console.log(`✅ Найдено ${data?.length || 0} лендингов по UUID`);
-      } else {
-        // Поиск по артикулу если не UUID
-        const { data, error } = await query.ilike('article', `%${searchText}%`);
-        
-        if (error) throw error;
-        
-        setUuidSuggestions(data || []);
-        setShowUuidSuggestions(data && data.length > 0);
-        console.log(`✅ Найдено ${data?.length || 0} лендингов по артикулу`);
+        if ((aIdStarts || aArticleStarts) && !(bIdStarts || bArticleStarts)) return -1;
+        if (!(aIdStarts || aArticleStarts) && (bIdStarts || bArticleStarts)) return 1;
+        return 0;
+      });
+
+      // Ограничиваем до 20 результатов
+      const limited = filtered.slice(0, 20);
+      
+      setUuidSuggestions(limited);
+      setShowUuidSuggestions(limited.length > 0);
+      console.log(`✅ Найдено ${limited.length} лендингов (из ${filtered.length} совпадений)`);
+      
+      if (limited.length > 0) {
+        console.log('📋 Примеры найденных:', limited.slice(0, 3).map(l => ({
+          id: l.id,
+          article: l.article
+        })));
       }
     } catch (error) {
       console.error('❌ Ошибка поиска лендингов:', error);
