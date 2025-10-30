@@ -2932,7 +2932,14 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showTypeFilterDropdown && (
-                            <div className="type-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                            <>
+                              {/* Backdrop overlay */}
+                              <div 
+                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
+                                onClick={() => setShowTypeFilterDropdown(false)}
+                              />
+                              
+                              <div className="type-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
                                  style={{ 
                                    top: '50%', 
                                    left: '50%', 
@@ -3026,6 +3033,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
+                            </>
                           )}
                         </div>
                       </th>
@@ -3048,7 +3056,14 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showVerificationFilterDropdown && (
-                            <div className="verification-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                            <>
+                              {/* Backdrop overlay */}
+                              <div 
+                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
+                                onClick={() => setShowVerificationFilterDropdown(false)}
+                              />
+                              
+                              <div className="verification-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
                                  style={{ 
                                    top: '50%', 
                                    left: '50%', 
@@ -3142,6 +3157,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
+                            </>
                           )}
                         </div>
                       </th>
@@ -3158,7 +3174,14 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showCommentFilterDropdown && (
-                            <div className="comment-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[1000]" 
+                            <>
+                              {/* Backdrop overlay */}
+                              <div 
+                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
+                                onClick={() => setShowCommentFilterDropdown(false)}
+                              />
+                              
+                              <div className="comment-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
                                  style={{ 
                                    top: '50%', 
                                    left: '50%', 
@@ -3252,6 +3275,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
+                            </>
                           )}
                         </div>
                       </th>
