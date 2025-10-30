@@ -1321,7 +1321,7 @@ function LandingEditor({ user }) {
         tags: newLanding.tags,
         comment: newLanding.comment.trim(),
         is_poland: existingLanding.is_poland,
-        trello_link: existingLanding.trello_link || '',
+        trello_link: '',
         designer_id: newLanding.designer_id,
         buyer_id: existingLanding.buyer_id,
         searcher_id: newLanding.searcher_id,
