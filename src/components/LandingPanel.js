@@ -4728,10 +4728,13 @@ data-rt-sub16="${selectedLandingUuid}"
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
                         setShowProductDropdown(false);
+                        clearFieldError('gifer_id');
                       }
                     }}
                     disabled={loadingUsers}
-                    className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${editingLanding.is_test
+                    className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.gifer_id
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : editingLanding.is_test
                         ? 'border-gray-300 focus:ring-yellow-500'
                         : 'border-gray-300 focus:ring-blue-500'
                       }`}
