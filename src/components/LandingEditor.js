@@ -139,11 +139,11 @@ function LandingEditor({ user }) {
   const [uuidSuggestions, setUuidSuggestions] = useState([]);
   const [showUuidSuggestions, setShowUuidSuggestions] = useState(false);
   const [selectedLandingForEdit, setSelectedLandingForEdit] = useState(null);
-  const [selectedSource, setSelectedSource] = useState('warehouse'); // 'warehouse', 'buyer', 'searcher'
+  const [selectedSource, setSelectedSource] = useState('warehouse'); // 'warehouse', 'buyer', 'content'
   const [showSourceBuyerDropdown, setShowSourceBuyerDropdown] = useState(false);
-  const [showSourceSearcherDropdown, setShowSourceSearcherDropdown] = useState(false);
+  const [showSourceContentDropdown, setShowSourceContentDropdown] = useState(false);
   const [sourceBuyerId, setSourceBuyerId] = useState(null);
-  const [sourceSearcherId, setSourceSearcherId] = useState(null);
+  const [sourceContentId, setSourceContentId] = useState(null);
 
   // Доступные теги для лендингов
   const availableTags = [
@@ -1277,9 +1277,9 @@ function LandingEditor({ user }) {
       errorMessages.push('Необходимо выбрать байера для источника');
     }
 
-    if (selectedSource === 'searcher' && !sourceSearcherId) {
-      errors.source_searcher = true;
-      errorMessages.push('Необходимо выбрать серчера для источника');
+    if (selectedSource === 'content' && !sourceContentId) {
+      errors.source_content = true;
+      errorMessages.push('Необходимо выбрать контент менеджера для источника');
     }
 
     if (!newLanding.comment || !newLanding.comment.trim()) {
@@ -1377,9 +1377,9 @@ function LandingEditor({ user }) {
       setUuidSuggestions([]);
       setSelectedSource('warehouse');
       setSourceBuyerId(null);
-      setSourceSearcherId(null);
+      setSourceContentId(null);
       setShowSourceBuyerDropdown(false);
-      setShowSourceSearcherDropdown(false);
+      setShowSourceContentDropdown(false);
       setShowCreateModal(false);
 
       await loadMetricsForSingleCreative(newLandingData);
@@ -3544,9 +3544,9 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowGiferDropdown(false);
                   setSelectedSource('warehouse');
                   setSourceBuyerId(null);
-                  setSourceSearcherId(null);
+                  setSourceContentId(null);
                   setShowSourceBuyerDropdown(false);
-                  setShowSourceSearcherDropdown(false);
+                  setShowSourceContentDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -3961,12 +3961,12 @@ data-rt-sub16="${selectedLandingUuid}"
                       onClick={() => {
                         setSelectedSource('warehouse');
                         setSourceBuyerId(null);
-                        setSourceSearcherId(null);
+                        setSourceContentId(null);
                         setShowSourceBuyerDropdown(false);
-                        setShowSourceSearcherDropdown(false);
+                        setShowSourceContentDropdown(false);
                         clearFieldError('source');
                         clearFieldError('source_buyer');
-                        clearFieldError('source_searcher');
+                        clearFieldError('source_content');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                         selectedSource === 'warehouse'
@@ -3980,10 +3980,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       type="button"
                       onClick={() => {
                         setSelectedSource('buyer');
-                        setSourceSearcherId(null);
-                        setShowSourceSearcherDropdown(false);
+                        setSourceContentId(null);
+                        setShowSourceContentDropdown(false);
                         clearFieldError('source');
-                        clearFieldError('source_searcher');
+                        clearFieldError('source_content');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                         selectedSource === 'buyer'
@@ -3996,19 +3996,19 @@ data-rt-sub16="${selectedLandingUuid}"
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedSource('searcher');
+                        setSelectedSource('content');
                         setSourceBuyerId(null);
                         setShowSourceBuyerDropdown(false);
                         clearFieldError('source');
                         clearFieldError('source_buyer');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                        selectedSource === 'searcher'
+                        selectedSource === 'content'
                           ? 'bg-white text-blue-700 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      Searcher
+                      Content
                     </button>
                   </div>
                 </div>
@@ -4117,60 +4117,47 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               )}
 
-              {/* Дропдаун Searcher если выбран источник Searcher */}
-              {selectedSource === 'searcher' && (
+              {/* Дропдаун Content если выбран источник Content */}
+              {selectedSource === 'content' && (
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_searcher ? 'text-red-600' : 'text-gray-700'}`}>
-                    Выберите Searcher *
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_content ? 'text-red-600' : 'text-gray-700'}`}>
+                    Выберите Content Manager *
                   </label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => {
                         if (!loadingUsers) {
-                          setShowSourceSearcherDropdown(!showSourceSearcherDropdown);
+                          setShowSourceContentDropdown(!showSourceContentDropdown);
                         }
                       }}
                       disabled={loadingUsers}
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
-                        fieldErrors.source_searcher
+                        fieldErrors.source_content
                           ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                           : 'border-gray-300 focus:ring-blue-500'
                       }`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
-                        {sourceSearcherId ? (
+                        {sourceContentId ? (
                           <>
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getSearcherAvatar(sourceSearcherId) ? (
-                                <img
-                                  src={getSearcherAvatar(sourceSearcherId)}
-                                  alt="Searcher"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(sourceSearcherId) ? 'hidden' : ''}`}>
-                                <Search className="h-3 w-3 text-gray-400" />
-                              </div>
+                              <User className="h-3 w-3 text-gray-400" />
                             </div>
-                            <span className="text-gray-900 truncate">{getSearcherName(sourceSearcherId)}</span>
+                            <span className="text-gray-900 truncate">{landings.find(l => l.id === newLanding.uuid)?.content_manager_name || 'Content Manager'}</span>
                           </>
                         ) : (
-                          <span className="text-gray-500">Выберите серчера</span>
+                          <span className="text-gray-500">Выберите контент менеджера</span>
                         )}
                       </div>
                       <div className="flex items-center space-x-1">
-                        {sourceSearcherId && (
+                        {sourceContentId && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSourceSearcherId(null);
-                              clearFieldError('source_searcher');
+                              setSourceContentId(null);
+                              clearFieldError('source_content');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -4182,38 +4169,22 @@ data-rt-sub16="${selectedLandingUuid}"
                       </div>
                     </button>
 
-                    {showSourceSearcherDropdown && !loadingUsers && (
+                    {showSourceContentDropdown && !loadingUsers && selectedLandingForEdit && (
                       <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {searchers.map((searcher) => (
-                          <button
-                            key={searcher.id}
-                            type="button"
-                            onClick={() => {
-                              setSourceSearcherId(searcher.id);
-                              setShowSourceSearcherDropdown(false);
-                              clearFieldError('source_searcher');
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {searcher.avatar_url ? (
-                                <img
-                                  src={searcher.avatar_url}
-                                  alt="Searcher"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
-                                <Search className="h-3 w-3 text-gray-400" />
-                              </div>
-                            </div>
-                            <span className="text-gray-900 truncate">{searcher.name}</span>
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSourceContentId(selectedLandingForEdit.id);
+                            setShowSourceContentDropdown(false);
+                            clearFieldError('source_content');
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <User className="h-3 w-3 text-gray-400" />
+                          </div>
+                          <span className="text-gray-900 truncate">{selectedLandingForEdit.content_manager_name || 'Content Manager'}</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -4371,9 +4342,9 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowGiferDropdown(false);
                   setSelectedSource('warehouse');
                   setSourceBuyerId(null);
-                  setSourceSearcherId(null);
+                  setSourceContentId(null);
                   setShowSourceBuyerDropdown(false);
-                  setShowSourceSearcherDropdown(false);
+                  setShowSourceContentDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
