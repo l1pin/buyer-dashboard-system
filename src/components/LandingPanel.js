@@ -2,6 +2,7 @@
 // Заменяет все упоминания креативов на лендинги
 
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
@@ -39,6 +40,23 @@ import {
   Palette,
   CheckCircle
 } from 'lucide-react';
+
+// Компонент для рендеринга модального окна через портал
+const FilterModal = ({ children, isOpen }) => {
+  if (!isOpen) return null;
+  
+  return ReactDOM.createPortal(
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" />
+      <div className="fixed inset-0 z-[9999] pointer-events-none">
+        <div className="pointer-events-auto">
+          {children}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+};
 
 function LandingPanel({ user }) {
   const [landings, setLandings] = useState([]);
@@ -2931,15 +2949,12 @@ data-rt-sub16="${selectedLandingUuid}"
                             <Filter className={`h-3 w-3 ${selectedTypeFilter !== 'all' ? 'text-blue-600' : 'text-gray-400'}`} />
                           </button>
 
-                          {showTypeFilterDropdown && (
-                            <>
-                              {/* Backdrop overlay */}
-                              <div 
-                                className="fixed inset-0 bg-black bg-opacity-25 z-[9998]" 
-                                onClick={() => setShowTypeFilterDropdown(false)}
-                              />
-                              
-                              <div className="type-filter-dropdown fixed mt-8 w-80 bg-white rounded-lg shadow-2xl z-[9999]" 
+                          <FilterModal isOpen={showTypeFilterDropdown}>
+                            <div 
+                              className="fixed inset-0" 
+                              onClick={() => setShowTypeFilterDropdown(false)}
+                            />
+                            <div className="fixed w-80 bg-white rounded-lg shadow-2xl"
                                  style={{ 
                                    top: '50%', 
                                    left: '50%', 
@@ -3033,8 +3048,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             </div>
-                            </>
-                          )}
+                          </FilterModal>
                         </div>
                       </th>
 
