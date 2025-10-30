@@ -1276,7 +1276,8 @@ function LandingPanel({ user }) {
       designer_id: landing.designer_id || null,
       buyer_id: landing.buyer_id || null,
       searcher_id: landing.searcher_id || null,
-      gifer_id: landing.gifer_id || null
+      gifer_id: landing.gifer_id || null,
+      product_manager_id: landing.product_manager_id || null
     });
     setShowEditModal(true);
     clearMessages();
@@ -1779,6 +1780,11 @@ data-rt-sub16="${selectedLandingUuid}"
   const getSelectedProductManager = () => {
     if (!newLanding.product_manager_id) return null;
     return productManagers.find(p => p.id === newLanding.product_manager_id);
+  };
+
+  const getSelectedProductManagerEdit = () => {
+    if (!editLanding.product_manager_id) return null;
+    return productManagers.find(p => p.id === editLanding.product_manager_id);
   };
 
   const getProductManagerName = (pmId) => {
@@ -4029,27 +4035,27 @@ data-rt-sub16="${selectedLandingUuid}"
                           : 'border-gray-300 focus:ring-yellow-500'
                         }`}
                       >
-                        <div className="flex items-center space-x-2 flex-1">
-                          {getSelectedProductManager() ? (
-                            <>
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                {getSelectedProductManager().avatar_url ? (
-                                  <img
-                                    src={getSelectedProductManager().avatar_url}
-                                    alt="Product"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManager().avatar_url ? 'hidden' : ''}`}>
-                                  <Target className="h-3 w-3 text-gray-400" />
-                                </div>
+                      <div className="flex items-center space-x-2 flex-1">
+                        {getSelectedProductManagerEdit() ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSelectedProductManagerEdit().avatar_url ? (
+                                <img
+                                  src={getSelectedProductManagerEdit().avatar_url}
+                                  alt="Product"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManagerEdit().avatar_url ? 'hidden' : ''}`}>
+                                <Target className="h-3 w-3 text-gray-400" />
                               </div>
-                              <span className="text-gray-900 truncate">{getSelectedProductManager().name}</span>
-                            </>
+                            </div>
+                            <span className="text-gray-900 truncate">{getSelectedProductManagerEdit().name}</span>
+                          </>
                           ) : (
                             <span className="text-gray-500">Выберите продакт менеджера</span>
                           )}
@@ -4944,10 +4950,14 @@ data-rt-sub16="${selectedLandingUuid}"
                           setShowTemplateDropdown(false);
                           setShowTagsDropdown(false);
                           setShowGiferDropdown(false);
+                          clearFieldError('product_manager_id');
                         }
                       }}
                       disabled={loadingUsers}
-                      className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 border-gray-300 focus:ring-yellow-500`}
+                      className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.product_manager_id
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-yellow-500'
+                      }`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
                         {editLanding.product_manager_id ? (
@@ -4975,12 +4985,13 @@ data-rt-sub16="${selectedLandingUuid}"
                         )}
                       </div>
                       <div className="flex items-center space-x-1">
-                        {editLanding.product_manager_id && (
+                        {getSelectedProductManagerEdit() && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditLanding({ ...editLanding, product_manager_id: null });
+                              clearFieldError('product_manager_id');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -5001,6 +5012,7 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={() => {
                               setEditLanding({ ...editLanding, product_manager_id: pm.id });
                               setShowProductDropdown(false);
+                              clearFieldError('product_manager_id');
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
