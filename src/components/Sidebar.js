@@ -74,7 +74,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'landing-editor',
       label: 'Лендинги',
       icon: Globe,
-      show: user?.role === 'proofreader'
+      show: user?.role === 'proofreader' || user?.role === 'editor'
     },
     {
       id: 'analytics',
