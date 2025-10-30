@@ -139,6 +139,11 @@ function LandingEditor({ user }) {
   const [uuidSuggestions, setUuidSuggestions] = useState([]);
   const [showUuidSuggestions, setShowUuidSuggestions] = useState(false);
   const [selectedLandingForEdit, setSelectedLandingForEdit] = useState(null);
+  const [selectedSource, setSelectedSource] = useState('warehouse'); // 'warehouse', 'buyer', 'searcher'
+  const [showSourceBuyerDropdown, setShowSourceBuyerDropdown] = useState(false);
+  const [showSourceSearcherDropdown, setShowSourceSearcherDropdown] = useState(false);
+  const [sourceBuyerId, setSourceBuyerId] = useState(null);
+  const [sourceSearcherId, setSourceSearcherId] = useState(null);
 
   // Доступные теги для лендингов
   const availableTags = [
@@ -1262,6 +1267,21 @@ function LandingEditor({ user }) {
       errorMessages.push('Необходимо выбрать гифера');
     }
 
+    if (!selectedSource) {
+      errors.source = true;
+      errorMessages.push('Необходимо выбрать источник');
+    }
+
+    if (selectedSource === 'buyer' && !sourceBuyerId) {
+      errors.source_buyer = true;
+      errorMessages.push('Необходимо выбрать байера для источника');
+    }
+
+    if (selectedSource === 'searcher' && !sourceSearcherId) {
+      errors.source_searcher = true;
+      errorMessages.push('Необходимо выбрать серчера для источника');
+    }
+
     if (!newLanding.comment || !newLanding.comment.trim()) {
       errors.comment = true;
       errorMessages.push('Комментарий обязателен для заполнения');
@@ -1355,6 +1375,11 @@ function LandingEditor({ user }) {
       setSelectedLandingForEdit(null);
       setSearchingUuid('');
       setUuidSuggestions([]);
+      setSelectedSource('warehouse');
+      setSourceBuyerId(null);
+      setSourceSearcherId(null);
+      setShowSourceBuyerDropdown(false);
+      setShowSourceSearcherDropdown(false);
       setShowCreateModal(false);
 
       await loadMetricsForSingleCreative(newLandingData);
@@ -2996,7 +3021,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         GIFer
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Content Manager
+                        Content
                       </th>
                     </tr>
                   </thead>
@@ -3517,6 +3542,11 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowTemplateDropdown(false);
                   setShowTagsDropdown(false);
                   setShowGiferDropdown(false);
+                  setSelectedSource('warehouse');
+                  setSourceBuyerId(null);
+                  setSourceSearcherId(null);
+                  setShowSourceBuyerDropdown(false);
+                  setShowSourceSearcherDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -3919,6 +3949,277 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
+              {/* Слайдер выбора источника */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.source ? 'text-red-600' : 'text-gray-700'}`}>
+                  Источник *
+                </label>
+                <div className="relative">
+                  <div className="flex items-center justify-between bg-gray-100 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSource('warehouse');
+                        setSourceBuyerId(null);
+                        setSourceSearcherId(null);
+                        setShowSourceBuyerDropdown(false);
+                        setShowSourceSearcherDropdown(false);
+                        clearFieldError('source');
+                        clearFieldError('source_buyer');
+                        clearFieldError('source_searcher');
+                      }}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                        selectedSource === 'warehouse'
+                          ? 'bg-white text-blue-700 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Склад
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSource('buyer');
+                        setSourceSearcherId(null);
+                        setShowSourceSearcherDropdown(false);
+                        clearFieldError('source');
+                        clearFieldError('source_searcher');
+                      }}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                        selectedSource === 'buyer'
+                          ? 'bg-white text-blue-700 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Buyer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSource('searcher');
+                        setSourceBuyerId(null);
+                        setShowSourceBuyerDropdown(false);
+                        clearFieldError('source');
+                        clearFieldError('source_buyer');
+                      }}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                        selectedSource === 'searcher'
+                          ? 'bg-white text-blue-700 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Searcher
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Дропдаун Buyer если выбран источник Buyer */}
+              {selectedSource === 'buyer' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_buyer ? 'text-red-600' : 'text-gray-700'}`}>
+                    Выберите Buyer *
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowSourceBuyerDropdown(!showSourceBuyerDropdown);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                        fieldErrors.source_buyer
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {sourceBuyerId ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getBuyerAvatar(sourceBuyerId) ? (
+                                <img
+                                  src={getBuyerAvatar(sourceBuyerId)}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getBuyerAvatar(sourceBuyerId) ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900 truncate">{getBuyerName(sourceBuyerId)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите байера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {sourceBuyerId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSourceBuyerId(null);
+                              clearFieldError('source_buyer');
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+
+                    {showSourceBuyerDropdown && !loadingUsers && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {buyers.map((buyer) => (
+                          <button
+                            key={buyer.id}
+                            type="button"
+                            onClick={() => {
+                              setSourceBuyerId(buyer.id);
+                              setShowSourceBuyerDropdown(false);
+                              clearFieldError('source_buyer');
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {buyer.avatar_url ? (
+                                <img
+                                  src={buyer.avatar_url}
+                                  alt="Buyer"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900 truncate">{buyer.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Дропдаун Searcher если выбран источник Searcher */}
+              {selectedSource === 'searcher' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_searcher ? 'text-red-600' : 'text-gray-700'}`}>
+                    Выберите Searcher *
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingUsers) {
+                          setShowSourceSearcherDropdown(!showSourceSearcherDropdown);
+                        }
+                      }}
+                      disabled={loadingUsers}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                        fieldErrors.source_searcher
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        {sourceSearcherId ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {getSearcherAvatar(sourceSearcherId) ? (
+                                <img
+                                  src={getSearcherAvatar(sourceSearcherId)}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getSearcherAvatar(sourceSearcherId) ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900 truncate">{getSearcherName(sourceSearcherId)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">Выберите серчера</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {sourceSearcherId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSourceSearcherId(null);
+                              clearFieldError('source_searcher');
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                            title="Очистить выбор"
+                          >
+                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </button>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </button>
+
+                    {showSourceSearcherDropdown && !loadingUsers && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {searchers.map((searcher) => (
+                          <button
+                            key={searcher.id}
+                            type="button"
+                            onClick={() => {
+                              setSourceSearcherId(searcher.id);
+                              setShowSourceSearcherDropdown(false);
+                              clearFieldError('source_searcher');
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {searcher.avatar_url ? (
+                                <img
+                                  src={searcher.avatar_url}
+                                  alt="Searcher"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${searcher.avatar_url ? 'hidden' : ''}`}>
+                                <Search className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900 truncate">{searcher.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Комментарий - обязательное поле */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.comment ? 'text-red-600' : 'text-gray-700'}`}>
@@ -4068,6 +4369,11 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowTemplateDropdown(false);
                   setShowTagsDropdown(false);
                   setShowGiferDropdown(false);
+                  setSelectedSource('warehouse');
+                  setSourceBuyerId(null);
+                  setSourceSearcherId(null);
+                  setShowSourceBuyerDropdown(false);
+                  setShowSourceSearcherDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
