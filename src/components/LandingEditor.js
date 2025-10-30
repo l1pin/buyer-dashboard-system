@@ -93,17 +93,12 @@ function LandingEditor({ user }) {
   const [selectedSearcher, setSelectedSearcher] = useState('all');
 
   const [newLanding, setNewLanding] = useState({
-    article: '',
+    uuid: '',
     template: '',
     tags: [],
     comment: '',
-    is_poland: false,
-    trello_link: '',
     designer_id: null,
-    buyer_id: null,
     searcher_id: null,
-    is_test: false,
-    product_manager_id: null,
     gifer_id: null
   });
 
@@ -140,6 +135,10 @@ function LandingEditor({ user }) {
   const [verifiedUrls, setVerifiedUrls] = useState([]);
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [landingsWithIntegration, setLandingsWithIntegration] = useState(new Map());
+  const [searchingUuid, setSearchingUuid] = useState('');
+  const [uuidSuggestions, setUuidSuggestions] = useState([]);
+  const [showUuidSuggestions, setShowUuidSuggestions] = useState(false);
+  const [selectedLandingForEdit, setSelectedLandingForEdit] = useState(null);
 
   // Доступные теги для лендингов
   const availableTags = [
@@ -1150,8 +1149,91 @@ function LandingEditor({ user }) {
     }
   };
 
+  const searchLandingsByUuid = async (searchText) => {
+    if (!searchText || searchText.length < 3) {
+      setUuidSuggestions([]);
+      return;
+    }
+
+    try {
+      console.log('🔍 Поиск лендингов по UUID:', searchText);
+      
+      const { data, error } = await supabase
+        .from('landings')
+        .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags')
+        .ilike('id', `%${searchText}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      setUuidSuggestions(data || []);
+      setShowUuidSuggestions(true);
+      console.log(`✅ Найдено ${data?.length || 0} лендингов`);
+    } catch (error) {
+      console.error('❌ Ошибка поиска лендингов:', error);
+      setUuidSuggestions([]);
+    }
+  };
+
+  const selectLandingForEdit = (landing) => {
+    console.log('📝 Выбран лендинг для редактирования:', landing);
+    setSelectedLandingForEdit(landing);
+    setSearchingUuid(landing.id);
+    setNewLanding({
+      uuid: landing.id,
+      template: landing.template,
+      tags: landing.tags || [],
+      comment: '',
+      designer_id: landing.designer_id || null,
+      searcher_id: landing.searcher_id || null,
+      gifer_id: landing.gifer_id || null
+    });
+    setShowUuidSuggestions(false);
+  };
+
   const handleCreateLanding = async () => {
-    if (!validateFields()) {
+    // Валидация полей
+    const errors = {};
+    const errorMessages = [];
+
+    if (!newLanding.uuid || !newLanding.uuid.trim()) {
+      errors.uuid = true;
+      errorMessages.push('UUID обязателен для заполнения');
+    }
+
+    if (!selectedLandingForEdit) {
+      errors.uuid = true;
+      errorMessages.push('Необходимо выбрать лендинг из списка');
+    }
+
+    if (!newLanding.designer_id) {
+      errors.designer_id = true;
+      errorMessages.push('Необходимо выбрать дизайнера');
+    }
+
+    if (!newLanding.searcher_id) {
+      errors.searcher_id = true;
+      errorMessages.push('Необходимо выбрать серчера');
+    }
+
+    if (!newLanding.gifer_id) {
+      errors.gifer_id = true;
+      errorMessages.push('Необходимо выбрать гифера');
+    }
+
+    if (!newLanding.comment || !newLanding.comment.trim()) {
+      errors.comment = true;
+      errorMessages.push('Комментарий обязателен для заполнения');
+    }
+
+    setFieldErrors(errors);
+
+    if (errorMessages.length > 0) {
+      if (errorMessages.length === 1) {
+        setError(errorMessages[0]);
+      } else {
+        setError('Пожалуйста, исправьте следующие ошибки: ' + errorMessages.join(', '));
+      }
       return;
     }
 
@@ -1160,103 +1242,92 @@ function LandingEditor({ user }) {
       setError('');
       setSuccess('');
 
-      const buyerName = newLanding.buyer_id ? getBuyerName(newLanding.buyer_id) : null;
-      const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
+      // Получаем информацию о текущем лендинге
+      const { data: existingLanding, error: fetchError } = await supabase
+        .from('landings')
+        .select('*')
+        .eq('id', newLanding.uuid)
+        .single();
+
+      if (fetchError || !existingLanding) {
+        setError('Лендинг не найден в базе данных');
+        setCreating(false);
+        return;
+      }
+
+      // Получаем все лендинги с таким же артикулом для определения новой версии
+      const { data: samArticleLandings, error: versionError } = await supabase
+        .from('landings')
+        .select('website')
+        .eq('article', existingLanding.article);
+
+      if (versionError) throw versionError;
+
+      // Вычисляем новую версию
+      const nextVersion = (samArticleLandings?.length || 0) + 1;
+      const website = `Версия ${nextVersion}`;
+
       const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
-      const productManagerName = newLanding.product_manager_id ? getProductManagerName(newLanding.product_manager_id) : null;
+      const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
       const giferName = newLanding.gifer_id ? getGiferName(newLanding.gifer_id) : null;
 
+      // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
         user_id: user.id,
-        content_manager_name: user.name,
-        article: newLanding.article.trim(),
-        template: newLanding.template,
+        content_manager_name: existingLanding.content_manager_name,
+        article: existingLanding.article,
+        template: existingLanding.template, // Используем шаблон из оригинального лендинга
         tags: newLanding.tags,
-        comment: newLanding.comment.trim() || null,
-        is_poland: newLanding.is_poland,
-        trello_link: newLanding.trello_link.trim(),
+        comment: newLanding.comment.trim(),
+        is_poland: existingLanding.is_poland,
+        trello_link: existingLanding.trello_link || '',
         designer_id: newLanding.designer_id,
-        buyer_id: isTestMode ? null : newLanding.buyer_id,
+        buyer_id: existingLanding.buyer_id,
         searcher_id: newLanding.searcher_id,
         gifer_id: newLanding.gifer_id,
         designer: designerName !== '—' ? designerName : null,
-        buyer: isTestMode ? null : (buyerName !== '—' ? buyerName : null),
+        buyer: existingLanding.buyer,
         searcher: searcherName !== '—' ? searcherName : null,
         gifer: giferName !== '—' ? giferName : null,
-        is_test: isTestMode,
-        editor_id: null,
-        product_manager_id: isTestMode ? newLanding.product_manager_id : null,
-        editor: null,
-        product_manager: isTestMode ? (productManagerName !== '—' ? productManagerName : null) : null
+        is_test: false, // Всегда делаем основным
+        editor_id: user.id, // Устанавливаем ID редактора
+        editor: user.name, // Устанавливаем имя редактора
+        product_manager_id: existingLanding.product_manager_id,
+        product_manager: existingLanding.product_manager,
+        website: website
       });
 
-      console.log('✅ Лендинг создан в БД:', newLandingData);
-
-      if (newLandingData.trello_link) {
-        console.log('🔄 Синхронизация Trello статуса через Netlify Function...');
-        try {
-          const syncResponse = await fetch('/.netlify/functions/trello-landing-sync', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              landingId: newLandingData.id,
-              trelloLink: newLandingData.trello_link,
-              isTest: isTestMode
-            })
-          });
-
-          if (syncResponse.ok) {
-            const syncResult = await syncResponse.json();
-            console.log('✅ Trello статус синхронизирован:', syncResult.listName);
-
-            setTrelloStatuses(prev => {
-              const updated = new Map(prev);
-              updated.set(newLandingData.id, {
-                creative_id: newLandingData.id,
-                list_name: syncResult.listName,
-                list_id: syncResult.listId,
-                trello_card_id: syncResult.cardId,
-                last_updated: new Date().toISOString()
-              });
-              return updated;
-            });
-          }
-        } catch (syncError) {
-          console.error('❌ Ошибка вызова Netlify Function:', syncError);
-        }
-      }
+      console.log('✅ Лендинг отредактирован и создана новая версия:', newLandingData);
 
       setLandings(prevLandings => [newLandingData, ...prevLandings]);
 
+      // Сбрасываем форму
       setNewLanding({
-        article: '',
+        uuid: '',
         template: '',
         tags: [],
         comment: '',
-        is_poland: false,
-        trello_link: '',
         designer_id: null,
-        buyer_id: null,
         searcher_id: null,
         gifer_id: null
       });
+      setSelectedLandingForEdit(null);
+      setSearchingUuid('');
+      setUuidSuggestions([]);
       setShowCreateModal(false);
 
       await loadMetricsForSingleCreative(newLandingData);
       await refreshZoneData();
 
-      const country = newLanding.is_poland ? 'PL' : 'UA';
-      setSuccess(`Лендинг создан! Страна: ${country} | Шаблон: ${newLanding.template} | Теги: ${newLanding.tags.length}`);
+      setSuccess(`Лендинг отредактирован! Создана ${website}`);
 
-      // Показываем модальное окно с UUID
+      // Показываем модальное окно с UUID нового лендинга
       setSelectedLandingUuid(newLandingData.id);
       setShowUuidModal(true);
       setCopiedUuid(false);
 
     } catch (error) {
-      setError('Ошибка создания лендинга: ' + error.message);
+      setError('Ошибка редактирования лендинга: ' + error.message);
     } finally {
       setCreating(false);
     }
@@ -2243,8 +2314,8 @@ data-rt-sub16="${selectedLandingUuid}"
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать лендинг
+              <Edit className="h-4 w-4 mr-2" />
+              Редактировать лендинг
             </button>
           </div>
         </div>
@@ -3378,81 +3449,29 @@ data-rt-sub16="${selectedLandingUuid}"
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
-                Создать новый лендинг
+                Редактировать лендинг
               </h3>
-
-              {/* Тумблер */}
-              <div className="flex items-center space-x-3">
-                <span className={`text-sm font-medium transition-colors duration-300 ${!isTestMode ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
-                  Основной
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsTestMode(!isTestMode);
-                    // Полная очистка формы при переключении режима
-                    setNewLanding({
-                      article: '',
-                      template: '',
-                      tags: [],
-                      comment: '',
-                      is_poland: false,
-                      trello_link: '',
-                      designer_id: null,
-                      buyer_id: null,
-                      searcher_id: null,
-                      is_test: !isTestMode,
-                      product_manager_id: null,
-                      gifer_id: null
-                    });
-                    // Закрываем все dropdowns
-                    setShowBuyerDropdown(false);
-                    setShowSearcherDropdown(false);
-                    setShowDesignerDropdown(false);
-                    setShowTemplateDropdown(false);
-                    setShowTagsDropdown(false);
-                    setShowProductDropdown(false);
-                    setShowGiferDropdown(false);
-                    // Очищаем ошибки
-                    clearMessages();
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${isTestMode ? 'bg-yellow-500 focus:ring-yellow-500' : 'bg-gray-200 focus:ring-gray-500'
-                    }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${isTestMode ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                  />
-                </button>
-                <span className={`text-sm font-medium transition-colors duration-300 ${isTestMode ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
-                  Тест
-                </span>
-              </div>
 
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setIsTestMode(false);
                   setNewLanding({
-                    article: '',
+                    uuid: '',
                     template: '',
                     tags: [],
                     comment: '',
-                    is_poland: false,
-                    trello_link: '',
                     designer_id: null,
-                    buyer_id: null,
                     searcher_id: null,
-                    is_test: false,
-                    product_manager_id: null,
                     gifer_id: null
                   });
+                  setSelectedLandingForEdit(null);
+                  setSearchingUuid('');
+                  setUuidSuggestions([]);
                   setShowBuyerDropdown(false);
                   setShowSearcherDropdown(false);
                   setShowDesignerDropdown(false);
-                  setShowProductDropdown(false);
+                  setShowTemplateDropdown(false);
+                  setShowTagsDropdown(false);
                   setShowGiferDropdown(false);
                   clearMessages();
                 }}
@@ -3462,14 +3481,6 @@ data-rt-sub16="${selectedLandingUuid}"
               </button>
             </div>
 
-            {/* Индикатор тестового режима */}
-            {isTestMode && (
-              <div className="mb-4 bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm flex items-center animate-pulse">
-                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                Создание тестового лендинга
-              </div>
-            )}
-
             {error && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
                 <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -3478,138 +3489,79 @@ data-rt-sub16="${selectedLandingUuid}"
             )}
 
             <div className="space-y-4">
-              {/* Артикул + страна */}
+              {/* UUID с поиском */}
               <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
-                  Артикул *
-                </label>
-                <div className="flex items-center space-x-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={newLanding.article}
-                      onChange={(e) => {
-                        setNewLanding({ ...newLanding, article: e.target.value });
-                        clearFieldError('article');
-                      }}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.article
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                        : isTestMode
-                          ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                        }`}
-                      placeholder="Введите артикул лендинга"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewLanding({ ...newLanding, is_poland: !newLanding.is_poland });
-                    }}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 border ${newLanding.is_poland
-                      ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
-                      : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-                      }`}
-                    title={newLanding.is_poland ? 'Переключить на Украину' : 'Переключить на Польшу'}
-                  >
-                    {newLanding.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                    <span className="ml-2">
-                      {newLanding.is_poland ? 'Poland' : 'Ukraine'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Карточка Trello */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.trello_link ? 'text-red-600' : 'text-gray-700'}`}>
-                  Карточка Trello *
-                </label>
-                <input
-                  type="url"
-                  value={newLanding.trello_link}
-                  onChange={(e) => {
-                    setNewLanding({ ...newLanding, trello_link: e.target.value });
-                    clearFieldError('trello_link');
-                  }}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.trello_link
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                    : isTestMode
-                      ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                    }`}
-                  placeholder="https://trello.com/c/..."
-                />
-                <p className="mt-1 text-xs text-blue-600 flex items-center">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Укажите ссылку на карточку Trello
-                </p>
-              </div>
-
-              {/* Шаблон - стилизованный dropdown */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.template ? 'text-red-600' : 'text-gray-700'}`}>
-                  Шаблон *
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.uuid ? 'text-red-600' : 'text-gray-700'}`}>
+                  UUID *
                 </label>
                 <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${fieldErrors.template
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : isTestMode
-                        ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                  <input
+                    type="text"
+                    value={searchingUuid}
+                    onChange={(e) => {
+                      setSearchingUuid(e.target.value);
+                      setNewLanding({ ...newLanding, uuid: e.target.value });
+                      searchLandingsByUuid(e.target.value);
+                      clearFieldError('uuid');
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.uuid
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
-                  >
-                    <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
-                      {newLanding.template || 'Выберите шаблон'}
-                    </span>
-                    <div className="flex items-center space-x-1">
-                      {newLanding.template && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNewLanding({ ...newLanding, template: '' });
-                            clearFieldError('template');
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                          title="Очистить выбор"
-                        >
-                          <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                        </button>
-                      )}
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </button>
+                    placeholder="Начните вводить UUID лендинга"
+                  />
 
-                  {showTemplateDropdown && (
-                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
-                      {templateOptions.map((template) => (
+                  {/* Dropdown с результатами поиска */}
+                  {showUuidSuggestions && uuidSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {uuidSuggestions.map((landing) => (
                         <button
-                          key={template}
+                          key={landing.id}
                           type="button"
-                          onClick={() => {
-                            setNewLanding({ ...newLanding, template });
-                            setShowTemplateDropdown(false);
-                            clearFieldError('template');
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          onClick={() => selectLandingForEdit(landing)}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-100 last:border-b-0"
                         >
-                          {template}
+                          <div>
+                            <div className="font-medium text-gray-900">{landing.article}</div>
+                            <div className="text-xs text-gray-500">
+                              {landing.id} • {landing.website}
+                              {landing.is_test && <span className="ml-2 text-yellow-600">(Тест)</span>}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {landing.template}
+                          </div>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
+                {selectedLandingForEdit && (
+                  <p className="mt-1 text-xs text-green-600 flex items-center">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Выбран: {selectedLandingForEdit.article} ({selectedLandingForEdit.website})
+                  </p>
+                )}
+              </div>
+
+              {/* Шаблон - неактивное поле */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-700">
+                  Шаблон
+                </label>
+                <input
+                  type="text"
+                  value={newLanding.template || ''}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                  placeholder="Шаблон подтянется автоматически"
+                />
               </div>
 
               {/* Designer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Designer {!isTestMode && '*'}
+                  Designer *
                 </label>
                 <div className="relative">
                   <button
@@ -3617,19 +3569,16 @@ data-rt-sub16="${selectedLandingUuid}"
                     onClick={() => {
                       if (!loadingUsers) {
                         setShowDesignerDropdown(!showDesignerDropdown);
-                        setShowBuyerDropdown(false);
                         setShowSearcherDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowProductDropdown(false);
+                        setShowGiferDropdown(false);
                       }
                     }}
                     disabled={loadingUsers}
                     className={`designer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.designer_id
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : isTestMode
-                        ? 'border-gray-300 focus:ring-yellow-500'
-                        : 'border-gray-300 focus:ring-blue-500'
+                      : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3716,7 +3665,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Searcher */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Searcher {!isTestMode && '*'}
+                  Searcher *
                 </label>
                 <div className="relative">
                   <button
@@ -3724,19 +3673,16 @@ data-rt-sub16="${selectedLandingUuid}"
                     onClick={() => {
                       if (!loadingUsers) {
                         setShowSearcherDropdown(!showSearcherDropdown);
-                        setShowBuyerDropdown(false);
                         setShowDesignerDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowProductDropdown(false);
+                        setShowGiferDropdown(false);
                       }
                     }}
                     disabled={loadingUsers}
                     className={`searcher-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.searcher_id
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : isTestMode
-                        ? 'border-gray-300 focus:ring-yellow-500'
-                        : 'border-gray-300 focus:ring-blue-500'
+                      : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3820,7 +3766,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* GIFer - обязательное поле для обоих режимов */}
+              {/* GIFer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.gifer_id ? 'text-red-600' : 'text-gray-700'}`}>
                   GIFer *
@@ -3831,20 +3777,16 @@ data-rt-sub16="${selectedLandingUuid}"
                     onClick={() => {
                       if (!loadingUsers) {
                         setShowGiferDropdown(!showGiferDropdown);
-                        setShowBuyerDropdown(false);
                         setShowSearcherDropdown(false);
                         setShowDesignerDropdown(false);
                         setShowTemplateDropdown(false);
                         setShowTagsDropdown(false);
-                        setShowProductDropdown(false);
                       }
                     }}
                     disabled={loadingUsers}
                     className={`gifer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.gifer_id
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : isTestMode
-                        ? 'border-gray-300 focus:ring-yellow-500'
-                        : 'border-gray-300 focus:ring-blue-500'
+                      : 'border-gray-300 focus:ring-blue-500'
                       }`}
                   >
                     <div className="flex items-center space-x-2 flex-1">
@@ -3928,239 +3870,27 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               </div>
 
-              {/* Buyer ИЛИ + Product в зависимости от режима */}
-              {!isTestMode ? (
-                // Обычный режим - Buyer
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.buyer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                    Buyer *
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!loadingUsers) {
-                          setShowBuyerDropdown(!showBuyerDropdown);
-                          setShowSearcherDropdown(false);
-                          setShowDesignerDropdown(false);
-                          setShowTemplateDropdown(false);
-                          setShowTagsDropdown(false);
-                          setShowProductDropdown(false);
-                        }
-                      }}
-                      disabled={loadingUsers}
-                      className={`buyer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.buyer_id
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        : 'border-gray-300 focus:ring-blue-500'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2 flex-1">
-                        {getSelectedBuyer() ? (
-                          <>
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getSelectedBuyer().avatar_url ? (
-                                <img
-                                  src={getSelectedBuyer().avatar_url}
-                                  alt="Buyer"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${getSelectedBuyer().avatar_url ? 'hidden' : ''}`}>
-                                <User className="h-3 w-3 text-gray-400" />
-                              </div>
-                            </div>
-                            <span className="text-gray-900 truncate">{getSelectedBuyer().name}</span>
-                          </>
-                        ) : (
-                          <span className="text-gray-500">Выберите байера</span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {getSelectedBuyer() && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNewLanding({ ...newLanding, buyer_id: null });
-                              clearFieldError('buyer_id');
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                            title="Очистить выбор"
-                          >
-                            <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                          </button>
-                        )}
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      </div>
-                    </button>
-
-                    {showBuyerDropdown && !loadingUsers && (
-                      <div className="buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {buyers.map((buyer) => (
-                          <button
-                            key={buyer.id}
-                            type="button"
-                            onClick={() => {
-                              setNewLanding({ ...newLanding, buyer_id: buyer.id });
-                              setShowBuyerDropdown(false);
-                              clearFieldError('buyer_id');
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {buyer.avatar_url ? (
-                                <img
-                                  src={buyer.avatar_url}
-                                  alt="Buyer"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
-                                <User className="h-3 w-3 text-gray-400" />
-                              </div>
-                            </div>
-                            <span className="text-gray-900 truncate">{buyer.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                // Тестовый режим - Product
-                <>
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${fieldErrors.product_manager_id ? 'text-red-600' : 'text-gray-700'}`}>
-                      Product *
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!loadingUsers) {
-                            setShowProductDropdown(!showProductDropdown);
-                            setShowBuyerDropdown(false);
-                            setShowSearcherDropdown(false);
-                            setShowDesignerDropdown(false);
-                            setShowTemplateDropdown(false);
-                            setShowTagsDropdown(false);
-                          }
-                        }}
-                        disabled={loadingUsers}
-                        className={`product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${fieldErrors.product_manager_id
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                          : 'border-gray-300 focus:ring-yellow-500'
-                        }`}
-                      >
-                      <div className="flex items-center space-x-2 flex-1">
-                        {getSelectedProductManagerEdit() ? (
-                          <>
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getSelectedProductManagerEdit().avatar_url ? (
-                                <img
-                                  src={getSelectedProductManagerEdit().avatar_url}
-                                  alt="Product"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManagerEdit().avatar_url ? 'hidden' : ''}`}>
-                                <Target className="h-3 w-3 text-gray-400" />
-                              </div>
-                            </div>
-                            <span className="text-gray-900 truncate">{getSelectedProductManagerEdit().name}</span>
-                          </>
-                          ) : (
-                            <span className="text-gray-500">Выберите продакт менеджера</span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {getSelectedProductManager() && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNewLanding({ ...newLanding, product_manager_id: null });
-                                clearFieldError('product_manager_id');
-                              }}
-                              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                              title="Очистить выбор"
-                            >
-                              <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                            </button>
-                          )}
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        </div>
-                      </button>
-
-                      {showProductDropdown && !loadingUsers && (
-                        <div className="product-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {productManagers.map((pm) => (
-                            <button
-                              key={pm.id}
-                              type="button"
-                              onClick={() => {
-                                setNewLanding({ ...newLanding, product_manager_id: pm.id });
-                                setShowProductDropdown(false);
-                                clearFieldError('product_manager_id');
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                {pm.avatar_url ? (
-                                  <img
-                                    src={pm.avatar_url}
-                                    alt="Product"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${pm.avatar_url ? 'hidden' : ''}`}>
-                                  <Target className="h-3 w-3 text-gray-400" />
-                                </div>
-                              </div>
-                              <span className="text-gray-900 truncate">{pm.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Комментарий */}
+              {/* Комментарий - обязательное поле */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Комментарий
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.comment ? 'text-red-600' : 'text-gray-700'}`}>
+                  Комментарий *
                 </label>
                 <textarea
                   value={newLanding.comment}
                   onChange={(e) => {
                     setNewLanding({ ...newLanding, comment: e.target.value });
+                    clearFieldError('comment');
                   }}
                   rows={3}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${isTestMode ? 'focus:ring-yellow-500' : 'focus:ring-blue-500'
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${fieldErrors.comment
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                    : 'border-gray-300 focus:ring-blue-500'
                     }`}
-                  placeholder="Добавьте комментарий к лендингу (необязательно)"
+                  placeholder="Добавьте комментарий к лендингу (обязательно)"
                 />
               </div>
 
-              {/* Теги - красивый множественный dropdown */}
+              {/* Теги */}
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700">
                   Теги ({newLanding.tags.length} выбрано)
@@ -4169,10 +3899,7 @@ data-rt-sub16="${selectedLandingUuid}"
                   <button
                     type="button"
                     onClick={() => setShowTagsDropdown(!showTagsDropdown)}
-                    className={`tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left ${isTestMode
-                      ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                      }`}
+                    className="tags-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left border-gray-300 focus:ring-blue-500 focus:border-transparent"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -4275,27 +4002,22 @@ data-rt-sub16="${selectedLandingUuid}"
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setIsTestMode(false);
                   setNewLanding({
-                    article: '',
+                    uuid: '',
                     template: '',
                     tags: [],
                     comment: '',
-                    is_poland: false,
-                    trello_link: '',
                     designer_id: null,
-                    buyer_id: null,
                     searcher_id: null,
-                    is_test: false,
-                    product_manager_id: null,
                     gifer_id: null
                   });
-                  setShowBuyerDropdown(false);
-                  setShowSearcherDropdown(false);
+                  setSelectedLandingForEdit(null);
+                  setSearchingUuid('');
+                  setUuidSuggestions([]);
                   setShowDesignerDropdown(false);
+                  setShowSearcherDropdown(false);
                   setShowTemplateDropdown(false);
                   setShowTagsDropdown(false);
-                  setShowProductDropdown(false);
                   setShowGiferDropdown(false);
                   clearMessages();
                 }}
@@ -4307,23 +4029,15 @@ data-rt-sub16="${selectedLandingUuid}"
               <button
                 onClick={handleCreateLanding}
                 disabled={creating}
-                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 ${isTestMode
-                  ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
-                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                  }`}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {creating ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Создание...
+                    Сохранение...
                   </div>
                 ) : (
-                  <div className="flex items-center">
-                    <span>{isTestMode ? 'Создать тестовый лендинг' : 'Создать лендинг'}</span>
-                    <div className="ml-2">
-                      {newLanding.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                    </div>
-                  </div>
+                  'Сохранить изменения'
                 )}
               </button>
             </div>
