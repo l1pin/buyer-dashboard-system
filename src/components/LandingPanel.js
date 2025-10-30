@@ -737,6 +737,22 @@ function LandingPanel({ user }) {
   };
 
   // Подсчет по зонам
+  // Функция для получения названия фильтра
+  const getFilterLabel = (filterType, filterValue) => {
+    if (filterValue === 'all') return null;
+    
+    switch (filterType) {
+      case 'type':
+        return filterValue === 'main' ? 'Основные' : 'Тестовые';
+      case 'verification':
+        return filterValue === 'verified' ? 'С верифом' : 'Без верифа';
+      case 'comment':
+        return filterValue === 'with_comment' ? 'С комментарием' : 'Без комментария';
+      default:
+        return null;
+    }
+  };
+
   const getZoneStats = (landingsData) => {
     const zoneCount = { red: 0, pink: 0, gold: 0, green: 0 };
 
@@ -2828,9 +2844,69 @@ data-rt-sub16="${selectedLandingUuid}"
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
-                Полная аналитика лендингов
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Полная аналитика лендингов
+                </h3>
+                
+                {/* Активные фильтры */}
+                {(selectedTypeFilter !== 'all' || selectedVerificationFilter !== 'all' || selectedCommentFilter !== 'all') && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600 font-medium">Фильтры:</span>
+                    
+                    {selectedTypeFilter !== 'all' && (
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300">
+                        <span>{getFilterLabel('type', selectedTypeFilter)}</span>
+                        <button
+                          onClick={() => setSelectedTypeFilter('all')}
+                          className="ml-2 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          title="Удалить фильтр"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {selectedVerificationFilter !== 'all' && (
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                        <span>{getFilterLabel('verification', selectedVerificationFilter)}</span>
+                        <button
+                          onClick={() => setSelectedVerificationFilter('all')}
+                          className="ml-2 hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                          title="Удалить фильтр"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {selectedCommentFilter !== 'all' && (
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-300">
+                        <span>{getFilterLabel('comment', selectedCommentFilter)}</span>
+                        <button
+                          onClick={() => setSelectedCommentFilter('all')}
+                          className="ml-2 hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                          title="Удалить фильтр"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Кнопка сброса всех фильтров */}
+                    <button
+                      onClick={() => {
+                        setSelectedTypeFilter('all');
+                        setSelectedVerificationFilter('all');
+                        setSelectedCommentFilter('all');
+                      }}
+                      className="text-xs text-gray-600 hover:text-gray-900 underline ml-2"
+                    >
+                      Сбросить все
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
                 <table className="min-w-full divide-y divide-gray-200">
@@ -2845,9 +2921,9 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center">
                           <span>Тип</span>
-                          <div className="relative">
+                          <div className="relative ml-1">
                             <button
                               onClick={() => setShowTypeFilterDropdown(!showTypeFilterDropdown)}
                               className="type-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
@@ -2898,11 +2974,11 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center">
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                           </svg>
-                          <div className="relative">
+                          <div className="relative ml-1">
                             <button
                               onClick={() => setShowVerificationFilterDropdown(!showVerificationFilterDropdown)}
                               className="verification-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
@@ -2949,9 +3025,9 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center">
                           <MessageCircle className="h-4 w-4" />
-                          <div className="relative">
+                          <div className="relative ml-1">
                             <button
                               onClick={() => setShowCommentFilterDropdown(!showCommentFilterDropdown)}
                               className="comment-filter-trigger p-1 hover:bg-gray-200 rounded transition-colors"
