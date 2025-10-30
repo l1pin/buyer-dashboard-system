@@ -2932,7 +2932,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showTypeFilterDropdown && (
-                            <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+                            <div className="type-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
                               <div className="p-3">
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
                                   <span className="text-xs font-semibold text-gray-700">Фильтровать по типу</span>
@@ -2949,9 +2949,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <input
                                       type="checkbox"
                                       checked={selectedTypeFilter === 'all'}
-                                      onChange={() => {}}
+                                      onChange={() => setSelectedTypeFilter('all')}
                                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                      disabled
                                     />
                                     <span className="ml-2 text-sm text-gray-700">Все</span>
                                   </label>
@@ -2981,6 +2980,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <button
                                     onClick={() => {
                                       setSelectedTypeFilter('all');
+                                      setShowTypeFilterDropdown(false);
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
                                   >
@@ -3017,7 +3017,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showVerificationFilterDropdown && (
-                            <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+                            <div className="verification-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
                               <div className="p-3">
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
                                   <span className="text-xs font-semibold text-gray-700">Фильтровать по верификации</span>
@@ -3034,9 +3034,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <input
                                       type="checkbox"
                                       checked={selectedVerificationFilter === 'all'}
-                                      onChange={() => {}}
+                                      onChange={() => setSelectedVerificationFilter('all')}
                                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                      disabled
                                     />
                                     <span className="ml-2 text-sm text-gray-700">Все</span>
                                   </label>
@@ -3066,6 +3065,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <button
                                     onClick={() => {
                                       setSelectedVerificationFilter('all');
+                                      setShowVerificationFilterDropdown(false);
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
                                   >
@@ -3096,7 +3096,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           </button>
 
                           {showCommentFilterDropdown && (
-                            <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+                            <div className="comment-filter-dropdown absolute left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-xl z-[100]">
                               <div className="p-3">
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
                                   <span className="text-xs font-semibold text-gray-700">Фильтровать по комментарию</span>
@@ -3113,9 +3113,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <input
                                       type="checkbox"
                                       checked={selectedCommentFilter === 'all'}
-                                      onChange={() => {}}
+                                      onChange={() => setSelectedCommentFilter('all')}
                                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                      disabled
                                     />
                                     <span className="ml-2 text-sm text-gray-700">Все</span>
                                   </label>
@@ -3145,6 +3144,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <button
                                     onClick={() => {
                                       setSelectedCommentFilter('all');
+                                      setShowCommentFilterDropdown(false);
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
                                   >
