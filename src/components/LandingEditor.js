@@ -1225,9 +1225,9 @@ function LandingEditor({ user }) {
       template: landing.template,
       tags: landing.tags || [],
       comment: '',
-      designer_id: landing.designer_id || null,
-      searcher_id: landing.searcher_id || null,
-      gifer_id: landing.gifer_id || null
+      designer_id: null,
+      searcher_id: null,
+      gifer_id: null
     });
     setShowUuidSuggestions(false);
   };
@@ -1245,21 +1245,6 @@ function LandingEditor({ user }) {
     if (!selectedLandingForEdit) {
       errors.uuid = true;
       errorMessages.push('Необходимо выбрать лендинг из списка');
-    }
-
-    if (!newLanding.designer_id) {
-      errors.designer_id = true;
-      errorMessages.push('Необходимо выбрать дизайнера');
-    }
-
-    if (!newLanding.searcher_id) {
-      errors.searcher_id = true;
-      errorMessages.push('Необходимо выбрать серчера');
-    }
-
-    if (!newLanding.gifer_id) {
-      errors.gifer_id = true;
-      errorMessages.push('Необходимо выбрать гифера');
     }
 
     if (!selectedSource) {
@@ -1323,9 +1308,14 @@ function LandingEditor({ user }) {
       const nextVersion = (samArticleLandings?.length || 0) + 1;
       const website = `Версия ${nextVersion}`;
 
-      const designerName = newLanding.designer_id ? getDesignerName(newLanding.designer_id) : null;
-      const searcherName = newLanding.searcher_id ? getSearcherName(newLanding.searcher_id) : null;
-      const giferName = newLanding.gifer_id ? getGiferName(newLanding.gifer_id) : null;
+      // Используем новые значения если заполнены, иначе берем из материнского лендинга
+      const finalDesignerId = newLanding.designer_id || existingLanding.designer_id;
+      const finalSearcherId = newLanding.searcher_id || existingLanding.searcher_id;
+      const finalGiferId = newLanding.gifer_id || existingLanding.gifer_id;
+
+      const designerName = finalDesignerId ? getDesignerName(finalDesignerId) : null;
+      const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
+      const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
@@ -1337,10 +1327,10 @@ function LandingEditor({ user }) {
         comment: newLanding.comment.trim(),
         is_poland: existingLanding.is_poland,
         trello_link: '',
-        designer_id: newLanding.designer_id,
+        designer_id: finalDesignerId,
         buyer_id: existingLanding.buyer_id,
-        searcher_id: newLanding.searcher_id,
-        gifer_id: newLanding.gifer_id,
+        searcher_id: finalSearcherId,
+        gifer_id: finalGiferId,
         designer: designerName !== '—' ? designerName : null,
         buyer: existingLanding.buyer,
         searcher: searcherName !== '—' ? searcherName : null,
@@ -3635,7 +3625,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Designer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.designer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Designer *
+                  Designer
                 </label>
                 <div className="relative">
                   <button
@@ -3739,7 +3729,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* Searcher */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.searcher_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  Searcher *
+                  Searcher
                 </label>
                 <div className="relative">
                   <button
@@ -3843,7 +3833,7 @@ data-rt-sub16="${selectedLandingUuid}"
               {/* GIFer */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.gifer_id ? 'text-red-600' : 'text-gray-700'}`}>
-                  GIFer *
+                  GIFer
                 </label>
                 <div className="relative">
                   <button
