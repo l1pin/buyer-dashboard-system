@@ -2926,7 +2926,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               )}
                               {landing.is_edited && (
                                 <div 
-                                  title="Лендинг отредактирован" 
+                                  title={`Лендинг отредактирован${landing.editor ? ` (${landing.editor})` : ''}`}
                                   className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
                                 >
                                   <span className="tracking-wide">E</span>
