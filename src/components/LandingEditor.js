@@ -1340,7 +1340,8 @@ function LandingEditor({ user }) {
         editor: user.name, // Устанавливаем имя редактора
         product_manager_id: existingLanding.product_manager_id,
         product_manager: existingLanding.product_manager,
-        website: website
+        website: website,
+        is_edited: true // Помечаем как отредактированный
       });
 
       console.log('✅ Лендинг отредактирован и создана новая версия:', newLandingData);
