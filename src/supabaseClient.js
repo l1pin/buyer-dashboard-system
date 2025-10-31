@@ -908,6 +908,7 @@ export const landingService = {
       buyer_id: landingData.buyer_id,
       searcher_id: landingData.searcher_id,
       gifer_id: landingData.gifer_id,
+      content_manager_id: landingData.content_manager_id,
       is_test: landingData.is_test,
       editor_id: landingData.editor_id,
       product_manager_id: landingData.product_manager_id
@@ -931,36 +932,37 @@ export const landingService = {
     console.log(`📊 Для артикула ${landingData.article} будет создан: ${website}`);
 
     const { data, error } = await supabase
-      .from('landings')
-      .insert([
-        {
-          user_id: landingData.user_id,
-          content_manager_name: landingData.content_manager_name,
-          article: landingData.article,
-          template: landingData.template,
-          tags: landingData.tags || [],
-          comment: landingData.comment || null,
-          is_poland: landingData.is_poland || false,
-          trello_link: landingData.trello_link || null,
-          designer_id: landingData.designer_id || null,
-          buyer_id: landingData.buyer_id || null,
-          searcher_id: landingData.searcher_id || null,
-          gifer_id: landingData.gifer_id || null,
-          designer: landingData.designer || null,
-          buyer: landingData.buyer || null,
-          searcher: landingData.searcher || null,
-          gifer: landingData.gifer || null,
-          is_test: landingData.is_test || false,
-          editor_id: landingData.editor_id || null,
-          product_manager_id: landingData.product_manager_id || null,
-          editor: landingData.editor || null,
-          product_manager: landingData.product_manager || null,
-          website: website,
-          is_edited: landingData.is_edited || false,
-          created_at: getKyivTime()
-        }
-      ])
-      .select();
+        .from('landings')
+        .insert([
+          {
+            user_id: landingData.user_id,
+            content_manager_id: landingData.content_manager_id || null,
+            content_manager_name: landingData.content_manager_name,
+            article: landingData.article,
+            template: landingData.template,
+            tags: landingData.tags || [],
+            comment: landingData.comment || null,
+            is_poland: landingData.is_poland || false,
+            trello_link: landingData.trello_link || null,
+            designer_id: landingData.designer_id || null,
+            buyer_id: landingData.buyer_id || null,
+            searcher_id: landingData.searcher_id || null,
+            gifer_id: landingData.gifer_id || null,
+            designer: landingData.designer || null,
+            buyer: landingData.buyer || null,
+            searcher: landingData.searcher || null,
+            gifer: landingData.gifer || null,
+            is_test: landingData.is_test || false,
+            editor_id: landingData.editor_id || null,
+            product_manager_id: landingData.product_manager_id || null,
+            editor: landingData.editor || null,
+            product_manager: landingData.product_manager || null,
+            website: website,
+            is_edited: landingData.is_edited || false,
+            created_at: getKyivTime()
+          }
+        ])
+        .select();
 
     if (error) {
       console.error('❌ Ошибка создания лендинга:', error);
