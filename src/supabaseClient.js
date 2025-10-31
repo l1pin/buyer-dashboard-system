@@ -956,6 +956,7 @@ export const landingService = {
           editor: landingData.editor || null,
           product_manager: landingData.product_manager || null,
           website: website,
+          is_edited: landingData.is_edited || false,
           created_at: getKyivTime()
         }
       ])
