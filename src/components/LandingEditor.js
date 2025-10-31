@@ -1162,7 +1162,7 @@ function LandingEditor({ user }) {
     }
 
     try {
-      console.log('🔍 Поиск лендингов по UUID или артикулу:', searchText);
+      console.log('🔍 Поиск лендингов по UUID:', searchText);
       
       // Сначала получаем ВСЕ лендинги
       const { data: allLandings, error } = await supabase
@@ -1178,26 +1178,21 @@ function LandingEditor({ user }) {
         return;
       }
 
-      // Фильтруем на клиенте
+      // Фильтруем на клиенте ТОЛЬКО по UUID
       const searchLower = searchText.toLowerCase();
       const filtered = allLandings.filter(landing => {
-        // Проверяем UUID (id)
+        // Проверяем ТОЛЬКО UUID (id)
         const idMatch = landing.id && landing.id.toLowerCase().includes(searchLower);
-        // Проверяем артикул
-        const articleMatch = landing.article && landing.article.toLowerCase().includes(searchLower);
-        
-        return idMatch || articleMatch;
+        return idMatch;
       });
 
       // Сортируем результаты - точные совпадения первыми
       filtered.sort((a, b) => {
         const aIdStarts = a.id && a.id.toLowerCase().startsWith(searchLower);
         const bIdStarts = b.id && b.id.toLowerCase().startsWith(searchLower);
-        const aArticleStarts = a.article && a.article.toLowerCase().startsWith(searchLower);
-        const bArticleStarts = b.article && b.article.toLowerCase().startsWith(searchLower);
         
-        if ((aIdStarts || aArticleStarts) && !(bIdStarts || bArticleStarts)) return -1;
-        if (!(aIdStarts || aArticleStarts) && (bIdStarts || bArticleStarts)) return 1;
+        if (aIdStarts && !bIdStarts) return -1;
+        if (!aIdStarts && bIdStarts) return 1;
         return 0;
       });
 
@@ -1206,7 +1201,7 @@ function LandingEditor({ user }) {
       
       setUuidSuggestions(limited);
       setShowUuidSuggestions(limited.length > 0);
-      console.log(`✅ Найдено ${limited.length} лендингов (из ${filtered.length} совпадений)`);
+      console.log(`✅ Найдено ${limited.length} лендингов по UUID (из ${filtered.length} совпадений)`);
       
       if (limited.length > 0) {
         console.log('📋 Примеры найденных:', limited.slice(0, 3).map(l => ({
@@ -3587,7 +3582,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
                       : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
                       }`}
-                    placeholder="Введите UUID или артикул лендинга"
+                    placeholder="Введите UUID лендинга"
                   />
 
                   {/* Dropdown с результатами поиска */}
