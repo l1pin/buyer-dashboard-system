@@ -1168,6 +1168,7 @@ function LandingPanel({ user }) {
 
       const newLandingData = await landingService.createLanding({
         user_id: user.id,
+        content_manager_id: user.id,
         content_manager_name: user.name,
         article: newLanding.article.trim(),
         template: newLanding.template,
