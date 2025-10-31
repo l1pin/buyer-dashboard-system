@@ -978,10 +978,14 @@ export const landingService = {
     try {
       console.log('📡 Запрос лендингов пользователя:', userId);
 
+      // Получаем лендинги, где пользователь:
+      // 1. Создатель (user_id)
+      // 2. Редактор (editor_id) 
+      // 3. Заказчик (product_manager_id)
       const { data, error } = await supabase
         .from('landings')
         .select('*')
-        .eq('user_id', userId)
+        .or(`user_id.eq.${userId},editor_id.eq.${userId},product_manager_id.eq.${userId}`)
         .order('created_at', { ascending: false });
 
       if (error) {
