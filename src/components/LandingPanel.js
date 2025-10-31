@@ -2918,10 +2918,18 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                            <div className="flex items-center justify-center">
+                            <div className="flex items-center justify-center space-x-1">
                               {landing.is_test && (
                                 <div title="Тестовый лендинг">
                                   <TestBadge />
+                                </div>
+                              )}
+                              {landing.is_edited && (
+                                <div 
+                                  title="Лендинг отредактирован" 
+                                  className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                >
+                                  <span className="tracking-wide">E</span>
                                 </div>
                               )}
                             </div>
