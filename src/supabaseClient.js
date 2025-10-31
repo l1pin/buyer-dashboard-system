@@ -936,7 +936,7 @@ export const landingService = {
         .insert([
           {
             user_id: landingData.user_id,
-            content_manager_id: landingData.content_manager_id || null,
+            content_manager_id: landingData.user_id,
             content_manager_name: landingData.content_manager_name,
             article: landingData.article,
             template: landingData.template,
@@ -978,16 +978,13 @@ export const landingService = {
   // Получить лендинги пользователя
   async getUserLandings(userId) {
     try {
-      console.log('📡 Запрос лендингов пользователя:', userId);
+      console.log('📡 Запрос лендингов контент-менеджера:', userId);
 
-      // Получаем лендинги, где пользователь:
-      // 1. Создатель (user_id)
-      // 2. Редактор (editor_id) 
-      // 3. Заказчик (product_manager_id)
+      // Получаем лендинги, где пользователь является контент-менеджером
       const { data, error } = await supabase
         .from('landings')
         .select('*')
-        .or(`user_id.eq.${userId},editor_id.eq.${userId},product_manager_id.eq.${userId}`)
+        .eq('content_manager_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) {
