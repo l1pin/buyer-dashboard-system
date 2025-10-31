@@ -118,6 +118,7 @@ function LandingEditor({ user }) {
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [designers, setDesigners] = useState([]);
+  const [contentManagers, setContentManagers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
@@ -1133,12 +1134,13 @@ function LandingEditor({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
 
-      const [buyersData, searchersData, designersData, productManagersData, gifersData] = await Promise.all([
+      const [buyersData, searchersData, designersData, productManagersData, gifersData, contentManagersData] = await Promise.all([
         userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager'),
         userService.getUsersByRole('designer'),
         userService.getUsersByRole('product_manager'),
-        userService.getUsersByRole('gif_creator')
+        userService.getUsersByRole('gif_creator'),
+        userService.getUsersByRole('content_manager')
       ]);
 
       setBuyers(buyersData);
@@ -1146,7 +1148,8 @@ function LandingEditor({ user }) {
       setDesigners(designersData);
       setProductManagers(productManagersData);
       setGifers(gifersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${productManagersData.length} продакт менеджеров и ${gifersData.length} гиферов`);
+      setContentManagers(contentManagersData);
+      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${productManagersData.length} продакт менеджеров, ${gifersData.length} гиферов и ${contentManagersData.length} контент менеджеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1254,12 +1257,12 @@ function LandingEditor({ user }) {
 
     if (selectedSource === 'buyer' && !sourceBuyerId) {
       errors.source_buyer = true;
-      errorMessages.push('Необходимо выбрать байера для источника');
+      errorMessages.push('Необходимо выбрать Media Buyer для источника');
     }
 
     if (selectedSource === 'content' && !sourceContentId) {
       errors.source_content = true;
-      errorMessages.push('Необходимо выбрать контент менеджера для источника');
+      errorMessages.push('Необходимо выбрать Content Manager для источника');
     }
 
     if (!newLanding.comment || !newLanding.comment.trim()) {
@@ -1317,10 +1320,32 @@ function LandingEditor({ user }) {
       const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
       const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
+      // Определяем buyer_id и content_manager_name в зависимости от источника
+      let finalBuyerId = null;
+      let finalBuyerName = null;
+      let finalContentManagerName = null;
+
+      if (selectedSource === 'warehouse') {
+        // Склад - берем из оригинального лендинга
+        finalBuyerId = existingLanding.buyer_id;
+        finalBuyerName = existingLanding.buyer;
+        finalContentManagerName = existingLanding.content_manager_name;
+      } else if (selectedSource === 'buyer') {
+        // Buyer - используем выбранного байера, content_manager_name = NULL
+        finalBuyerId = sourceBuyerId;
+        finalBuyerName = getBuyerName(sourceBuyerId);
+        finalContentManagerName = null;
+      } else if (selectedSource === 'content') {
+        // Content - используем выбранного контент менеджера, buyer_id = NULL
+        finalBuyerId = null;
+        finalBuyerName = null;
+        finalContentManagerName = getContentManagerName(sourceContentId);
+      }
+
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
         user_id: user.id,
-        content_manager_name: existingLanding.content_manager_name,
+        content_manager_name: finalContentManagerName,
         article: existingLanding.article,
         template: existingLanding.template, // Используем шаблон из оригинального лендинга
         tags: newLanding.tags,
@@ -1328,11 +1353,11 @@ function LandingEditor({ user }) {
         is_poland: existingLanding.is_poland,
         trello_link: '',
         designer_id: finalDesignerId,
-        buyer_id: existingLanding.buyer_id,
+        buyer_id: finalBuyerId,
         searcher_id: finalSearcherId,
         gifer_id: finalGiferId,
         designer: designerName !== '—' ? designerName : null,
-        buyer: existingLanding.buyer,
+        buyer: finalBuyerName,
         searcher: searcherName !== '—' ? searcherName : null,
         gifer: giferName !== '—' ? giferName : null,
         is_test: false, // Всегда делаем основным
@@ -1958,6 +1983,18 @@ data-rt-sub16="${selectedLandingUuid}"
     if (!giferId) return null;
     const gifer = gifers.find(g => g.id === giferId);
     return gifer ? gifer.avatar_url : null;
+  };
+
+  const getContentManagerName = (contentManagerId) => {
+    if (!contentManagerId) return '—';
+    const cm = contentManagers.find(c => c.id === contentManagerId);
+    return cm ? cm.name : 'Удален';
+  };
+
+  const getContentManagerAvatar = (contentManagerId) => {
+    if (!contentManagerId) return null;
+    const cm = contentManagers.find(c => c.id === contentManagerId);
+    return cm ? cm.avatar_url : null;
   };
 
   const handleRefreshAll = async () => {
@@ -4171,9 +4208,22 @@ data-rt-sub16="${selectedLandingUuid}"
                         {sourceContentId ? (
                           <>
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              <User className="h-3 w-3 text-gray-400" />
+                              {getContentManagerAvatar(sourceContentId) ? (
+                                <img
+                                  src={getContentManagerAvatar(sourceContentId)}
+                                  alt="Content Manager"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${getContentManagerAvatar(sourceContentId) ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
                             </div>
-                            <span className="text-gray-900 truncate">{landings.find(l => l.id === newLanding.uuid)?.content_manager_name || 'Content Manager'}</span>
+                            <span className="text-gray-900 truncate">{getContentManagerName(sourceContentId)}</span>
                           </>
                         ) : (
                           <span className="text-gray-500">Выберите контент менеджера</span>
@@ -4198,22 +4248,38 @@ data-rt-sub16="${selectedLandingUuid}"
                       </div>
                     </button>
 
-                    {showSourceContentDropdown && !loadingUsers && selectedLandingForEdit && (
+                    {showSourceContentDropdown && !loadingUsers && (
                       <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSourceContentId(selectedLandingForEdit.id);
-                            setShowSourceContentDropdown(false);
-                            clearFieldError('source_content');
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <User className="h-3 w-3 text-gray-400" />
-                          </div>
-                          <span className="text-gray-900 truncate">{selectedLandingForEdit.content_manager_name || 'Content Manager'}</span>
-                        </button>
+                        {contentManagers.map((cm) => (
+                          <button
+                            key={cm.id}
+                            type="button"
+                            onClick={() => {
+                              setSourceContentId(cm.id);
+                              setShowSourceContentDropdown(false);
+                              clearFieldError('source_content');
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {cm.avatar_url ? (
+                                <img
+                                  src={cm.avatar_url}
+                                  alt="Content Manager"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${cm.avatar_url ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
+                            </div>
+                            <span className="text-gray-900 truncate">{cm.name}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
