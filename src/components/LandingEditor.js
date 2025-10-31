@@ -1342,15 +1342,15 @@ function LandingEditor({ user }) {
         // Content - используем выбранного контент менеджера, buyer_id = NULL
         finalBuyerId = null;
         finalBuyerName = null;
-        finalContentManagerId = sourceContentId;
-        finalContentManagerName = getContentManagerName(sourceContentId);
+        finalContentManagerId = sourceContentId; // ID выбранного контент-менеджера
+        finalContentManagerName = getContentManagerName(sourceContentId); // Имя выбранного контент-менеджера
       }
 
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
-        user_id: user.id,
-        content_manager_id: finalContentManagerId,
-        content_manager_name: finalContentManagerName,
+        user_id: user.id, // ID proofreader (редактора)
+        content_manager_id: finalContentManagerId, // ID контент-менеджера (если источник Content)
+        content_manager_name: finalContentManagerName, // Имя контент-менеджера (если источник Content)
         article: existingLanding.article,
         template: existingLanding.template, // Используем шаблон из оригинального лендинга
         tags: newLanding.tags,
@@ -1366,7 +1366,7 @@ function LandingEditor({ user }) {
         searcher: searcherName !== '—' ? searcherName : null,
         gifer: giferName !== '—' ? giferName : null,
         is_test: false, // Всегда делаем основным
-        editor_id: user.id, // Устанавливаем ID редактора
+        editor_id: user.id, // Устанавливаем ID редактора (proofreader)
         editor: user.name, // Устанавливаем имя редактора
         product_manager_id: existingLanding.product_manager_id,
         product_manager: existingLanding.product_manager,
