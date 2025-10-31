@@ -1320,31 +1320,36 @@ function LandingEditor({ user }) {
       const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
       const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
-      // Определяем buyer_id и content_manager_name в зависимости от источника
+      // Определяем buyer_id, content_manager_id и content_manager_name в зависимости от источника
       let finalBuyerId = null;
       let finalBuyerName = null;
+      let finalContentManagerId = null;
       let finalContentManagerName = null;
 
       if (selectedSource === 'warehouse') {
         // Склад - берем из оригинального лендинга
         finalBuyerId = existingLanding.buyer_id;
         finalBuyerName = existingLanding.buyer;
+        finalContentManagerId = existingLanding.content_manager_id;
         finalContentManagerName = existingLanding.content_manager_name;
       } else if (selectedSource === 'buyer') {
-        // Buyer - используем выбранного байера, content_manager_name = NULL
+        // Buyer - используем выбранного байера, content_manager_id и content_manager_name = NULL
         finalBuyerId = sourceBuyerId;
         finalBuyerName = getBuyerName(sourceBuyerId);
+        finalContentManagerId = null;
         finalContentManagerName = null;
       } else if (selectedSource === 'content') {
         // Content - используем выбранного контент менеджера, buyer_id = NULL
         finalBuyerId = null;
         finalBuyerName = null;
+        finalContentManagerId = sourceContentId;
         finalContentManagerName = getContentManagerName(sourceContentId);
       }
 
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
         user_id: user.id,
+        content_manager_id: finalContentManagerId,
         content_manager_name: finalContentManagerName,
         article: existingLanding.article,
         template: existingLanding.template, // Используем шаблон из оригинального лендинга
