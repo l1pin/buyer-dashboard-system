@@ -977,12 +977,12 @@ export const landingService = {
     return landing;
   },
 
-  // Получить лендинги пользователя
+  // Получить лендинги пользователя (только где он контент-менеджер)
   async getUserLandings(userId) {
     try {
-      console.log('📡 Запрос лендингов контент-менеджера:', userId);
+      console.log('📡 Запрос лендингов для контент-менеджера:', userId);
 
-      // Получаем лендинги, где пользователь является контент-менеджером
+      // КРИТИЧНО: Фильтруем ТОЛЬКО по content_manager_id
       const { data, error } = await supabase
         .from('landings')
         .select('*')
@@ -1173,17 +1173,17 @@ export const landingService = {
     }
   },
 
-  // Подписка на изменения лендингов пользователя
+  // Подписка на изменения лендингов контент-менеджера
   subscribeToUserLandings(userId, callback) {
     return supabase
-      .channel(`user_landings_${userId}`)
+      .channel(`content_manager_landings_${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'landings',
-          filter: `user_id=eq.${userId}`
+          filter: `content_manager_id=eq.${userId}`
         },
         callback
       )
