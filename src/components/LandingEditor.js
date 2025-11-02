@@ -1474,6 +1474,7 @@ function LandingEditor({ user }) {
       const searcherName = editLanding.searcher_id ? getSearcherName(editLanding.searcher_id) : null;
       const designerName = editLanding.designer_id ? getDesignerName(editLanding.designer_id) : null;
       const giferName = editLanding.gifer_id ? getGiferName(editLanding.gifer_id) : null;
+      const productManagerName = editLanding.product_manager_id ? getProductManagerName(editLanding.product_manager_id) : null;
 
       // Сохраняем старое состояние в историю ПЕРЕД обновлением
       await landingHistoryService.createHistoryEntry({
@@ -1493,10 +1494,15 @@ function LandingEditor({ user }) {
         searcher: editingLanding.searcher,
         gifer: editingLanding.gifer,
         is_test: editingLanding.is_test,
-        editor_id: null,
+        editor_id: editingLanding.editor_id,
         product_manager_id: editingLanding.product_manager_id,
-        editor: null,
+        editor: editingLanding.editor,
         product_manager: editingLanding.product_manager,
+        is_edited: editingLanding.is_edited,
+        content_manager_id: editingLanding.content_manager_id,
+        content_manager_name: editingLanding.content_manager_name,
+        website: editingLanding.website,
+        verified_urls: editingLanding.verified_urls || [],
         changed_by_id: user.id,
         changed_by_name: user.name,
         change_type: 'updated'
@@ -1512,10 +1518,12 @@ function LandingEditor({ user }) {
         buyer_id: editLanding.buyer_id,
         searcher_id: editLanding.searcher_id,
         gifer_id: editLanding.gifer_id,
+        product_manager_id: editLanding.product_manager_id,
         designer: designerName !== '—' ? designerName : null,
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null,
-        gifer: giferName !== '—' ? giferName : null
+        gifer: giferName !== '—' ? giferName : null,
+        product_manager: productManagerName !== '—' ? productManagerName : null
       });
 
       setEditLanding({
@@ -1528,7 +1536,8 @@ function LandingEditor({ user }) {
         designer_id: null,
         buyer_id: null,
         searcher_id: null,
-        gifer_id: null
+        gifer_id: null,
+        product_manager_id: null
       });
       setEditingLanding(null);
       setShowEditModal(false);
@@ -3099,41 +3108,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               
                               return (
                                 <button
-                                  onClick={() => {
-                                    if (!canEdit) {
-                                      setError('Вы можете редактировать только те лендинги, которые создали через "Редактировать лендинг"');
-                                      setTimeout(() => setError(''), 5000);
-                                      return;
-                                    }
-
-                                    setShowCreateModal(true);
-                                    setSelectedLandingForEdit(landing);
-                                    setSearchingUuid(landing.id);
-                                    setNewLanding({
-                                      uuid: landing.id,
-                                      template: landing.template,
-                                      tags: landing.tags || [],
-                                      comment: '',
-                                      designer_id: landing.designer_id || null,
-                                      searcher_id: landing.searcher_id || null,
-                                      gifer_id: landing.gifer_id || null
-                                    });
-                                    
-                                    // Определяем источник на основе существующих полей
-                                    if (landing.content_manager_id) {
-                                      setSelectedSource('content');
-                                      setSourceContentId(landing.content_manager_id);
-                                      setSourceBuyerId(null);
-                                    } else if (landing.buyer_id) {
-                                      setSelectedSource('buyer');
-                                      setSourceBuyerId(landing.buyer_id);
-                                      setSourceContentId(null);
-                                    } else {
-                                      setSelectedSource('warehouse');
-                                      setSourceBuyerId(null);
-                                      setSourceContentId(null);
-                                    }
-                                  }}
+                                  onClick={() => handleEditLanding(landing)}
                                   disabled={!canEdit}
                                   className={`p-1 rounded-full transition-colors duration-200 ${
                                     canEdit
@@ -3142,7 +3117,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   }`}
                                   title={
                                     canEdit
-                                      ? 'Создать новую версию лендинга'
+                                      ? 'Редактировать лендинг'
                                       : 'Вы можете редактировать только свои лендинги'
                                   }
                                 >
