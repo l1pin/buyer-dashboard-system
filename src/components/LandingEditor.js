@@ -1757,6 +1757,13 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.uuid-suggestions') && !event.target.closest('.uuid-input')) {
         setShowUuidSuggestions(false);
       }
+      // Source Buyer и Source Content dropdowns
+      if (!event.target.closest('.source-buyer-dropdown') && !event.target.closest('.source-buyer-trigger')) {
+        setShowSourceBuyerDropdown(false);
+      }
+      if (!event.target.closest('.source-content-dropdown') && !event.target.closest('.source-content-trigger')) {
+        setShowSourceContentDropdown(false);
+      }
 
       const periodMenuContainer = event.target.closest('.period-menu-container');
       if (!periodMenuContainer && showPeriodMenu) {
@@ -1770,7 +1777,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown, showSourceBuyerDropdown, showSourceContentDropdown]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -4243,7 +4250,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }
                       }}
                       disabled={loadingUsers}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                      className={`source-buyer-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
                         fieldErrors.source_buyer
                           ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                           : 'border-gray-300 focus:ring-blue-500'
@@ -4294,7 +4301,7 @@ data-rt-sub16="${selectedLandingUuid}"
                     </button>
 
                     {showSourceBuyerDropdown && !loadingUsers && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="source-buyer-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                         {buyers.map((buyer) => (
                           <button
                             key={buyer.id}
@@ -4346,7 +4353,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }
                       }}
                       disabled={loadingUsers}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                      className={`source-content-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
                         fieldErrors.source_content
                           ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                           : 'border-gray-300 focus:ring-blue-500'
@@ -4397,7 +4404,7 @@ data-rt-sub16="${selectedLandingUuid}"
                     </button>
 
                     {showSourceContentDropdown && !loadingUsers && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="source-content-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                         {contentManagers.map((cm) => (
                           <button
                             key={cm.id}
