@@ -2643,9 +2643,9 @@ data-rt-sub16="${selectedLandingUuid}"
 
       </div>
 
-      {/* Statistics Cards */}
+      {/* КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {filteredLandings.length > 0 && (
-        <div className="bg-gray-50 px-6 py-4">
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
             {/* Лендингов */}
@@ -2958,8 +2958,8 @@ data-rt-sub16="${selectedLandingUuid}"
         </div>
       )}
 
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-auto">
+      {/* Content - таблица лендингов */}
+      <div className="flex-1 p-6">
         {filteredLandings.length === 0 ? (
           <div className="text-center py-12">
             <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -2977,7 +2977,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 Полная аналитика лендингов
               </h3>
 
-              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
+              <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
@@ -3087,7 +3087,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       const trelloStatus = getTrelloListName(landing.id);
 
                       return (
-                        <tr 
+                        <tr
                           key={landing.id}
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
