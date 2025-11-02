@@ -1817,6 +1817,11 @@ data-rt-sub16="${selectedLandingUuid}"
     return gifer ? gifer.avatar_url : null;
   };
 
+  // Проверка прав на редактирование лендинга
+  const canEditLanding = (landing) => {
+    return landing.user_id === user.id;
+  };
+
   const handleRefreshAll = async () => {
     console.log(`🔄 ЗАПУСК ОБНОВЛЕНИЯ метрик лендингов (период: ${metricsPeriod})`);
     console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
@@ -2905,17 +2910,31 @@ data-rt-sub16="${selectedLandingUuid}"
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            <button
-                              onClick={() => handleEditLanding(landing)}
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                              title="Редактировать лендинг"
-                            >
-                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                <path stroke="none" d="M0 0h24v24H0z" />
-                                <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                              </svg>
-                            </button>
+                            {canEditLanding(landing) ? (
+                              <button
+                                onClick={() => handleEditLanding(landing)}
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                title="Редактировать лендинг"
+                              >
+                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                  <path stroke="none" d="M0 0h24v24H0z" />
+                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="text-gray-400 p-1 rounded-full cursor-not-allowed opacity-50"
+                                title="Вы можете редактировать только свои лендинги"
+                              >
+                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                  <path stroke="none" d="M0 0h24v24H0z" />
+                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                                </svg>
+                              </button>
+                            )}
                           </td>
 
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
