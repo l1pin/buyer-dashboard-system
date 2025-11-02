@@ -1349,8 +1349,8 @@ function LandingEditor({ user }) {
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
         user_id: user.id, // ВСЕГДА ID proofreader (редактора)
-        content_manager_id: finalContentManagerId, // ID контент-менеджера из dropdown (если Content)
-        content_manager_name: finalContentManagerName, // Имя контент-менеджера из dropdown (если Content)
+        content_manager_id: finalContentManagerId || user.id, // ID контент-менеджера из dropdown (если Content) или ID proofreader
+        content_manager_name: finalContentManagerName || user.name, // Имя контент-менеджера из dropdown (если Content) или имя proofreader
         article: existingLanding.article,
         template: existingLanding.template, // Используем шаблон из оригинального лендинга
         tags: newLanding.tags,
