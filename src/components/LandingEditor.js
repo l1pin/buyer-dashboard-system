@@ -2730,87 +2730,100 @@ data-rt-sub16="${selectedLandingUuid}"
       {filteredLandings.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
-            {/* Лендингов */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Лендингов
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredLandings.length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4 mb-4">
+        {/* Лендингов */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Лендингов
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    {filteredLandings.length}
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* С комментарием */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С комментарием
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredLandings.filter(l => l.comment && l.comment.trim()).length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+        {/* С комментарием */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    С комментарием
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    {filteredLandings.filter(l => l.comment && l.comment.trim()).length}
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* UA/PL */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        UA/PL
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        <div className="flex items-center space-x-1">
-                          <span>{countryStats.ukraineCount}</span>
-                          <span className="text-gray-400">/</span>
-                          <span>{countryStats.polandCount}</span>
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+        {/* UA/PL */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    UA/PL
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <span>{countryStats.ukraineCount}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{countryStats.polandCount}</span>
+                    </div>
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Пустая карточка (заполнитель) */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 opacity-0 pointer-events-none">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="h-full"></div>
+        {/* Типы лендингов */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Осн/Тест/Ред
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <span>{filteredLandings.filter(l => !l.is_test && !l.is_edited).length}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{filteredLandings.filter(l => l.is_test).length}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{filteredLandings.filter(l => l.is_edited).length}</span>
+                    </div>
+                  </dd>
+                </dl>
               </div>
             </div>
-
-            {/* Пустая карточка (заполнитель) */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 opacity-0 pointer-events-none">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="h-full"></div>
-              </div>
-            </div>
+          </div>
+        </div>
 
             {/* Красная зона */}
             <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
@@ -2898,7 +2911,7 @@ data-rt-sub16="${selectedLandingUuid}"
           </div>
 
           {/* ВТОРАЯ СТРОКА - метрики */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4">
             {/* Лидов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
@@ -3030,6 +3043,48 @@ data-rt-sub16="${selectedLandingUuid}"
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                         {hasMetricsData ? (filteredLandings.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredLandings.length) : 0) : '—'}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ср. расходы */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-2 sm:p-3 md:p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-green-500" />
+                  </div>
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        Ср. расходы
+                      </dt>
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                        {hasMetricsData ? (filteredLandings.length > 0 ? (aggregatedMetricsStats.totalCost / filteredLandings.length).toFixed(2) + '$' : '0.00$') : '—'}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ср. клики */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-2 sm:p-3 md:p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-green-500" />
+                  </div>
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        Ср. клики
+                      </dt>
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                        {hasMetricsData ? (filteredLandings.length > 0 ? Math.round(aggregatedMetricsStats.totalClicks / filteredLandings.length) : 0) : '—'}
                       </dd>
                     </dl>
                   </div>
