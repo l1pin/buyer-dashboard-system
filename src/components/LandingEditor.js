@@ -1326,37 +1326,37 @@ function LandingEditor({ user }) {
       const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
       const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
-      // Определяем buyer_id, content_manager_id и content_manager_name в зависимости от источника
+      // Определяем buyer_id, buyer, content_manager_id и content_manager_name в зависимости от источника
       let finalBuyerId = null;
       let finalBuyerName = null;
       let finalContentManagerId = null;
       let finalContentManagerName = null;
 
       if (selectedSource === 'warehouse') {
-        // Склад - все поля NULL (не берем из оригинального лендинга)
+        // Склад - ВСЕ поля NULL
         finalBuyerId = null;
         finalBuyerName = null;
         finalContentManagerId = null;
         finalContentManagerName = null;
       } else if (selectedSource === 'buyer') {
-        // Buyer - используем выбранного байера, content_manager_id и content_manager_name = NULL
+        // Buyer - заполняем buyer_id и buyer, content поля NULL
         finalBuyerId = sourceBuyerId;
         finalBuyerName = getBuyerName(sourceBuyerId);
         finalContentManagerId = null;
         finalContentManagerName = null;
       } else if (selectedSource === 'content') {
-        // Content - используем выбранного контент менеджера, buyer_id = NULL
+        // Content - заполняем content поля, buyer поля NULL
         finalBuyerId = null;
         finalBuyerName = null;
-        finalContentManagerId = sourceContentId; // ID выбранного контент-менеджера
-        finalContentManagerName = getContentManagerName(sourceContentId); // Имя выбранного контент-менеджера
+        finalContentManagerId = sourceContentId;
+        finalContentManagerName = getContentManagerName(sourceContentId);
       }
 
       // Создаем новую запись лендинга на основе существующего
       const newLandingData = await landingService.createLanding({
         user_id: user.id, // ВСЕГДА ID proofreader (редактора)
-        content_manager_id: finalContentManagerId || user.id, // ID контент-менеджера из dropdown (если Content) или ID proofreader
-        content_manager_name: finalContentManagerName || user.name, // Имя контент-менеджера из dropdown (если Content) или имя proofreader
+        content_manager_id: finalContentManagerId, // NULL для warehouse и buyer, ID для content
+        content_manager_name: finalContentManagerName, // NULL для warehouse и buyer, имя для content
         article: existingLanding.article,
         template: existingLanding.template, // Используем шаблон из оригинального лендинга
         tags: newLanding.tags,
@@ -1364,11 +1364,11 @@ function LandingEditor({ user }) {
         is_poland: existingLanding.is_poland,
         trello_link: '',
         designer_id: finalDesignerId,
-        buyer_id: finalBuyerId,
+        buyer_id: finalBuyerId, // NULL для warehouse и content, ID для buyer
         searcher_id: finalSearcherId,
         gifer_id: finalGiferId,
         designer: designerName !== '—' ? designerName : null,
-        buyer: finalBuyerName,
+        buyer: finalBuyerName, // NULL для warehouse и content, имя для buyer
         searcher: searcherName !== '—' ? searcherName : null,
         gifer: giferName !== '—' ? giferName : null,
         is_test: false, // Всегда делаем основным
