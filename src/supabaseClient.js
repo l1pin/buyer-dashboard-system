@@ -908,7 +908,9 @@ export const landingService = {
       buyer_id: landingData.buyer_id,
       searcher_id: landingData.searcher_id,
       gifer_id: landingData.gifer_id,
+      user_id: landingData.user_id,
       content_manager_id: landingData.content_manager_id,
+      content_manager_name: landingData.content_manager_name,
       is_test: landingData.is_test,
       editor_id: landingData.editor_id,
       product_manager_id: landingData.product_manager_id
@@ -936,7 +938,7 @@ export const landingService = {
         .insert([
           {
             user_id: landingData.user_id,
-            content_manager_id: landingData.user_id,
+            content_manager_id: landingData.content_manager_id,
             content_manager_name: landingData.content_manager_name,
             article: landingData.article,
             template: landingData.template,
