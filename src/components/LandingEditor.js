@@ -2643,9 +2643,9 @@ data-rt-sub16="${selectedLandingUuid}"
 
       </div>
 
-      {/* КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
+      {/* Statistics Cards */}
       {filteredLandings.length > 0 && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex-shrink-0">
+        <div className="bg-gray-50 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
             {/* Лендингов */}
@@ -2958,8 +2958,8 @@ data-rt-sub16="${selectedLandingUuid}"
         </div>
       )}
 
-      {/* Content - таблица лендингов */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto">
         {filteredLandings.length === 0 ? (
           <div className="text-center py-12">
             <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
