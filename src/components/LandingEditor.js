@@ -186,6 +186,12 @@ function LandingEditor({ user }) {
     </div>
   );
 
+  const WarehouseBadge = () => (
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+      Склад
+    </span>
+  );
+
   // Фильтрация лендингов
   const filteredLandings = useMemo(() => {
     let landingsToFilter = landings;
@@ -1327,11 +1333,11 @@ function LandingEditor({ user }) {
       let finalContentManagerName = null;
 
       if (selectedSource === 'warehouse') {
-        // Склад - берем из оригинального лендинга
-        finalBuyerId = existingLanding.buyer_id;
-        finalBuyerName = existingLanding.buyer;
-        finalContentManagerId = existingLanding.content_manager_id;
-        finalContentManagerName = existingLanding.content_manager_name;
+        // Склад - все поля NULL (не берем из оригинального лендинга)
+        finalBuyerId = null;
+        finalBuyerName = null;
+        finalContentManagerId = null;
+        finalContentManagerName = null;
       } else if (selectedSource === 'buyer') {
         // Buyer - используем выбранного байера, content_manager_id и content_manager_name = NULL
         finalBuyerId = sourceBuyerId;
@@ -3473,7 +3479,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="flex justify-center">
+                                <WarehouseBadge />
+                              </div>
                             )}
                           </td>
 
@@ -3562,14 +3570,20 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                <User className="h-3 w-3 text-gray-400" />
+                            {landing.content_manager_name ? (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  <User className="h-3 w-3 text-gray-400" />
+                                </div>
+                                <span className="text-sm text-gray-900 cursor-text select-text">
+                                  {landing.content_manager_name}
+                                </span>
                               </div>
-                              <span className="text-sm text-gray-900 cursor-text select-text">
-                                {landing.content_manager_name || '—'}
-                              </span>
-                            </div>
+                            ) : (
+                              <div className="flex justify-center">
+                                <WarehouseBadge />
+                              </div>
+                            )}
                           </td>
 
                         </tr>
