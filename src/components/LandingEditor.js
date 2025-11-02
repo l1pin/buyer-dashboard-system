@@ -3781,25 +3781,31 @@ data-rt-sub16="${selectedLandingUuid}"
                     type="text"
                     value={searchingUuid}
                     onChange={(e) => {
-                      setSearchingUuid(e.target.value);
-                      setNewLanding({ ...newLanding, uuid: e.target.value });
-                      searchLandingsByUuid(e.target.value);
-                      clearFieldError('uuid');
+                      if (!isEditMode) {
+                        setSearchingUuid(e.target.value);
+                        setNewLanding({ ...newLanding, uuid: e.target.value });
+                        searchLandingsByUuid(e.target.value);
+                        clearFieldError('uuid');
+                      }
                     }}
                     onFocus={() => {
-                      if (searchingUuid.length >= 2) {
+                      if (!isEditMode && searchingUuid.length >= 2) {
                         searchLandingsByUuid(searchingUuid);
                       }
                     }}
-                    className={`uuid-input w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${fieldErrors.uuid
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
-                      }`}
-                    placeholder="Введите UUID лендинга"
+                    disabled={isEditMode}
+                    className={`uuid-input w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      isEditMode
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                        : fieldErrors.uuid
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-transparent'
+                    }`}
+                    placeholder={isEditMode ? "UUID нельзя изменить" : "Введите UUID лендинга"}
                   />
 
-                  {/* Dropdown с результатами поиска */}
-                  {showUuidSuggestions && uuidSuggestions.length > 0 && (
+                  {/* Dropdown с результатами поиска - показывается только в режиме создания */}
+                  {!isEditMode && showUuidSuggestions && uuidSuggestions.length > 0 && (
                     <div className="uuid-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                       {uuidSuggestions.map((landing) => (
                         <button
@@ -3826,7 +3832,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 {selectedLandingForEdit && (
                   <p className="mt-1 text-xs text-green-600 flex items-center">
                     <CheckCircle className="h-3 w-3 mr-1" />
-                    Выбран: {selectedLandingForEdit.article} ({selectedLandingForEdit.website})
+                    {isEditMode ? 'Редактируется' : 'Выбран'}: {selectedLandingForEdit.article} ({selectedLandingForEdit.website})
                   </p>
                 )}
               </div>
