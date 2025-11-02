@@ -916,22 +916,24 @@ export const landingService = {
       product_manager_id: landingData.product_manager_id
     });
 
-    // Получаем количество лендингов с таким же артикулом
+    // КРИТИЧНО: Получаем ВСЕ лендинги с таким же артикулом (независимо от пользователя)
     const { data: existingLandings, error: countError } = await supabase
       .from('landings')
-      .select('website')
-      .eq('article', landingData.article);
+      .select('website, id')
+      .eq('article', landingData.article)
+      .order('created_at', { ascending: true });
 
     if (countError) {
       console.error('❌ Ошибка проверки артикула:', countError);
       throw countError;
     }
 
-    // Вычисляем номер сайта
+    // Вычисляем номер сайта ГЛОБАЛЬНО для артикула
     const websiteNumber = (existingLandings?.length || 0) + 1;
     const website = `Версия ${websiteNumber}`;
 
-    console.log(`📊 Для артикула ${landingData.article} будет создан: ${website}`);
+    console.log(`📊 Для артикула ${landingData.article} найдено ${existingLandings?.length || 0} существующих версий`);
+    console.log(`🆕 Будет создана: ${website}`);
 
     const { data, error } = await supabase
         .from('landings')
