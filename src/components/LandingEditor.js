@@ -1425,10 +1425,10 @@ function LandingEditor({ user }) {
     console.log('✏️ Открытие редактирования лендинга:', landing.article);
 
     // Проверяем, может ли пользователь редактировать этот лендинг
+    // Только proofreader может редактировать свои is_edited лендинги через Edit Modal
     if (user.role === 'proofreader') {
-      // Editor (proofreader) может редактировать только свои отредактированные лендинги
       if (!landing.is_edited || landing.editor_id !== user.id) {
-        setError('Вы можете редактировать только те лендинги, которые создали через "Редактировать лендинг"');
+        setError('Вы можете редактировать параметры только тех лендингов, которые создали через "Редактировать лендинг"');
         setTimeout(() => setError(''), 5000);
         return;
       }
@@ -3092,34 +3092,45 @@ data-rt-sub16="${selectedLandingUuid}"
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            {(() => {
-                              // Определяем, может ли пользователь редактировать этот лендинг
-                              const canEdit = user.role !== 'proofreader' || 
-                                             (landing.is_edited && landing.editor_id === user.id);
-                              
-                              return (
-                                <button
-                                  onClick={() => handleEditLanding(landing)}
-                                  disabled={!canEdit}
-                                  className={`p-1 rounded-full transition-colors duration-200 ${
-                                    canEdit
-                                      ? 'text-blue-600 hover:text-blue-800 hover:bg-blue-100 cursor-pointer'
-                                      : 'text-gray-300 cursor-not-allowed opacity-50'
-                                  }`}
-                                  title={
-                                    canEdit
-                                      ? 'Редактировать лендинг'
-                                      : 'Вы можете редактировать только свои лендинги'
-                                  }
-                                >
-                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                    <path stroke="none" d="M0 0h24v24H0z" />
-                                    <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                    <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                                  </svg>
-                                </button>
-                              );
-                            })()}
+                            <button
+                              onClick={() => {
+                                setShowCreateModal(true);
+                                setSelectedLandingForEdit(landing);
+                                setSearchingUuid(landing.id);
+                                setNewLanding({
+                                  uuid: landing.id,
+                                  template: landing.template,
+                                  tags: landing.tags || [],
+                                  comment: '',
+                                  designer_id: landing.designer_id || null,
+                                  searcher_id: landing.searcher_id || null,
+                                  gifer_id: landing.gifer_id || null
+                                });
+                                
+                                // Определяем источник на основе существующих полей
+                                if (landing.content_manager_id) {
+                                  setSelectedSource('content');
+                                  setSourceContentId(landing.content_manager_id);
+                                  setSourceBuyerId(null);
+                                } else if (landing.buyer_id) {
+                                  setSelectedSource('buyer');
+                                  setSourceBuyerId(landing.buyer_id);
+                                  setSourceContentId(null);
+                                } else {
+                                  setSelectedSource('warehouse');
+                                  setSourceBuyerId(null);
+                                  setSourceContentId(null);
+                                }
+                              }}
+                              className="p-1 rounded-full transition-colors duration-200 text-blue-600 hover:text-blue-800 hover:bg-blue-100 cursor-pointer"
+                              title="Создать новую версию лендинга"
+                            >
+                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" />
+                                <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                              </svg>
+                            </button>
                           </td>
 
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
@@ -5694,6 +5705,28 @@ data-rt-sub16="${selectedLandingUuid}"
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Версия сайта */}
+                        {entry.website && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-700">Версия:</label>
+                            <div className="mt-1">
+                              <span className="text-sm text-gray-900">{entry.website}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Тип лендинга */}
+                        {entry.is_edited && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-700">Тип:</label>
+                            <div className="mt-1">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                Отредактированный
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         <div>
                           <label className="text-xs font-medium text-gray-700">Шаблон:</label>
                           <div className="mt-1">
@@ -5747,6 +5780,36 @@ data-rt-sub16="${selectedLandingUuid}"
                             )}
                           </div>
                         </div>
+
+                        {/* Контент менеджер (источник) */}
+                        {entry.content_manager_name && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-700">Content Manager (источник):</label>
+                            <div className="mt-1">
+                              <span className="text-sm text-gray-900">{entry.content_manager_name}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Verified URLs */}
+                        {entry.verified_urls && entry.verified_urls.length > 0 && (
+                          <div className="md:col-span-2">
+                            <label className="text-xs font-medium text-gray-700">Верифицированные интеграции ({entry.verified_urls.length}):</label>
+                            <div className="mt-1 space-y-1">
+                              {entry.verified_urls.map((url, idx) => (
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:text-blue-800 block truncate"
+                                >
+                                  {url}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         <div className="md:col-span-2">
                           <label className="text-xs font-medium text-gray-700">Теги:</label>
