@@ -1200,7 +1200,13 @@ export const landingHistoryService = {
       const dataToInsert = {
         ...historyData,
         changed_at: historyData.changed_at || getKyivTime(),
-        created_at: getKyivTime()
+        created_at: getKyivTime(),
+        // Добавляем новые поля если они не переданы
+        is_edited: historyData.is_edited || false,
+        content_manager_id: historyData.content_manager_id || null,
+        content_manager_name: historyData.content_manager_name || null,
+        website: historyData.website || null,
+        verified_urls: historyData.verified_urls || []
       };
 
       const { data, error } = await supabase
