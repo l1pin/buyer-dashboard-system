@@ -3479,9 +3479,14 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <div className="flex justify-center">
-                                <WarehouseBadge />
-                              </div>
+                              // Показываем "Склад" ТОЛЬКО если и buyer И content оба NULL (источник Warehouse)
+                              !landing.content_manager_name ? (
+                                <div className="flex justify-center">
+                                  <WarehouseBadge />
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )
                             )}
                           </td>
 
@@ -3580,9 +3585,14 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <div className="flex justify-center">
-                                <WarehouseBadge />
-                              </div>
+                              // Показываем "Склад" ТОЛЬКО если и buyer И content оба NULL (источник Warehouse)
+                              !landing.buyer_id && !landing.buyer ? (
+                                <div className="flex justify-center">
+                                  <WarehouseBadge />
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              )
                             )}
                           </td>
 
