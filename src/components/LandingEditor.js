@@ -2977,7 +2977,7 @@ data-rt-sub16="${selectedLandingUuid}"
                 Полная аналитика лендингов
               </h3>
 
-              <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
@@ -3087,7 +3087,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       const trelloStatus = getTrelloListName(landing.id);
 
                       return (
-                        <tr
+                        <tr 
                           key={landing.id}
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
