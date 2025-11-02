@@ -1078,7 +1078,7 @@ function LandingPanel({ user }) {
     try {
       setLoading(true);
       setError('');
-      console.log('📡 Загрузка лендингов пользователя...');
+      console.log('📡 Загрузка лендингов контент-менеджера...');
       const data = await landingService.getUserLandings(user.id);
 
       // Загружаем данные о verified_urls для каждого лендинга
