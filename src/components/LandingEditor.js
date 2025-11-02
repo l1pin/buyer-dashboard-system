@@ -3092,45 +3092,68 @@ data-rt-sub16="${selectedLandingUuid}"
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            <button
-                              onClick={() => {
-                                setShowCreateModal(true);
-                                setSelectedLandingForEdit(landing);
-                                setSearchingUuid(landing.id);
-                                setNewLanding({
-                                  uuid: landing.id,
-                                  template: landing.template,
-                                  tags: landing.tags || [],
-                                  comment: '',
-                                  designer_id: landing.designer_id || null,
-                                  searcher_id: landing.searcher_id || null,
-                                  gifer_id: landing.gifer_id || null
-                                });
-                                
-                                // Определяем источник на основе существующих полей
-                                if (landing.content_manager_id) {
-                                  setSelectedSource('content');
-                                  setSourceContentId(landing.content_manager_id);
-                                  setSourceBuyerId(null);
-                                } else if (landing.buyer_id) {
-                                  setSelectedSource('buyer');
-                                  setSourceBuyerId(landing.buyer_id);
-                                  setSourceContentId(null);
-                                } else {
-                                  setSelectedSource('warehouse');
-                                  setSourceBuyerId(null);
-                                  setSourceContentId(null);
-                                }
-                              }}
-                              className="p-1 rounded-full transition-colors duration-200 text-blue-600 hover:text-blue-800 hover:bg-blue-100 cursor-pointer"
-                              title="Создать новую версию лендинга"
-                            >
-                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                <path stroke="none" d="M0 0h24v24H0z" />
-                                <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                              </svg>
-                            </button>
+                            {(() => {
+                              // Определяем, может ли пользователь редактировать этот лендинг
+                              const canEdit = user.role !== 'proofreader' || 
+                                             (landing.is_edited && landing.editor_id === user.id);
+                              
+                              return (
+                                <button
+                                  onClick={() => {
+                                    if (!canEdit) {
+                                      setError('Вы можете редактировать только те лендинги, которые создали через "Редактировать лендинг"');
+                                      setTimeout(() => setError(''), 5000);
+                                      return;
+                                    }
+
+                                    setShowCreateModal(true);
+                                    setSelectedLandingForEdit(landing);
+                                    setSearchingUuid(landing.id);
+                                    setNewLanding({
+                                      uuid: landing.id,
+                                      template: landing.template,
+                                      tags: landing.tags || [],
+                                      comment: '',
+                                      designer_id: landing.designer_id || null,
+                                      searcher_id: landing.searcher_id || null,
+                                      gifer_id: landing.gifer_id || null
+                                    });
+                                    
+                                    // Определяем источник на основе существующих полей
+                                    if (landing.content_manager_id) {
+                                      setSelectedSource('content');
+                                      setSourceContentId(landing.content_manager_id);
+                                      setSourceBuyerId(null);
+                                    } else if (landing.buyer_id) {
+                                      setSelectedSource('buyer');
+                                      setSourceBuyerId(landing.buyer_id);
+                                      setSourceContentId(null);
+                                    } else {
+                                      setSelectedSource('warehouse');
+                                      setSourceBuyerId(null);
+                                      setSourceContentId(null);
+                                    }
+                                  }}
+                                  disabled={!canEdit}
+                                  className={`p-1 rounded-full transition-colors duration-200 ${
+                                    canEdit
+                                      ? 'text-blue-600 hover:text-blue-800 hover:bg-blue-100 cursor-pointer'
+                                      : 'text-gray-300 cursor-not-allowed opacity-50'
+                                  }`}
+                                  title={
+                                    canEdit
+                                      ? 'Создать новую версию лендинга'
+                                      : 'Вы можете редактировать только свои лендинги'
+                                  }
+                                >
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" />
+                                    <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                    <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                                  </svg>
+                                </button>
+                              );
+                            })()}
                           </td>
 
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
