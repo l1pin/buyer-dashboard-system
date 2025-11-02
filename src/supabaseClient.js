@@ -916,12 +916,9 @@ export const landingService = {
       product_manager_id: landingData.product_manager_id
     });
 
-    // КРИТИЧНО: Получаем ВСЕ лендинги с таким же артикулом (независимо от пользователя)
-    const { data: existingLandings, error: countError } = await supabase
-      .from('landings')
-      .select('website, id')
-      .eq('article', landingData.article)
-      .order('created_at', { ascending: true });
+    // КРИТИЧНО: Получаем следующий номер версии через RPC (обходим RLS)
+    const { data: versionNumber, error: countError } = await supabase
+      .rpc('get_next_landing_version', { p_article: landingData.article });
 
     if (countError) {
       console.error('❌ Ошибка проверки артикула:', countError);
@@ -929,10 +926,10 @@ export const landingService = {
     }
 
     // Вычисляем номер сайта ГЛОБАЛЬНО для артикула
-    const websiteNumber = (existingLandings?.length || 0) + 1;
+    const websiteNumber = versionNumber || 1;
     const website = `Версия ${websiteNumber}`;
 
-    console.log(`📊 Для артикула ${landingData.article} найдено ${existingLandings?.length || 0} существующих версий`);
+    console.log(`📊 Для артикула ${landingData.article} следующая версия: ${websiteNumber}`);
     console.log(`🆕 Будет создана: ${website}`);
 
     const { data, error } = await supabase
