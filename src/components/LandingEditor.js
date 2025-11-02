@@ -47,6 +47,7 @@ function LandingEditor({ user }) {
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); // true = обновление, false = создание новой версии
   const [editingLanding, setEditingLanding] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
@@ -1305,18 +1306,6 @@ function LandingEditor({ user }) {
         return;
       }
 
-      // Получаем все лендинги с таким же артикулом для определения новой версии
-      const { data: samArticleLandings, error: versionError } = await supabase
-        .from('landings')
-        .select('website')
-        .eq('article', existingLanding.article);
-
-      if (versionError) throw versionError;
-
-      // Вычисляем новую версию
-      const nextVersion = (samArticleLandings?.length || 0) + 1;
-      const website = `Версия ${nextVersion}`;
-
       // Используем новые значения если заполнены, иначе берем из материнского лендинга
       const finalDesignerId = newLanding.designer_id || existingLanding.designer_id;
       const finalSearcherId = newLanding.searcher_id || existingLanding.searcher_id;
@@ -1333,56 +1322,140 @@ function LandingEditor({ user }) {
       let finalContentManagerName = null;
 
       if (selectedSource === 'warehouse') {
-        // Склад - ВСЕ поля NULL
         finalBuyerId = null;
         finalBuyerName = null;
         finalContentManagerId = null;
         finalContentManagerName = null;
       } else if (selectedSource === 'buyer') {
-        // Buyer - заполняем buyer_id и buyer, content поля NULL
         finalBuyerId = sourceBuyerId;
         finalBuyerName = getBuyerName(sourceBuyerId);
         finalContentManagerId = null;
         finalContentManagerName = null;
       } else if (selectedSource === 'content') {
-        // Content - заполняем content поля, buyer поля NULL
         finalBuyerId = null;
         finalBuyerName = null;
         finalContentManagerId = sourceContentId;
         finalContentManagerName = getContentManagerName(sourceContentId);
       }
 
-      // Создаем новую запись лендинга на основе существующего
-      const newLandingData = await landingService.createLanding({
-        user_id: user.id, // ВСЕГДА ID proofreader (редактора)
-        content_manager_id: finalContentManagerId, // NULL для warehouse/buyer, ID только для content
-        content_manager_name: finalContentManagerName, // NULL для warehouse/buyer, имя только для content
-        article: existingLanding.article,
-        template: existingLanding.template, // Используем шаблон из оригинального лендинга
-        tags: newLanding.tags,
-        comment: newLanding.comment.trim(),
-        is_poland: existingLanding.is_poland,
-        trello_link: '',
-        designer_id: finalDesignerId,
-        buyer_id: finalBuyerId, // NULL для warehouse и content, ID для buyer
-        searcher_id: finalSearcherId,
-        gifer_id: finalGiferId,
-        designer: designerName !== '—' ? designerName : null,
-        buyer: finalBuyerName, // NULL для warehouse и content, имя для buyer
-        searcher: searcherName !== '—' ? searcherName : null,
-        gifer: giferName !== '—' ? giferName : null,
-        is_test: false, // Всегда делаем основным
-        editor_id: user.id, // ID редактора (proofreader)
-        editor: user.name, // Имя редактора
-        product_manager_id: existingLanding.product_manager_id,
-        product_manager: existingLanding.product_manager,
-        website: website,
-        is_edited: true // Помечаем как отредактированный
-      });
+      // РЕЖИМ РЕДАКТИРОВАНИЯ (обновление существующего лендинга)
+      if (isEditMode) {
+        console.log('📝 РЕЖИМ ОБНОВЛЕНИЯ лендинга:', existingLanding.id);
 
-      console.log('✅ Лендинг отредактирован и создана новая версия:', newLandingData);
+        // Сохраняем старое состояние в историю ПЕРЕД обновлением
+        await landingHistoryService.createHistoryEntry({
+          landing_id: existingLanding.id,
+          article: existingLanding.article,
+          template: existingLanding.template,
+          tags: existingLanding.tags,
+          comment: existingLanding.comment,
+          is_poland: existingLanding.is_poland,
+          trello_link: existingLanding.trello_link,
+          designer_id: existingLanding.designer_id,
+          buyer_id: existingLanding.buyer_id,
+          searcher_id: existingLanding.searcher_id,
+          gifer_id: existingLanding.gifer_id,
+          designer: existingLanding.designer,
+          buyer: existingLanding.buyer,
+          searcher: existingLanding.searcher,
+          gifer: existingLanding.gifer,
+          is_test: existingLanding.is_test,
+          editor_id: existingLanding.editor_id,
+          product_manager_id: existingLanding.product_manager_id,
+          editor: existingLanding.editor,
+          product_manager: existingLanding.product_manager,
+          is_edited: existingLanding.is_edited,
+          content_manager_id: existingLanding.content_manager_id,
+          content_manager_name: existingLanding.content_manager_name,
+          website: existingLanding.website,
+          verified_urls: existingLanding.verified_urls || [],
+          changed_by_id: user.id,
+          changed_by_name: user.name,
+          change_type: 'updated'
+        });
 
-      setLandings(prevLandings => [newLandingData, ...prevLandings]);
+        // Обновляем существующий лендинг
+        await landingService.updateLanding(existingLanding.id, {
+          template: newLanding.template || existingLanding.template,
+          tags: newLanding.tags,
+          comment: newLanding.comment.trim(),
+          designer_id: finalDesignerId,
+          searcher_id: finalSearcherId,
+          gifer_id: finalGiferId,
+          buyer_id: finalBuyerId,
+          content_manager_id: finalContentManagerId,
+          designer: designerName !== '—' ? designerName : null,
+          searcher: searcherName !== '—' ? searcherName : null,
+          gifer: giferName !== '—' ? giferName : null,
+          buyer: finalBuyerName,
+          content_manager_name: finalContentManagerName
+        });
+
+        console.log('✅ Лендинг успешно обновлен');
+
+        // Перезагружаем список лендингов
+        await loadLandings();
+
+        setSuccess('Лендинг успешно обновлен!');
+      } 
+      // РЕЖИМ СОЗДАНИЯ (создание новой версии)
+      else {
+        console.log('🆕 РЕЖИМ СОЗДАНИЯ новой версии лендинга');
+
+        // Получаем все лендинги с таким же артикулом для определения новой версии
+        const { data: samArticleLandings, error: versionError } = await supabase
+          .from('landings')
+          .select('website')
+          .eq('article', existingLanding.article);
+
+        if (versionError) throw versionError;
+
+        // Вычисляем новую версию
+        const nextVersion = (samArticleLandings?.length || 0) + 1;
+        const website = `Версия ${nextVersion}`;
+
+        // Создаем новую запись лендинга на основе существующего
+        const newLandingData = await landingService.createLanding({
+          user_id: user.id,
+          content_manager_id: finalContentManagerId,
+          content_manager_name: finalContentManagerName,
+          article: existingLanding.article,
+          template: newLanding.template || existingLanding.template,
+          tags: newLanding.tags,
+          comment: newLanding.comment.trim(),
+          is_poland: existingLanding.is_poland,
+          trello_link: '',
+          designer_id: finalDesignerId,
+          buyer_id: finalBuyerId,
+          searcher_id: finalSearcherId,
+          gifer_id: finalGiferId,
+          designer: designerName !== '—' ? designerName : null,
+          buyer: finalBuyerName,
+          searcher: searcherName !== '—' ? searcherName : null,
+          gifer: giferName !== '—' ? giferName : null,
+          is_test: false,
+          editor_id: user.id,
+          editor: user.name,
+          product_manager_id: existingLanding.product_manager_id,
+          product_manager: existingLanding.product_manager,
+          website: website,
+          is_edited: true
+        });
+
+        console.log('✅ Создана новая версия лендинга:', newLandingData);
+
+        setLandings(prevLandings => [newLandingData, ...prevLandings]);
+
+        await loadMetricsForSingleCreative(newLandingData);
+        await refreshZoneData();
+
+        setSuccess(`Лендинг отредактирован! Создана ${website}`);
+
+        // Показываем модальное окно с UUID нового лендинга
+        setSelectedLandingUuid(newLandingData.id);
+        setShowUuidModal(true);
+        setCopiedUuid(false);
+      }
 
       // Сбрасываем форму
       setNewLanding({
@@ -1403,19 +1476,10 @@ function LandingEditor({ user }) {
       setShowSourceBuyerDropdown(false);
       setShowSourceContentDropdown(false);
       setShowCreateModal(false);
-
-      await loadMetricsForSingleCreative(newLandingData);
-      await refreshZoneData();
-
-      setSuccess(`Лендинг отредактирован! Создана ${website}`);
-
-      // Показываем модальное окно с UUID нового лендинга
-      setSelectedLandingUuid(newLandingData.id);
-      setShowUuidModal(true);
-      setCopiedUuid(false);
+      setIsEditMode(false); // Сбрасываем режим
 
     } catch (error) {
-      setError('Ошибка редактирования лендинга: ' + error.message);
+      setError(isEditMode ? 'Ошибка обновления лендинга: ' + error.message : 'Ошибка редактирования лендинга: ' + error.message);
     } finally {
       setCreating(false);
     }
@@ -2441,7 +2505,10 @@ data-rt-sub16="${selectedLandingUuid}"
             </button>
 
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setIsEditMode(false); // Режим создания новой версии
+                setShowCreateModal(true);
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Edit className="h-4 w-4 mr-2" />
@@ -3108,7 +3175,43 @@ data-rt-sub16="${selectedLandingUuid}"
                               
                               return (
                                 <button
-                                  onClick={() => handleEditLanding(landing)}
+                                  onClick={() => {
+                                    if (!canEdit) {
+                                      setError('Вы можете редактировать только те лендинги, которые создали через "Редактировать лендинг"');
+                                      setTimeout(() => setError(''), 5000);
+                                      return;
+                                    }
+
+                                    // Открываем Create Modal в режиме РЕДАКТИРОВАНИЯ
+                                    setIsEditMode(true);
+                                    setShowCreateModal(true);
+                                    setSelectedLandingForEdit(landing);
+                                    setSearchingUuid(landing.id);
+                                    setNewLanding({
+                                      uuid: landing.id,
+                                      template: landing.template,
+                                      tags: landing.tags || [],
+                                      comment: landing.comment || '',
+                                      designer_id: landing.designer_id || null,
+                                      searcher_id: landing.searcher_id || null,
+                                      gifer_id: landing.gifer_id || null
+                                    });
+                                    
+                                    // Определяем источник на основе существующих полей
+                                    if (landing.content_manager_id) {
+                                      setSelectedSource('content');
+                                      setSourceContentId(landing.content_manager_id);
+                                      setSourceBuyerId(null);
+                                    } else if (landing.buyer_id) {
+                                      setSelectedSource('buyer');
+                                      setSourceBuyerId(landing.buyer_id);
+                                      setSourceContentId(null);
+                                    } else {
+                                      setSelectedSource('warehouse');
+                                      setSourceBuyerId(null);
+                                      setSourceContentId(null);
+                                    }
+                                  }}
                                   disabled={!canEdit}
                                   className={`p-1 rounded-full transition-colors duration-200 ${
                                     canEdit
@@ -3622,12 +3725,13 @@ data-rt-sub16="${selectedLandingUuid}"
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
-                Редактировать лендинг
+                {isEditMode ? 'Обновить лендинг' : 'Редактировать лендинг'}
               </h3>
 
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setIsEditMode(false); // Сбрасываем режим
                   setNewLanding({
                     uuid: '',
                     template: '',
@@ -4456,6 +4560,7 @@ data-rt-sub16="${selectedLandingUuid}"
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setIsEditMode(false); // Сбрасываем режим
                   setNewLanding({
                     uuid: '',
                     template: '',
@@ -4496,7 +4601,7 @@ data-rt-sub16="${selectedLandingUuid}"
                     Сохранение...
                   </div>
                 ) : (
-                  'Сохранить изменения'
+                  isEditMode ? 'Обновить лендинг' : 'Сохранить изменения'
                 )}
               </button>
             </div>
@@ -4510,7 +4615,7 @@ data-rt-sub16="${selectedLandingUuid}"
           <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900">
-                Редактировать лендинг
+                {isEditMode ? 'Обновить лендинг' : 'Редактировать лендинг'}
               </h3>
 
               {/* Тумблер для тестового режима (ТОЛЬКО ВИЗУАЛЬНЫЙ) */}
