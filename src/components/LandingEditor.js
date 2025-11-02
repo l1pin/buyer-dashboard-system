@@ -2959,7 +2959,7 @@ data-rt-sub16="${selectedLandingUuid}"
       )}
 
       {/* Content - таблица лендингов */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 overflow-auto p-6">
         {filteredLandings.length === 0 ? (
           <div className="text-center py-12">
             <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -2971,13 +2971,15 @@ data-rt-sub16="${selectedLandingUuid}"
             </p>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div className="px-4 py-5 sm:p-6">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200 flex flex-col h-full">
+            <div className="px-4 py-5 sm:p-6 flex-shrink-0">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 text-center">
                 Полная аналитика лендингов
               </h3>
+            </div>
 
-              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 400px)', overflowY: 'auto'}}>
+            <div className="flex-1 overflow-auto px-4 pb-6">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
