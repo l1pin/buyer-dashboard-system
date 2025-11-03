@@ -1860,6 +1860,38 @@ data-rt-sub16="${selectedLandingUuid}"
   const countryStats = getCountryStats(filteredLandings);
   const zoneStats = getZoneStats(filteredLandings);
 
+  // Подсчет общих метрик из лендингов
+  const calculateTotalMetrics = () => {
+    let totalLeads = 0;
+    let totalCost = 0;
+    let totalClicks = 0;
+    let landingsWithMetrics = 0;
+
+    filteredLandings.forEach(landing => {
+      const metrics = getAggregatedLandingMetrics(landing);
+      if (metrics?.found && metrics.data) {
+        totalLeads += metrics.data.raw.leads || 0;
+        totalCost += metrics.data.raw.cost || 0;
+        totalClicks += metrics.data.raw.clicks || 0;
+        landingsWithMetrics++;
+      }
+    });
+
+    return {
+      totalLeads,
+      totalCost,
+      totalClicks,
+      landingsWithMetrics,
+      avgLeads: landingsWithMetrics > 0 ? totalLeads / landingsWithMetrics : 0,
+      avgCost: landingsWithMetrics > 0 ? totalCost / landingsWithMetrics : 0,
+      avgClicks: landingsWithMetrics > 0 ? totalClicks / landingsWithMetrics : 0,
+      cpl: totalLeads > 0 ? totalCost / totalLeads : 0,
+      cr: totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0
+    };
+  };
+
+  const totalMetrics = calculateTotalMetrics();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -2461,87 +2493,100 @@ data-rt-sub16="${selectedLandingUuid}"
       {filteredLandings.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
-            {/* Лендингов */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Лендингов
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredLandings.length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4 mb-4">
+        {/* Лендингов */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Лендингов
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    {filteredLandings.length}
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* С комментарием */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С комментарием
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {filteredLandings.filter(l => l.comment && l.comment.trim()).length}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+        {/* С комментарием */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    С комментарием
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    {filteredLandings.filter(l => l.comment && l.comment.trim()).length}
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* UA/PL */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-2 sm:ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        UA/PL
-                      </dt>
-                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        <div className="flex items-center space-x-1">
-                          <span>{countryStats.ukraineCount}</span>
-                          <span className="text-gray-400">/</span>
-                          <span>{countryStats.polandCount}</span>
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
+        {/* UA/PL */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Globe className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    UA/PL
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <span>{countryStats.ukraineCount}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{countryStats.polandCount}</span>
+                    </div>
+                  </dd>
+                </dl>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Пустая карточка (заполнитель) */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 opacity-0 pointer-events-none">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="h-full"></div>
+        {/* Типы лендингов */}
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+              </div>
+              <div className="ml-2 sm:ml-3 w-0 flex-1">
+                <dl>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Осн/Тест/Ред
+                  </dt>
+                  <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <span>{filteredLandings.filter(l => !l.is_test && !l.is_edited).length}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{filteredLandings.filter(l => l.is_test).length}</span>
+                      <span className="text-gray-400">/</span>
+                      <span>{filteredLandings.filter(l => l.is_edited).length}</span>
+                    </div>
+                  </dd>
+                </dl>
               </div>
             </div>
-
-            {/* Пустая карточка (заполнитель) */}
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 opacity-0 pointer-events-none">
-              <div className="p-2 sm:p-3 md:p-4">
-                <div className="h-full"></div>
-              </div>
-            </div>
+          </div>
+        </div>
 
             {/* Красная зона */}
             <div className="bg-red-500 overflow-hidden shadow-sm rounded-lg border border-red-600">
@@ -2629,7 +2674,7 @@ data-rt-sub16="${selectedLandingUuid}"
           </div>
 
           {/* ВТОРАЯ СТРОКА - метрики */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4">
             {/* Лидов */}
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
               <div className="p-2 sm:p-3 md:p-4">
@@ -2643,7 +2688,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Лидов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? formatStats().totalLeads : '—'}
+                        {Math.round(totalMetrics.totalLeads)}
                       </dd>
                     </dl>
                   </div>
@@ -2666,9 +2711,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         CPL
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (filteredLandings.length > 0 && aggregatedMetricsStats.totalLeads > 0 ?
-                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' :
-                          '0.00$') : '—'}
+                        {totalMetrics.cpl.toFixed(2)}$
                       </dd>
                     </dl>
                   </div>
@@ -2689,7 +2732,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Расходы
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? formatStats().totalCost : '—'}
+                        {totalMetrics.totalCost.toFixed(2)}$
                       </dd>
                     </dl>
                   </div>
@@ -2710,7 +2753,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Клики
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? Math.round(aggregatedMetricsStats.totalClicks).toLocaleString() : '—'}
+                        {Math.round(totalMetrics.totalClicks)}
                       </dd>
                     </dl>
                   </div>
@@ -2733,9 +2776,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         CR
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (aggregatedMetricsStats.totalClicks > 0 ?
-                          ((aggregatedMetricsStats.totalLeads / aggregatedMetricsStats.totalClicks) * 100).toFixed(2) + '%' :
-                          '0.00%') : '—'}
+                        {totalMetrics.cr.toFixed(2)}%
                       </dd>
                     </dl>
                   </div>
@@ -2748,11 +2789,7 @@ data-rt-sub16="${selectedLandingUuid}"
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="8.5" cy="7" r="4" />
-                      <polyline points="17 11 19 13 23 9" />
-                    </svg>
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
@@ -2760,7 +2797,49 @@ data-rt-sub16="${selectedLandingUuid}"
                         Ср. лидов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (filteredLandings.length > 0 ? Math.round(aggregatedMetricsStats.totalLeads / filteredLandings.length) : 0) : '—'}
+                        {Math.round(totalMetrics.avgLeads)}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ср. расходы */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-2 sm:p-3 md:p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+                  </div>
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        Ср. расходы
+                      </dt>
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                        {totalMetrics.avgCost.toFixed(2)}$
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ср. клики */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-2 sm:p-3 md:p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
+                  </div>
+                  <div className="ml-2 sm:ml-3 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs font-medium text-gray-500 truncate">
+                        Ср. клики
+                      </dt>
+                      <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                        {Math.round(totalMetrics.avgClicks)}
                       </dd>
                     </dl>
                   </div>
