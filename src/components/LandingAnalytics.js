@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
-import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService } from '../supabaseClient';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService, buyerSourceService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
 import { useZoneData } from '../hooks/useZoneData';
@@ -112,7 +112,13 @@ function LandingTeamLead({ user }) {
   
   // Состояния для модального окна настроек
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [settingsTab, setSettingsTab] = useState('templates'); // 'templates' или 'tags'
+  const [settingsTab, setSettingsTab] = useState('templates'); // 'templates', 'tags' или 'sources'
+  
+  // Состояния для источников байеров
+  const [buyerSources, setBuyerSources] = useState(new Map());
+  const [editingBuyerId, setEditingBuyerId] = useState(null);
+  const [tempSourceIds, setTempSourceIds] = useState([]);
+  const [loadingBuyerSources, setLoadingBuyerSources] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [editingTag, setEditingTag] = useState(null);
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -1174,6 +1180,27 @@ function LandingTeamLead({ user }) {
     }
   };
 
+  const loadBuyerSources = async () => {
+    try {
+      setLoadingBuyerSources(true);
+      console.log('📡 Загрузка источников байеров...');
+
+      const sourcesData = await buyerSourceService.getAllBuyerSources();
+      
+      const sourcesMap = new Map();
+      sourcesData.forEach(item => {
+        sourcesMap.set(item.buyer_id, item.source_ids || []);
+      });
+
+      setBuyerSources(sourcesMap);
+      console.log(`✅ Загружено источников для ${sourcesData.length} байеров`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки источников байеров:', error);
+    } finally {
+      setLoadingBuyerSources(false);
+    }
+  };
+
   const showComment = (landing) => {
     setSelectedComment({
       article: landing.article,
@@ -1523,6 +1550,67 @@ data-rt-sub16="${selectedLandingUuid}"
     } finally {
       setSavingSettings(false);
     }
+  };
+
+// Функции для работы с источниками байеров
+  const handleEditBuyerSources = (buyerId) => {
+    const sources = buyerSources.get(buyerId) || [];
+    setTempSourceIds(sources.length > 0 ? [...sources] : ['']);
+    setEditingBuyerId(buyerId);
+  };
+
+  const handleAddSourceField = () => {
+    setTempSourceIds([...tempSourceIds, '']);
+  };
+
+  const handleRemoveSourceField = (index) => {
+    const newSources = tempSourceIds.filter((_, i) => i !== index);
+    setTempSourceIds(newSources.length > 0 ? newSources : ['']);
+  };
+
+  const handleSourceChange = (index, value) => {
+    const newSources = [...tempSourceIds];
+    newSources[index] = value;
+    setTempSourceIds(newSources);
+  };
+
+  const handleSaveBuyerSources = async (buyerId) => {
+    try {
+      setSavingSettings(true);
+      
+      const buyer = buyers.find(b => b.id === buyerId);
+      if (!buyer) {
+        throw new Error('Байер не найден');
+      }
+
+      // Фильтруем пустые значения
+      const filteredSources = tempSourceIds.filter(id => id && id.trim());
+
+      await buyerSourceService.saveBuyerSources(buyerId, buyer.name, filteredSources);
+
+      // Обновляем локальное состояние
+      setBuyerSources(prev => {
+        const newMap = new Map(prev);
+        newMap.set(buyerId, filteredSources);
+        return newMap;
+      });
+
+      setEditingBuyerId(null);
+      setTempSourceIds([]);
+      setSuccess('Источники байера сохранены');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка сохранения источников:', error);
+      setError('Ошибка сохранения: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleCancelEditSources = () => {
+    setEditingBuyerId(null);
+    setTempSourceIds([]);
   };
 
   // Drag & Drop обработчики
@@ -2152,7 +2240,10 @@ data-rt-sub16="${selectedLandingUuid}"
             </button>
 
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => {
+                setShowSettingsModal(true);
+                loadBuyerSources();
+              }}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -3842,6 +3933,19 @@ data-rt-sub16="${selectedLandingUuid}"
               >
                 Теги ({tags.length})
               </button>
+              <button
+                onClick={() => {
+                  setSettingsTab('sources');
+                  loadBuyerSources();
+                }}
+                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                  settingsTab === 'sources'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Источники байеров ({buyers.length})
+              </button>
             </div>
 
             {/* Content */}
@@ -4113,6 +4217,157 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               )}
             </div>
+
+              {/* Sources Tab */}
+              {settingsTab === 'sources' && (
+                <div className="space-y-4">
+                  {loadingBuyerSources ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Загрузка источников байеров...</p>
+                      </div>
+                    </div>
+                  ) : buyers.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                      <p>Нет байеров в системе</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {buyers.map((buyer) => {
+                        const isEditing = editingBuyerId === buyer.id;
+                        const sources = buyerSources.get(buyer.id) || [];
+
+                        return (
+                          <div
+                            key={buyer.id}
+                            className="bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                          >
+                            {/* Buyer Header */}
+                            <div
+                              className="flex items-center justify-between p-4 cursor-pointer"
+                              onClick={() => !isEditing && handleEditBuyerSources(buyer.id)}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  {buyer.avatar_url ? (
+                                    <img
+                                      src={buyer.avatar_url}
+                                      alt={buyer.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                    <User className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900">{buyer.name}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {sources.length > 0 ? `${sources.length} источник(ов)` : 'Источники не настроены'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {!isEditing && (
+                                <div className="flex items-center space-x-2">
+                                  {sources.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 max-w-xs">
+                                      {sources.slice(0, 3).map((sourceId, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                                        >
+                                          {sourceId}
+                                        </span>
+                                      ))}
+                                      {sources.length > 3 && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                          +{sources.length - 3}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Editing Sources */}
+                            {isEditing && (
+                              <div className="border-t border-gray-200 p-4 bg-gray-50">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-sm font-medium text-gray-700">ID источников:</label>
+                                    <button
+                                      onClick={handleAddSourceField}
+                                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Добавить поле
+                                    </button>
+                                  </div>
+
+                                  {tempSourceIds.map((sourceId, index) => (
+                                    <div key={index} className="flex items-center space-x-2">
+                                      <input
+                                        type="text"
+                                        value={sourceId}
+                                        onChange={(e) => handleSourceChange(index, e.target.value)}
+                                        placeholder="Введите ID источника..."
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                      />
+                                      {tempSourceIds.length > 1 && (
+                                        <button
+                                          onClick={() => handleRemoveSourceField(index)}
+                                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+
+                                  <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-200">
+                                    <button
+                                      onClick={handleCancelEditSources}
+                                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                    >
+                                      Отмена
+                                    </button>
+                                    <button
+                                      onClick={() => handleSaveBuyerSources(buyer.id)}
+                                      disabled={savingSettings}
+                                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      {savingSettings ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                          Сохранение...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Save className="h-4 w-4 mr-2" />
+                                          Сохранить
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
             {/* Footer */}
             <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
