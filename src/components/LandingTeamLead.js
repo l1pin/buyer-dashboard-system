@@ -1308,7 +1308,6 @@ data-rt-sub16="${selectedLandingUuid}"
   const clearMessages = () => {
     setError('');
     setSuccess('');
-    setFieldErrors({});
   };
 
   // Функция для обновления статуса интеграции после успешной проверки
