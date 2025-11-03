@@ -1304,6 +1304,19 @@ export const landingService = {
 
       console.log('✅ Лендинг найден:', checkData);
 
+      // Удаляем метрики лендинга из кэша
+      console.log('💾 Удаление кэша метрик лендинга...');
+      const { error: metricsError } = await supabase
+        .from('landing_metrics_cache')
+        .delete()
+        .eq('landing_id', landingId);
+
+      if (metricsError) {
+        console.error('⚠️ Ошибка удаления метрик лендинга:', metricsError);
+      } else {
+        console.log('✅ Метрики лендинга удалены');
+      }
+
       // Удаляем историю изменений лендинга
       console.log('📜 Удаление истории лендинга...');
       const { error: historyError } = await supabase
@@ -1313,23 +1326,45 @@ export const landingService = {
 
       if (historyError) {
         console.error('⚠️ Ошибка удаления истории лендинга:', historyError);
+      } else {
+        console.log('✅ История лендинга удалена');
+      }
+
+      // Удаляем статусы Trello для лендинга
+      console.log('📋 Удаление статусов Trello лендинга...');
+      const { error: trelloError } = await supabase
+        .from('trello_landing_statuses')
+        .delete()
+        .eq('landing_id', landingId);
+
+      if (trelloError) {
+        console.error('⚠️ Ошибка удаления Trello статусов:', trelloError);
+      } else {
+        console.log('✅ Trello статусы удалены');
       }
 
       // Удаляем сам лендинг
       console.log('🌐 Удаление лендинга из таблицы landings...');
-      const { data: deletedData, error: landingError } = await supabase
+      const { error: landingError } = await supabase
         .from('landings')
         .delete()
-        .eq('id', landingId)
-        .select();
+        .eq('id', landingId);
 
       if (landingError) {
         console.error('❌ ОШИБКА удаления лендинга:', landingError);
         throw new Error(`Не удалось удалить лендинг: ${landingError.message}`);
       }
 
-      if (!deletedData || deletedData.length === 0) {
-        throw new Error('Лендинг не был удален. Возможно, недостаточно прав доступа.');
+      // Проверяем, что лендинг действительно удален
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('landings')
+        .select('id')
+        .eq('id', landingId)
+        .maybeSingle();
+
+      if (verifyData) {
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Лендинг все еще существует после удаления!');
+        throw new Error('Лендинг не был удален из базы данных. Проверьте права доступа RLS.');
       }
 
       console.log('✅ Лендинг полностью удален из системы');
