@@ -3972,21 +3972,24 @@ data-rt-sub16="${selectedLandingUuid}"
                         placeholder="Название тега..."
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <select
-                        value={newTagColor}
-                        onChange={(e) => setNewTagColor(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="purple">Фиолетовый</option>
-                        <option value="blue">Синий</option>
-                        <option value="green">Зеленый</option>
-                        <option value="yellow">Желтый</option>
-                        <option value="red">Красный</option>
-                        <option value="indigo">Индиго</option>
-                        <option value="pink">Розовый</option>
-                        <option value="orange">Оранжевый</option>
-                        <option value="gray">Серый</option>
-                      </select>
+                      <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white">
+                        <span className={`w-4 h-4 rounded-full ${getTagColorClasses(newTagColor).dot}`}></span>
+                        <select
+                          value={newTagColor}
+                          onChange={(e) => setNewTagColor(e.target.value)}
+                          className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm"
+                        >
+                          <option value="purple">Фиолетовый</option>
+                          <option value="blue">Синий</option>
+                          <option value="green">Зеленый</option>
+                          <option value="yellow">Желтый</option>
+                          <option value="red">Красный</option>
+                          <option value="indigo">Индиго</option>
+                          <option value="pink">Розовый</option>
+                          <option value="orange">Оранжевый</option>
+                          <option value="gray">Серый</option>
+                        </select>
+                      </div>
                       <button
                         onClick={handleCreateTag}
                         disabled={savingSettings || !newTagName.trim()}
@@ -4040,21 +4043,24 @@ data-rt-sub16="${selectedLandingUuid}"
                                   className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   autoFocus
                                 />
-                                <select
-                                  value={editingTag.color}
-                                  onChange={(e) => setEditingTag({...editingTag, color: e.target.value})}
-                                  className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="purple">Фиолетовый</option>
-                                  <option value="blue">Синий</option>
-                                  <option value="green">Зеленый</option>
-                                  <option value="yellow">Желтый</option>
-                                  <option value="red">Красный</option>
-                                  <option value="indigo">Индиго</option>
-                                  <option value="pink">Розовый</option>
-                                  <option value="orange">Оранжевый</option>
-                                  <option value="gray">Серый</option>
-                                </select>
+                                <div className="flex items-center space-x-2 px-3 py-1 border border-gray-300 rounded-md bg-white">
+                                  <span className={`w-4 h-4 rounded-full ${getTagColorClasses(editingTag.color).dot}`}></span>
+                                  <select
+                                    value={editingTag.color}
+                                    onChange={(e) => setEditingTag({...editingTag, color: e.target.value})}
+                                    className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm"
+                                  >
+                                    <option value="purple">Фиолетовый</option>
+                                    <option value="blue">Синий</option>
+                                    <option value="green">Зеленый</option>
+                                    <option value="yellow">Желтый</option>
+                                    <option value="red">Красный</option>
+                                    <option value="indigo">Индиго</option>
+                                    <option value="pink">Розовый</option>
+                                    <option value="orange">Оранжевый</option>
+                                    <option value="gray">Серый</option>
+                                  </select>
+                                </div>
                                 <button
                                   onClick={() => handleUpdateTag(tag.id, { name: editingTag.name, color: editingTag.color })}
                                   disabled={savingSettings}
