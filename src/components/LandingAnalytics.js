@@ -3242,12 +3242,14 @@ data-rt-sub16="${selectedLandingUuid}"
                       const isDropdownOpen = openDropdowns.has(landing.id);
                       const isSyncing = syncingLandings.has(landing.id);
                       const trelloStatus = getTrelloListName(landing.id);
+                      const buyerMetrics = getMetricsByBuyers(landing);
+                      const isBuyersExpanded = expandedBuyers.has(landing.id);
 
                       return (
-                        <tr
-                          key={landing.id}
-                          className="transition-colors duration-200 hover:bg-gray-50"
-                        >
+                        <React.Fragment key={landing.id}>
+                          <tr
+                            className="transition-colors duration-200 hover:bg-gray-50"
+                          >
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
                             <div className="flex items-center justify-center space-x-1">
                               {landing.is_test && (
@@ -3418,172 +3420,58 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {(() => {
-                              const buyerMetrics = getMetricsByBuyers(landing);
-                              const isBuyersExpanded = expandedBuyers.has(landing.id);
-
-                              if (buyerMetrics.length === 0) {
-                                return <span className="text-gray-400 cursor-text select-text">—</span>;
-                              }
-
-                              return (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-center">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleBuyers(landing.id);
-                                      }}
-                                      className="inline-flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
+                            {buyerMetrics.length === 0 ? (
+                              <span className="text-gray-400 cursor-text select-text">—</span>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBuyers(landing.id);
+                                }}
+                                className="inline-flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
+                              >
+                                {/* Аватарки байеров */}
+                                <div className="flex -space-x-2">
+                                  {buyerMetrics.slice(0, 3).map((buyerMetric, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 border-2 border-white flex items-center justify-center flex-shrink-0"
+                                      title={buyerMetric.buyer_name}
                                     >
-                                      {/* Аватарки байеров */}
-                                      <div className="flex -space-x-2">
-                                        {buyerMetrics.slice(0, 3).map((buyerMetric, idx) => (
-                                          <div
-                                            key={idx}
-                                            className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 border-2 border-white flex items-center justify-center flex-shrink-0 relative z-10 hover:z-20 transition-all hover:scale-110"
-                                            style={{ zIndex: buyerMetrics.length - idx }}
-                                            title={buyerMetric.buyer_name}
-                                          >
-                                            {buyerMetric.buyer_avatar ? (
-                                              <img
-                                                src={buyerMetric.buyer_avatar}
-                                                alt={buyerMetric.buyer_name}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                  e.target.style.display = 'none';
-                                                  e.target.nextSibling.style.display = 'flex';
-                                                }}
-                                              />
-                                            ) : null}
-                                            <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
-                                              <User className="h-3 w-3 text-gray-400" />
-                                            </div>
-                                          </div>
-                                        ))}
-                                        {buyerMetrics.length > 3 && (
-                                          <div className="w-7 h-7 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700">
-                                            +{buyerMetrics.length - 3}
-                                          </div>
-                                        )}
+                                      {buyerMetric.buyer_avatar ? (
+                                        <img
+                                          src={buyerMetric.buyer_avatar}
+                                          alt={buyerMetric.buyer_name}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
+                                        <User className="h-3 w-3 text-gray-400" />
                                       </div>
-                                      {/* Стрелка */}
-                                      {isBuyersExpanded ? (
-                                        <ChevronUp className="h-4 w-4 text-gray-600 group-hover:text-gray-900 transition-colors" />
-                                      ) : (
-                                        <ChevronDown className="h-4 w-4 text-gray-600 group-hover:text-gray-900 transition-colors" />
-                                      )}
-                                    </button>
-                                  </div>
-
-                                  {isBuyersExpanded && (
-                                    <div className="mt-3 animate-fadeIn">
-                                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                                        {buyerMetrics.map((buyerMetric, idx) => {
-                                          const buyerCpl = buyerMetric.data.raw.cpl;
-                                          const buyerZone = getCurrentZoneByMetrics(landing.article, buyerCpl);
-
-                                          return (
-                                            <div 
-                                              key={idx} 
-                                              className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
-                                            >
-                                            {/* Строка с метриками байера */}
-                                              <div className="flex items-center space-x-4">
-                                                {/* Аватарка и имя */}
-                                                <div className="flex items-center space-x-2 flex-shrink-0" style={{ minWidth: '140px' }}>
-                                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                {buyerMetric.buyer_avatar ? (
-                                                  <img
-                                                    src={buyerMetric.buyer_avatar}
-                                                    alt={buyerMetric.buyer_name}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                      e.target.style.display = 'none';
-                                                      e.target.nextSibling.style.display = 'flex';
-                                                    }}
-                                                  />
-                                                ) : null}
-                                                <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
-                                                  <User className="h-4 w-4 text-gray-400" />
-                                                  </div>
-                                                </div>
-                                                <div className="min-w-0">
-                                                  <div className="text-xs font-semibold text-gray-900 truncate">
-                                                    {buyerMetric.buyer_name}
-                                                  </div>
-                                                </div>
-                                              </div>
-
-                                              {/* Зона */}
-                                              <div className="flex items-center justify-center" style={{ minWidth: '80px' }}>
-                                                {buyerZone ? (
-                                                  (() => {
-                                                    const getZoneColors = (zone) => {
-                                                      switch (zone) {
-                                                        case 'red':
-                                                          return { bg: 'bg-red-500', text: 'text-white' };
-                                                        case 'pink':
-                                                          return { bg: 'bg-pink-500', text: 'text-white' };
-                                                        case 'gold':
-                                                          return { bg: 'bg-yellow-500', text: 'text-black' };
-                                                        case 'green':
-                                                          return { bg: 'bg-green-500', text: 'text-white' };
-                                                        default:
-                                                          return { bg: 'bg-gray-500', text: 'text-white' };
-                                                      }
-                                                    };
-
-                                                    const colors = getZoneColors(buyerZone.zone);
-
-                                                    return (
-                                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-                                                        {buyerZone.name}
-                                                      </span>
-                                                    );
-                                                  })()
-                                                ) : (
-                                                  <span className="text-gray-400 text-xs">—</span>
-                                                )}
-                                              </div>
-
-                                              {/* Метрики в строку */}
-                                              <div className="flex-1 grid grid-cols-6 gap-3 text-xs">
-                                              <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">Лиды</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.leads}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">CPL</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.cpl}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">Расходы</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.cost}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">Клики</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.clicks}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">CR</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.cr}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className="text-gray-500 text-[10px]">Дней</div>
-                                                  <div className="font-bold text-gray-900">{buyerMetric.data.formatted.days}</div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                          );
-                                        })}
-                                      </div>
+                                    </div>
+                                  ))}
+                                  {buyerMetrics.length > 3 && (
+                                    <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700">
+                                      +{buyerMetrics.length - 3}
                                     </div>
                                   )}
                                 </div>
-                              );
-                            })()}
+                                {/* Счетчик */}
+                                <span className="text-xs font-medium text-gray-600">
+                                  {buyerMetrics.length}
+                                </span>
+                                {/* Стрелка */}
+                                {isBuyersExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-gray-400" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                                )}
+                              </button>
+                            )}
                           </td>
 
                           <td className="px-3 py-4 text-sm text-gray-900 text-center">
@@ -3916,6 +3804,119 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                         </tr>
+
+                          {/* Строки с метриками байеров */}
+                          {isBuyersExpanded && buyerMetrics.map((buyerMetric, buyerIdx) => {
+                            const buyerCpl = buyerMetric.data.raw.cpl;
+                            const buyerZone = getCurrentZoneByMetrics(landing.article, buyerCpl);
+
+                            return (
+                              <tr
+                                key={`${landing.id}-buyer-${buyerIdx}`}
+                                className="bg-blue-50 animate-fadeIn transition-colors duration-200 hover:bg-blue-100"
+                              >
+                                {/* Пустые ячейки в начале */}
+                                <td className="px-1 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+
+                                {/* Байер (аватарка + имя) */}
+                                <td className="px-3 py-3 whitespace-nowrap">
+                                  <div className="flex items-center space-x-2 pl-4">
+                                    <span className="text-gray-400 mr-2">↳</span>
+                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                      {buyerMetric.buyer_avatar ? (
+                                        <img
+                                          src={buyerMetric.buyer_avatar}
+                                          alt={buyerMetric.buyer_name}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
+                                        <User className="h-3 w-3 text-gray-400" />
+                                      </div>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {buyerMetric.buyer_name}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Зона байера */}
+                                <td className="px-3 py-3 text-center">
+                                  {buyerZone ? (
+                                    (() => {
+                                      const getZoneColors = (zone) => {
+                                        switch (zone) {
+                                          case 'red':
+                                            return { bg: 'bg-red-500', text: 'text-white' };
+                                          case 'pink':
+                                            return { bg: 'bg-pink-500', text: 'text-white' };
+                                          case 'gold':
+                                            return { bg: 'bg-yellow-500', text: 'text-black' };
+                                          case 'green':
+                                            return { bg: 'bg-green-500', text: 'text-white' };
+                                          default:
+                                            return { bg: 'bg-gray-500', text: 'text-white' };
+                                        }
+                                      };
+
+                                      const colors = getZoneColors(buyerZone.zone);
+
+                                      return (
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
+                                          {buyerZone.name}
+                                        </span>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">—</span>
+                                  )}
+                                </td>
+
+                                {/* Метрики байера */}
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.leads}</span>
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cpl}</span>
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cost}</span>
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.clicks}</span>
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cr}</span>
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.days}</span>
+                                </td>
+
+                                {/* Остальные пустые ячейки */}
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                                <td className="px-3 py-3 text-center"></td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
