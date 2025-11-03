@@ -77,6 +77,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: user?.role === 'proofreader' || user?.role === 'editor'
     },
     {
+      id: 'landing-teamlead',
+      label: 'Лендинги (TeamLead)',
+      icon: Globe,
+      show: user?.role === 'teamlead'
+    },
+    {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
