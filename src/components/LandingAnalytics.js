@@ -337,8 +337,14 @@ function LandingTeamLead({ user }) {
     );
 
     console.log(`📊 Всего дневных записей: ${allDailyDataWithSources.length}`);
-    console.log(`📊 Первая дневная запись:`, allDailyDataWithSources[0]);
-    console.log(`📊 ВСЕ ДНЕВНЫЕ ЗАПИСИ:`, allDailyDataWithSources);
+    console.log(`📊 ПЕРВАЯ ДНЕВНАЯ ЗАПИСЬ (ДЕТАЛЬНО):`, allDailyDataWithSources[0]);
+    console.log(`📊 ВСЕ КЛЮЧИ ПЕРВОЙ ЗАПИСИ:`, Object.keys(allDailyDataWithSources[0] || {}));
+    console.log(`📊 source_id_tracker В ПЕРВОЙ ЗАПИСИ:`, {
+      exists: 'source_id_tracker' in (allDailyDataWithSources[0] || {}),
+      value: allDailyDataWithSources[0]?.source_id_tracker,
+      type: typeof allDailyDataWithSources[0]?.source_id_tracker
+    });
+    console.log(`📊 ВСЕ ДНЕВНЫЕ ЗАПИСИ (ПОЛНОСТЬЮ):`, JSON.stringify(allDailyDataWithSources, null, 2));
 
     // Группируем по source_id_tracker
     const metricsBySourceId = new Map();
