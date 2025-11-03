@@ -1380,8 +1380,11 @@ export const landingHistoryService = {
         tagIds = tags.map(t => t.id);
       }
 
+      // КРИТИЧНО: Удаляем поле tags перед вставкой (в таблице его нет)
+      const { tags, ...dataWithoutTags } = historyData;
+
       const dataToInsert = {
-        ...historyData,
+        ...dataWithoutTags,
         template_id: templateId,
         tag_ids: tagIds,
         changed_at: historyData.changed_at || getKyivTime(),
