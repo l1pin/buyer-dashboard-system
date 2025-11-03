@@ -1003,7 +1003,11 @@ export const landingService = {
       // КРИТИЧНО: Фильтруем ТОЛЬКО по content_manager_id
       const { data, error } = await supabase
         .from('landings')
-        .select('*')
+        .select(`
+          *,
+          template:landing_templates!template_id(name),
+          tags_data:landing_tags!tag_ids(id, name, color)
+        `)
         .eq('content_manager_id', userId)
         .order('created_at', { ascending: false });
 
@@ -1012,7 +1016,12 @@ export const landingService = {
         throw error;
       }
 
-      const result = data || [];
+      const result = (data || []).map(landing => ({
+        ...landing,
+        template: landing.template?.name || null,
+        tags: landing.tags_data?.map(t => t.name) || []
+      }));
+
       console.log('✅ getUserLandings завершен, получено лендингов:', result.length);
 
       return result;
@@ -1030,7 +1039,11 @@ export const landingService = {
 
       const { data, error } = await supabase
         .from('landings')
-        .select('*')
+        .select(`
+          *,
+          template:landing_templates!template_id(name),
+          tags_data:landing_tags!tag_ids(id, name, color)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -1038,8 +1051,22 @@ export const landingService = {
         throw error;
       }
 
-      const result = data || [];
+      const result = (data || []).map(landing => ({
+        ...landing,
+        template: landing.template?.name || null,
+        tags: landing.tags_data?.map(t => t.name) || []
+      }));
+
       console.log('✅ getAllLandings завершен успешно, получено записей:', result.length);
+      
+      if (result.length > 0) {
+        console.log('🔍 ПЕРВЫЙ ЛЕНДИНГ ПОСЛЕ ОБРАБОТКИ:', {
+          id: result[0].id,
+          article: result[0].article,
+          template: result[0].template,
+          tags: result[0].tags
+        });
+      }
 
       return result;
 
