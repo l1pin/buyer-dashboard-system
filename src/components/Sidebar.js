@@ -83,6 +83,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: user?.role === 'teamlead'
     },
     {
+      id: 'landing-analytics',
+      label: 'Аналитика лендингов',
+      icon: BarChart3,
+      show: user?.role === 'teamlead'
+    },
+    {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
