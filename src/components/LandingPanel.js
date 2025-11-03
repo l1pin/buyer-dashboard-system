@@ -676,8 +676,9 @@ function LandingPanel({ user }) {
   // Статистика по тегам
   const getTagsStats = (landingsData) => {
     const allTags = landingsData.reduce((acc, landing) => {
-      if (landing.tags && Array.isArray(landing.tags)) {
-        landing.tags.forEach(tag => {
+      if (landing.tag_ids && Array.isArray(landing.tag_ids)) {
+        const tagNames = getTagNames(landing.tag_ids);
+        tagNames.forEach(tag => {
           acc[tag] = (acc[tag] || 0) + 1;
         });
       }
@@ -862,47 +863,6 @@ function LandingPanel({ user }) {
   }, [filteredLandings.length]);
 
   useEffect(() => {
-    // Подписка на изменения шаблонов
-    const templatesSubscription = supabase
-      .channel('landing_templates_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'landing_templates'
-        },
-        (payload) => {
-          console.log('🔄 Шаблон изменен:', payload);
-          loadTemplates(); // Перезагружаем шаблоны
-        }
-      )
-      .subscribe();
-
-    // Подписка на изменения тегов
-    const tagsSubscription = supabase
-      .channel('landing_tags_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'landing_tags'
-        },
-        (payload) => {
-          console.log('🏷️ Тег изменен:', payload);
-          loadTags(); // Перезагружаем теги
-        }
-      )
-      .subscribe();
-
-    return () => {
-      templatesSubscription.unsubscribe();
-      tagsSubscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
     // Подписка на создание новых лендингов
     const landingsSubscription = supabase
       .channel('landings_changes')
@@ -981,7 +941,7 @@ function LandingPanel({ user }) {
       trelloSubscription.unsubscribe();
     };
   }, []);
-  
+
   // Загрузка Trello статусов после загрузки лендингов
   useEffect(() => {
     if (landings && landings.length > 0) {
@@ -1879,6 +1839,24 @@ data-rt-sub16="${selectedLandingUuid}"
     if (!giferId) return '—';
     const gifer = gifers.find(g => g.id === giferId);
     return gifer ? gifer.name : 'Удален';
+  };
+
+  // Получить название шаблона по template_id
+  const getTemplateName = (templateId) => {
+    if (!templateId) return '—';
+    const template = templatesList.find(t => t.id === templateId);
+    return template ? template.name : 'Удален';
+  };
+
+  // Получить названия тегов по tag_ids
+  const getTagNames = (tagIds) => {
+    if (!tagIds || tagIds.length === 0) return [];
+    return tagIds
+      .map(tagId => {
+        const tag = tagsList.find(t => t.id === tagId);
+        return tag ? tag.name : null;
+      })
+      .filter(name => name !== null);
   };
 
   const getGiferAvatar = (giferId) => {
@@ -3189,12 +3167,12 @@ data-rt-sub16="${selectedLandingUuid}"
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="text-center cursor-text select-text">
-                              {landing.template || <span className="text-gray-400">—</span>}
+                              {getTemplateName(landing.template_id)}
                             </div>
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {landing.tags && landing.tags.length > 0 ? (
+                            {landing.tag_ids && landing.tag_ids.length > 0 ? (
                               <div className="space-y-1">
                                 <div>
                                   <button
@@ -3208,7 +3186,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                     <span>
                                       {isExpanded
                                         ? `Скрыть теги`
-                                        : `Теги (${landing.tags.length})`
+                                        : `Теги (${landing.tag_ids.length})`
                                       }
                                     </span>
                                     {isExpanded ? (
@@ -3221,7 +3199,7 @@ data-rt-sub16="${selectedLandingUuid}"
 
                                 {isExpanded && (
                                   <div className="mt-2 space-y-1 max-w-xs">
-                                    {landing.tags.map((tag, index) => {
+                                    {getTagNames(landing.tag_ids).map((tag, index) => {
                                       const tagStyles = {
                                         'SEO': { dot: 'bg-purple-500', border: 'border-purple-200', bg: 'bg-purple-50' },
                                         'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-200', bg: 'bg-blue-50' },
@@ -5725,7 +5703,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         <div>
                           <label className="text-xs font-medium text-gray-700">Шаблон:</label>
                           <div className="mt-1">
-                            <span className="text-sm text-gray-900">{entry.template || '—'}</span>
+                            <span className="text-sm text-gray-900">{getTemplateName(entry.template_id)}</span>
                           </div>
                         </div>
 
@@ -5779,8 +5757,8 @@ data-rt-sub16="${selectedLandingUuid}"
                         <div className="md:col-span-2">
                           <label className="text-xs font-medium text-gray-700">Теги:</label>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {entry.tags && entry.tags.length > 0 ? (
-                              entry.tags.map((tag, idx) => (
+                            {entry.tag_ids && entry.tag_ids.length > 0 ? (
+                              getTagNames(entry.tag_ids).map((tag, idx) => (
                                 <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
                                   {tag}
                                 </span>
