@@ -343,8 +343,6 @@ exports.handler = async (event) => {
       const sourceIdTracker = metric.source_id_tracker || 'unknown';
       const key = `${metric.adv_id}_${metric.adv_date}_${sourceIdTracker}`;
       
-      console.log(`🔑 Создание ключа метрики: adv_id=${metric.adv_id}, date=${metric.adv_date}, source_id_tracker=${sourceIdTracker}`);
-      
       metricsByAdvIdAndDate.set(key, {
         date: metric.adv_date,
         source_id_tracker: sourceIdTracker,
