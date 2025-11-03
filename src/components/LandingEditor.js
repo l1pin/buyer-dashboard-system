@@ -1217,33 +1217,45 @@ function LandingEditor({ user }) {
     try {
       console.log('🔍 НАЧИНАЕМ поиск лендингов по UUID:', searchText);
       
-      // Используем ilike для поиска ТОЛЬКО по UUID
-      const { data: matchedLandings, error } = await supabase
+      // РЕШЕНИЕ: Загружаем ВСЕ лендинги и фильтруем на клиенте
+      // (для UUID нельзя использовать ilike, т.к. это не текстовый тип)
+      const { data: allLandings, error } = await supabase
         .from('landings')
         .select('id, article, template_id, is_test, website, designer_id, searcher_id, gifer_id, tag_ids, is_poland, buyer_id')
-        .ilike('id', `%${searchText}%`)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(1000); // Берем последние 1000 лендингов
+
+      console.log('📦 РЕЗУЛЬТАТ ЗАПРОСА:', {
+        hasData: !!allLandings,
+        count: allLandings?.length || 0
+      });
 
       if (error) {
         console.error('❌ Ошибка поиска:', error);
         throw error;
       }
 
-      console.log('📦 РЕЗУЛЬТАТ ЗАПРОСА:', {
-        hasData: !!matchedLandings,
-        count: matchedLandings?.length || 0,
-        firstItem: matchedLandings?.[0]
-      });
-
-      if (!matchedLandings || matchedLandings.length === 0) {
-        console.log('⚠️ Совпадений не найдено, устанавливаем showUuidSuggestions = true для отображения "не найдено"');
+      if (!allLandings || allLandings.length === 0) {
+        console.log('⚠️ Нет лендингов в базе');
         setUuidSuggestions([]);
-        setShowUuidSuggestions(true); // ИЗМЕНЕНО: показываем dropdown с "не найдено"
+        setShowUuidSuggestions(true);
         return;
       }
-      
-      console.log('✅ НАЙДЕНО лендингов:', matchedLandings.length);
+
+      // Фильтруем на клиенте по UUID (преобразуем к нижнему регистру)
+      const searchLower = searchText.toLowerCase();
+      const matchedLandings = allLandings.filter(landing => 
+        landing.id && landing.id.toLowerCase().includes(searchLower)
+      ).slice(0, 20); // Берем максимум 20 результатов
+
+      console.log('🔍 ОТФИЛЬТРОВАНО лендингов:', matchedLandings.length);
+
+      if (matchedLandings.length === 0) {
+        console.log('⚠️ Совпадений не найдено после фильтрации');
+        setUuidSuggestions([]);
+        setShowUuidSuggestions(true);
+        return;
+      }
 
       // Получаем template_id и tag_ids для батчевой загрузки
       const templateIds = [...new Set(matchedLandings.map(l => l.template_id).filter(Boolean))];
@@ -1292,7 +1304,6 @@ function LandingEditor({ user }) {
       });
 
       // Сортируем результаты - точные совпадения первыми
-      const searchLower = searchText.toLowerCase();
       landingsWithNames.sort((a, b) => {
         const aIdStarts = a.id && a.id.toLowerCase().startsWith(searchLower);
         const bIdStarts = b.id && b.id.toLowerCase().startsWith(searchLower);
