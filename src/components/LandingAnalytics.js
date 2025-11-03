@@ -66,6 +66,7 @@ function LandingTeamLead({ user }) {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [expandedTags, setExpandedTags] = useState(new Set());
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
+  const [expandedBuyers, setExpandedBuyers] = useState(new Set());
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
   const [syncingLandings, setSyncingLandings] = useState(new Set());
@@ -286,6 +287,148 @@ function LandingTeamLead({ user }) {
     getZonePricesString,
     refresh: refreshZoneData
   } = useZoneData(filteredLandings, true);
+
+  const getMetricsByBuyers = (landing) => {
+    console.log(`🔍 Группировка метрик по байерам для лендинга: ${landing.id} (${landing.article})`);
+
+    // Получаем все метрики для этого лендинга
+    const allMetricsForLanding = getAllLandingMetrics(landing.id);
+
+    if (!allMetricsForLanding || allMetricsForLanding.length === 0) {
+      console.log(`⚠️ Нет метрик для ${landing.id}`);
+      return [];
+    }
+
+    const validMetrics = allMetricsForLanding.filter(metric => {
+      return metric.found && metric.data && metric.data.allDailyData;
+    });
+
+    if (validMetrics.length === 0) {
+      console.log(`⚠️ Нет валидных метрик для байеров для ${landing.id}`);
+      return [];
+    }
+
+    // Собираем все дневные данные со source_id_tracker
+    const allDailyDataWithSources = validMetrics.flatMap(metric => 
+      (metric.data.allDailyData || []).map(day => ({
+        ...day,
+        source_id_tracker: day.source_id_tracker
+      }))
+    );
+
+    console.log(`📊 Всего дневных записей с source_id_tracker: ${allDailyDataWithSources.length}`);
+
+    // Группируем по source_id_tracker
+    const metricsBySourceId = new Map();
+
+    allDailyDataWithSources.forEach(day => {
+      const sourceId = day.source_id_tracker || 'unknown';
+      
+      if (!metricsBySourceId.has(sourceId)) {
+        metricsBySourceId.set(sourceId, []);
+      }
+      
+      metricsBySourceId.get(sourceId).push(day);
+    });
+
+    console.log(`📊 Уникальных source_id_tracker: ${metricsBySourceId.size}`);
+
+    // Теперь сопоставляем source_id с байерами
+    const buyerMetrics = [];
+
+    buyers.forEach(buyer => {
+      const buyerSourceIds = buyerSources.get(buyer.id) || [];
+      
+      if (buyerSourceIds.length === 0) {
+        return; // Пропускаем байеров без source_ids
+      }
+
+      // Собираем метрики для всех source_ids этого байера
+      const buyerDailyData = [];
+
+      buyerSourceIds.forEach(sourceId => {
+        const metricsForSource = metricsBySourceId.get(sourceId);
+        if (metricsForSource && metricsForSource.length > 0) {
+          buyerDailyData.push(...metricsForSource);
+        }
+      });
+
+      if (buyerDailyData.length === 0) {
+        return; // У байера нет метрик для этого лендинга
+      }
+
+      console.log(`✅ Байер ${buyer.name}: найдено ${buyerDailyData.length} дневных записей`);
+
+      // Фильтруем по периоду отображения
+      const filteredDailyData = filterMetricsByDisplayPeriod(buyerDailyData, metricsDisplayPeriod);
+
+      // Агрегируем метрики байера
+      const uniqueDates = new Set();
+      
+      const aggregated = filteredDailyData.reduce((acc, day) => {
+        if (day.date) {
+          uniqueDates.add(day.date);
+        }
+        
+        return {
+          leads: acc.leads + (day.leads || 0),
+          cost: acc.cost + (day.cost || 0),
+          clicks: acc.clicks + (day.clicks || 0),
+          impressions: acc.impressions + (day.impressions || 0),
+          duration_sum: acc.duration_sum + (day.avg_duration || 0),
+          cost_from_sources: acc.cost_from_sources + (day.cost_from_sources || 0),
+          clicks_on_link: acc.clicks_on_link + (day.clicks_on_link || 0)
+        };
+      }, {
+        leads: 0,
+        cost: 0,
+        clicks: 0,
+        impressions: 0,
+        duration_sum: 0,
+        cost_from_sources: 0,
+        clicks_on_link: 0
+      });
+
+      const uniqueDaysCount = uniqueDates.size;
+      const avgDuration = uniqueDaysCount > 0 ? aggregated.duration_sum / uniqueDaysCount : 0;
+
+      const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
+      const cr = aggregated.clicks > 0 ? (aggregated.leads / aggregated.clicks) * 100 : 0;
+
+      buyerMetrics.push({
+        buyer_id: buyer.id,
+        buyer_name: buyer.name,
+        buyer_avatar: buyer.avatar_url,
+        found: true,
+        data: {
+          raw: {
+            leads: aggregated.leads,
+            cost: aggregated.cost,
+            clicks: aggregated.clicks,
+            impressions: aggregated.impressions,
+            avg_duration: Number(avgDuration.toFixed(2)),
+            days_count: uniqueDaysCount,
+            cost_from_sources: aggregated.cost_from_sources,
+            clicks_on_link: aggregated.clicks_on_link,
+            cpl: Number(cpl.toFixed(2)),
+            cr_percent: Number(cr.toFixed(2))
+          },
+          formatted: {
+            leads: String(Math.round(aggregated.leads)),
+            cpl: `${cpl.toFixed(2)}$`,
+            cost: `${aggregated.cost.toFixed(2)}$`,
+            clicks: String(Math.round(aggregated.clicks)),
+            cr: `${cr.toFixed(2)}%`,
+            days: String(uniqueDaysCount)
+          }
+        }
+      });
+    });
+
+    console.log(`✅ Метрики сгруппированы для ${buyerMetrics.length} байеров`);
+
+    return buyerMetrics;
+  };
 
   // Получение агрегированных метрик для лендинга
   const getAggregatedLandingMetrics = (landing) => {
@@ -828,6 +971,7 @@ function LandingTeamLead({ user }) {
     const init = async () => {
       loadUsers();
       loadTemplatesAndTags();
+      loadBuyerSources();
       await loadLandings();
       loadLastUpdateTime();
     };
@@ -1235,6 +1379,16 @@ function LandingTeamLead({ user }) {
       newExpanded.add(landingId);
     }
     setExpandedTags(newExpanded);
+  };
+
+    const toggleBuyers = (landingId) => {
+    const newExpanded = new Set(expandedBuyers);
+    if (newExpanded.has(landingId)) {
+      newExpanded.delete(landingId);
+    } else {
+      newExpanded.add(landingId);
+    }
+    setExpandedBuyers(newExpanded);
   };
 
   const toggleDropdown = (landingId) => {
@@ -2875,6 +3029,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Байеры
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Зона
                       </th>
 
@@ -3112,6 +3270,136 @@ data-rt-sub16="${selectedLandingUuid}"
                             ) : (
                               <span className="text-gray-400 cursor-text select-text">—</span>
                             )}
+                          </td>
+
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            {(() => {
+                              const buyerMetrics = getMetricsByBuyers(landing);
+                              const isBuyersExpanded = expandedBuyers.has(landing.id);
+
+                              if (buyerMetrics.length === 0) {
+                                return <span className="text-gray-400 cursor-text select-text">—</span>;
+                              }
+
+                              return (
+                                <div className="space-y-2">
+                                  <div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleBuyers(landing.id);
+                                      }}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 transition-colors duration-200"
+                                    >
+                                      <Users className="h-3 w-3 mr-1" />
+                                      <span>Байеры ({buyerMetrics.length})</span>
+                                      {isBuyersExpanded ? (
+                                        <ChevronUp className="h-3 w-3 ml-1" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3 ml-1" />
+                                      )}
+                                    </button>
+                                  </div>
+
+                                  {isBuyersExpanded && (
+                                    <div className="mt-2 space-y-2 max-w-md animate-fadeIn">
+                                      {buyerMetrics.map((buyerMetric, idx) => {
+                                        const buyerCpl = buyerMetric.data.raw.cpl;
+                                        const buyerZone = getCurrentZoneByMetrics(landing.article, buyerCpl);
+
+                                        return (
+                                          <div 
+                                            key={idx} 
+                                            className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200"
+                                          >
+                                            {/* Заголовок с аватаркой и именем */}
+                                            <div className="flex items-center space-x-2 mb-2 pb-2 border-b border-gray-100">
+                                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                {buyerMetric.buyer_avatar ? (
+                                                  <img
+                                                    src={buyerMetric.buyer_avatar}
+                                                    alt={buyerMetric.buyer_name}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                      e.target.style.display = 'none';
+                                                      e.target.nextSibling.style.display = 'flex';
+                                                    }}
+                                                  />
+                                                ) : null}
+                                                <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
+                                                  <User className="h-4 w-4 text-gray-400" />
+                                                </div>
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-semibold text-gray-900 truncate">
+                                                  {buyerMetric.buyer_name}
+                                                </div>
+                                                {buyerZone && (
+                                                  <div className="text-xs text-gray-500 mt-0.5">
+                                                    {(() => {
+                                                      const getZoneColors = (zone) => {
+                                                        switch (zone) {
+                                                          case 'red':
+                                                            return { bg: 'bg-red-500', text: 'text-white' };
+                                                          case 'pink':
+                                                            return { bg: 'bg-pink-500', text: 'text-white' };
+                                                          case 'gold':
+                                                            return { bg: 'bg-yellow-500', text: 'text-black' };
+                                                          case 'green':
+                                                            return { bg: 'bg-green-500', text: 'text-white' };
+                                                          default:
+                                                            return { bg: 'bg-gray-500', text: 'text-white' };
+                                                        }
+                                                      };
+
+                                                      const colors = getZoneColors(buyerZone.zone);
+
+                                                      return (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
+                                                          {buyerZone.name}
+                                                        </span>
+                                                      );
+                                                    })()}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            {/* Метрики */}
+                                            <div className="grid grid-cols-3 gap-2 text-xs">
+                                              <div>
+                                                <div className="text-gray-500">Лиды</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.leads}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500">CPL</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.cpl}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500">Расходы</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.cost}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500">Клики</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.clicks}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500">CR</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.cr}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-gray-500">Дней</div>
+                                                <div className="font-semibold text-gray-900">{buyerMetric.data.formatted.days}</div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           <td className="px-3 py-4 text-sm text-gray-900 text-center">
@@ -4395,5 +4683,25 @@ data-rt-sub16="${selectedLandingUuid}"
     </div>
   );
 }
+
+// Добавляем стили для анимации
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+`;
+document.head.appendChild(style);
 
 export default LandingTeamLead;
