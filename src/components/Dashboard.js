@@ -13,6 +13,7 @@ import MetricsAnalytics from './MetricsAnalytics';
 import LandingPanel from './LandingPanel';
 import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
+import LandingAnalytics from './LandingAnalytics';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
@@ -31,6 +32,7 @@ function Dashboard({ user, session, updateUser }) {
     '/workspace/landing-teamlead': 'landing-teamlead',
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
+    '/analytics/landings': 'landing-analytics',
     '/settings': 'settings'
   };
 
@@ -44,6 +46,7 @@ function Dashboard({ user, session, updateUser }) {
     'landing-teamlead': '/workspace/landing-teamlead',
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
+    'landing-analytics': '/analytics/landings',
     'settings': '/settings'
   };
 
@@ -75,6 +78,8 @@ function Dashboard({ user, session, updateUser }) {
       case 'landing-editor':
         return role === 'proofreader';
       case 'landing-teamlead':
+        return role === 'teamlead';
+      case 'landing-analytics':
         return role === 'teamlead';
       case 'analytics':
         return role === 'teamlead';
@@ -175,6 +180,8 @@ function Dashboard({ user, session, updateUser }) {
         return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
       case 'landing-teamlead':
         return user?.role === 'teamlead' ? <LandingTeamLead user={user} /> : null;
+      case 'landing-analytics':
+        return user?.role === 'teamlead' ? <LandingAnalytics user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
