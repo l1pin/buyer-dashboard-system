@@ -136,7 +136,8 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
             impressions: Number(d.impressions) || 0,
             avg_duration: Number(d.avg_duration) || 0,
             cost_from_sources: Number(d.cost_from_sources) || 0,
-            clicks_on_link: Number(d.clicks_on_link) || 0
+            clicks_on_link: Number(d.clicks_on_link) || 0,
+            source_id_tracker: d.source_id_tracker || 'unknown'
           }));
 
           console.log(`📊 Агрегирование ${allDailyData.length} дневных записей для ${uuid}_${source}`);
