@@ -338,12 +338,15 @@ function LandingTeamLead({ user }) {
 
     console.log(`📊 Всего дневных записей: ${allDailyDataWithSources.length}`);
     console.log(`📊 Первая дневная запись:`, allDailyDataWithSources[0]);
+    console.log(`📊 ВСЕ ДНЕВНЫЕ ЗАПИСИ:`, allDailyDataWithSources);
 
     // Группируем по source_id_tracker
     const metricsBySourceId = new Map();
 
     allDailyDataWithSources.forEach(day => {
       const sourceId = day.source_id_tracker || 'unknown';
+      
+      console.log(`🔍 День ${day.date}: source_id_tracker = "${sourceId}" (тип: ${typeof sourceId})`);
       
       if (!metricsBySourceId.has(sourceId)) {
         metricsBySourceId.set(sourceId, []);
@@ -353,7 +356,8 @@ function LandingTeamLead({ user }) {
     });
 
     console.log(`📊 Уникальных source_id_tracker: ${metricsBySourceId.size}`);
-    console.log(`📊 Все source_id_tracker:`, Array.from(metricsBySourceId.keys()));
+    console.log(`📊 Все source_id_tracker (ДЕТАЛЬНО):`, Array.from(metricsBySourceId.keys()));
+    console.log(`📊 Map.entries():`, Array.from(metricsBySourceId.entries()));
 
     // Проверяем buyerSources
     console.log(`👥 Всего байеров: ${buyers.length}`);
@@ -364,7 +368,8 @@ function LandingTeamLead({ user }) {
       console.log(`  Байер ${buyer.name} (${buyer.id}):`, {
         hasSources: !!sources,
         sourcesCount: sources?.length || 0,
-        sources: sources
+        sources: sources,
+        sourcesType: sources ? sources.map(s => typeof s) : []
       });
     });
 
@@ -377,7 +382,8 @@ function LandingTeamLead({ user }) {
       console.log(`🔍 Проверка байера ${buyer.name}:`, {
         buyer_id: buyer.id,
         buyerSourceIds: buyerSourceIds,
-        buyerSourceIdsLength: buyerSourceIds.length
+        buyerSourceIdsLength: buyerSourceIds.length,
+        buyerSourceIdsTypes: buyerSourceIds.map(s => typeof s)
       });
 
       if (buyerSourceIds.length === 0) {
@@ -389,13 +395,38 @@ function LandingTeamLead({ user }) {
       const buyerDailyData = [];
 
       buyerSourceIds.forEach(sourceId => {
-        const metricsForSource = metricsBySourceId.get(sourceId);
-        console.log(`    🔍 Ищем source_id: ${sourceId}`, {
+        // КРИТИЧНО: Приводим к строке для сравнения
+        const sourceIdStr = String(sourceId).trim();
+        
+        console.log(`    🔍 ДЕТАЛЬНЫЙ ПОИСК source_id: "${sourceIdStr}" (тип: ${typeof sourceIdStr})`);
+        
+        // Проверяем прямое совпадение
+        let metricsForSource = metricsBySourceId.get(sourceIdStr);
+        
+        if (!metricsForSource) {
+          // Если не нашли прямым совпадением, ищем по всем ключам
+          console.log(`    🔍 Прямое совпадение не найдено, ищем во всех ключах Map...`);
+          
+          for (const [mapKey, mapValue] of metricsBySourceId.entries()) {
+            const mapKeyStr = String(mapKey).trim();
+            console.log(`      Сравниваем "${sourceIdStr}" === "${mapKeyStr}" ? ${sourceIdStr === mapKeyStr}`);
+            
+            if (mapKeyStr === sourceIdStr) {
+              console.log(`      ✅ НАЙДЕНО СОВПАДЕНИЕ!`);
+              metricsForSource = mapValue;
+              break;
+            }
+          }
+        }
+        
+        console.log(`    📊 Результат поиска:`, {
+          sourceId: sourceIdStr,
           found: !!metricsForSource,
           count: metricsForSource?.length || 0
         });
         
         if (metricsForSource && metricsForSource.length > 0) {
+          console.log(`    ✅ ДОБАВЛЯЕМ ${metricsForSource.length} записей для source_id: ${sourceIdStr}`);
           buyerDailyData.push(...metricsForSource);
         }
       });
