@@ -1217,7 +1217,7 @@ function LandingEditor({ user }) {
       // Используем ilike для поиска по UUID
       const { data: matchedLandings, error } = await supabase
         .from('landings')
-        .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags, is_poland, buyer_id')
+        .select('id, article, template_id, is_test, website, designer_id, searcher_id, gifer_id, tag_ids, is_poland, buyer_id')
         .ilike('id', `%${searchText}%`)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -1234,9 +1234,55 @@ function LandingEditor({ user }) {
         return;
       }
 
+      // Получаем template_id и tag_ids для батчевой загрузки
+      const templateIds = [...new Set(matchedLandings.map(l => l.template_id).filter(Boolean))];
+      const allTagIds = [...new Set(matchedLandings.flatMap(l => l.tag_ids || []))];
+
+      console.log('🔍 Батчевая загрузка для suggestions:', { templateIds: templateIds.length, tagIds: allTagIds.length });
+
+      // Батчевая загрузка шаблонов
+      let templatesMap = new Map();
+      if (templateIds.length > 0) {
+        const { data: templates } = await supabase
+          .from('landing_templates')
+          .select('id, name')
+          .in('id', templateIds);
+        
+        if (templates) {
+          templates.forEach(t => templatesMap.set(t.id, t.name));
+        }
+      }
+
+      // Батчевая загрузка тегов
+      let tagsMap = new Map();
+      if (allTagIds.length > 0) {
+        const { data: tags } = await supabase
+          .from('landing_tags')
+          .select('id, name')
+          .in('id', allTagIds);
+        
+        if (tags) {
+          tags.forEach(t => tagsMap.set(t.id, t.name));
+        }
+      }
+
+      // Преобразуем данные
+      const landingsWithNames = matchedLandings.map(landing => {
+        const template = landing.template_id ? templatesMap.get(landing.template_id) : null;
+        const tags = (landing.tag_ids || [])
+          .map(tagId => tagsMap.get(tagId))
+          .filter(Boolean);
+
+        return {
+          ...landing,
+          template: template || null,
+          tags: tags
+        };
+      });
+
       // Сортируем результаты - точные совпадения первыми
       const searchLower = searchText.toLowerCase();
-      matchedLandings.sort((a, b) => {
+      landingsWithNames.sort((a, b) => {
         const aIdStarts = a.id && a.id.toLowerCase().startsWith(searchLower);
         const bIdStarts = b.id && b.id.toLowerCase().startsWith(searchLower);
         
@@ -1245,14 +1291,15 @@ function LandingEditor({ user }) {
         return 0;
       });
       
-      setUuidSuggestions(matchedLandings);
+      setUuidSuggestions(landingsWithNames);
       setShowUuidSuggestions(true);
-      console.log(`✅ Найдено ${matchedLandings.length} лендингов по UUID`);
+      console.log(`✅ Найдено ${landingsWithNames.length} лендингов по UUID`);
       
-      if (matchedLandings.length > 0) {
-        console.log('📋 Примеры найденных:', matchedLandings.slice(0, 3).map(l => ({
+      if (landingsWithNames.length > 0) {
+        console.log('📋 Примеры найденных:', landingsWithNames.slice(0, 3).map(l => ({
           id: l.id,
-          article: l.article
+          article: l.article,
+          template: l.template
         })));
       }
     } catch (error) {
