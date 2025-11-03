@@ -3796,7 +3796,7 @@ data-rt-sub16="${selectedLandingUuid}"
       {/* Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-6 border w-full max-w-5xl shadow-lg rounded-lg bg-white my-5">
+          <div className="relative top-5 mx-auto p-6 border w-full max-w-3xl shadow-lg rounded-lg bg-white my-5">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
               <div className="flex items-center space-x-3">
