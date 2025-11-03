@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
-import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
 import { useZoneData } from '../hooks/useZoneData';
@@ -141,24 +141,11 @@ function LandingPanel({ user }) {
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [landingsWithIntegration, setLandingsWithIntegration] = useState(new Map());
 
-  // Доступные теги для лендингов
-  const availableTags = [
-    'SEO',
-    'Адаптив',
-    'Анимация',
-    'Форма',
-    'Интеграция',
-    'Мультиязычность'
-  ];
-
-  // Доступные шаблоны
-  const templateOptions = [
-    'Шаблон 1',
-    'Шаблон 2',
-    'Шаблон 3',
-    'Шаблон 4',
-    'Шаблон 5'
-  ];
+  // Динамические теги и шаблоны из БД
+  const [availableTags, setAvailableTags] = useState([]);
+  const [templateOptions, setTemplateOptions] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(false);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -854,6 +841,8 @@ function LandingPanel({ user }) {
   useEffect(() => {
     const init = async () => {
       loadUsers();
+      loadTemplates();
+      loadTags();
       await loadLandings();
       loadLastUpdateTime();
     };
@@ -1147,6 +1136,55 @@ function LandingPanel({ user }) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  // Загрузка шаблонов из БД
+  const loadTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      console.log('📋 Загрузка шаблонов лендингов...');
+
+      const templatesData = await landingTemplatesService.getActiveTemplates();
+      setTemplateOptions(templatesData.map(t => t.name));
+      console.log(`✅ Загружено ${templatesData.length} шаблонов`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки шаблонов:', error);
+      // Fallback на захардкоженные значения
+      setTemplateOptions([
+        'Шаблон 1',
+        'Шаблон 2',
+        'Шаблон 3',
+        'Шаблон 4',
+        'Шаблон 5'
+      ]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // Загрузка тегов из БД
+  const loadTags = async () => {
+    try {
+      setLoadingTags(true);
+      console.log('🏷️ Загрузка тегов лендингов...');
+
+      const tagsData = await landingTagsService.getActiveTags();
+      setAvailableTags(tagsData.map(t => t.name));
+      console.log(`✅ Загружено ${tagsData.length} тегов`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки тегов:', error);
+      // Fallback на захардкоженные значения
+      setAvailableTags([
+        'SEO',
+        'Адаптив',
+        'Анимация',
+        'Форма',
+        'Интеграция',
+        'Мультиязычность'
+      ]);
+    } finally {
+      setLoadingTags(false);
     }
   };
 
@@ -3656,7 +3694,8 @@ data-rt-sub16="${selectedLandingUuid}"
                   <button
                     type="button"
                     onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${fieldErrors.template
+                    disabled={loadingTemplates}
+                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed ${fieldErrors.template
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                       : isTestMode
                         ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
@@ -3664,10 +3703,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       }`}
                   >
                     <span className={newLanding.template ? 'text-gray-900' : 'text-gray-500'}>
-                      {newLanding.template || 'Выберите шаблон'}
+                      {loadingTemplates ? 'Загрузка шаблонов...' : (newLanding.template || 'Выберите шаблон')}
                     </span>
                     <div className="flex items-center space-x-1">
-                      {newLanding.template && (
+                      {newLanding.template && !loadingTemplates && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -3681,12 +3720,16 @@ data-rt-sub16="${selectedLandingUuid}"
                           <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
                         </button>
                       )}
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      {loadingTemplates ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
                     </div>
                   </button>
 
-                  {showTemplateDropdown && (
-                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                  {showTemplateDropdown && !loadingTemplates && templateOptions.length > 0 && (
+                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {templateOptions.map((template) => (
                         <button
                           key={template}
@@ -3701,6 +3744,12 @@ data-rt-sub16="${selectedLandingUuid}"
                           {template}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {showTemplateDropdown && !loadingTemplates && templateOptions.length === 0 && (
+                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                      <p className="text-sm text-gray-500 text-center">Нет доступных шаблонов</p>
                     </div>
                   )}
                 </div>
@@ -4576,7 +4625,8 @@ data-rt-sub16="${selectedLandingUuid}"
                   <button
                     type="button"
                     onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between ${fieldErrors.template
+                    disabled={loadingTemplates}
+                    className={`template-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed ${fieldErrors.template
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                       : editingLanding.is_test
                         ? 'border-gray-300 focus:ring-yellow-500 focus:border-transparent'
@@ -4584,10 +4634,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       }`}
                   >
                     <span className={editLanding.template ? 'text-gray-900' : 'text-gray-500'}>
-                      {editLanding.template || 'Выберите шаблон'}
+                      {loadingTemplates ? 'Загрузка шаблонов...' : (editLanding.template || 'Выберите шаблон')}
                     </span>
                     <div className="flex items-center space-x-1">
-                      {editLanding.template && (
+                      {editLanding.template && !loadingTemplates && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -4601,12 +4651,16 @@ data-rt-sub16="${selectedLandingUuid}"
                           <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
                         </button>
                       )}
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      {loadingTemplates ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
                     </div>
                   </button>
 
-                  {showTemplateDropdown && (
-                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                  {showTemplateDropdown && !loadingTemplates && templateOptions.length > 0 && (
+                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {templateOptions.map((template) => (
                         <button
                           key={template}
@@ -4621,6 +4675,12 @@ data-rt-sub16="${selectedLandingUuid}"
                           {template}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {showTemplateDropdown && !loadingTemplates && templateOptions.length === 0 && (
+                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                      <p className="text-sm text-gray-500 text-center">Нет доступных шаблонов</p>
                     </div>
                   )}
                 </div>
