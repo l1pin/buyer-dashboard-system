@@ -40,7 +40,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-function LandingEditor({ user }) {
+function LandingTeamLead({ user }) {
   const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -6259,4 +6259,4 @@ data-rt-sub16="${selectedLandingUuid}"
   );
 }
 
-export default LandingEditor;
+export default LandingTeamLead;
