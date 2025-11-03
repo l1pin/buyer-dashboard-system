@@ -387,7 +387,8 @@ exports.handler = async (event) => {
           
           metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
             if (key.startsWith(`${adv_id}_${date}_`)) {
-              foundMetrics.push(dayMetrics);
+              // КРИТИЧНО: Копируем объект полностью, включая source_id_tracker
+              foundMetrics.push({...dayMetrics});
             }
           });
 
@@ -407,7 +408,7 @@ exports.handler = async (event) => {
                 avg_duration: dayMetrics.avg_duration,
                 cost_from_sources: dayMetrics.cost_from_sources,
                 clicks_on_link: dayMetrics.clicks_on_link,
-                source_id_tracker: sourceIdTracker
+                source_id_tracker: dayMetrics.source_id_tracker || 'unknown'
               });
             });
           } else {
