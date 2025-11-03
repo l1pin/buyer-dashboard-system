@@ -1003,11 +1003,7 @@ export const landingService = {
       // КРИТИЧНО: Фильтруем ТОЛЬКО по content_manager_id
       const { data, error } = await supabase
         .from('landings')
-        .select(`
-          *,
-          template:landing_templates!template_id(name),
-          tags_data:landing_tags!tag_ids(id, name, color)
-        `)
+        .select('*')
         .eq('content_manager_id', userId)
         .order('created_at', { ascending: false });
 
@@ -1016,11 +1012,57 @@ export const landingService = {
         throw error;
       }
 
-      const result = (data || []).map(landing => ({
-        ...landing,
-        template: landing.template?.name || null,
-        tags: landing.tags_data?.map(t => t.name) || []
-      }));
+      if (!data || data.length === 0) {
+        console.log('✅ getUserLandings завершен, получено лендингов: 0');
+        return [];
+      }
+
+      // Получаем все уникальные template_id и tag_ids для батчевой загрузки
+      const templateIds = [...new Set(data.map(l => l.template_id).filter(Boolean))];
+      const allTagIds = [...new Set(data.flatMap(l => l.tag_ids || []))];
+
+      // Батчевая загрузка шаблонов
+      let templatesMap = new Map();
+      if (templateIds.length > 0) {
+        const { data: templates } = await supabase
+          .from('landing_templates')
+          .select('id, name')
+          .in('id', templateIds);
+        
+        if (templates) {
+          templates.forEach(t => templatesMap.set(t.id, t.name));
+        }
+      }
+
+      // Батчевая загрузка тегов
+      let tagsMap = new Map();
+      if (allTagIds.length > 0) {
+        const { data: tags } = await supabase
+          .from('landing_tags')
+          .select('id, name, color')
+          .in('id', allTagIds);
+        
+        if (tags) {
+          tags.forEach(t => tagsMap.set(t.id, { name: t.name, color: t.color }));
+        }
+      }
+
+      // Преобразуем данные
+      const result = data.map(landing => {
+        const template = landing.template_id ? templatesMap.get(landing.template_id) : null;
+        const tags = (landing.tag_ids || [])
+          .map(tagId => {
+            const tag = tagsMap.get(tagId);
+            return tag ? tag.name : null;
+          })
+          .filter(Boolean);
+
+        return {
+          ...landing,
+          template: template || null,
+          tags: tags
+        };
+      });
 
       console.log('✅ getUserLandings завершен, получено лендингов:', result.length);
 
@@ -1039,11 +1081,7 @@ export const landingService = {
 
       const { data, error } = await supabase
         .from('landings')
-        .select(`
-          *,
-          template:landing_templates!template_id(name),
-          tags_data:landing_tags!tag_ids(id, name, color)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -1051,11 +1089,59 @@ export const landingService = {
         throw error;
       }
 
-      const result = (data || []).map(landing => ({
-        ...landing,
-        template: landing.template?.name || null,
-        tags: landing.tags_data?.map(t => t.name) || []
-      }));
+      if (!data || data.length === 0) {
+        console.log('✅ getAllLandings завершен успешно, получено записей: 0');
+        return [];
+      }
+
+      // Получаем все уникальные template_id и tag_ids для батчевой загрузки
+      const templateIds = [...new Set(data.map(l => l.template_id).filter(Boolean))];
+      const allTagIds = [...new Set(data.flatMap(l => l.tag_ids || []))];
+
+      console.log('🔍 Батчевая загрузка шаблонов и тегов:', { templateIds: templateIds.length, tagIds: allTagIds.length });
+
+      // Батчевая загрузка шаблонов
+      let templatesMap = new Map();
+      if (templateIds.length > 0) {
+        const { data: templates } = await supabase
+          .from('landing_templates')
+          .select('id, name')
+          .in('id', templateIds);
+        
+        if (templates) {
+          templates.forEach(t => templatesMap.set(t.id, t.name));
+        }
+      }
+
+      // Батчевая загрузка тегов
+      let tagsMap = new Map();
+      if (allTagIds.length > 0) {
+        const { data: tags } = await supabase
+          .from('landing_tags')
+          .select('id, name, color')
+          .in('id', allTagIds);
+        
+        if (tags) {
+          tags.forEach(t => tagsMap.set(t.id, { name: t.name, color: t.color }));
+        }
+      }
+
+      // Преобразуем данные
+      const result = data.map(landing => {
+        const template = landing.template_id ? templatesMap.get(landing.template_id) : null;
+        const tags = (landing.tag_ids || [])
+          .map(tagId => {
+            const tag = tagsMap.get(tagId);
+            return tag ? tag.name : null;
+          })
+          .filter(Boolean);
+
+        return {
+          ...landing,
+          template: template || null,
+          tags: tags
+        };
+      });
 
       console.log('✅ getAllLandings завершен успешно, получено записей:', result.length);
       
