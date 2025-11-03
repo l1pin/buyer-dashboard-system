@@ -1459,7 +1459,7 @@ function LandingEditor({ user }) {
           landing_id: existingLanding.id,
           article: existingLanding.article,
           template: existingLanding.template,
-          tags: existingLanding.tags,
+          tags: existingLanding.tags || [], // Массив строк для функции (она преобразует в tag_ids)
           comment: existingLanding.comment,
           is_poland: existingLanding.is_poland,
           trello_link: existingLanding.trello_link,
@@ -1657,7 +1657,7 @@ function LandingEditor({ user }) {
         landing_id: editingLanding.id,
         article: editingLanding.article,
         template: editingLanding.template,
-        tags: editingLanding.tags,
+        tags: editingLanding.tags || [], // Массив строк для функции (она преобразует в tag_ids)
         comment: editingLanding.comment,
         is_poland: editingLanding.is_poland,
         trello_link: editingLanding.trello_link,
