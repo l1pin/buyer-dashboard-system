@@ -1269,6 +1269,167 @@ export const landingHistoryService = {
   }
 };
 
+// Сервис для работы с шаблонами лендингов
+export const landingTemplatesService = {
+  // Получить все активные шаблоны
+  async getActiveTemplates() {
+    try {
+      const { data, error } = await supabase
+        .from('landing_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения шаблонов:', error);
+      return [];
+    }
+  },
+
+  // Создать новый шаблон (только для тим лида)
+  async createTemplate(templateData) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_templates')
+        .insert([{
+          name: templateData.name,
+          description: templateData.description || null,
+          display_order: templateData.display_order || 0
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка создания шаблона:', error);
+      throw error;
+    }
+  },
+
+  // Обновить шаблон
+  async updateTemplate(templateId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_templates')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', templateId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка обновления шаблона:', error);
+      throw error;
+    }
+  },
+
+  // Удалить шаблон (деактивировать)
+  async deleteTemplate(templateId) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_templates')
+        .update({ is_active: false })
+        .eq('id', templateId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка удаления шаблона:', error);
+      throw error;
+    }
+  }
+};
+
+// Сервис для работы с тегами лендингов
+export const landingTagsService = {
+  // Получить все активные теги
+  async getActiveTags() {
+    try {
+      const { data, error } = await supabase
+        .from('landing_tags')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения тегов:', error);
+      return [];
+    }
+  },
+
+  // Создать новый тег (только для тим лида)
+  async createTag(tagData) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_tags')
+        .insert([{
+          name: tagData.name,
+          description: tagData.description || null,
+          color: tagData.color || 'gray',
+          display_order: tagData.display_order || 0
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка создания тега:', error);
+      throw error;
+    }
+  },
+
+  // Обновить тег
+  async updateTag(tagId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_tags')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tagId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка обновления тега:', error);
+      throw error;
+    }
+  },
+
+  // Удалить тег (деактивировать)
+  async deleteTag(tagId) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_tags')
+        .update({ is_active: false })
+        .eq('id', tagId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка удаления тега:', error);
+      throw error;
+    }
+  }
+};
+
 // Сервис для работы с историей креативов
 export const creativeHistoryService = {
   // Создать запись в истории
