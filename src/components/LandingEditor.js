@@ -1214,7 +1214,7 @@ function LandingEditor({ user }) {
     try {
       console.log('🔍 Поиск лендингов по UUID:', searchText);
       
-      // Используем ilike для поиска по UUID
+      // Используем ilike для поиска ТОЛЬКО по UUID
       const { data: matchedLandings, error } = await supabase
         .from('landings')
         .select('id, article, template_id, is_test, website, designer_id, searcher_id, gifer_id, tag_ids, is_poland, buyer_id')
@@ -3962,8 +3962,14 @@ data-rt-sub16="${selectedLandingUuid}"
                       if (!isEditMode) {
                         setSearchingUuid(e.target.value);
                         setNewLanding({ ...newLanding, uuid: e.target.value });
-                        searchLandingsByUuid(e.target.value);
                         clearFieldError('uuid');
+                        // Запускаем поиск при вводе
+                        if (e.target.value.length >= 2) {
+                          searchLandingsByUuid(e.target.value);
+                        } else {
+                          setUuidSuggestions([]);
+                          setShowUuidSuggestions(false);
+                        }
                       }
                     }}
                     onFocus={() => {
@@ -3992,18 +3998,28 @@ data-rt-sub16="${selectedLandingUuid}"
                           onClick={() => selectLandingForEdit(landing)}
                           className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-100 last:border-b-0"
                         >
-                          <div>
+                          <div className="flex-1">
                             <div className="font-medium text-gray-900">{landing.article}</div>
-                            <div className="text-xs text-gray-500">
-                              {landing.id} • {landing.website}
-                              {landing.is_test && <span className="ml-2 text-yellow-600">(Тест)</span>}
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div>UUID: {landing.id}</div>
+                              <div className="mt-0.5">Версия: {landing.website || 'Основная'}</div>
+                              {landing.is_test && <span className="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-[10px]">ТЕСТ</span>}
                             </div>
                           </div>
-                          <div className="text-xs text-gray-400">
-                            {landing.template}
+                          <div className="text-xs text-gray-400 ml-2 text-right">
+                            {landing.template || '—'}
                           </div>
                         </button>
                       ))}
+                    </div>
+                  )}
+                  
+                  {/* Показываем если нет результатов после поиска */}
+                  {!isEditMode && showUuidSuggestions && uuidSuggestions.length === 0 && searchingUuid.length >= 2 && (
+                    <div className="uuid-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                      <div className="px-3 py-4 text-center text-sm text-gray-500">
+                        Лендинги не найдены
+                      </div>
                     </div>
                   )}
                 </div>
