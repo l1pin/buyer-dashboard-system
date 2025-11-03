@@ -1205,14 +1205,17 @@ function LandingEditor({ user }) {
   };
 
   const searchLandingsByUuid = async (searchText) => {
+    console.log('🔍🔍🔍 searchLandingsByUuid ВЫЗВАНА с параметром:', searchText);
+    
     if (!searchText || searchText.length < 2) {
+      console.log('⚠️ Поиск отменен: searchText слишком короткий');
       setUuidSuggestions([]);
       setShowUuidSuggestions(false);
       return;
     }
 
     try {
-      console.log('🔍 Поиск лендингов по UUID:', searchText);
+      console.log('🔍 НАЧИНАЕМ поиск лендингов по UUID:', searchText);
       
       // Используем ilike для поиска ТОЛЬКО по UUID
       const { data: matchedLandings, error } = await supabase
@@ -1227,12 +1230,20 @@ function LandingEditor({ user }) {
         throw error;
       }
 
+      console.log('📦 РЕЗУЛЬТАТ ЗАПРОСА:', {
+        hasData: !!matchedLandings,
+        count: matchedLandings?.length || 0,
+        firstItem: matchedLandings?.[0]
+      });
+
       if (!matchedLandings || matchedLandings.length === 0) {
-        console.log('⚠️ Совпадений не найдено');
+        console.log('⚠️ Совпадений не найдено, устанавливаем showUuidSuggestions = true для отображения "не найдено"');
         setUuidSuggestions([]);
-        setShowUuidSuggestions(false);
+        setShowUuidSuggestions(true); // ИЗМЕНЕНО: показываем dropdown с "не найдено"
         return;
       }
+      
+      console.log('✅ НАЙДЕНО лендингов:', matchedLandings.length);
 
       // Получаем template_id и tag_ids для батчевой загрузки
       const templateIds = [...new Set(matchedLandings.map(l => l.template_id).filter(Boolean))];
@@ -1291,8 +1302,15 @@ function LandingEditor({ user }) {
         return 0;
       });
       
+      console.log('📝 УСТАНАВЛИВАЕМ suggestions:', {
+        count: landingsWithNames.length,
+        settingShowUuidSuggestions: true,
+        firstLanding: landingsWithNames[0]
+      });
+      
       setUuidSuggestions(landingsWithNames);
       setShowUuidSuggestions(true);
+      
       console.log(`✅ Найдено ${landingsWithNames.length} лендингов по UUID`);
       
       if (landingsWithNames.length > 0) {
@@ -3959,21 +3977,31 @@ data-rt-sub16="${selectedLandingUuid}"
                     type="text"
                     value={searchingUuid}
                     onChange={(e) => {
-                      if (!isEditMode) {
-                        setSearchingUuid(e.target.value);
-                        setNewLanding({ ...newLanding, uuid: e.target.value });
-                        clearFieldError('uuid');
-                        // Запускаем поиск при вводе
-                        if (e.target.value.length >= 2) {
-                          searchLandingsByUuid(e.target.value);
-                        } else {
-                          setUuidSuggestions([]);
-                          setShowUuidSuggestions(false);
-                        }
+                      const value = e.target.value;
+                      console.log('🔍 UUID INPUT CHANGE:', value);
+                      setSearchingUuid(value);
+                      setNewLanding({ ...newLanding, uuid: value });
+                      clearFieldError('uuid');
+                      
+                      // КРИТИЧНО: Сбрасываем выбор при изменении
+                      if (selectedLandingForEdit) {
+                        setSelectedLandingForEdit(null);
+                      }
+                      
+                      // Запускаем поиск при вводе
+                      if (value.length >= 2) {
+                        console.log('🔍 ЗАПУСК ПОИСКА для:', value);
+                        searchLandingsByUuid(value);
+                      } else {
+                        console.log('⚠️ Слишком короткий UUID, сброс suggestions');
+                        setUuidSuggestions([]);
+                        setShowUuidSuggestions(false);
                       }
                     }}
                     onFocus={() => {
-                      if (!isEditMode && searchingUuid.length >= 2) {
+                      console.log('🔍 UUID INPUT FOCUS, текущее значение:', searchingUuid);
+                      if (searchingUuid.length >= 2) {
+                        console.log('🔍 ЗАПУСК ПОИСКА при фокусе для:', searchingUuid);
                         searchLandingsByUuid(searchingUuid);
                       }
                     }}
