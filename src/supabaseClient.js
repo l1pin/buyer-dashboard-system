@@ -2753,6 +2753,84 @@ export const landingMetricsService = {
   }
 };
 
+// Сервис для работы с источниками байеров
+export const buyerSourceService = {
+  // Получить источники для всех байеров
+  async getAllBuyerSources() {
+    try {
+      const { data, error } = await supabase
+        .from('buyer_source')
+        .select('*')
+        .order('buyer_name', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения источников байеров:', error);
+      return [];
+    }
+  },
+
+  // Получить источники для конкретного байера
+  async getBuyerSources(buyerId) {
+    try {
+      const { data, error } = await supabase
+        .from('buyer_source')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка получения источников байера:', error);
+      return null;
+    }
+  },
+
+  // Сохранить/обновить источники для байера
+  async saveBuyerSources(buyerId, buyerName, sourceIds) {
+    try {
+      const { data, error } = await supabase
+        .from('buyer_source')
+        .upsert([
+          {
+            buyer_id: buyerId,
+            buyer_name: buyerName,
+            source_ids: sourceIds || [],
+            updated_at: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'buyer_id'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка сохранения источников байера:', error);
+      throw error;
+    }
+  },
+
+  // Удалить источники байера
+  async deleteBuyerSources(buyerId) {
+    try {
+      const { error } = await supabase
+        .from('buyer_source')
+        .delete()
+        .eq('buyer_id', buyerId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Ошибка удаления источников байера:', error);
+      throw error;
+    }
+  }
+};
+
 export const metricsAnalyticsService = {
   async uploadMetrics(metricsData) {
     try {
