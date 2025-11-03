@@ -2734,8 +2734,14 @@ export const landingMetricsService = {
           avg_duration: formatDuration(avg_duration),
           days: formatInt(days_count) + " дн."
         },
-        allDailyData: allDailyData,
-        dailyData: allDailyData
+        allDailyData: allDailyData.map(day => ({
+          ...day,
+          source_id_tracker: day.source_id_tracker || 'unknown'
+        })),
+        dailyData: allDailyData.map(day => ({
+          ...day,
+          source_id_tracker: day.source_id_tracker || 'unknown'
+        }))
       },
       fromCache: true
     };
