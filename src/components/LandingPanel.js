@@ -144,6 +144,8 @@ function LandingPanel({ user }) {
   // Динамические теги и шаблоны из БД
   const [availableTags, setAvailableTags] = useState([]);
   const [templateOptions, setTemplateOptions] = useState([]);
+  const [templatesList, setTemplatesList] = useState([]); // Полные объекты шаблонов
+  const [tagsList, setTagsList] = useState([]); // Полные объекты тегов
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
 
@@ -1146,18 +1148,13 @@ function LandingPanel({ user }) {
       console.log('📋 Загрузка шаблонов лендингов...');
 
       const templatesData = await landingTemplatesService.getActiveTemplates();
-      setTemplateOptions(templatesData.map(t => t.name));
+      setTemplatesList(templatesData); // Сохраняем полные объекты
+      setTemplateOptions(templatesData.map(t => t.name)); // Сохраняем только имена для отображения
       console.log(`✅ Загружено ${templatesData.length} шаблонов`);
     } catch (error) {
       console.error('❌ Ошибка загрузки шаблонов:', error);
-      // Fallback на захардкоженные значения
-      setTemplateOptions([
-        'Шаблон 1',
-        'Шаблон 2',
-        'Шаблон 3',
-        'Шаблон 4',
-        'Шаблон 5'
-      ]);
+      setTemplatesList([]);
+      setTemplateOptions([]);
     } finally {
       setLoadingTemplates(false);
     }
@@ -1170,19 +1167,13 @@ function LandingPanel({ user }) {
       console.log('🏷️ Загрузка тегов лендингов...');
 
       const tagsData = await landingTagsService.getActiveTags();
-      setAvailableTags(tagsData.map(t => t.name));
+      setTagsList(tagsData); // Сохраняем полные объекты
+      setAvailableTags(tagsData.map(t => t.name)); // Сохраняем только имена для отображения
       console.log(`✅ Загружено ${tagsData.length} тегов`);
     } catch (error) {
       console.error('❌ Ошибка загрузки тегов:', error);
-      // Fallback на захардкоженные значения
-      setAvailableTags([
-        'SEO',
-        'Адаптив',
-        'Анимация',
-        'Форма',
-        'Интеграция',
-        'Мультиязычность'
-      ]);
+      setTagsList([]);
+      setAvailableTags([]);
     } finally {
       setLoadingTags(false);
     }
