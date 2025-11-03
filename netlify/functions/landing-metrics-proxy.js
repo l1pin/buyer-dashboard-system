@@ -340,10 +340,14 @@ exports.handler = async (event) => {
     // Создаем Map для быстрого поиска метрик по (adv_id, date, source_id_tracker)
     const metricsByAdvIdAndDate = new Map();
     metrics.forEach(metric => {
-      const key = `${metric.adv_id}_${metric.adv_date}_${metric.source_id_tracker || 'unknown'}`;
+      const sourceIdTracker = metric.source_id_tracker || 'unknown';
+      const key = `${metric.adv_id}_${metric.adv_date}_${sourceIdTracker}`;
+      
+      console.log(`🔑 Создание ключа метрики: adv_id=${metric.adv_id}, date=${metric.adv_date}, source_id_tracker=${sourceIdTracker}`);
+      
       metricsByAdvIdAndDate.set(key, {
         date: metric.adv_date,
-        source_id_tracker: metric.source_id_tracker || null,
+        source_id_tracker: sourceIdTracker,
         leads: Number(metric.leads) || 0,
         cost: Number(metric.cost) || 0,
         clicks: Number(metric.clicks) || 0,
@@ -353,6 +357,9 @@ exports.handler = async (event) => {
         clicks_on_link: Number(metric.clicks_on_link) || 0
       });
     });
+
+    console.log(`📊 Создан Map метрик: ${metricsByAdvIdAndDate.size} записей`);
+    console.log(`🗝️ Все ключи в Map:`, Array.from(metricsByAdvIdAndDate.keys()).slice(0, 10));
 
     console.log(`📊 Создан Map метрик: ${metricsByAdvIdAndDate.size} записей`);
 
@@ -379,22 +386,23 @@ exports.handler = async (event) => {
       dates.forEach(date => {
         // Ищем все метрики для этой пары (adv_id, date) независимо от source_id_tracker
         const foundMetrics = [];
+        
         metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
           if (key.startsWith(`${adv_id}_${date}_`)) {
-            const sourceIdMatch = key.match(/_([^_]+)$/);
-            const extractedSourceId = sourceIdMatch ? sourceIdMatch[1] : 'unknown';
-            
-            foundMetrics.push({
-              ...dayMetrics,
-              source_id_tracker: extractedSourceId
-            });
+            foundMetrics.push(dayMetrics);
           }
         });
 
         if (foundMetrics.length > 0) {
           console.log(`✅ Найдены метрики: adv_id=${adv_id}, date=${date}, записей=${foundMetrics.length}`);
           foundMetrics.forEach(dayMetrics => {
-            console.log(`   source_id_tracker="${dayMetrics.source_id_tracker}"`);
+            console.log(`   📍 source_id_tracker="${dayMetrics.source_id_tracker}"`);
+            
+            // КРИТИЧНО: Убеждаемся что source_id_tracker присутствует
+            if (!dayMetrics.source_id_tracker) {
+              console.error(`❌ ОШИБКА: dayMetrics без source_id_tracker!`, dayMetrics);
+            }
+            
             resultsByUuidSource.get(resultKey).daily.push(dayMetrics);
           });
         } else {
