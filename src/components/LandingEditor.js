@@ -1161,11 +1161,26 @@ function LandingEditor({ user }) {
         landingTagsService.getActiveTags()
       ]);
 
+      console.log('🔍 Полученные шаблоны:', templatesData);
+      console.log('🔍 Полученные теги:', tagsData);
+
       setTemplates(templatesData);
       setTags(tagsData);
       console.log(`✅ Загружено ${templatesData.length} шаблонов и ${tagsData.length} тегов`);
+      
+      if (templatesData.length === 0) {
+        console.warn('⚠️ ВНИМАНИЕ: Шаблонов не найдено! Проверьте RLS политики или наличие данных.');
+      }
+      if (tagsData.length === 0) {
+        console.warn('⚠️ ВНИМАНИЕ: Тегов не найдено! Проверьте RLS политики или наличие данных.');
+      }
     } catch (error) {
       console.error('❌ Ошибка загрузки шаблонов и тегов:', error);
+      console.error('❌ Детали ошибки:', {
+        message: error.message,
+        code: error.code,
+        details: error.details
+      });
     } finally {
       setLoadingTemplates(false);
       setLoadingTags(false);
