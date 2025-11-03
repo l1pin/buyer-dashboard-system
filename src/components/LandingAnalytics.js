@@ -288,20 +288,40 @@ function LandingTeamLead({ user }) {
     refresh: refreshZoneData
   } = useZoneData(filteredLandings, true);
 
+    // Группировка метрик лендинга по байерам
   const getMetricsByBuyers = (landing) => {
-    console.log(`🔍 Группировка метрик по байерам для лендинга: ${landing.id} (${landing.article})`);
+    console.log(`🔍🔍🔍 НАЧАЛО getMetricsByBuyers для ${landing.id} (${landing.article})`);
 
     // Получаем все метрики для этого лендинга
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
+
+    console.log(`📦 getAllLandingMetrics вернул:`, {
+      count: allMetricsForLanding?.length || 0,
+      metrics: allMetricsForLanding
+    });
 
     if (!allMetricsForLanding || allMetricsForLanding.length === 0) {
       console.log(`⚠️ Нет метрик для ${landing.id}`);
       return [];
     }
 
+    // Проверяем наличие allDailyData
+    console.log(`🔍 Проверка allDailyData в метриках:`);
+    allMetricsForLanding.forEach((metric, idx) => {
+      console.log(`  Метрика ${idx}:`, {
+        found: metric.found,
+        hasData: !!metric.data,
+        hasAllDailyData: !!metric.data?.allDailyData,
+        allDailyDataLength: metric.data?.allDailyData?.length,
+        firstItem: metric.data?.allDailyData?.[0]
+      });
+    });
+
     const validMetrics = allMetricsForLanding.filter(metric => {
       return metric.found && metric.data && metric.data.allDailyData;
     });
+
+    console.log(`✅ Валидных метрик: ${validMetrics.length}`);
 
     if (validMetrics.length === 0) {
       console.log(`⚠️ Нет валидных метрик для байеров для ${landing.id}`);
@@ -316,7 +336,8 @@ function LandingTeamLead({ user }) {
       }))
     );
 
-    console.log(`📊 Всего дневных записей с source_id_tracker: ${allDailyDataWithSources.length}`);
+    console.log(`📊 Всего дневных записей: ${allDailyDataWithSources.length}`);
+    console.log(`📊 Первая дневная запись:`, allDailyDataWithSources[0]);
 
     // Группируем по source_id_tracker
     const metricsBySourceId = new Map();
@@ -332,6 +353,20 @@ function LandingTeamLead({ user }) {
     });
 
     console.log(`📊 Уникальных source_id_tracker: ${metricsBySourceId.size}`);
+    console.log(`📊 Все source_id_tracker:`, Array.from(metricsBySourceId.keys()));
+
+    // Проверяем buyerSources
+    console.log(`👥 Всего байеров: ${buyers.length}`);
+    console.log(`📋 buyerSources Map размер: ${buyerSources.size}`);
+    
+    buyers.forEach(buyer => {
+      const sources = buyerSources.get(buyer.id);
+      console.log(`  Байер ${buyer.name} (${buyer.id}):`, {
+        hasSources: !!sources,
+        sourcesCount: sources?.length || 0,
+        sources: sources
+      });
+    });
 
     // Теперь сопоставляем source_id с байерами
     const buyerMetrics = [];
@@ -339,8 +374,15 @@ function LandingTeamLead({ user }) {
     buyers.forEach(buyer => {
       const buyerSourceIds = buyerSources.get(buyer.id) || [];
       
+      console.log(`🔍 Проверка байера ${buyer.name}:`, {
+        buyer_id: buyer.id,
+        buyerSourceIds: buyerSourceIds,
+        buyerSourceIdsLength: buyerSourceIds.length
+      });
+
       if (buyerSourceIds.length === 0) {
-        return; // Пропускаем байеров без source_ids
+        console.log(`  ⚠️ У байера ${buyer.name} нет source_ids`);
+        return;
       }
 
       // Собираем метрики для всех source_ids этого байера
@@ -348,16 +390,22 @@ function LandingTeamLead({ user }) {
 
       buyerSourceIds.forEach(sourceId => {
         const metricsForSource = metricsBySourceId.get(sourceId);
+        console.log(`    🔍 Ищем source_id: ${sourceId}`, {
+          found: !!metricsForSource,
+          count: metricsForSource?.length || 0
+        });
+        
         if (metricsForSource && metricsForSource.length > 0) {
           buyerDailyData.push(...metricsForSource);
         }
       });
 
-      if (buyerDailyData.length === 0) {
-        return; // У байера нет метрик для этого лендинга
-      }
+      console.log(`  📊 Байер ${buyer.name}: найдено ${buyerDailyData.length} дневных записей`);
 
-      console.log(`✅ Байер ${buyer.name}: найдено ${buyerDailyData.length} дневных записей`);
+      if (buyerDailyData.length === 0) {
+        console.log(`  ⚠️ У байера ${buyer.name} нет метрик для этого лендинга`);
+        return;
+      }
 
       // Фильтруем по периоду отображения
       const filteredDailyData = filterMetricsByDisplayPeriod(buyerDailyData, metricsDisplayPeriod);
@@ -395,6 +443,12 @@ function LandingTeamLead({ user }) {
       const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
       const cr = aggregated.clicks > 0 ? (aggregated.leads / aggregated.clicks) * 100 : 0;
 
+      console.log(`  ✅ Агрегированные метрики для ${buyer.name}:`, {
+        leads: aggregated.leads,
+        cost: aggregated.cost,
+        cpl: cpl
+      });
+
       buyerMetrics.push({
         buyer_id: buyer.id,
         buyer_name: buyer.name,
@@ -425,7 +479,12 @@ function LandingTeamLead({ user }) {
       });
     });
 
-    console.log(`✅ Метрики сгруппированы для ${buyerMetrics.length} байеров`);
+    console.log(`✅✅✅ ИТОГО: Метрики сгруппированы для ${buyerMetrics.length} байеров`);
+    console.log(`📊 Детали байеров:`, buyerMetrics.map(b => ({
+      name: b.buyer_name,
+      leads: b.data.formatted.leads,
+      cpl: b.data.formatted.cpl
+    })));
 
     return buyerMetrics;
   };
