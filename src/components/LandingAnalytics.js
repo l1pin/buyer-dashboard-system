@@ -308,17 +308,29 @@ function LandingTeamLead({ user }) {
     // Проверяем наличие allDailyData
     console.log(`🔍 Проверка allDailyData в метриках:`);
     allMetricsForLanding.forEach((metric, idx) => {
+      const firstDay = metric.data?.allDailyData?.[0];
       console.log(`  Метрика ${idx}:`, {
         found: metric.found,
         hasData: !!metric.data,
         hasAllDailyData: !!metric.data?.allDailyData,
         allDailyDataLength: metric.data?.allDailyData?.length,
-        firstItem: metric.data?.allDailyData?.[0]
+        firstDay: firstDay,
+        firstDay_has_source_id: !!firstDay?.source_id_tracker,
+        firstDay_source_id: firstDay?.source_id_tracker
       });
     });
 
     const validMetrics = allMetricsForLanding.filter(metric => {
-      return metric.found && metric.data && metric.data.allDailyData;
+      const isValid = metric.found && metric.data && metric.data.allDailyData && metric.data.allDailyData.length > 0;
+      if (!isValid) {
+        console.log(`❌ Метрика НЕ валидна:`, {
+          found: metric.found,
+          hasData: !!metric.data,
+          hasAllDailyData: !!metric.data?.allDailyData,
+          length: metric.data?.allDailyData?.length
+        });
+      }
+      return isValid;
     });
 
     console.log(`✅ Валидных метрик: ${validMetrics.length}`);
@@ -330,13 +342,29 @@ function LandingTeamLead({ user }) {
 
     // Собираем все дневные данные со source_id_tracker
     const allDailyDataWithSources = validMetrics.flatMap(metric => {
-      const dailyData = metric.data.allDailyData || metric.data.dailyData || [];
+      const dailyData = metric.data.allDailyData || [];
       console.log(`📊 Обработка метрики: found=${metric.found}, dailyData.length=${dailyData.length}`);
+      
+      if (dailyData.length > 0) {
+        console.log(`📊 Первый день метрики:`, {
+          date: dailyData[0].date,
+          source_id_tracker: dailyData[0].source_id_tracker,
+          has_source_id: !!dailyData[0].source_id_tracker
+        });
+      }
+      
       return dailyData.map(day => {
         const sourceId = day.source_id_tracker || 'unknown';
         console.log(`   День: date=${day.date}, source_id_tracker="${sourceId}"`);
         return {
-          ...day,
+          date: day.date,
+          leads: day.leads || 0,
+          cost: day.cost || 0,
+          clicks: day.clicks || 0,
+          impressions: day.impressions || 0,
+          avg_duration: day.avg_duration || 0,
+          cost_from_sources: day.cost_from_sources || 0,
+          clicks_on_link: day.clicks_on_link || 0,
           source_id_tracker: sourceId
         };
       });
