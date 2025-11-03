@@ -37,7 +37,10 @@ import {
   Search,
   Filter,
   Palette,
-  CheckCircle
+  CheckCircle,
+  Settings,
+  Save,
+  GripVertical
 } from 'lucide-react';
 
 function LandingTeamLead({ user }) {
@@ -106,6 +109,17 @@ function LandingTeamLead({ user }) {
   const [verifiedUrls, setVerifiedUrls] = useState([]);
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [landingsWithIntegration, setLandingsWithIntegration] = useState(new Map());
+  
+  // Состояния для модального окна настроек
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('templates'); // 'templates' или 'tags'
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [editingTag, setEditingTag] = useState(null);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('blue');
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [draggedItem, setDraggedItem] = useState(null);
   
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -1311,6 +1325,255 @@ data-rt-sub16="${selectedLandingUuid}"
     setSuccess('');
   };
 
+  // Функции управления шаблонами
+  const handleCreateTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      setError('Введите название шаблона');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    try {
+      setSavingSettings(true);
+      
+      const maxOrder = templates.length > 0 
+        ? Math.max(...templates.map(t => t.display_order || 0)) 
+        : 0;
+
+      const newTemplate = await landingTemplatesService.createTemplate({
+        name: newTemplateName.trim(),
+        display_order: maxOrder + 1
+      });
+
+      setTemplates([...templates, newTemplate]);
+      setNewTemplateName('');
+      setSuccess('Шаблон создан успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка создания шаблона:', error);
+      setError('Ошибка создания шаблона: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleUpdateTemplate = async (templateId, updates) => {
+    try {
+      setSavingSettings(true);
+      
+      const updatedTemplate = await landingTemplatesService.updateTemplate(templateId, updates);
+      
+      setTemplates(templates.map(t => 
+        t.id === templateId ? updatedTemplate : t
+      ));
+      
+      setEditingTemplate(null);
+      setSuccess('Шаблон обновлен успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка обновления шаблона:', error);
+      setError('Ошибка обновления шаблона: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId, templateName) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить шаблон "${templateName}"?`)) {
+      return;
+    }
+
+    try {
+      setSavingSettings(true);
+      
+      await landingTemplatesService.deleteTemplate(templateId);
+      
+      setTemplates(templates.filter(t => t.id !== templateId));
+      setSuccess('Шаблон удален успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка удаления шаблона:', error);
+      setError('Ошибка удаления шаблона: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleReorderTemplates = async (newOrder) => {
+    try {
+      setSavingSettings(true);
+      
+      const updates = newOrder.map((template, index) => 
+        landingTemplatesService.updateTemplate(template.id, { display_order: index })
+      );
+      
+      await Promise.all(updates);
+      
+      setTemplates(newOrder);
+      setSuccess('Порядок шаблонов обновлен');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка изменения порядка шаблонов:', error);
+      setError('Ошибка изменения порядка: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Функции управления тегами
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) {
+      setError('Введите название тега');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    try {
+      setSavingSettings(true);
+      
+      const maxOrder = tags.length > 0 
+        ? Math.max(...tags.map(t => t.display_order || 0)) 
+        : 0;
+
+      const newTag = await landingTagsService.createTag({
+        name: newTagName.trim(),
+        color: newTagColor,
+        display_order: maxOrder + 1
+      });
+
+      setTags([...tags, newTag]);
+      setNewTagName('');
+      setNewTagColor('blue');
+      setSuccess('Тег создан успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка создания тега:', error);
+      setError('Ошибка создания тега: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleUpdateTag = async (tagId, updates) => {
+    try {
+      setSavingSettings(true);
+      
+      const updatedTag = await landingTagsService.updateTag(tagId, updates);
+      
+      setTags(tags.map(t => 
+        t.id === tagId ? updatedTag : t
+      ));
+      
+      setEditingTag(null);
+      setSuccess('Тег обновлен успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка обновления тега:', error);
+      setError('Ошибка обновления тега: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleDeleteTag = async (tagId, tagName) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить тег "${tagName}"?`)) {
+      return;
+    }
+
+    try {
+      setSavingSettings(true);
+      
+      await landingTagsService.deleteTag(tagId);
+      
+      setTags(tags.filter(t => t.id !== tagId));
+      setSuccess('Тег удален успешно');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка удаления тега:', error);
+      setError('Ошибка удаления тега: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleReorderTags = async (newOrder) => {
+    try {
+      setSavingSettings(true);
+      
+      const updates = newOrder.map((tag, index) => 
+        landingTagsService.updateTag(tag.id, { display_order: index })
+      );
+      
+      await Promise.all(updates);
+      
+      setTags(newOrder);
+      setSuccess('Порядок тегов обновлен');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Ошибка изменения порядка тегов:', error);
+      setError('Ошибка изменения порядка: ' + error.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Drag & Drop обработчики
+  const handleDragStart = (e, item, type) => {
+    setDraggedItem({ item, type });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetItem, type) => {
+    e.preventDefault();
+    
+    if (!draggedItem || draggedItem.type !== type) return;
+
+    const items = type === 'template' ? [...templates] : [...tags];
+    const draggedIndex = items.findIndex(item => item.id === draggedItem.item.id);
+    const targetIndex = items.findIndex(item => item.id === targetItem.id);
+
+    if (draggedIndex === targetIndex) return;
+
+    const [removed] = items.splice(draggedIndex, 1);
+    items.splice(targetIndex, 0, removed);
+
+    if (type === 'template') {
+      handleReorderTemplates(items);
+    } else {
+      handleReorderTags(items);
+    }
+
+    setDraggedItem(null);
+  };
+
+  const getTagColorClasses = (color) => {
+    const colorMap = {
+      'purple': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300', dot: 'bg-purple-500' },
+      'blue': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', dot: 'bg-blue-500' },
+      'green': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', dot: 'bg-green-500' },
+      'yellow': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300', dot: 'bg-yellow-500' },
+      'red': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', dot: 'bg-red-500' },
+      'indigo': { bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-300', dot: 'bg-indigo-500' },
+      'pink': { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300', dot: 'bg-pink-500' },
+      'orange': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', dot: 'bg-orange-500' },
+      'gray': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', dot: 'bg-gray-500' }
+    };
+    return colorMap[color] || colorMap['blue'];
+  };
+
   // Функция для обновления статуса интеграции после успешной проверки
   const handleIntegrationVerified = (landingId, urls) => {
     console.log('✅ Интеграция подтверждена для лендинга:', landingId, 'URLs:', urls);
@@ -1886,6 +2149,14 @@ data-rt-sub16="${selectedLandingUuid}"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
               Обновить метрики
+            </button>
+
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Настройки
             </button>
 
           </div>
@@ -3521,6 +3792,335 @@ data-rt-sub16="${selectedLandingUuid}"
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-6 border w-full max-w-5xl shadow-lg rounded-lg bg-white my-5">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Settings className="h-6 w-6 text-gray-600" />
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900">Настройки</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  setEditingTemplate(null);
+                  setEditingTag(null);
+                  setNewTemplateName('');
+                  setNewTagName('');
+                  setNewTagColor('blue');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex space-x-4 mb-6 border-b border-gray-200">
+              <button
+                onClick={() => setSettingsTab('templates')}
+                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                  settingsTab === 'templates'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Шаблоны ({templates.length})
+              </button>
+              <button
+                onClick={() => setSettingsTab('tags')}
+                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                  settingsTab === 'tags'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Теги ({tags.length})
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="max-h-[600px] overflow-y-auto">
+              {/* Templates Tab */}
+              {settingsTab === 'templates' && (
+                <div className="space-y-4">
+                  {/* Create New Template */}
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Создать новый шаблон</h4>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="text"
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCreateTemplate();
+                          }
+                        }}
+                        placeholder="Название шаблона..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={handleCreateTemplate}
+                        disabled={savingSettings || !newTemplateName.trim()}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {savingSettings ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <Plus className="h-4 w-4 mr-2" />
+                        )}
+                        Создать
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Templates List */}
+                  <div className="space-y-2">
+                    {templates.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Palette className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                        <p>Нет созданных шаблонов</p>
+                        <p className="text-sm">Создайте первый шаблон выше</p>
+                      </div>
+                    ) : (
+                      templates.map((template) => (
+                        <div
+                          key={template.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, template, 'template')}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, template, 'template')}
+                          className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors cursor-move"
+                        >
+                          <GripVertical className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          
+                          {editingTemplate?.id === template.id ? (
+                            <>
+                              <input
+                                type="text"
+                                value={editingTemplate.name}
+                                onChange={(e) => setEditingTemplate({...editingTemplate, name: e.target.value})}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleUpdateTemplate(template.id, { name: editingTemplate.name });
+                                  }
+                                }}
+                                className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleUpdateTemplate(template.id, { name: editingTemplate.name })}
+                                disabled={savingSettings}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                              >
+                                <Save className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setEditingTemplate(null)}
+                                className="p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1 text-sm font-medium text-gray-900">{template.name}</span>
+                              <button
+                                onClick={() => setEditingTemplate(template)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTemplate(template.id, template.name)}
+                                disabled={savingSettings}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags Tab */}
+              {settingsTab === 'tags' && (
+                <div className="space-y-4">
+                  {/* Create New Tag */}
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Создать новый тег</h4>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="text"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCreateTag();
+                          }
+                        }}
+                        placeholder="Название тега..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <select
+                        value={newTagColor}
+                        onChange={(e) => setNewTagColor(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="purple">Фиолетовый</option>
+                        <option value="blue">Синий</option>
+                        <option value="green">Зеленый</option>
+                        <option value="yellow">Желтый</option>
+                        <option value="red">Красный</option>
+                        <option value="indigo">Индиго</option>
+                        <option value="pink">Розовый</option>
+                        <option value="orange">Оранжевый</option>
+                        <option value="gray">Серый</option>
+                      </select>
+                      <button
+                        onClick={handleCreateTag}
+                        disabled={savingSettings || !newTagName.trim()}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {savingSettings ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <Plus className="h-4 w-4 mr-2" />
+                        )}
+                        Создать
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tags List */}
+                  <div className="space-y-2">
+                    {tags.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Star className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                        <p>Нет созданных тегов</p>
+                        <p className="text-sm">Создайте первый тег выше</p>
+                      </div>
+                    ) : (
+                      tags.map((tag) => {
+                        const colorClasses = getTagColorClasses(tag.color);
+                        return (
+                          <div
+                            key={tag.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, tag, 'tag')}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, tag, 'tag')}
+                            className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors cursor-move"
+                          >
+                            <GripVertical className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                            
+                            <span className={`w-3 h-3 rounded-full ${colorClasses.dot} flex-shrink-0`}></span>
+                            
+                            {editingTag?.id === tag.id ? (
+                              <>
+                                <input
+                                  type="text"
+                                  value={editingTag.name}
+                                  onChange={(e) => setEditingTag({...editingTag, name: e.target.value})}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleUpdateTag(tag.id, { name: editingTag.name, color: editingTag.color });
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <select
+                                  value={editingTag.color}
+                                  onChange={(e) => setEditingTag({...editingTag, color: e.target.value})}
+                                  className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="purple">Фиолетовый</option>
+                                  <option value="blue">Синий</option>
+                                  <option value="green">Зеленый</option>
+                                  <option value="yellow">Желтый</option>
+                                  <option value="red">Красный</option>
+                                  <option value="indigo">Индиго</option>
+                                  <option value="pink">Розовый</option>
+                                  <option value="orange">Оранжевый</option>
+                                  <option value="gray">Серый</option>
+                                </select>
+                                <button
+                                  onClick={() => handleUpdateTag(tag.id, { name: editingTag.name, color: editingTag.color })}
+                                  disabled={savingSettings}
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                                >
+                                  <Save className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingTag(null)}
+                                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <div className={`flex-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${colorClasses.bg} ${colorClasses.text} ${colorClasses.border}`}>
+                                  {tag.name}
+                                </div>
+                                <button
+                                  onClick={() => setEditingTag(tag)}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTag(tag.id, tag.name)}
+                                  disabled={savingSettings}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-500">
+                Перетаскивайте элементы для изменения порядка отображения
+              </p>
+              <button
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  setEditingTemplate(null);
+                  setEditingTag(null);
+                  setNewTemplateName('');
+                  setNewTagName('');
+                  setNewTagColor('blue');
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium"
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
