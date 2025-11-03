@@ -2448,14 +2448,6 @@ data-rt-sub16="${selectedLandingUuid}"
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                          <path stroke="none" d="M0 0h24v24H0z" />
-                          <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                          <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                        </svg>
-                      </th>
-
                       <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         Тип
                       </th>
@@ -2558,13 +2550,6 @@ data-rt-sub16="${selectedLandingUuid}"
                           key={landing.id}
                           className="transition-colors duration-200 hover:bg-gray-50"
                         >
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            {/* Редактирование отключено - только просмотр */}
-                            <div className="w-6 h-6 flex items-center justify-center mx-auto">
-                              <span className="text-gray-300">—</span>
-                            </div>
-                          </td>
-
                           <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
                             <div className="flex items-center justify-center space-x-1">
                               {landing.is_test && (
