@@ -57,6 +57,7 @@ function LandingTeamLead({ user }) {
   const [copiedUuid, setCopiedUuid] = useState(false);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deletingLandingId, setDeletingLandingId] = useState(null);
   const [metricsPeriod, setMetricsPeriod] = useState('all');
   const [metricsDisplayPeriod, setMetricsDisplayPeriod] = useState('all');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
@@ -1403,6 +1404,35 @@ data-rt-sub16="${selectedLandingUuid}"
     return cm ? cm.avatar_url : null;
   };
 
+  const handleDeleteLanding = async (landing) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить лендинг "${landing.article}"?\n\nЭто действие нельзя отменить!`)) {
+      return;
+    }
+
+    try {
+      setDeletingLandingId(landing.id);
+      setError('');
+      setSuccess('');
+
+      console.log('🗑️ Удаление лендинга:', landing.id);
+
+      await landingService.deleteLanding(landing.id);
+
+      // Удаляем из локального состояния
+      setLandings(prevLandings => prevLandings.filter(l => l.id !== landing.id));
+
+      setSuccess(`Лендинг "${landing.article}" успешно удален`);
+      setTimeout(() => setSuccess(''), 3000);
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления лендинга:', error);
+      setError(`Ошибка удаления: ${error.message}`);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setDeletingLandingId(null);
+    }
+  };
+
   const handleRefreshAll = async () => {
     console.log(`🔄 ЗАПУСК ОБНОВЛЕНИЯ метрик лендингов (период: ${metricsPeriod})`);
     console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
@@ -2534,6 +2564,9 @@ data-rt-sub16="${selectedLandingUuid}"
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Content
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Действия
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -3031,6 +3064,21 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <span className="text-gray-400 cursor-text select-text">—</span>
                               )
                             )}
+                          </td>
+
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <button
+                              onClick={() => handleDeleteLanding(landing)}
+                              disabled={deletingLandingId === landing.id}
+                              className="p-2 rounded-full transition-colors duration-200 text-red-600 hover:text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Удалить лендинг"
+                            >
+                              {deletingLandingId === landing.id ? (
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
+                              ) : (
+                                <Trash2 className="h-5 w-5" />
+                              )}
+                            </button>
                           </td>
 
                         </tr>
