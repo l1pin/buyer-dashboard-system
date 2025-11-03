@@ -2498,7 +2498,7 @@ export const trelloService = {
 // Сервис для работы с метриками лендингов
 export const landingMetricsService = {
   // Батчевое сохранение метрик лендингов
-  async saveBatchLandingMetrics(metricsArray) {
+    async saveBatchLandingMetrics(metricsArray) {
     try {
       console.log('💾 Батчевое сохранение метрик лендингов:', metricsArray.length);
 
@@ -2511,10 +2511,17 @@ export const landingMetricsService = {
       metricsArray.forEach((m) => {
         const hasData = m.hasData !== false && m.metricsData?.raw;
 
-        console.log(`💾 Сохранение метрик для ${m.landingId}_${m.source}:`, { hasData, leads: m.metricsData?.raw?.leads });
+        console.log(`💾 Сохранение метрик для ${m.landingId}_${m.source}:`, { 
+          hasData, 
+          leads: m.metricsData?.raw?.leads,
+          allDailyData: m.metricsData?.allDailyData?.length 
+        });
 
         if (hasData) {
           const rawMetrics = m.metricsData.raw;
+          
+          // КРИТИЧНО: Сохраняем allDailyData с source_id_tracker в JSONB
+          const allDailyDataWithSources = m.metricsData.allDailyData || [];
 
           dataToInsert.push({
             landing_id: m.landingId,
@@ -2530,6 +2537,7 @@ export const landingMetricsService = {
             days_count: Number(rawMetrics.days_count) || 0,
             cost_from_sources: Number(rawMetrics.cost_from_sources) || 0,
             clicks_on_link: Number(rawMetrics.clicks_on_link) || 0,
+            all_daily_data: allDailyDataWithSources,
             cached_at: new Date().toISOString()
           });
         } else {
@@ -2547,11 +2555,11 @@ export const landingMetricsService = {
             days_count: null,
             cost_from_sources: null,
             clicks_on_link: null,
+            all_daily_data: null,
             cached_at: new Date().toISOString()
           });
         }
       });
-
       console.log(`💾 Подготовлено ${dataToInsert.length} записей для сохранения`);
 
       if (dataToInsert.length === 0) {
@@ -2614,13 +2622,19 @@ export const landingMetricsService = {
     try {
       const { data, error } = await supabase
         .from('landing_metrics_cache')
-        .select('*')
+        .select('landing_id, article, period, source, adv_id, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, all_daily_data, cached_at')
         .in('landing_id', landingIds)
         .eq('period', period);
 
       if (error) throw error;
 
       if (data && data.length > 0) {
+        console.log(`✅ Получен кэш для ${data.length} записей, первая запись:`, {
+          landing_id: data[0].landing_id,
+          source: data[0].source,
+          has_all_daily_data: !!data[0].all_daily_data,
+          all_daily_data_length: data[0].all_daily_data?.length
+        });
         return data.map(cache => this.reconstructLandingMetrics(cache));
       }
 
@@ -2630,10 +2644,15 @@ export const landingMetricsService = {
       return [];
     }
   },
-
   // Восстановление метрик из кэша
-  reconstructLandingMetrics(cacheData) {
+    reconstructLandingMetrics(cacheData) {
     if (!cacheData) return null;
+
+    console.log('📦 Восстановление метрик из кэша:', {
+      landing_id: cacheData.landing_id,
+      source: cacheData.source,
+      has_all_daily_data: !!cacheData.all_daily_data
+    });
 
     const isAllNull = cacheData.leads === null &&
       cacheData.cost === null &&
@@ -2641,6 +2660,7 @@ export const landingMetricsService = {
       cacheData.impressions === null;
 
     if (isAllNull) {
+      console.log('⚠️ Все метрики NULL - возвращаем found: false');
       return {
         landing_id: cacheData.landing_id,
         source: cacheData.source,
@@ -2648,6 +2668,7 @@ export const landingMetricsService = {
         period: cacheData.period,
         found: false,
         data: null,
+        error: 'Нет данных',
         fromCache: true
       };
     }
@@ -2660,6 +2681,15 @@ export const landingMetricsService = {
     const days_count = Number(cacheData.days_count) || 0;
     const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
     const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
+
+    // КРИТИЧНО: Восстанавливаем allDailyData из JSONB
+    const allDailyData = cacheData.all_daily_data || [];
+
+    console.log('📦 Восстановлено из кэша:', {
+      leads, cost, clicks, impressions, 
+      allDailyData_length: allDailyData.length,
+      first_daily_item: allDailyData[0]
+    });
 
     const cpl = leads > 0 ? cost / leads : 0;
     const ctr_percent = impressions > 0 ? (clicks_on_link / impressions) * 100 : 0;
@@ -2704,8 +2734,8 @@ export const landingMetricsService = {
           avg_duration: formatDuration(avg_duration),
           days: formatInt(days_count) + " дн."
         },
-        source: cacheData.source,
-        advId: cacheData.adv_id
+        allDailyData: allDailyData,
+        dailyData: allDailyData
       },
       fromCache: true
     };
