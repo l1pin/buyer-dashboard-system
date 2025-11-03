@@ -2682,13 +2682,25 @@ export const landingMetricsService = {
     const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
     const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
 
-    // КРИТИЧНО: Восстанавливаем allDailyData из JSONB
-    const allDailyData = cacheData.all_daily_data || [];
+    // КРИТИЧНО: Восстанавливаем allDailyData из JSONB и добавляем source_id_tracker
+    const allDailyData = (cacheData.all_daily_data || []).map(day => {
+      // Если source_id_tracker уже есть - используем его, иначе берем из записи кэша
+      if (day.source_id_tracker) {
+        return day;
+      } else {
+        // Добавляем source_id_tracker из уровня записи кэша
+        return {
+          ...day,
+          source_id_tracker: cacheData.source_id_tracker || cacheData.adv_id || 'unknown'
+        };
+      }
+    });
 
     console.log('📦 Восстановлено из кэша:', {
       leads, cost, clicks, impressions, 
       allDailyData_length: allDailyData.length,
-      first_daily_item: allDailyData[0]
+      first_daily_item: allDailyData[0],
+      has_source_id_tracker: !!allDailyData[0]?.source_id_tracker
     });
 
     const cpl = leads > 0 ? cost / leads : 0;
