@@ -2498,7 +2498,7 @@ export const trelloService = {
 // Сервис для работы с метриками лендингов
 export const landingMetricsService = {
   // Батчевое сохранение метрик лендингов
-    async saveBatchLandingMetrics(metricsArray) {
+  async saveBatchLandingMetrics(metricsArray) {
     try {
       console.log('💾 Батчевое сохранение метрик лендингов:', metricsArray.length);
 
@@ -2514,14 +2514,28 @@ export const landingMetricsService = {
         console.log(`💾 Сохранение метрик для ${m.landingId}_${m.source}:`, { 
           hasData, 
           leads: m.metricsData?.raw?.leads,
-          allDailyData: m.metricsData?.allDailyData?.length 
+          allDailyData: m.metricsData?.allDailyData?.length,
+          firstDayHasSourceId: !!m.metricsData?.allDailyData?.[0]?.source_id_tracker
         });
 
         if (hasData) {
           const rawMetrics = m.metricsData.raw;
           
           // КРИТИЧНО: Сохраняем allDailyData с source_id_tracker в JSONB
-          const allDailyDataWithSources = m.metricsData.allDailyData || [];
+          const allDailyDataWithSources = (m.metricsData.allDailyData || []).map(day => ({
+            date: day.date,
+            leads: day.leads || 0,
+            cost: day.cost || 0,
+            clicks: day.clicks || 0,
+            impressions: day.impressions || 0,
+            avg_duration: day.avg_duration || 0,
+            cost_from_sources: day.cost_from_sources || 0,
+            clicks_on_link: day.clicks_on_link || 0,
+            source_id_tracker: day.source_id_tracker || 'unknown'
+          }));
+
+          console.log(`💾 Сохраняем ${allDailyDataWithSources.length} дневных записей с source_id_tracker:`, 
+            allDailyDataWithSources.slice(0, 2));
 
           dataToInsert.push({
             landing_id: m.landingId,
@@ -2560,7 +2574,17 @@ export const landingMetricsService = {
           });
         }
       });
+      
       console.log(`💾 Подготовлено ${dataToInsert.length} записей для сохранения`);
+      
+      if (dataToInsert.length > 0) {
+        console.log('💾 ПРИМЕР ПЕРВОЙ ЗАПИСИ:', {
+          landing_id: dataToInsert[0].landing_id,
+          source: dataToInsert[0].source,
+          all_daily_data_length: dataToInsert[0].all_daily_data?.length,
+          first_day: dataToInsert[0].all_daily_data?.[0]
+        });
+      }
 
       if (dataToInsert.length === 0) {
         return { success: true, count: 0 };
@@ -2645,13 +2669,14 @@ export const landingMetricsService = {
     }
   },
   // Восстановление метрик из кэша
-    reconstructLandingMetrics(cacheData) {
+  reconstructLandingMetrics(cacheData) {
     if (!cacheData) return null;
 
     console.log('📦 Восстановление метрик из кэша:', {
       landing_id: cacheData.landing_id,
       source: cacheData.source,
-      has_all_daily_data: !!cacheData.all_daily_data
+      has_all_daily_data: !!cacheData.all_daily_data,
+      all_daily_data_length: cacheData.all_daily_data?.length
     });
 
     const isAllNull = cacheData.leads === null &&
@@ -2682,19 +2707,18 @@ export const landingMetricsService = {
     const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
     const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
 
-    // КРИТИЧНО: Восстанавливаем allDailyData из JSONB и добавляем source_id_tracker
-    const allDailyData = (cacheData.all_daily_data || []).map(day => {
-      // Если source_id_tracker уже есть - используем его, иначе берем из записи кэша
-      if (day.source_id_tracker) {
-        return day;
-      } else {
-        // Добавляем source_id_tracker из уровня записи кэша
-        return {
-          ...day,
-          source_id_tracker: cacheData.source_id_tracker || cacheData.adv_id || 'unknown'
-        };
-      }
-    });
+    // КРИТИЧНО: Восстанавливаем allDailyData из JSONB с source_id_tracker
+    const allDailyData = (cacheData.all_daily_data || []).map(day => ({
+      date: day.date,
+      leads: day.leads || 0,
+      cost: day.cost || 0,
+      clicks: day.clicks || 0,
+      impressions: day.impressions || 0,
+      avg_duration: day.avg_duration || 0,
+      cost_from_sources: day.cost_from_sources || 0,
+      clicks_on_link: day.clicks_on_link || 0,
+      source_id_tracker: day.source_id_tracker || 'unknown'
+    }));
 
     console.log('📦 Восстановлено из кэша:', {
       leads, cost, clicks, impressions, 
@@ -2746,14 +2770,8 @@ export const landingMetricsService = {
           avg_duration: formatDuration(avg_duration),
           days: formatInt(days_count) + " дн."
         },
-        allDailyData: allDailyData.map(day => ({
-          ...day,
-          source_id_tracker: day.source_id_tracker || 'unknown'
-        })),
-        dailyData: allDailyData.map(day => ({
-          ...day,
-          source_id_tracker: day.source_id_tracker || 'unknown'
-        }))
+        allDailyData: allDailyData,
+        dailyData: allDailyData
       },
       fromCache: true
     };
