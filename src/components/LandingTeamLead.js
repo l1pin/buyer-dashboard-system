@@ -95,18 +95,13 @@ function LandingTeamLead({ user }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showFilterBuyerDropdown, setShowFilterBuyerDropdown] = useState(false);
   const [showFilterSearcherDropdown, setShowFilterSearcherDropdown] = useState(false);
-  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
-  const [showTagsDropdown, setShowTagsDropdown] = useState(false);  
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showGiferDropdown, setShowGiferDropdown] = useState(false);
-  const [isTestMode, setIsTestMode] = useState(false);
   const [productManagers, setProductManagers] = useState([]);
   const [gifers, setGifers] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [tags, setTags] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
   const [verifiedUrls, setVerifiedUrls] = useState([]);
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [landingsWithIntegration, setLandingsWithIntegration] = useState(new Map());
@@ -1164,21 +1159,6 @@ function LandingTeamLead({ user }) {
     }
   };
 
-  const handleTagChange = (tag, isChecked) => {
-    let updatedTags;
-    if (isChecked) {
-      updatedTags = [...newLanding.tags, tag];
-    } else {
-      updatedTags = newLanding.tags.filter(t => t !== tag);
-    }
-
-    setNewLanding({
-      ...newLanding,
-      tags: updatedTags
-    });
-    clearFieldError('tags');
-  };
-
   const showComment = (landing) => {
     setSelectedComment({
       article: landing.article,
@@ -1285,7 +1265,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showProductDropdown, showGiferDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showFilterBuyerDropdown, showFilterSearcherDropdown]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -1329,14 +1309,6 @@ data-rt-sub16="${selectedLandingUuid}"
     setError('');
     setSuccess('');
     setFieldErrors({});
-  };
-
-  const clearFieldError = (fieldName) => {
-    setFieldErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
   };
 
   // Функция для обновления статуса интеграции после успешной проверки
