@@ -3972,12 +3972,13 @@ data-rt-sub16="${selectedLandingUuid}"
                         placeholder="Название тега..."
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white">
-                        <span className={`w-4 h-4 rounded-full ${getTagColorClasses(newTagColor).dot}`}></span>
+                      <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white h-[42px]">
+                        <span className={`w-4 h-4 rounded-full flex-shrink-0 ${getTagColorClasses(newTagColor).dot}`}></span>
                         <select
                           value={newTagColor}
                           onChange={(e) => setNewTagColor(e.target.value)}
-                          className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm"
+                          className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm py-0 pr-8"
+                          style={{ backgroundPosition: 'right 0.5rem center' }}
                         >
                           <option value="purple">Фиолетовый</option>
                           <option value="blue">Синий</option>
@@ -4043,12 +4044,13 @@ data-rt-sub16="${selectedLandingUuid}"
                                   className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   autoFocus
                                 />
-                                <div className="flex items-center space-x-2 px-3 py-1 border border-gray-300 rounded-md bg-white">
-                                  <span className={`w-4 h-4 rounded-full ${getTagColorClasses(editingTag.color).dot}`}></span>
+                                <div className="flex items-center space-x-2 px-2 py-1 border border-gray-300 rounded-md bg-white">
+                                  <span className={`w-3 h-3 rounded-full flex-shrink-0 ${getTagColorClasses(editingTag.color).dot}`}></span>
                                   <select
                                     value={editingTag.color}
                                     onChange={(e) => setEditingTag({...editingTag, color: e.target.value})}
-                                    className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm"
+                                    className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-xs py-0 pr-6"
+                                    style={{ backgroundPosition: 'right 0.25rem center', backgroundSize: '12px' }}
                                   >
                                     <option value="purple">Фиолетовый</option>
                                     <option value="blue">Синий</option>
