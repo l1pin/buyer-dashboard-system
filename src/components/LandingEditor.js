@@ -1078,6 +1078,10 @@ function LandingEditor({ user }) {
       setError('');
       console.log('📡 Загрузка всех лендингов для Editor...');
       const data = await landingService.getAllLandings();
+      
+      console.log('🔍 ПЕРВЫЙ ЛЕНДИНГ ИЗ БАЗЫ:', data[0]);
+      console.log('🔍 Шаблон первого лендинга:', data[0]?.template);
+      console.log('🔍 Теги первого лендинга:', data[0]?.tags);
 
       // Загружаем данные о verified_urls для каждого лендинга
       const landingsWithUrls = await Promise.all(
@@ -1102,6 +1106,19 @@ function LandingEditor({ user }) {
 
       setLandings(landingsWithUrls);
       console.log(`✅ Загружено ${landingsWithUrls.length} лендингов`);
+      
+      // ДЕТАЛЬНАЯ ДИАГНОСТИКА
+      if (landingsWithUrls.length > 0) {
+        console.log('🔍 ДИАГНОСТИКА ПЕРВОГО ЛЕНДИНГА:');
+        console.log('  ID:', landingsWithUrls[0].id);
+        console.log('  Article:', landingsWithUrls[0].article);
+        console.log('  Template (строка):', landingsWithUrls[0].template);
+        console.log('  Template ID:', landingsWithUrls[0].template_id);
+        console.log('  Tags (массив строк):', landingsWithUrls[0].tags);
+        console.log('  Tag IDs:', landingsWithUrls[0].tag_ids);
+        console.log('  Tags type:', typeof landingsWithUrls[0].tags);
+        console.log('  Tags is array:', Array.isArray(landingsWithUrls[0].tags));
+      }
 
       const landingsWithHistorySet = new Set();
       for (const landing of landingsWithUrls) {
@@ -3442,12 +3459,16 @@ data-rt-sub16="${selectedLandingUuid}"
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="text-center cursor-text select-text">
-                              {landing.template || <span className="text-gray-400">—</span>}
+                              {landing.template ? (
+                                <span className="font-medium text-gray-900">{landing.template}</span>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
                             </div>
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {landing.tags && landing.tags.length > 0 ? (
+                            {landing.tags && Array.isArray(landing.tags) && landing.tags.length > 0 ? (
                               <div className="space-y-1">
                                 <div>
                                   <button
