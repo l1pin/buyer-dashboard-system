@@ -2043,6 +2043,27 @@ data-rt-sub16="${selectedLandingUuid}"
     setSuccess('');
 
     try {
+      // КРИТИЧНО: Сначала очищаем кэш для всех лендингов
+      console.log('🗑️ Очистка кэша метрик лендингов...');
+      
+      const landingIds = filteredLandings.map(l => l.id);
+      
+      if (landingIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('landing_metrics_cache')
+          .delete()
+          .in('landing_id', landingIds);
+        
+        if (deleteError) {
+          console.error('❌ Ошибка очистки кэша:', deleteError);
+        } else {
+          console.log('✅ Кэш очищен для', landingIds.length, 'лендингов');
+        }
+      }
+
+      // Небольшая пауза после очистки
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       console.log('🚀 Вызов refreshLandingMetrics...');
       await refreshLandingMetrics();
       console.log('✅ Метрики лендингов обновлены');
