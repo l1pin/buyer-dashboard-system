@@ -2126,6 +2126,38 @@ data-rt-sub16="${selectedLandingUuid}"
   const countryStats = getCountryStats(filteredLandings);
   const zoneStats = getZoneStats(filteredLandings);
 
+  // Подсчет общих метрик из лендингов
+  const calculateTotalMetrics = () => {
+    let totalLeads = 0;
+    let totalCost = 0;
+    let totalClicks = 0;
+    let landingsWithMetrics = 0;
+
+    filteredLandings.forEach(landing => {
+      const metrics = getAggregatedLandingMetrics(landing);
+      if (metrics?.found && metrics.data) {
+        totalLeads += metrics.data.raw.leads || 0;
+        totalCost += metrics.data.raw.cost || 0;
+        totalClicks += metrics.data.raw.clicks || 0;
+        landingsWithMetrics++;
+      }
+    });
+
+    return {
+      totalLeads,
+      totalCost,
+      totalClicks,
+      landingsWithMetrics,
+      avgLeads: landingsWithMetrics > 0 ? totalLeads / landingsWithMetrics : 0,
+      avgCost: landingsWithMetrics > 0 ? totalCost / landingsWithMetrics : 0,
+      avgClicks: landingsWithMetrics > 0 ? totalClicks / landingsWithMetrics : 0,
+      cpl: totalLeads > 0 ? totalCost / totalLeads : 0,
+      cr: totalClicks > 0 ? (totalLeads / totalClicks) * 100 : 0
+    };
+  };
+
+  const totalMetrics = calculateTotalMetrics();
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -2925,7 +2957,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Лидов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? String(Math.round(aggregatedMetricsStats.totalLeads)) : '—'}
+                        {Math.round(totalMetrics.totalLeads)}
                       </dd>
                     </dl>
                   </div>
@@ -2948,9 +2980,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         CPL
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (aggregatedMetricsStats.totalLeads > 0 ?
-                          (aggregatedMetricsStats.totalCost / aggregatedMetricsStats.totalLeads).toFixed(2) + '$' :
-                          '0.00$') : '—'}
+                        {totalMetrics.cpl.toFixed(2)}$
                       </dd>
                     </dl>
                   </div>
@@ -2971,7 +3001,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Расходы
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? aggregatedMetricsStats.totalCost.toFixed(2) + '$' : '—'}
+                        {totalMetrics.totalCost.toFixed(2)}$
                       </dd>
                     </dl>
                   </div>
@@ -2992,7 +3022,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Клики
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? String(Math.round(aggregatedMetricsStats.totalClicks)) : '—'}
+                        {Math.round(totalMetrics.totalClicks)}
                       </dd>
                     </dl>
                   </div>
@@ -3015,9 +3045,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         CR
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (aggregatedMetricsStats.totalClicks > 0 ?
-                          ((aggregatedMetricsStats.totalLeads / aggregatedMetricsStats.totalClicks) * 100).toFixed(2) + '%' :
-                          '0.00%') : '—'}
+                        {totalMetrics.cr.toFixed(2)}%
                       </dd>
                     </dl>
                   </div>
@@ -3038,7 +3066,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Ср. лидов
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (filteredLandings.length > 0 ? String(Math.round(aggregatedMetricsStats.totalLeads / filteredLandings.length)) : '0') : '—'}
+                        {Math.round(totalMetrics.avgLeads)}
                       </dd>
                     </dl>
                   </div>
@@ -3059,7 +3087,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Ср. расходы
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (filteredLandings.length > 0 ? (aggregatedMetricsStats.totalCost / filteredLandings.length).toFixed(2) + '$' : '0.00$') : '—'}
+                        {totalMetrics.avgCost.toFixed(2)}$
                       </dd>
                     </dl>
                   </div>
@@ -3080,7 +3108,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         Ср. клики
                       </dt>
                       <dd className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
-                        {hasMetricsData ? (filteredLandings.length > 0 ? String(Math.round(aggregatedMetricsStats.totalClicks / filteredLandings.length)) : '0') : '—'}
+                        {Math.round(totalMetrics.avgClicks)}
                       </dd>
                     </dl>
                   </div>
