@@ -381,13 +381,20 @@ exports.handler = async (event) => {
         const foundMetrics = [];
         metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
           if (key.startsWith(`${adv_id}_${date}_`)) {
-            foundMetrics.push(dayMetrics);
+            const sourceIdMatch = key.match(/_([^_]+)$/);
+            const extractedSourceId = sourceIdMatch ? sourceIdMatch[1] : 'unknown';
+            
+            foundMetrics.push({
+              ...dayMetrics,
+              source_id_tracker: extractedSourceId
+            });
           }
         });
 
         if (foundMetrics.length > 0) {
           console.log(`✅ Найдены метрики: adv_id=${adv_id}, date=${date}, записей=${foundMetrics.length}`);
           foundMetrics.forEach(dayMetrics => {
+            console.log(`   source_id_tracker="${dayMetrics.source_id_tracker}"`);
             resultsByUuidSource.get(resultKey).daily.push(dayMetrics);
           });
         } else {
