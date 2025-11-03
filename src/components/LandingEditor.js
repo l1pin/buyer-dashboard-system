@@ -1197,30 +1197,29 @@ function LandingEditor({ user }) {
     try {
       console.log('🔍 Поиск лендингов по UUID:', searchText);
       
-      // Сначала получаем ВСЕ лендинги
-      const { data: allLandings, error } = await supabase
+      // Используем ilike для поиска по UUID
+      const { data: matchedLandings, error } = await supabase
         .from('landings')
         .select('id, article, template, is_test, website, designer_id, searcher_id, gifer_id, tags, is_poland, buyer_id')
-        .order('created_at', { ascending: false });
+        .ilike('id', `%${searchText}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Ошибка поиска:', error);
+        throw error;
+      }
 
-      if (!allLandings || allLandings.length === 0) {
+      if (!matchedLandings || matchedLandings.length === 0) {
+        console.log('⚠️ Совпадений не найдено');
         setUuidSuggestions([]);
         setShowUuidSuggestions(false);
         return;
       }
 
-      // Фильтруем на клиенте ТОЛЬКО по UUID
-      const searchLower = searchText.toLowerCase();
-      const filtered = allLandings.filter(landing => {
-        // Проверяем ТОЛЬКО UUID (id)
-        const idMatch = landing.id && landing.id.toLowerCase().includes(searchLower);
-        return idMatch;
-      });
-
       // Сортируем результаты - точные совпадения первыми
-      filtered.sort((a, b) => {
+      const searchLower = searchText.toLowerCase();
+      matchedLandings.sort((a, b) => {
         const aIdStarts = a.id && a.id.toLowerCase().startsWith(searchLower);
         const bIdStarts = b.id && b.id.toLowerCase().startsWith(searchLower);
         
@@ -1228,16 +1227,13 @@ function LandingEditor({ user }) {
         if (!aIdStarts && bIdStarts) return 1;
         return 0;
       });
-
-      // Ограничиваем до 20 результатов
-      const limited = filtered.slice(0, 20);
       
-      setUuidSuggestions(limited);
-      setShowUuidSuggestions(limited.length > 0);
-      console.log(`✅ Найдено ${limited.length} лендингов по UUID (из ${filtered.length} совпадений)`);
+      setUuidSuggestions(matchedLandings);
+      setShowUuidSuggestions(true);
+      console.log(`✅ Найдено ${matchedLandings.length} лендингов по UUID`);
       
-      if (limited.length > 0) {
-        console.log('📋 Примеры найденных:', limited.slice(0, 3).map(l => ({
+      if (matchedLandings.length > 0) {
+        console.log('📋 Примеры найденных:', matchedLandings.slice(0, 3).map(l => ({
           id: l.id,
           article: l.article
         })));
@@ -3480,7 +3476,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <div className="mt-2 space-y-1 max-w-xs">
                                     {landing.tags.map((tagName, index) => {
                                       // Находим полный объект тега из загруженных тегов
-                                      const tagObj = tags.find(t => t.name === tagName);
+                                      const tagObj = tags && tags.length > 0 ? tags.find(t => t.name === tagName) : null;
                                       const colorMap = {
                                         'purple': { dot: 'bg-purple-500', border: 'border-purple-200', bg: 'bg-purple-50' },
                                         'blue': { dot: 'bg-blue-500', border: 'border-blue-200', bg: 'bg-blue-50' },
@@ -3492,7 +3488,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         'orange': { dot: 'bg-orange-500', border: 'border-orange-200', bg: 'bg-orange-50' },
                                         'gray': { dot: 'bg-gray-500', border: 'border-gray-200', bg: 'bg-gray-50' }
                                       };
-                                      const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
+                                      const style = tagObj ? (colorMap[tagObj.color] || colorMap['blue']) : colorMap['blue'];
                                       return (
                                         <div key={index} className={`text-xs text-gray-700 ${style.bg} px-2 py-1 rounded flex items-center border ${style.border}`}>
                                           <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
@@ -4591,7 +4587,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         {newLanding.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {newLanding.tags.map((tagName, index) => {
-                              const tagObj = tags.find(t => t.name === tagName);
+                              const tagObj = tags && tags.length > 0 ? tags.find(t => t.name === tagName) : null;
                               const colorMap = {
                                 'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
                                 'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
@@ -4603,7 +4599,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700' },
                                 'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' }
                               };
-                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
+                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['blue']) : colorMap['blue'];
                               return (
                                 <span
                                   key={index}
@@ -4650,7 +4646,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           Теги не найдены
                         </div>
                       ) : (
-                        tags.map((tag) => {
+                        (tags && tags.length > 0 ? tags : []).map((tag) => {
                         // Используем цвет из базы данных или дефолтный серый
                         const colorMap = {
                           'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
@@ -5540,7 +5536,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         {editLanding.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {editLanding.tags.map((tagName, index) => {
-                              const tagObj = tags.find(t => t.name === tagName);
+                              const tagObj = tags && tags.length > 0 ? tags.find(t => t.name === tagName) : null;
                               const colorMap = {
                                 'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
                                 'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
@@ -5552,7 +5548,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700' },
                                 'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' }
                               };
-                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
+                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['blue']) : colorMap['blue'];
                               return (
                                 <span
                                   key={index}
@@ -5599,7 +5595,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           Теги не найдены
                         </div>
                       ) : (
-                        tags.map((tag) => {
+                        (tags && tags.length > 0 ? tags : []).map((tag) => {
                         const colorMap = {
                           'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
                           'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
