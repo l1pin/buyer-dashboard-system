@@ -896,6 +896,7 @@ export const cellService = {
 // Сервис для работы с лендингами
 export const landingService = {
   // Создать лендинг
+  // Создать лендинг
   async createLanding(landingData) {
     console.log('📝 Создание лендинга с данными:', {
       article: landingData.article,
@@ -915,6 +916,22 @@ export const landingService = {
       editor_id: landingData.editor_id,
       product_manager_id: landingData.product_manager_id
     });
+
+    // Получаем template_id по имени
+    let templateId = null;
+    if (landingData.template) {
+      const template = await landingTemplatesService.getTemplateByName(landingData.template);
+      templateId = template?.id || null;
+      console.log(`🔍 Шаблон "${landingData.template}" -> ID: ${templateId}`);
+    }
+
+    // Получаем tag_ids по именам
+    let tagIds = [];
+    if (landingData.tags && landingData.tags.length > 0) {
+      const tags = await landingTagsService.getTagsByNames(landingData.tags);
+      tagIds = tags.map(t => t.id);
+      console.log(`🏷️ Теги ${JSON.stringify(landingData.tags)} -> IDs: ${JSON.stringify(tagIds)}`);
+    }
 
     // КРИТИЧНО: Получаем следующий номер версии через RPC (обходим RLS)
     const { data: versionNumber, error: countError } = await supabase
@@ -941,6 +958,7 @@ export const landingService = {
             content_manager_name: landingData.content_manager_name,
             article: landingData.article,
             template: landingData.template,
+            template_id: templateId,
             tags: landingData.tags || [],
             comment: landingData.comment || null,
             is_poland: landingData.is_poland || false,
@@ -972,6 +990,16 @@ export const landingService = {
 
     const landing = data[0];
     console.log('✅ Лендинг создан успешно:', landing);
+
+    // Устанавливаем теги через junction таблицу
+    if (tagIds.length > 0) {
+      try {
+        await landingTagsService.setLandingTags(landing.id, tagIds);
+        console.log('✅ Теги лендинга установлены');
+      } catch (tagError) {
+        console.error('⚠️ Ошибка установки тегов, но лендинг создан:', tagError);
+      }
+    }
 
     return landing;
   },
@@ -1034,18 +1062,59 @@ export const landingService = {
   async updateLanding(landingId, updates) {
     console.log('📝 Обновление лендинга:', landingId, updates);
 
+    // Получаем template_id по имени если шаблон изменился
+    let templateId = undefined;
+    if (updates.template !== undefined) {
+      if (updates.template) {
+        const template = await landingTemplatesService.getTemplateByName(updates.template);
+        templateId = template?.id || null;
+        console.log(`🔍 Шаблон "${updates.template}" -> ID: ${templateId}`);
+      } else {
+        templateId = null;
+      }
+    }
+
+    // Получаем tag_ids по именам если теги изменились
+    let tagIds = null;
+    if (updates.tags !== undefined) {
+      if (updates.tags && updates.tags.length > 0) {
+        const tags = await landingTagsService.getTagsByNames(updates.tags);
+        tagIds = tags.map(t => t.id);
+        console.log(`🏷️ Теги ${JSON.stringify(updates.tags)} -> IDs: ${JSON.stringify(tagIds)}`);
+      } else {
+        tagIds = [];
+      }
+    }
+
+    const updateData = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    // Добавляем template_id если он был определен
+    if (templateId !== undefined) {
+      updateData.template_id = templateId;
+    }
+
     const { data, error } = await supabase
       .from('landings')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', landingId)
       .select();
 
     if (error) {
       console.error('❌ Ошибка обновления лендинга:', error);
       throw error;
+    }
+
+    // Обновляем теги через junction таблицу если они изменились
+    if (tagIds !== null) {
+      try {
+        await landingTagsService.setLandingTags(landingId, tagIds);
+        console.log('✅ Теги лендинга обновлены');
+      } catch (tagError) {
+        console.error('⚠️ Ошибка обновления тегов, но лендинг обновлен:', tagError);
+      }
     }
 
     console.log('✅ Лендинг обновлен:', data[0]);
@@ -1197,8 +1266,23 @@ export const landingHistoryService = {
     try {
       console.log('📝 Создание записи истории лендинга:', historyData.landing_id);
 
+      // Получаем template_id по имени
+      let templateId = null;
+      if (historyData.template) {
+        const template = await landingTemplatesService.getTemplateByName(historyData.template);
+        templateId = template?.id || null;
+      }
+
+      // Получаем tag_ids по именам
+      let tagIds = [];
+      if (historyData.tags && historyData.tags.length > 0) {
+        const tags = await landingTagsService.getTagsByNames(historyData.tags);
+        tagIds = tags.map(t => t.id);
+      }
+
       const dataToInsert = {
         ...historyData,
+        template_id: templateId,
         changed_at: historyData.changed_at || getKyivTime(),
         created_at: getKyivTime(),
         // Добавляем новые поля если они не переданы
@@ -1219,8 +1303,28 @@ export const landingHistoryService = {
         throw error;
       }
 
+      const historyEntry = data[0];
       console.log('✅ Запись истории создана с киевским временем');
-      return data[0];
+
+      // Устанавливаем теги истории через junction таблицу
+      if (tagIds.length > 0) {
+        try {
+          const relations = tagIds.map(tagId => ({
+            history_id: historyEntry.id,
+            tag_id: tagId
+          }));
+
+          await supabase
+            .from('landing_history_tag_relations')
+            .insert(relations);
+
+          console.log('✅ Теги истории лендинга установлены');
+        } catch (tagError) {
+          console.error('⚠️ Ошибка установки тегов истории:', tagError);
+        }
+      }
+
+      return historyEntry;
     } catch (error) {
       console.error('💥 Критическая ошибка создания записи истории:', error);
       throw error;
@@ -1288,6 +1392,26 @@ export const landingTemplatesService = {
     }
   },
 
+  // Получить шаблон по имени
+  async getTemplateByName(name) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_templates')
+        .select('*')
+        .eq('name', name)
+        .eq('is_active', true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка получения шаблона по имени:', error);
+      return null;
+    }
+  },
+
+
+  
   // Создать новый шаблон (только для тим лида)
   async createTemplate(templateData) {
     try {
@@ -1365,6 +1489,74 @@ export const landingTagsService = {
     } catch (error) {
       console.error('❌ Ошибка получения тегов:', error);
       return [];
+    }
+  },
+
+  // Получить теги по именам
+  async getTagsByNames(names) {
+    try {
+      if (!names || names.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('landing_tags')
+        .select('*')
+        .in('name', names)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения тегов по именам:', error);
+      return [];
+    }
+  },
+
+  // Получить теги лендинга
+  async getLandingTags(landingId) {
+    try {
+      const { data, error } = await supabase
+        .from('landing_tag_relations')
+        .select(`
+          tag_id,
+          landing_tags(*)
+        `)
+        .eq('landing_id', landingId);
+
+      if (error) throw error;
+      return data?.map(rel => rel.landing_tags) || [];
+    } catch (error) {
+      console.error('❌ Ошибка получения тегов лендинга:', error);
+      return [];
+    }
+  },
+
+  // Установить теги для лендинга
+  async setLandingTags(landingId, tagIds) {
+    try {
+      // Удаляем старые связи
+      await supabase
+        .from('landing_tag_relations')
+        .delete()
+        .eq('landing_id', landingId);
+
+      // Добавляем новые связи
+      if (tagIds && tagIds.length > 0) {
+        const relations = tagIds.map(tagId => ({
+          landing_id: landingId,
+          tag_id: tagId
+        }));
+
+        const { error } = await supabase
+          .from('landing_tag_relations')
+          .insert(relations);
+
+        if (error) throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Ошибка установки тегов лендинга:', error);
+      throw error;
     }
   },
 
