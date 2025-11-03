@@ -195,6 +195,7 @@ async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dat
       'daily' as kind,
       t.adv_id,
       t.adv_date,
+      t.source_id_tracker,
       COALESCE(SUM(t.valid), 0) AS leads,
       COALESCE(SUM(t.cost), 0) AS cost,
       COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -206,7 +207,7 @@ async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dat
     WHERE (${conditions})
       AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
       ${dateFilter}
-    GROUP BY t.adv_id, t.adv_date
+    GROUP BY t.adv_id, t.adv_date, t.source_id_tracker
     ORDER BY t.adv_id, t.adv_date
   `;
 
@@ -336,12 +337,13 @@ exports.handler = async (event) => {
 
     console.log(`✅ Получено ${metrics.length} записей метрик из ads_collection`);
 
-    // Создаем Map для быстрого поиска метрик по (adv_id, date)
+    // Создаем Map для быстрого поиска метрик по (adv_id, date, source_id_tracker)
     const metricsByAdvIdAndDate = new Map();
     metrics.forEach(metric => {
-      const key = `${metric.adv_id}_${metric.adv_date}`;
+      const key = `${metric.adv_id}_${metric.adv_date}_${metric.source_id_tracker || 'unknown'}`;
       metricsByAdvIdAndDate.set(key, {
         date: metric.adv_date,
+        source_id_tracker: metric.source_id_tracker || null,
         leads: Number(metric.leads) || 0,
         cost: Number(metric.cost) || 0,
         clicks: Number(metric.clicks) || 0,
@@ -373,14 +375,21 @@ exports.handler = async (event) => {
       // Добавляем adv_id в список
       resultsByUuidSource.get(resultKey).adv_ids.push(adv_id);
 
-      // Собираем метрики для каждой даты этого adv_id
+      // Собираем метрики для каждой даты этого adv_id (по всем source_id_tracker)
       dates.forEach(date => {
-        const metricsKey = `${adv_id}_${date}`;
-        const dayMetrics = metricsByAdvIdAndDate.get(metricsKey);
+        // Ищем все метрики для этой пары (adv_id, date) независимо от source_id_tracker
+        const foundMetrics = [];
+        metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
+          if (key.startsWith(`${adv_id}_${date}_`)) {
+            foundMetrics.push(dayMetrics);
+          }
+        });
 
-        if (dayMetrics) {
-          console.log(`✅ Найдены метрики: adv_id=${adv_id}, date=${date}, leads=${dayMetrics.leads}, cost=${dayMetrics.cost}`);
-          resultsByUuidSource.get(resultKey).daily.push(dayMetrics);
+        if (foundMetrics.length > 0) {
+          console.log(`✅ Найдены метрики: adv_id=${adv_id}, date=${date}, записей=${foundMetrics.length}`);
+          foundMetrics.forEach(dayMetrics => {
+            resultsByUuidSource.get(resultKey).daily.push(dayMetrics);
+          });
         } else {
           console.log(`⚠️ НЕ найдены метрики: adv_id=${adv_id}, date=${date}`);
         }
