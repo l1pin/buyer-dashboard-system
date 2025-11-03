@@ -44,6 +44,31 @@ import {
 } from 'lucide-react';
 
 function LandingTeamLead({ user }) {
+  // Стили для кастомного дропдауна
+  const colorPickerStyles = `
+    .custom-color-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      padding-right: 2rem;
+    }
+    .custom-color-select option {
+      padding: 8px 12px;
+      background-color: white;
+      color: #1f2937;
+    }
+    .custom-color-select option:checked {
+      background: linear-gradient(to bottom, #3b82f6 0%, #3b82f6 100%);
+      color: white;
+    }
+    .custom-color-select option:hover {
+      background-color: #f3f4f6;
+    }
+  `;
+
   const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1779,6 +1804,7 @@ data-rt-sub16="${selectedLandingUuid}"
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      <style dangerouslySetInnerHTML={{ __html: colorPickerStyles }} />
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -3970,15 +3996,14 @@ data-rt-sub16="${selectedLandingUuid}"
                           }
                         }}
                         placeholder="Название тега..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-[42px]"
                       />
-                      <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white h-[42px]">
+                      <div className="relative flex items-center space-x-2 px-3 border border-gray-300 rounded-md bg-white h-[42px]">
                         <span className={`w-4 h-4 rounded-full flex-shrink-0 ${getTagColorClasses(newTagColor).dot}`}></span>
                         <select
                           value={newTagColor}
                           onChange={(e) => setNewTagColor(e.target.value)}
-                          className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm py-0 pr-8"
-                          style={{ backgroundPosition: 'right 0.5rem center' }}
+                          className="custom-color-select border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm h-full"
                         >
                           <option value="purple">Фиолетовый</option>
                           <option value="blue">Синий</option>
@@ -3994,7 +4019,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       <button
                         onClick={handleCreateTag}
                         disabled={savingSettings || !newTagName.trim()}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-[42px]"
                       >
                         {savingSettings ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -4041,16 +4066,15 @@ data-rt-sub16="${selectedLandingUuid}"
                                       handleUpdateTag(tag.id, { name: editingTag.name, color: editingTag.color });
                                     }
                                   }}
-                                  className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-[38px]"
                                   autoFocus
                                 />
-                                <div className="flex items-center space-x-2 px-2 py-1 border border-gray-300 rounded-md bg-white">
+                                <div className="relative flex items-center space-x-2 px-3 border border-gray-300 rounded-md bg-white h-[38px]">
                                   <span className={`w-3 h-3 rounded-full flex-shrink-0 ${getTagColorClasses(editingTag.color).dot}`}></span>
                                   <select
                                     value={editingTag.color}
                                     onChange={(e) => setEditingTag({...editingTag, color: e.target.value})}
-                                    className="border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-xs py-0 pr-6"
-                                    style={{ backgroundPosition: 'right 0.25rem center', backgroundSize: '12px' }}
+                                    className="custom-color-select border-none focus:outline-none focus:ring-0 bg-transparent cursor-pointer text-sm h-full"
                                   >
                                     <option value="purple">Фиолетовый</option>
                                     <option value="blue">Синий</option>
@@ -4066,13 +4090,13 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <button
                                   onClick={() => handleUpdateTag(tag.id, { name: editingTag.name, color: editingTag.color })}
                                   disabled={savingSettings}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center"
                                 >
                                   <Save className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => setEditingTag(null)}
-                                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors h-[38px] w-[38px] flex items-center justify-center"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
