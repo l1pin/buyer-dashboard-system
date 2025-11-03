@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
-import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService } from '../supabaseClient';
+import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
 import { useZoneData } from '../hooks/useZoneData';
@@ -133,6 +133,10 @@ function LandingEditor({ user }) {
   const [isTestMode, setIsTestMode] = useState(false);
   const [productManagers, setProductManagers] = useState([]);
   const [gifers, setGifers] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [verifiedUrls, setVerifiedUrls] = useState([]);
   const [loadingUrls, setLoadingUrls] = useState(false);
@@ -146,26 +150,7 @@ function LandingEditor({ user }) {
   const [showSourceContentDropdown, setShowSourceContentDropdown] = useState(false);
   const [sourceBuyerId, setSourceBuyerId] = useState(null);
   const [sourceContentId, setSourceContentId] = useState(null);
-
-  // Доступные теги для лендингов
-  const availableTags = [
-    'SEO',
-    'Адаптив',
-    'Анимация',
-    'Форма',
-    'Интеграция',
-    'Мультиязычность'
-  ];
-
-  // Доступные шаблоны
-  const templateOptions = [
-    'Шаблон 1',
-    'Шаблон 2',
-    'Шаблон 3',
-    'Шаблон 4',
-    'Шаблон 5'
-  ];
-
+  
   // Компоненты флагов
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
@@ -866,6 +851,7 @@ function LandingEditor({ user }) {
   useEffect(() => {
     const init = async () => {
       loadUsers();
+      loadTemplatesAndTags();
       await loadLandings();
       loadLastUpdateTime();
     };
@@ -1161,6 +1147,28 @@ function LandingEditor({ user }) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadTemplatesAndTags = async () => {
+    try {
+      setLoadingTemplates(true);
+      setLoadingTags(true);
+      console.log('📋 Загрузка шаблонов и тегов...');
+
+      const [templatesData, tagsData] = await Promise.all([
+        landingTemplatesService.getActiveTemplates(),
+        landingTagsService.getActiveTags()
+      ]);
+
+      setTemplates(templatesData);
+      setTags(tagsData);
+      console.log(`✅ Загружено ${templatesData.length} шаблонов и ${tagsData.length} тегов`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки шаблонов и тегов:', error);
+    } finally {
+      setLoadingTemplates(false);
+      setLoadingTags(false);
     }
   };
 
@@ -3455,20 +3463,25 @@ data-rt-sub16="${selectedLandingUuid}"
 
                                 {isExpanded && (
                                   <div className="mt-2 space-y-1 max-w-xs">
-                                    {landing.tags.map((tag, index) => {
-                                      const tagStyles = {
-                                        'SEO': { dot: 'bg-purple-500', border: 'border-purple-200', bg: 'bg-purple-50' },
-                                        'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-200', bg: 'bg-blue-50' },
-                                        'Анимация': { dot: 'bg-green-500', border: 'border-green-200', bg: 'bg-green-50' },
-                                        'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-200', bg: 'bg-yellow-50' },
-                                        'Интеграция': { dot: 'bg-red-500', border: 'border-red-200', bg: 'bg-red-50' },
-                                        'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-200', bg: 'bg-indigo-50' }
+                                    {landing.tags.map((tagName, index) => {
+                                      // Находим полный объект тега из загруженных тегов
+                                      const tagObj = tags.find(t => t.name === tagName);
+                                      const colorMap = {
+                                        'purple': { dot: 'bg-purple-500', border: 'border-purple-200', bg: 'bg-purple-50' },
+                                        'blue': { dot: 'bg-blue-500', border: 'border-blue-200', bg: 'bg-blue-50' },
+                                        'green': { dot: 'bg-green-500', border: 'border-green-200', bg: 'bg-green-50' },
+                                        'yellow': { dot: 'bg-yellow-500', border: 'border-yellow-200', bg: 'bg-yellow-50' },
+                                        'red': { dot: 'bg-red-500', border: 'border-red-200', bg: 'bg-red-50' },
+                                        'indigo': { dot: 'bg-indigo-500', border: 'border-indigo-200', bg: 'bg-indigo-50' },
+                                        'pink': { dot: 'bg-pink-500', border: 'border-pink-200', bg: 'bg-pink-50' },
+                                        'orange': { dot: 'bg-orange-500', border: 'border-orange-200', bg: 'bg-orange-50' },
+                                        'gray': { dot: 'bg-gray-500', border: 'border-gray-200', bg: 'bg-gray-50' }
                                       };
-                                      const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-200', bg: 'bg-gray-50' };
+                                      const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
                                       return (
                                         <div key={index} className={`text-xs text-gray-700 ${style.bg} px-2 py-1 rounded flex items-center border ${style.border}`}>
                                           <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
-                                          <span className="truncate cursor-text select-text">{tag}</span>
+                                          <span className="truncate cursor-text select-text">{tagName}</span>
                                         </div>
                                       );
                                     })}
@@ -3928,13 +3941,20 @@ data-rt-sub16="${selectedLandingUuid}"
                 <label className="block text-sm font-medium mb-2 text-gray-700">
                   Шаблон
                 </label>
-                <input
-                  type="text"
-                  value={newLanding.template || ''}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
-                  placeholder="Шаблон подтянется автоматически"
-                />
+                {loadingTemplates ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    <span className="text-sm text-gray-500">Загрузка шаблонов...</span>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={newLanding.template || ''}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                    placeholder="Шаблон подтянется автоматически"
+                  />
+                )}
               </div>
 
               {/* Designer */}
@@ -4555,23 +4575,27 @@ data-rt-sub16="${selectedLandingUuid}"
                       <div className="flex-1">
                         {newLanding.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {newLanding.tags.map((tag, index) => {
-                              const tagStyles = {
-                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
-                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
-                                'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
-                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
-                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
-                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' }
+                            {newLanding.tags.map((tagName, index) => {
+                              const tagObj = tags.find(t => t.name === tagName);
+                              const colorMap = {
+                                'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
+                                'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
+                                'green': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
+                                'yellow': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
+                                'red': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
+                                'indigo': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' },
+                                'pink': { dot: 'bg-pink-500', border: 'border-pink-300', text: 'text-pink-700' },
+                                'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700' },
+                                'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' }
                               };
-                              const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' };
+                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
                               return (
                                 <span
                                   key={index}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white ${style.border} ${style.text}`}
                                 >
                                   <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
-                                  {tag}
+                                  {tagName}
                                 </span>
                               );
                             })}
@@ -4601,17 +4625,31 @@ data-rt-sub16="${selectedLandingUuid}"
 
                   {showTagsDropdown && (
                     <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2 max-h-[220px] overflow-y-auto">
-                      {availableTags.map((tag) => {
-                        const tagStyles = {
-                          'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
-                          'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
-                          'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
-                          'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
-                          'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
-                          'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' }
+                      {loadingTags ? (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                          <span className="text-sm text-gray-500">Загрузка тегов...</span>
+                        </div>
+                      ) : tags.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          Теги не найдены
+                        </div>
+                      ) : (
+                        tags.map((tag) => {
+                        // Используем цвет из базы данных или дефолтный серый
+                        const colorMap = {
+                          'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
+                          'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
+                          'green': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
+                          'yellow': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
+                          'red': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
+                          'indigo': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' },
+                          'pink': { dot: 'bg-pink-500', border: 'border-pink-300', text: 'text-pink-700', hover: 'hover:bg-pink-50' },
+                          'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700', hover: 'hover:bg-orange-50' },
+                          'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' }
                         };
-                        const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' };
-                        const isSelected = newLanding.tags.includes(tag);
+                        const style = colorMap[tag.color] || colorMap['gray'];
+                        const isSelected = newLanding.tags.some(t => t === tag.name);
                         return (
                           <button
                             key={tag}
@@ -4619,9 +4657,9 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={() => {
                               let updatedTags;
                               if (isSelected) {
-                                updatedTags = newLanding.tags.filter(t => t !== tag);
+                                updatedTags = newLanding.tags.filter(t => t !== tag.name);
                               } else {
-                                updatedTags = [...newLanding.tags, tag];
+                                updatedTags = [...newLanding.tags, tag.name];
                               }
                               setNewLanding({ ...newLanding, tags: updatedTags });
                             }}
@@ -4632,7 +4670,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           >
                             <div className="flex items-center">
                               <span className={`w-2 h-2 rounded-full ${style.dot} mr-2`}></span>
-                              <span className="text-sm font-medium">{tag}</span>
+                              <span className="text-sm font-medium">{tag.name}</span>
                             </div>
                             {isSelected && (
                               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -4641,7 +4679,7 @@ data-rt-sub16="${selectedLandingUuid}"
                             )}
                           </button>
                         );
-                      })}
+                      }))}
                     </div>
                   )}
                 </div>
@@ -4876,22 +4914,37 @@ data-rt-sub16="${selectedLandingUuid}"
                   </button>
 
                   {showTemplateDropdown && (
-                    <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
-                      {templateOptions.map((template) => (
-                        <button
-                          key={template}
-                          type="button"
-                          onClick={() => {
-                            setEditLanding({ ...editLanding, template });
-                            setShowTemplateDropdown(false);
-                            clearFieldError('template');
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                        >
-                          {template}
-                        </button>
-                      ))}
+                <div className="template-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {loadingTemplates ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                      <span className="text-sm text-gray-500">Загрузка шаблонов...</span>
                     </div>
+                  ) : templates.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-gray-500">
+                      Шаблоны не найдены
+                    </div>
+                  ) : (
+                    templates.map((template) => (
+                        <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => {
+                        setEditLanding({ ...editLanding, template: template.name });
+                        setShowTemplateDropdown(false);
+                        clearFieldError('template');
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{template.name}</span>
+                        {template.description && (
+                          <span className="text-xs text-gray-500 ml-2">{template.description}</span>
+                        )}
+                      </div>
+                    </button>
+                  )))}
+                </div>
                   )}
                 </div>
               </div>
@@ -5471,23 +5524,27 @@ data-rt-sub16="${selectedLandingUuid}"
                       <div className="flex-1">
                         {editLanding.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {editLanding.tags.map((tag, index) => {
-                              const tagStyles = {
-                                'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
-                                'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
-                                'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
-                                'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
-                                'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
-                                'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' }
+                            {editLanding.tags.map((tagName, index) => {
+                              const tagObj = tags.find(t => t.name === tagName);
+                              const colorMap = {
+                                'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
+                                'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
+                                'green': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700' },
+                                'yellow': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700' },
+                                'red': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700' },
+                                'indigo': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' },
+                                'pink': { dot: 'bg-pink-500', border: 'border-pink-300', text: 'text-pink-700' },
+                                'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700' },
+                                'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' }
                               };
-                              const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700' };
+                              const style = tagObj ? (colorMap[tagObj.color] || colorMap['gray']) : colorMap['gray'];
                               return (
                                 <span
                                   key={index}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-white ${style.border} ${style.text}`}
                                 >
                                   <span className={`w-1.5 h-1.5 rounded-full ${style.dot} mr-1.5`}></span>
-                                  {tag}
+                                  {tagName}
                                 </span>
                               );
                             })}
@@ -5517,17 +5574,30 @@ data-rt-sub16="${selectedLandingUuid}"
 
                   {showTagsDropdown && (
                     <div className="tags-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2 max-h-[220px] overflow-y-auto">
-                      {availableTags.map((tag) => {
-                        const tagStyles = {
-                          'SEO': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
-                          'Адаптив': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
-                          'Анимация': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
-                          'Форма': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
-                          'Интеграция': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
-                          'Мультиязычность': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' }
+                      {loadingTags ? (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                          <span className="text-sm text-gray-500">Загрузка тегов...</span>
+                        </div>
+                      ) : tags.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          Теги не найдены
+                        </div>
+                      ) : (
+                        tags.map((tag) => {
+                        const colorMap = {
+                          'purple': { dot: 'bg-purple-500', border: 'border-purple-300', text: 'text-purple-700', hover: 'hover:bg-purple-50' },
+                          'blue': { dot: 'bg-blue-500', border: 'border-blue-300', text: 'text-blue-700', hover: 'hover:bg-blue-50' },
+                          'green': { dot: 'bg-green-500', border: 'border-green-300', text: 'text-green-700', hover: 'hover:bg-green-50' },
+                          'yellow': { dot: 'bg-yellow-500', border: 'border-yellow-300', text: 'text-yellow-700', hover: 'hover:bg-yellow-50' },
+                          'red': { dot: 'bg-red-500', border: 'border-red-300', text: 'text-red-700', hover: 'hover:bg-red-50' },
+                          'indigo': { dot: 'bg-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700', hover: 'hover:bg-indigo-50' },
+                          'pink': { dot: 'bg-pink-500', border: 'border-pink-300', text: 'text-pink-700', hover: 'hover:bg-pink-50' },
+                          'orange': { dot: 'bg-orange-500', border: 'border-orange-300', text: 'text-orange-700', hover: 'hover:bg-orange-50' },
+                          'gray': { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' }
                         };
-                        const style = tagStyles[tag] || { dot: 'bg-gray-500', border: 'border-gray-300', text: 'text-gray-700', hover: 'hover:bg-gray-50' };
-                        const isSelected = editLanding.tags.includes(tag);
+                        const style = colorMap[tag.color] || colorMap['gray'];
+                        const isSelected = editLanding.tags.some(t => t === tag.name);
                         return (
                           <button
                             key={tag}
@@ -5535,9 +5605,9 @@ data-rt-sub16="${selectedLandingUuid}"
                             onClick={() => {
                               let updatedTags;
                               if (isSelected) {
-                                updatedTags = editLanding.tags.filter(t => t !== tag);
+                                updatedTags = editLanding.tags.filter(t => t !== tag.name);
                               } else {
-                                updatedTags = [...editLanding.tags, tag];
+                                updatedTags = [...editLanding.tags, tag.name];
                               }
                               setEditLanding({ ...editLanding, tags: updatedTags });
                             }}
@@ -5548,7 +5618,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           >
                             <div className="flex items-center">
                               <span className={`w-2 h-2 rounded-full ${style.dot} mr-2`}></span>
-                              <span className="text-sm font-medium">{tag}</span>
+                              <span className="text-sm font-medium">{tag.name}</span>
                             </div>
                             {isSelected && (
                               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -5557,7 +5627,7 @@ data-rt-sub16="${selectedLandingUuid}"
                             )}
                           </button>
                         );
-                      })}
+                      }))}
                     </div>
                   )}
                 </div>
