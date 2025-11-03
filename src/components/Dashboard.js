@@ -12,6 +12,7 @@ import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import LandingPanel from './LandingPanel';
 import LandingEditor from './LandingEditor';
+import LandingTeamLead from './LandingTeamLead';
 import Settings from './Settings';
 
 function Dashboard({ user, session, updateUser }) {
