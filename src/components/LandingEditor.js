@@ -3030,11 +3030,7 @@ data-rt-sub16="${selectedLandingUuid}"
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="8.5" cy="7" r="4" />
-                      <polyline points="17 11 19 13 23 9" />
-                    </svg>
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
@@ -3055,7 +3051,7 @@ data-rt-sub16="${selectedLandingUuid}"
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-green-500" />
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
@@ -3076,7 +3072,7 @@ data-rt-sub16="${selectedLandingUuid}"
               <div className="p-2 sm:p-3 md:p-4">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-green-500" />
+                    <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-blue-500" />
                   </div>
                   <div className="ml-2 sm:ml-3 w-0 flex-1">
                     <dl>
