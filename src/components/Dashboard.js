@@ -27,6 +27,7 @@ function Dashboard({ user, session, updateUser }) {
     '/workspace/creatives': 'creatives',
     '/workspace/landings': 'landings',
     '/workspace/landing-editor': 'landing-editor',
+    '/workspace/landing-teamlead': 'landing-teamlead',
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
     '/settings': 'settings'
@@ -39,6 +40,7 @@ function Dashboard({ user, session, updateUser }) {
     'creatives': '/workspace/creatives',
     'landings': '/workspace/landings',
     'landing-editor': '/workspace/landing-editor',
+    'landing-teamlead': '/workspace/landing-teamlead',
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
     'settings': '/settings'
@@ -50,7 +52,7 @@ function Dashboard({ user, session, updateUser }) {
     if (role === 'designer') return 'settings';
     if (role === 'search_manager') return 'creatives';
     if (role === 'buyer') return 'creatives';
-    if (role === 'teamlead') return 'analytics';
+    if (role === 'teamlead') return 'landing-teamlead';
     if (role === 'content_manager') return 'landings';
     if (role === 'product_manager') return 'settings';
     if (role === 'proofreader') return 'landing-editor';
@@ -71,6 +73,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'content_manager';
       case 'landing-editor':
         return role === 'proofreader';
+      case 'landing-teamlead':
+        return role === 'teamlead';
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
@@ -168,6 +172,8 @@ function Dashboard({ user, session, updateUser }) {
         return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
       case 'landing-editor':
         return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
+      case 'landing-teamlead':
+        return user?.role === 'teamlead' ? <LandingTeamLead user={user} /> : null;
       case 'analytics':
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
@@ -187,7 +193,7 @@ function Dashboard({ user, session, updateUser }) {
         } else if (user?.role === 'proofreader') {
           return <LandingEditor user={user} />;
         } else if (user?.role === 'teamlead') {
-          return <CreativeAnalytics user={user} />;
+          return <LandingTeamLead user={user} />;
         } else {
           return <Settings user={user} updateUser={updateUser} />;
         }
