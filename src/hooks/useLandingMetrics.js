@@ -45,32 +45,43 @@ export function useLandingMetrics(landings, autoLoad = false, period = 'all') {
 
           if (cachedData && cachedData.length > 0) {
             console.log(`📦 Найдено в кэше: ${cachedData.length} метрик`);
+            
+            // ПРОВЕРКА: Есть ли source_id_tracker в первой записи кэша?
+            const firstCacheItem = cachedData[0];
+            const hasSourceIdTracker = firstCacheItem?.data?.allDailyData?.[0]?.source_id_tracker;
+            
+            console.log(`🔍 Проверка кэша: hasSourceIdTracker=${!!hasSourceIdTracker}`);
+            
+            // Если в кэше НЕТ source_id_tracker - игнорируем кэш и загружаем заново
+            if (!hasSourceIdTracker) {
+              console.log(`⚠️ Кэш устарел (нет source_id_tracker), принудительная перезагрузка...`);
+              // Продолжаем выполнение функции для загрузки из API
+            } else {
+              cachedData.forEach(cache => {
+                if (!cache) return;
 
-            cachedData.forEach(cache => {
-              if (!cache) return;
-
-              const key = `${cache.landing_id}_${cache.source}`;
-              metricsMap.set(key, cache);
-            });
-
-            // Если все в кэше - возвращаем
-            const cachedCount = metricsMap.size;
-            const expectedCount = landingUuids.length; // Примерно
-
-            if (cachedCount > 0) {
-              console.log(`✅ Используем ${cachedCount} метрик из кэша`);
-              setLandingMetrics(metricsMap);
-              setLastUpdated(new Date());
-              setLoading(false);
-
-              const foundCount = Array.from(metricsMap.values()).filter(m => m.found).length;
-              setStats({
-                total: cachedCount,
-                found: foundCount,
-                notFound: cachedCount - foundCount
+                const key = `${cache.landing_id}_${cache.source}`;
+                metricsMap.set(key, cache);
               });
 
-              return;
+              // Если все в кэше - возвращаем
+              const cachedCount = metricsMap.size;
+
+              if (cachedCount > 0) {
+                console.log(`✅ Используем ${cachedCount} метрик из кэша`);
+                setLandingMetrics(metricsMap);
+                setLastUpdated(new Date());
+                setLoading(false);
+
+                const foundCount = Array.from(metricsMap.values()).filter(m => m.found).length;
+                setStats({
+                  total: cachedCount,
+                  found: foundCount,
+                  notFound: cachedCount - foundCount
+                });
+
+                return;
+              }
             }
           }
         } catch (cacheError) {
