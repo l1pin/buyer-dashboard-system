@@ -862,6 +862,47 @@ function LandingPanel({ user }) {
   }, [filteredLandings.length]);
 
   useEffect(() => {
+    // Подписка на изменения шаблонов
+    const templatesSubscription = supabase
+      .channel('landing_templates_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'landing_templates'
+        },
+        (payload) => {
+          console.log('🔄 Шаблон изменен:', payload);
+          loadTemplates(); // Перезагружаем шаблоны
+        }
+      )
+      .subscribe();
+
+    // Подписка на изменения тегов
+    const tagsSubscription = supabase
+      .channel('landing_tags_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'landing_tags'
+        },
+        (payload) => {
+          console.log('🏷️ Тег изменен:', payload);
+          loadTags(); // Перезагружаем теги
+        }
+      )
+      .subscribe();
+
+    return () => {
+      templatesSubscription.unsubscribe();
+      tagsSubscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     // Подписка на создание новых лендингов
     const landingsSubscription = supabase
       .channel('landings_changes')
@@ -940,7 +981,7 @@ function LandingPanel({ user }) {
       trelloSubscription.unsubscribe();
     };
   }, []);
-
+  
   // Загрузка Trello статусов после загрузки лендингов
   useEffect(() => {
     if (landings && landings.length > 0) {
