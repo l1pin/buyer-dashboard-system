@@ -78,7 +78,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     },
     {
       id: 'landing-teamlead',
-      label: 'Лендинги (TeamLead)',
+      label: 'Лендинги',
       icon: Globe,
       show: user?.role === 'teamlead'
     },
