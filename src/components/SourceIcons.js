@@ -53,13 +53,13 @@ export const SourceBadges = ({ sources = [] }) => {
   };
 
   return (
-    <div className="flex items-center -space-x-2">
+    <div className="flex items-center justify-center space-x-1">
       {sources.map((source, index) => (
         <div
           key={`${source}-${index}`}
-          className="w-6 h-6 rounded-full overflow-hidden bg-white border border-gray-300 flex items-center justify-center flex-shrink-0"
+          className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0"
+          style={{ width: '26px', height: '26px' }}
           title={getSourceTitle(source)}
-          style={{ zIndex: sources.length - index }}
         >
           {getSourceIcon(source)}
         </div>
