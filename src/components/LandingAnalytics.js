@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
-import { SourceBadges } from './SourceIcons';
+import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService, buyerSourceService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
@@ -2008,6 +2008,30 @@ data-rt-sub16="${selectedLandingUuid}"
     return sources;
   };
 
+  // Получение источника для конкретного байера
+  const getBuyerSource = (landingId, buyerId) => {
+    if (!landingId || !buyerId || !landingMetrics || landingMetrics.size === 0) {
+      return null;
+    }
+
+    const possibleSources = ['google', 'facebook', 'tiktok'];
+
+    for (const source of possibleSources) {
+      const key = `${landingId}_${source}`;
+      if (landingMetrics.has(key)) {
+        const metrics = landingMetrics.get(key);
+        if (metrics && metrics.found && metrics.data && metrics.data.raw) {
+          // Проверяем, есть ли этот байер в метриках источника
+          if (metrics.data.raw.buyer_id === buyerId) {
+            return source;
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
   const getContentManagerAvatar = (contentManagerId) => {
     if (!contentManagerId) return null;
     const cm = contentManagers.find(c => c.id === contentManagerId);
@@ -3461,6 +3485,18 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="text-sm font-medium text-gray-900">
                                           {buyerMetric.buyer_name}
                                         </span>
+                                        {(() => {
+                                          const buyerSource = getBuyerSource(landing.id, buyerMetric.buyer_id);
+                                          if (!buyerSource) return null;
+
+                                          return (
+                                            <div className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ width: '20px', height: '20px' }}>
+                                              {buyerSource === 'google' && <GoogleIcon className="w-full h-full" />}
+                                              {buyerSource === 'facebook' && <FacebookIcon className="w-full h-full" />}
+                                              {buyerSource === 'tiktok' && <TiktokIcon className="w-full h-full" />}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
