@@ -3130,6 +3130,14 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <Clock className="h-4 w-4 mx-auto" />
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        <Globe className="h-4 w-4 mx-auto" />
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
 
@@ -3292,32 +3300,39 @@ data-rt-sub16="${selectedLandingUuid}"
                             </div>
                           </td>
 
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                {landingsWithHistory.has(landing.id) && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      showHistory(landing);
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                    title="Показать историю изменений"
-                                  >
-                                    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                      <path stroke="none" d="M0 0h24v24H0z" />
-                                      <polyline points="12 8 12 12 14 14" />
-                                      <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
+                          {/* Колонка со статусом обновления (часики) */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center">
+                              {landingsWithHistory.has(landing.id) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showHistory(landing);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                  title="Показать историю изменений"
+                                >
+                                  <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" />
+                                    <polyline points="12 8 12 12 14 14" />
+                                    <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
 
+                          {/* Колонка со страной (флаг) */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center">
                               {landing.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                            </div>
+                          </td>
 
-                              <div className="text-sm font-medium text-gray-900 cursor-text select-text">
-                                {landing.article}
-                              </div>
+                          {/* Колонка с артикулом */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <div className="text-sm font-medium text-gray-900 cursor-text select-text">
+                              {landing.article}
                             </div>
                           </td>
 
