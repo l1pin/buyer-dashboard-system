@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
-import { SourceBadges } from './SourceIcons';
+import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService, buyerSourceService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
@@ -2008,6 +2008,41 @@ data-rt-sub16="${selectedLandingUuid}"
     return sources;
   };
 
+  // Получение источников для конкретного байера на лендинге
+  const getBuyerSources = (buyerId, landingId) => {
+    if (!buyerId || !landingId || !buyerSources || !landingMetrics) {
+      return [];
+    }
+
+    const buyerSourceIds = buyerSources.get(buyerId) || [];
+    if (buyerSourceIds.length === 0) {
+      return [];
+    }
+
+    const sources = [];
+    const possibleSources = ['google', 'facebook', 'tiktok'];
+
+    possibleSources.forEach(source => {
+      const key = `${landingId}_${source}`;
+      if (landingMetrics.has(key)) {
+        const metrics = landingMetrics.get(key);
+        if (metrics && metrics.found && metrics.data && metrics.data.allDailyData) {
+          // Проверяем, есть ли в allDailyData дни с source_id_tracker из source_ids байера
+          const hasMatchingSource = metrics.data.allDailyData.some(day => {
+            const sourceIdStr = String(day.source_id_tracker || '').trim();
+            return buyerSourceIds.some(buyerSourceId => String(buyerSourceId).trim() === sourceIdStr);
+          });
+
+          if (hasMatchingSource) {
+            sources.push(source);
+          }
+        }
+      }
+    });
+
+    return sources;
+  };
+
   const getContentManagerAvatar = (contentManagerId) => {
     if (!contentManagerId) return null;
     const cm = contentManagers.find(c => c.id === contentManagerId);
@@ -3435,34 +3470,59 @@ data-rt-sub16="${selectedLandingUuid}"
                                   </button>
                                 </div>
                                 <div className="border-b border-gray-300"></div>
-                                {buyerMetrics.map((buyerMetric, idx) => (
-                                  <React.Fragment key={idx}>
-                                    <div className="h-10 flex items-center justify-start space-x-2">
-                                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                        {buyerMetric.buyer_avatar ? (
-                                          <img
-                                            src={buyerMetric.buyer_avatar}
-                                            alt={buyerMetric.buyer_name}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                              e.target.style.display = 'none';
-                                              e.target.nextSibling.style.display = 'flex';
-                                            }}
-                                          />
-                                        ) : null}
-                                        <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
-                                          <User className="h-3 w-3 text-gray-400" />
+                                {buyerMetrics.map((buyerMetric, idx) => {
+                                  const buyerSourcesList = getBuyerSources(buyerMetric.buyer_id, landing.id);
+                                  const getSourceIcon = (source) => {
+                                    const lowerSource = source.toLowerCase();
+                                    if (lowerSource === 'google') return <GoogleIcon className="w-full h-full" />;
+                                    if (lowerSource === 'facebook') return <FacebookIcon className="w-full h-full" />;
+                                    if (lowerSource === 'tiktok') return <TiktokIcon className="w-full h-full" />;
+                                    return null;
+                                  };
+
+                                  return (
+                                    <React.Fragment key={idx}>
+                                      <div className="h-10 flex items-center justify-start space-x-2">
+                                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                          {buyerMetric.buyer_avatar ? (
+                                            <img
+                                              src={buyerMetric.buyer_avatar}
+                                              alt={buyerMetric.buyer_name}
+                                              className="w-full h-full object-cover"
+                                              onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextSibling.style.display = 'flex';
+                                              }}
+                                            />
+                                          ) : null}
+                                          <div className={`w-full h-full flex items-center justify-center ${buyerMetric.buyer_avatar ? 'hidden' : ''}`}>
+                                            <User className="h-3 w-3 text-gray-400" />
+                                          </div>
                                         </div>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {buyerMetric.buyer_name}
+                                        </span>
+                                        {buyerSourcesList && buyerSourcesList.length > 0 && (
+                                          <div className="flex items-center space-x-1">
+                                            {buyerSourcesList.map((source, sIdx) => (
+                                              <div
+                                                key={`${source}-${sIdx}`}
+                                                className="rounded-full overflow-hidden bg-white shadow-sm flex items-center justify-center flex-shrink-0"
+                                                style={{ width: '18px', height: '18px' }}
+                                                title={source.charAt(0).toUpperCase() + source.slice(1)}
+                                              >
+                                                {getSourceIcon(source)}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {buyerMetric.buyer_name}
-                                      </span>
-                                    </div>
-                                    {idx < buyerMetrics.length - 1 && (
-                                      <div className="border-b border-gray-200"></div>
-                                    )}
-                                  </React.Fragment>
-                                ))}
+                                      {idx < buyerMetrics.length - 1 && (
+                                        <div className="border-b border-gray-200"></div>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
                               </div>
                             ) : (
                               // Свернутый вид - кнопка с preview
