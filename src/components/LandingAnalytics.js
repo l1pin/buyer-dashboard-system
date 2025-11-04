@@ -733,59 +733,72 @@ function LandingTeamLead({ user }) {
       return filteredData;
     }
 
-    let daysToTake = 0;
-    let sortAscending = false; // false = новые первые, true = старые первые
+    // Определение диапазонов дат (аналогично фильтру создания лендингов)
+    const now = new Date();
+    let fromDate = null;
+    let toDate = null;
 
     switch (displayPeriod) {
-      case 'first_4days':
-        daysToTake = 4;
-        sortAscending = true; // Первые 4 дня (самые старые)
+      case 'today': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
         break;
-      case 'last_4days':
-        daysToTake = 4;
-        sortAscending = false; // Последние 4 дня (самые новые)
+      }
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
         break;
-      case '14days':
-        daysToTake = 14;
-        sortAscending = false; // Последние 14 дней (самые новые)
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - daysToMonday);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(fromDate);
+        toDate.setDate(fromDate.getDate() + 6);
+        toDate.setHours(23, 59, 59);
         break;
-      case '30days':
-        daysToTake = 30;
-        sortAscending = false; // Последние 30 дней (самые новые)
+      }
+      case 'last_7_days': {
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - 6);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(now);
+        toDate.setHours(23, 59, 59);
         break;
+      }
+      case 'this_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      }
+      case 'last_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        toDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      }
       default:
         return allDailyData;
     }
 
-    // Шаг 1: Собираем все уникальные даты
-    const allUniqueDates = new Set();
-    allDailyData.forEach(item => {
-      if (item.date) {
-        allUniqueDates.add(item.date);
-      }
+    if (!fromDate || !toDate) {
+      return allDailyData;
+    }
+
+    // Фильтруем метрики по диапазону дат
+    const filteredData = allDailyData.filter(item => {
+      if (!item.date) return false;
+      const itemDate = new Date(item.date);
+      return itemDate >= fromDate && itemDate <= toDate;
     });
-
-    // Шаг 2: Сортируем даты
-    const sortedDates = Array.from(allUniqueDates).sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return sortAscending ? dateA - dateB : dateB - dateA;
-    });
-
-    // Шаг 3: Берем нужное количество дат
-    const selectedDates = sortedDates.slice(0, daysToTake);
-    const selectedDatesSet = new Set(selectedDates);
-
-    // Шаг 4: Фильтруем все записи, которые попадают в выбранные даты
-    const filteredData = allDailyData.filter(item =>
-      item.date && selectedDatesSet.has(item.date)
-    );
 
     console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
-    console.log(`   Всего уникальных дат: ${allUniqueDates.size}`);
-    console.log(`   Выбрано дат: ${selectedDates.length}`);
+    console.log(`   От: ${fromDate.toLocaleDateString('ru-RU')}`);
+    console.log(`   До: ${toDate.toLocaleDateString('ru-RU')}`);
     console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
-    console.log(`   Выбранные даты:`, selectedDates);
 
     return filteredData;
   };
@@ -1640,11 +1653,41 @@ data-rt-sub16="${selectedLandingUuid}"
       return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
+    const now = new Date();
+
     switch (metricsDisplayPeriod) {
-      case 'first_4days': return '4 первых дня';
-      case 'last_4days': return '4 последних дня';
-      case '14days': return '14 последних дней';
-      case '30days': return '30 последних дней';
+      case 'today': {
+        return `${formatDate(now)}`;
+      }
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return `${formatDate(yesterday)}`;
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysToMonday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        return `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
+      }
+      case 'last_7_days': {
+        const last7Start = new Date(now);
+        last7Start.setDate(now.getDate() - 6);
+        return `${formatDate(last7Start)} - ${formatDate(now)}`;
+      }
+      case 'this_month': {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return `${formatDate(monthStart)} - ${formatDate(monthEnd)}`;
+      }
+      case 'last_month': {
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        return `${formatDate(lastMonthStart)} - ${formatDate(lastMonthEnd)}`;
+      }
       case 'custom_metrics': {
         if (metricsCustomDateFrom && metricsCustomDateTo) {
           return `${formatDate(metricsCustomDateFrom)} - ${formatDate(metricsCustomDateTo)}`;
@@ -2584,39 +2627,57 @@ data-rt-sub16="${selectedLandingUuid}"
                     {/* Левая колонка - список периодов */}
                     <div className="border-r border-gray-200 py-2">
                       <button
-                        onClick={() => handlePeriodChange('first_4days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'first_4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        onClick={() => handlePeriodChange('today')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'today' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                           }`}
                       >
                         <Calendar className="h-4 w-4 mr-3" />
-                        4 первых дня
+                        Сегодня
                       </button>
 
                       <button
-                        onClick={() => handlePeriodChange('last_4days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'last_4days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        onClick={() => handlePeriodChange('yesterday')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'yesterday' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                           }`}
                       >
                         <Calendar className="h-4 w-4 mr-3" />
-                        4 последних дня
+                        Вчера
                       </button>
 
                       <button
-                        onClick={() => handlePeriodChange('14days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === '14days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        onClick={() => handlePeriodChange('this_week')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'this_week' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                           }`}
                       >
                         <Calendar className="h-4 w-4 mr-3" />
-                        14 последних дней
+                        Эта неделя
                       </button>
 
                       <button
-                        onClick={() => handlePeriodChange('30days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === '30days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        onClick={() => handlePeriodChange('last_7_days')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'last_7_days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                           }`}
                       >
                         <Calendar className="h-4 w-4 mr-3" />
-                        30 последних дней
+                        Последние 7 дней
+                      </button>
+
+                      <button
+                        onClick={() => handlePeriodChange('this_month')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'this_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Этот месяц
+                      </button>
+
+                      <button
+                        onClick={() => handlePeriodChange('last_month')}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'last_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Последний месяц
                       </button>
 
                       <div className="border-t border-gray-200 my-1"></div>
@@ -2626,7 +2687,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${metricsDisplayPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                           }`}
                       >
-                        <Clock className="h-4 w-4 mr-3" />
+                        <Calendar className="h-4 w-4 mr-3" />
                         Все время
                       </button>
                     </div>
