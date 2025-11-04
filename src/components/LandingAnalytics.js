@@ -1603,8 +1603,15 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.dropdown-menu') && !event.target.closest('.dropdown-trigger')) {
         setOpenDropdowns(new Set());
       }
-      if (!event.target.closest('.period-dropdown') && !event.target.closest('.period-trigger')) {
+
+      // Обработка клика вне меню метрик
+      const metricsMenuContainer = event.target.closest('.metrics-period-menu-container');
+      if (!metricsMenuContainer && showPeriodDropdown) {
         setShowPeriodDropdown(false);
+        // Сбрасываем временные даты к сохраненным значениям
+        setMetricsTempCustomDateFrom(metricsCustomDateFrom);
+        setMetricsTempCustomDateTo(metricsCustomDateTo);
+        setMetricsSelectingDate(null);
       }
 
       const periodMenuContainer = event.target.closest('.period-menu-container');
@@ -1619,7 +1626,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showFilterBuyerDropdown, showFilterSearcherDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showPeriodDropdown, metricsCustomDateFrom, metricsCustomDateTo]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -1684,6 +1691,7 @@ data-rt-sub16="${selectedLandingUuid}"
       setMetricsCustomDateTo(metricsTempCustomDateTo);
       setMetricsDisplayPeriod('custom_metrics');
       setShowPeriodDropdown(false);
+      clearMessages();
     }
   };
 
@@ -2551,10 +2559,18 @@ data-rt-sub16="${selectedLandingUuid}"
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative metrics-period-menu-container">
               <button
-                onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                className="period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+                onClick={() => {
+                  setShowPeriodDropdown(!showPeriodDropdown);
+                  // При открытии меню инициализируем временные даты текущими значениями
+                  if (!showPeriodDropdown) {
+                    setMetricsTempCustomDateFrom(metricsCustomDateFrom);
+                    setMetricsTempCustomDateTo(metricsCustomDateTo);
+                    setMetricsSelectingDate(null);
+                  }
+                }}
+                className="metrics-period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
               >
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Метрики: {getPeriodButtonText()}
@@ -2563,7 +2579,7 @@ data-rt-sub16="${selectedLandingUuid}"
 
               {/* Выпадающее меню с календарем для метрик */}
               {showPeriodDropdown && (
-                <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{ width: '850px' }}>
+                <div className="metrics-period-dropdown absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{ width: '850px' }}>
                   <div className="grid grid-cols-3">
                     {/* Левая колонка - список периодов */}
                     <div className="border-r border-gray-200 py-2">
