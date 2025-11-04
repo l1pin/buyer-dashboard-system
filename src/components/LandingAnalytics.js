@@ -90,6 +90,8 @@ function LandingTeamLead({ user }) {
 
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  const [searchMode, setSearchMode] = useState('sku'); // 'sku' или 'uuid'
+  const [searchValue, setSearchValue] = useState('');
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [designers, setDesigners] = useState([]);
@@ -166,8 +168,36 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.searcher_id === selectedSearcher);
     }
 
+    // Фильтрация по поиску SKU/UUID
+    if (searchValue.trim()) {
+      if (searchMode === 'sku') {
+        // Фильтрация по артикулу
+        const searchTerm = searchValue.trim().toLowerCase();
+        landingsToFilter = landingsToFilter.filter(l =>
+          l.sku && l.sku.toLowerCase().includes(searchTerm)
+        );
+      } else if (searchMode === 'uuid') {
+        // Поиск по UUID: найти артикул этого лендинга и показать все лендинги с таким артикулом
+        const searchTerm = searchValue.trim().toLowerCase();
+        const landingWithUuid = landings.find(l =>
+          l.uuid && l.uuid.toLowerCase() === searchTerm
+        );
+
+        if (landingWithUuid && landingWithUuid.sku) {
+          // Показываем все лендинги с таким же артикулом
+          const targetSku = landingWithUuid.sku.toLowerCase();
+          landingsToFilter = landingsToFilter.filter(l =>
+            l.sku && l.sku.toLowerCase() === targetSku
+          );
+        } else {
+          // UUID не найден - возвращаем пустой массив
+          landingsToFilter = [];
+        }
+      }
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -2620,6 +2650,50 @@ data-rt-sub16="${selectedLandingUuid}"
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Поиск по SKU/UUID */}
+            <div className="flex items-center space-x-2 border-l border-gray-300 pl-4">
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-md p-1">
+                <button
+                  onClick={() => setSearchMode('sku')}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors duration-200 ${
+                    searchMode === 'sku'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  SKU
+                </button>
+                <button
+                  onClick={() => setSearchMode('uuid')}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors duration-200 ${
+                    searchMode === 'uuid'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  UUID
+                </button>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  placeholder={searchMode === 'sku' ? 'Поиск по артикулу...' : 'Поиск по UUID...'}
+                  className="w-64 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchValue && (
+                  <button
+                    onClick={() => setSearchValue('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
