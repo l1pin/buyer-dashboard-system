@@ -174,20 +174,20 @@ function LandingTeamLead({ user }) {
         // Фильтрация по артикулу
         const searchTerm = searchValue.trim().toLowerCase();
         landingsToFilter = landingsToFilter.filter(l =>
-          l.sku && l.sku.toLowerCase().includes(searchTerm)
+          l.article && l.article.toLowerCase().includes(searchTerm)
         );
       } else if (searchMode === 'uuid') {
         // Поиск по UUID: найти артикул этого лендинга и показать все лендинги с таким артикулом
         const searchTerm = searchValue.trim().toLowerCase();
         const landingWithUuid = landings.find(l =>
-          l.uuid && l.uuid.toLowerCase() === searchTerm
+          l.id && l.id.toLowerCase() === searchTerm
         );
 
-        if (landingWithUuid && landingWithUuid.sku) {
+        if (landingWithUuid && landingWithUuid.article) {
           // Показываем все лендинги с таким же артикулом
-          const targetSku = landingWithUuid.sku.toLowerCase();
+          const targetArticle = landingWithUuid.article.toLowerCase();
           landingsToFilter = landingsToFilter.filter(l =>
-            l.sku && l.sku.toLowerCase() === targetSku
+            l.article && l.article.toLowerCase() === targetArticle
           );
         } else {
           // UUID не найден - возвращаем пустой массив
