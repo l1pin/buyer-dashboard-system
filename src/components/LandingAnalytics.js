@@ -84,22 +84,6 @@ function LandingTeamLead({ user }) {
   const [trelloLists, setTrelloLists] = useState([]);
   const [syncingLandings, setSyncingLandings] = useState(new Set());
 
-  // Состояния для фильтрации по периоду дат
-  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
-  const [customDateFrom, setCustomDateFrom] = useState(null);
-  const [customDateTo, setCustomDateTo] = useState(null);
-  const [tempCustomDateFrom, setTempCustomDateFrom] = useState(null);
-  const [tempCustomDateTo, setTempCustomDateTo] = useState(null);
-  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [calendarMonth1, setCalendarMonth1] = useState(new Date());
-  const [calendarMonth2, setCalendarMonth2] = useState(() => {
-    const next = new Date();
-    next.setMonth(next.getMonth() + 1);
-    return next;
-  });
-  const [selectingDate, setSelectingDate] = useState(null);
-
   // Состояния для переключения метрик
   const [detailMode, setDetailMode] = useState(new Map());
   const [currentVideoIndex, setCurrentVideoIndex] = useState(new Map());
@@ -182,78 +166,8 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.searcher_id === selectedSearcher);
     }
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-    const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
-
-    const dayOfWeek = now.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const thisWeekStart = new Date(now);
-    thisWeekStart.setDate(now.getDate() - daysToMonday);
-    thisWeekStart.setHours(0, 0, 0, 0);
-    const thisWeekEnd = new Date(thisWeekStart);
-    thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
-    thisWeekEnd.setHours(23, 59, 59);
-
-    const last7DaysStart = new Date(now);
-    last7DaysStart.setDate(now.getDate() - 6);
-    last7DaysStart.setHours(0, 0, 0, 0);
-
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-
-    if (selectedPeriod === 'today') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= todayStart && createdDate <= todayEnd;
-      });
-    } else if (selectedPeriod === 'yesterday') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
-      });
-    } else if (selectedPeriod === 'this_week') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
-      });
-    } else if (selectedPeriod === 'last_7_days') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= last7DaysStart && createdDate <= todayEnd;
-      });
-    } else if (selectedPeriod === 'this_month') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
-      });
-    } else if (selectedPeriod === 'last_month') {
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
-      });
-    } else if (selectedPeriod === 'custom' && customDateFrom && customDateTo) {
-      const customFrom = new Date(customDateFrom);
-      customFrom.setHours(0, 0, 0, 0);
-      const customTo = new Date(customDateTo);
-      customTo.setHours(23, 59, 59);
-
-      landingsToFilter = landingsToFilter.filter(l => {
-        const createdDate = new Date(l.created_at);
-        return createdDate >= customFrom && createdDate <= customTo;
-      });
-    }
-
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [landings, selectedBuyer, selectedSearcher]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1014,130 +928,6 @@ function LandingTeamLead({ user }) {
     return zoneCount;
   };
 
-  // Функции для календаря
-  const getPeriodLabel = () => {
-    const formatDate = (date) => {
-      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
-
-    const now = new Date();
-
-    switch (selectedPeriod) {
-      case 'today': {
-        return `${formatDate(now)}`;
-      }
-      case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return `${formatDate(yesterday)}`;
-      }
-      case 'this_week': {
-        const dayOfWeek = now.getDay();
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - daysToMonday);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        return `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
-      }
-      case 'last_7_days': {
-        const last7Start = new Date(now);
-        last7Start.setDate(now.getDate() - 6);
-        return `${formatDate(last7Start)} - ${formatDate(now)}`;
-      }
-      case 'this_month': {
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return `${formatDate(monthStart)} - ${formatDate(monthEnd)}`;
-      }
-      case 'last_month': {
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-        return `${formatDate(lastMonthStart)} - ${formatDate(lastMonthEnd)}`;
-      }
-      case 'custom': {
-        if (customDateFrom && customDateTo) {
-          return `${formatDate(customDateFrom)} - ${formatDate(customDateTo)}`;
-        }
-        return 'Выбрать период';
-      }
-      case 'all': return 'Все время';
-      default: return 'Выбрать период';
-    }
-  };
-
-  const handlePeriodSelect = (period) => {
-    setSelectedPeriod(period);
-    if (period === 'custom') {
-      setShowCalendar(true);
-      setTempCustomDateFrom(customDateFrom);
-      setTempCustomDateTo(customDateTo);
-    } else {
-      setShowCalendar(false);
-      setCustomDateFrom(null);
-      setCustomDateTo(null);
-      setTempCustomDateFrom(null);
-      setTempCustomDateTo(null);
-      setShowPeriodMenu(false);
-    }
-  };
-
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-
-    return { daysInMonth, startingDayOfWeek, year, month };
-  };
-
-  const handleDateClick = (date) => {
-    if (!selectingDate) {
-      setTempCustomDateFrom(date);
-      setSelectingDate(date);
-      setTempCustomDateTo(null);
-    } else {
-      if (date < selectingDate) {
-        setTempCustomDateFrom(date);
-        setTempCustomDateTo(selectingDate);
-      } else {
-        setTempCustomDateTo(date);
-      }
-      setSelectingDate(null);
-    }
-  };
-
-  const isDateInRange = (date) => {
-    if (!tempCustomDateFrom || !tempCustomDateTo) return false;
-    return date >= tempCustomDateFrom && date <= tempCustomDateTo;
-  };
-
-  const isDateSelected = (date) => {
-    if (!tempCustomDateFrom) return false;
-    if (tempCustomDateFrom.toDateString() === date.toDateString()) return true;
-    if (tempCustomDateTo && tempCustomDateTo.toDateString() === date.toDateString()) return true;
-    return false;
-  };
-
-  const applyCustomPeriod = () => {
-    if (tempCustomDateFrom && tempCustomDateTo) {
-      setCustomDateFrom(tempCustomDateFrom);
-      setCustomDateTo(tempCustomDateTo);
-      setSelectedPeriod('custom');
-      setShowCalendar(false);
-      setShowPeriodMenu(false);
-    }
-  };
-
-  const resetCalendar = () => {
-    setTempCustomDateFrom(null);
-    setTempCustomDateTo(null);
-    setSelectingDate(null);
-    setShowCalendar(false);
-  };
-
   useEffect(() => {
     const init = async () => {
       loadUsers();
@@ -1626,20 +1416,13 @@ data-rt-sub16="${selectedLandingUuid}"
         setMetricsTempCustomDateTo(metricsCustomDateTo);
         setMetricsSelectingDate(null);
       }
-
-      const periodMenuContainer = event.target.closest('.period-menu-container');
-      if (!periodMenuContainer && showPeriodMenu) {
-        setShowPeriodMenu(false);
-        setTempCustomDateFrom(customDateFrom);
-        setTempCustomDateTo(customDateTo);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showPeriodDropdown, metricsCustomDateFrom, metricsCustomDateTo]);
+  }, [showPeriodDropdown, metricsCustomDateFrom, metricsCustomDateTo]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -1736,6 +1519,17 @@ data-rt-sub16="${selectedLandingUuid}"
       setShowPeriodDropdown(false);
       clearMessages();
     }
+  };
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    return { daysInMonth, startingDayOfWeek, year, month };
   };
 
   const formatKyivTime = (dateString) => {
@@ -2327,281 +2121,6 @@ data-rt-sub16="${selectedLandingUuid}"
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            {/* Кнопка выбора периода дат */}
-            <div className="relative period-menu-container">
-              <button
-                onClick={() => setShowPeriodMenu(!showPeriodMenu)}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {getPeriodLabel()}
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </button>
-
-              {/* Выпадающее меню с календарем */}
-              {showPeriodMenu && (
-                <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{ width: '850px' }}>
-                  <div className="grid grid-cols-3">
-                    {/* Левая колонка - список периодов */}
-                    <div className="border-r border-gray-200 py-2">
-                      <button
-                        onClick={() => handlePeriodSelect('today')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'today' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Сегодня
-                      </button>
-
-                      <button
-                        onClick={() => handlePeriodSelect('yesterday')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'yesterday' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Вчера
-                      </button>
-
-                      <button
-                        onClick={() => handlePeriodSelect('this_week')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'this_week' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Эта неделя
-                      </button>
-
-                      <button
-                        onClick={() => handlePeriodSelect('last_7_days')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'last_7_days' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Последние 7 дней
-                      </button>
-
-                      <button
-                        onClick={() => handlePeriodSelect('this_month')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'this_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Этот месяц
-                      </button>
-
-                      <button
-                        onClick={() => handlePeriodSelect('last_month')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'last_month' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Последний месяц
-                      </button>
-
-                      <div className="border-t border-gray-200 my-1"></div>
-
-                      <button
-                        onClick={() => handlePeriodSelect('all')}
-                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${selectedPeriod === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                          }`}
-                      >
-                        <Calendar className="h-4 w-4 mr-3" />
-                        Все время
-                      </button>
-                    </div>
-
-                    {/* Правая колонка - календарь (2 месяца) */}
-                    <div className="col-span-2 p-4">
-                      <div className="grid grid-cols-2 gap-6">
-                        {/* Первый календарь */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <button
-                              onClick={() => {
-                                const prev = new Date(calendarMonth1);
-                                prev.setMonth(prev.getMonth() - 1);
-                                setCalendarMonth1(prev);
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <div className="text-sm font-medium">
-                              {calendarMonth1.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-                            </div>
-                            {(() => {
-                              const nextMonth = new Date(calendarMonth1);
-                              nextMonth.setMonth(nextMonth.getMonth() + 1);
-                              const hasGap = (calendarMonth2.getFullYear() - nextMonth.getFullYear()) * 12 +
-                                (calendarMonth2.getMonth() - nextMonth.getMonth()) >= 1;
-
-                              return hasGap ? (
-                                <button
-                                  onClick={() => {
-                                    const next = new Date(calendarMonth1);
-                                    next.setMonth(next.getMonth() + 1);
-                                    setCalendarMonth1(next);
-                                  }}
-                                  className="p-1 hover:bg-gray-200 rounded"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </button>
-                              ) : (
-                                <div className="w-6"></div>
-                              );
-                            })()}
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-1">
-                            {(() => {
-                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth1);
-                              const days = [];
-
-                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
-
-                              for (let i = 0; i < adjustedStartDay; i++) {
-                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
-                              }
-
-                              for (let day = 1; day <= daysInMonth; day++) {
-                                const date = new Date(year, month, day);
-                                const isSelected = isDateSelected(date);
-                                const isInRange = isDateInRange(date);
-                                const isToday = date.toDateString() === new Date().toDateString();
-
-                                days.push(
-                                  <button
-                                    key={day}
-                                    onClick={() => handleDateClick(date)}
-                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
-                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
-                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
-                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
-                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
-                                    `}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              }
-
-                              return days;
-                            })()}
-                          </div>
-                        </div>
-
-                        {/* Второй календарь */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            {(() => {
-                              const prevMonth = new Date(calendarMonth2);
-                              prevMonth.setMonth(prevMonth.getMonth() - 1);
-                              const hasGap = (prevMonth.getFullYear() - calendarMonth1.getFullYear()) * 12 +
-                                (prevMonth.getMonth() - calendarMonth1.getMonth()) >= 1;
-
-                              return hasGap ? (
-                                <button
-                                  onClick={() => {
-                                    const prev = new Date(calendarMonth2);
-                                    prev.setMonth(prev.getMonth() - 1);
-                                    setCalendarMonth2(prev);
-                                  }}
-                                  className="p-1 hover:bg-gray-200 rounded"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </button>
-                              ) : (
-                                <div className="w-6"></div>
-                              );
-                            })()}
-                            <div className="text-sm font-medium">
-                              {calendarMonth2.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-                            </div>
-                            <button
-                              onClick={() => {
-                                const next = new Date(calendarMonth2);
-                                next.setMonth(next.getMonth() + 1);
-                                setCalendarMonth2(next);
-                              }}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-1 mb-2">
-                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-1">
-                            {(() => {
-                              const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(calendarMonth2);
-                              const days = [];
-
-                              const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
-
-                              for (let i = 0; i < adjustedStartDay; i++) {
-                                days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
-                              }
-
-                              for (let day = 1; day <= daysInMonth; day++) {
-                                const date = new Date(year, month, day);
-                                const isSelected = isDateSelected(date);
-                                const isInRange = isDateInRange(date);
-                                const isToday = date.toDateString() === new Date().toDateString();
-
-                                days.push(
-                                  <button
-                                    key={day}
-                                    onClick={() => handleDateClick(date)}
-                                    className={`aspect-square flex items-center justify-center text-sm rounded transition-colors
-                                      ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
-                                      ${isInRange && !isSelected ? 'bg-blue-100 text-blue-700' : ''}
-                                      ${!isSelected && !isInRange ? 'hover:bg-gray-100 text-gray-700' : ''}
-                                      ${isToday && !isSelected ? 'border border-blue-500' : ''}
-                                    `}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              }
-
-                              return days;
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Кнопка применить для custom периода */}
-                      {(tempCustomDateFrom || tempCustomDateTo) && (
-                        <div className="flex items-center justify-end mt-4 pt-4 border-t border-gray-200">
-                          <button
-                            onClick={applyCustomPeriod}
-                            disabled={!tempCustomDateFrom || !tempCustomDateTo}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                          >
-                            Применить
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="relative metrics-period-menu-container">
               <button
                 onClick={() => {
