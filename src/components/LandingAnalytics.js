@@ -2683,7 +2683,7 @@ data-rt-sub16="${selectedLandingUuid}"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   placeholder={searchMode === 'sku' ? 'Поиск по артикулу...' : 'Поиск по UUID...'}
-                  className="w-64 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-64 pl-3 pr-10 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchValue && (
                   <button
