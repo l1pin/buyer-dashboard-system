@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import IntegrationChecker from './IntegrationChecker';
+import { SourceBadges } from './SourceIcons';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService, buyerSourceService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
@@ -1984,6 +1985,29 @@ data-rt-sub16="${selectedLandingUuid}"
     return cm ? cm.name : 'Удален';
   };
 
+  // Получение источников метрик для лендинга
+  const getLandingSources = (landingId) => {
+    if (!landingId || !landingMetrics || landingMetrics.size === 0) {
+      return [];
+    }
+
+    const sources = [];
+    const possibleSources = ['google', 'facebook', 'tiktok'];
+
+    possibleSources.forEach(source => {
+      const key = `${landingId}_${source}`;
+      if (landingMetrics.has(key)) {
+        const metrics = landingMetrics.get(key);
+        // Проверяем что метрики найдены и имеют данные
+        if (metrics && metrics.found) {
+          sources.push(source);
+        }
+      }
+    });
+
+    return sources;
+  };
+
   const getContentManagerAvatar = (contentManagerId) => {
     if (!contentManagerId) return null;
     const cm = contentManagers.find(c => c.id === contentManagerId);
@@ -3122,6 +3146,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Источник
+                      </th>
+
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Байеры
                       </th>
 
@@ -3365,6 +3393,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ) : (
                               <span className="text-gray-400 cursor-text select-text">—</span>
                             )}
+                          </td>
+
+                          {/* Колонка "Источник" */}
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <SourceBadges sources={getLandingSources(landing.id)} />
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-center">
