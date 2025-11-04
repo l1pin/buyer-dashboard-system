@@ -3441,7 +3441,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="text-left pl-2">
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center space-x-2 h-8 py-2">
+                                      <div className="flex items-center space-x-2 h-12">
                                         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                           {buyerMetric.buyer_avatar ? (
                                             <img
@@ -3464,7 +3464,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3542,7 +3542,7 @@ data-rt-sub16="${selectedLandingUuid}"
 
                                     return (
                                       <React.Fragment key={idx}>
-                                        <div className="flex items-center justify-center h-8 py-2">
+                                        <div className="flex items-center justify-center h-12">
                                           {buyerZone ? (
                                             (() => {
                                               const getZoneColors = (zone) => {
@@ -3574,7 +3574,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         </div>
                                         {/* Разделитель между байерами */}
                                         {idx < buyerMetrics.length - 1 && (
-                                          <div className="border-t border-gray-200 my-2"></div>
+                                          <div className="border-t border-gray-300 my-4"></div>
                                         )}
                                       </React.Fragment>
                                     );
@@ -3612,14 +3612,14 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">
                                           {buyerMetric.data.formatted.leads}
                                         </span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3651,12 +3651,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cpl}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3688,12 +3688,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cost}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3730,12 +3730,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.clicks}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3774,12 +3774,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cr}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -3822,12 +3822,12 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center justify-center h-8 py-2">
+                                      <div className="flex items-center justify-center h-12">
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.days}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-200 my-2"></div>
+                                        <div className="border-t border-gray-300 my-4"></div>
                                       )}
                                     </React.Fragment>
                                   ))}
