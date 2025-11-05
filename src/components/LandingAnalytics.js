@@ -47,6 +47,185 @@ import {
   History
 } from 'lucide-react';
 
+// Компонент выпадающего фильтра (вынесен наружу для оптимизации)
+const FilterDropdown = React.memo(({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр', alignRight = false }) => {
+  const dropdownRef = useRef(null);
+  const positionRef = useRef({ top: 0, left: 0 });
+  const [, forceUpdate] = useState({});
+
+  // Используем useLayoutEffect для СИНХРОННОГО расчета позиции ДО отрисовки
+  useLayoutEffect(() => {
+    if (isOpen && referenceElement) {
+      const rect = referenceElement.getBoundingClientRect();
+      positionRef.current = {
+        top: rect.bottom + window.scrollY + 4,
+        left: alignRight ? rect.right + window.scrollX : rect.left + window.scrollX
+      };
+      forceUpdate({});
+    }
+  }, [isOpen, referenceElement, alignRight]);
+
+  if (!isOpen) return null;
+
+  const dropdownContent = (
+    <div
+      ref={dropdownRef}
+      data-filter-dropdown="true"
+      className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px]"
+      style={{
+        top: `${positionRef.current.top}px`,
+        left: `${positionRef.current.left}px`,
+        zIndex: 9999,
+        transform: alignRight ? 'translateX(-100%) translateZ(0)' : 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        pointerEvents: 'auto'
+      }}
+      onMouseDown={(e) => {
+        // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
+        e.stopPropagation();
+      }}
+    >
+      {/* Заголовок */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+      </div>
+
+      <div className="py-2 max-h-[300px] overflow-y-auto">
+        {options.map((option, index) => {
+          let isSelected;
+
+          // Проверяем, все ли опции выбраны (для отображения галочки у "Все")
+          const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+          const allSelected = allOptions.every(val =>
+            multiSelect ? selectedValues.includes(val) : selectedValues === val
+          ) && (multiSelect ? selectedValues.length === allOptions.length : true);
+
+          if (option.value === 'all') {
+            // Для опции "Все" галочка показывается, когда все опции выбраны
+            isSelected = multiSelect
+              ? allSelected
+              : (selectedValues === null || selectedValues === 'all');
+          } else {
+            // Для обычных опций проверяем их выбор ИЛИ выбрана ли опция "Все"
+            if (multiSelect) {
+              isSelected = selectedValues.includes(option.value);
+            } else {
+              isSelected = selectedValues === option.value || selectedValues === null;
+            }
+          }
+
+          return (
+            <React.Fragment key={option.value}>
+              <button
+                onClick={(e) => {
+                  // Игнорируем клики на disabled опции
+                  if (option.disabled) return;
+
+                  if (option.value === 'all') {
+                    // Обработка клика на "Все"
+                    if (multiSelect) {
+                      // Для множественного выбора - выбираем все опции кроме "Все"
+                      const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+                      onApply(allOptions);
+                    } else {
+                      // Для одиночного выбора - устанавливаем null (все показываем)
+                      onApply(null);
+                    }
+                  } else {
+                    // Обработка клика на обычные опции
+                    if (multiSelect) {
+                      const newValues = selectedValues.includes(option.value)
+                        ? selectedValues.filter(v => v !== option.value)
+                        : [...selectedValues, option.value];
+                      onApply(newValues);
+                    } else {
+                      // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем к null
+                      onApply(selectedValues === option.value ? null : option.value);
+                    }
+                  }
+                }}
+                className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center ${
+                  option.disabled
+                    ? 'cursor-not-allowed opacity-50'
+                    : 'hover:bg-blue-50 cursor-pointer'
+                }`}
+                disabled={option.disabled}
+              >
+                <div className="flex items-center flex-1">
+                  {isSelected && !option.disabled && (
+                    <Check className="h-4 w-4 text-blue-600 flex-shrink-0 mr-2" strokeWidth={3} />
+                  )}
+                  {(!isSelected || option.disabled) && (
+                    <div className="h-4 w-4 mr-2"></div>
+                  )}
+                  {option.value !== 'all' && option.hasOwnProperty('icon') && (
+                    <span className="text-lg mr-2 flex-shrink-0">{option.icon}</span>
+                  )}
+                  {option.value !== 'all' && option.hasOwnProperty('avatar') && (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
+                      {option.avatar ? (
+                        <img
+                          src={option.avatar}
+                          alt={option.label}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const placeholder = e.target.parentElement.querySelector('div');
+                            if (placeholder) placeholder.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${option.avatar ? 'hidden' : ''}`}>
+                        <User className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span className={`font-medium flex-1 ${option.disabled ? 'text-gray-400' : 'text-gray-700'}`}>{option.label}</span>
+                </div>
+                {option.count !== undefined && (
+                  <span className={`text-sm ml-2 ${option.disabled ? 'text-gray-400' : 'text-gray-500'}`}>{option.count}</span>
+                )}
+              </button>
+              {/* Разделитель после опции "Все" */}
+              {option.value === 'all' && (
+                <div className="border-b border-gray-200 my-1"></div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+      <div className="border-t border-gray-200 px-3 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-lg">
+        <button
+          onClick={() => {
+            if (onReset) {
+              onReset();
+            }
+          }}
+          className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors duration-150"
+        >
+          Сбросить
+        </button>
+        <button
+          onClick={() => {
+            if (onOk) {
+              onOk();
+            } else {
+              onApply(selectedValues);
+            }
+          }}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150 shadow-sm"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+
+  return createPortal(dropdownContent, document.body);
+});
+
+FilterDropdown.displayName = 'FilterDropdown';
+
 function LandingTeamLead({ user }) {
   const [landings, setLandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,182 +429,6 @@ function LandingTeamLead({ user }) {
       Склад
     </span>
   );
-
-  // Компонент выпадающего фильтра
-  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр', alignRight = false }) => {
-    const dropdownRef = useRef(null);
-    const positionRef = useRef({ top: 0, left: 0 });
-    const [, forceUpdate] = useState({});
-
-    // Используем useLayoutEffect для СИНХРОННОГО расчета позиции ДО отрисовки
-    useLayoutEffect(() => {
-      if (isOpen && referenceElement) {
-        const rect = referenceElement.getBoundingClientRect();
-        positionRef.current = {
-          top: rect.bottom + window.scrollY + 4,
-          left: alignRight ? rect.right + window.scrollX : rect.left + window.scrollX
-        };
-        forceUpdate({});
-      }
-    }, [isOpen, referenceElement, alignRight]);
-
-    if (!isOpen) return null;
-
-    const dropdownContent = (
-      <div
-        ref={dropdownRef}
-        className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px]"
-        style={{
-          top: `${positionRef.current.top}px`,
-          left: `${positionRef.current.left}px`,
-          zIndex: 9999,
-          transform: alignRight ? 'translateX(-100%) translateZ(0)' : 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          pointerEvents: 'auto'
-        }}
-        onMouseDown={(e) => {
-          // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
-          e.stopPropagation();
-        }}
-      >
-        {/* Заголовок */}
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-          <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-        </div>
-
-        <div className="py-2 max-h-[300px] overflow-y-auto">
-          {options.map((option, index) => {
-            let isSelected;
-
-            // Проверяем, все ли опции выбраны (для отображения галочки у "Все")
-            const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
-            const allSelected = allOptions.every(val =>
-              multiSelect ? selectedValues.includes(val) : selectedValues === val
-            ) && (multiSelect ? selectedValues.length === allOptions.length : true);
-
-            if (option.value === 'all') {
-              // Для опции "Все" галочка показывается, когда все опции выбраны
-              isSelected = multiSelect
-                ? allSelected
-                : (selectedValues === null || selectedValues === 'all');
-            } else {
-              // Для обычных опций проверяем их выбор ИЛИ выбрана ли опция "Все"
-              if (multiSelect) {
-                isSelected = selectedValues.includes(option.value);
-              } else {
-                isSelected = selectedValues === option.value || selectedValues === null;
-              }
-            }
-
-            return (
-              <React.Fragment key={option.value}>
-                <button
-                  onClick={(e) => {
-                    // Игнорируем клики на disabled опции
-                    if (option.disabled) return;
-
-                    if (option.value === 'all') {
-                      // Обработка клика на "Все"
-                      if (multiSelect) {
-                        // Для множественного выбора - выбираем все опции кроме "Все"
-                        const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
-                        onApply(allOptions);
-                      } else {
-                        // Для одиночного выбора - устанавливаем null (все показываем)
-                        onApply(null);
-                      }
-                    } else {
-                      // Обработка клика на обычные опции
-                      if (multiSelect) {
-                        const newValues = selectedValues.includes(option.value)
-                          ? selectedValues.filter(v => v !== option.value)
-                          : [...selectedValues, option.value];
-                        onApply(newValues);
-                      } else {
-                        // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем к null
-                        onApply(selectedValues === option.value ? null : option.value);
-                      }
-                    }
-                  }}
-                  className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center ${
-                    option.disabled
-                      ? 'cursor-not-allowed opacity-50'
-                      : 'hover:bg-blue-50 cursor-pointer'
-                  }`}
-                  disabled={option.disabled}
-                >
-                  <div className="flex items-center flex-1">
-                    {isSelected && !option.disabled && (
-                      <Check className="h-4 w-4 text-blue-600 flex-shrink-0 mr-2" strokeWidth={3} />
-                    )}
-                    {(!isSelected || option.disabled) && (
-                      <div className="h-4 w-4 mr-2"></div>
-                    )}
-                    {option.value !== 'all' && option.hasOwnProperty('icon') && (
-                      <span className="text-lg mr-2 flex-shrink-0">{option.icon}</span>
-                    )}
-                    {option.value !== 'all' && option.hasOwnProperty('avatar') && (
-                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
-                        {option.avatar ? (
-                          <img
-                            src={option.avatar}
-                            alt={option.label}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              const placeholder = e.target.parentElement.querySelector('div');
-                              if (placeholder) placeholder.classList.remove('hidden');
-                            }}
-                          />
-                        ) : null}
-                        <div className={`w-full h-full flex items-center justify-center ${option.avatar ? 'hidden' : ''}`}>
-                          <User className="h-3 w-3 text-gray-400" />
-                        </div>
-                      </div>
-                    )}
-                    <span className={`font-medium flex-1 ${option.disabled ? 'text-gray-400' : 'text-gray-700'}`}>{option.label}</span>
-                  </div>
-                  {option.count !== undefined && (
-                    <span className={`text-sm ml-2 ${option.disabled ? 'text-gray-400' : 'text-gray-500'}`}>{option.count}</span>
-                  )}
-                </button>
-                {/* Разделитель после опции "Все" */}
-                {option.value === 'all' && (
-                  <div className="border-b border-gray-200 my-1"></div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-        <div className="border-t border-gray-200 px-3 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-lg">
-          <button
-            onClick={() => {
-              if (onReset) {
-                onReset();
-              }
-            }}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors duration-150"
-          >
-            Сбросить
-          </button>
-          <button
-            onClick={() => {
-              if (onOk) {
-                onOk();
-              } else {
-                onApply(selectedValues);
-              }
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150 shadow-sm"
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    );
-
-    return createPortal(dropdownContent, document.body);
-  };
 
   // Хук для метрик лендингов (используем landings вместо filteredLandings)
   const {
@@ -1452,21 +1455,8 @@ function LandingTeamLead({ user }) {
       const clickedOnSourceButton = sourceFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
-      // Используем более надежную проверку, которая учитывает вложенные элементы
-      let element = event.target;
-      let clickedOnDropdown = false;
-
-      // Поднимаемся по дереву DOM до 10 уровней вверх
-      for (let i = 0; i < 10 && element; i++) {
-        if (element.classList &&
-            element.classList.contains('fixed') &&
-            element.classList.contains('bg-white') &&
-            element.classList.contains('rounded-lg')) {
-          clickedOnDropdown = true;
-          break;
-        }
-        element = element.parentElement;
-      }
+      // Используем data-атрибут для надёжного определения
+      const clickedOnDropdown = event.target.closest('[data-filter-dropdown="true"]') !== null;
 
       if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnStatusButton && !clickedOnDesignerButton && !clickedOnBuyerTableButton && !clickedOnSearcherTableButton && !clickedOnProductManagerButton && !clickedOnGiferButton && !clickedOnContentManagerButton && !clickedOnZoneButton && !clickedOnSourceButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
