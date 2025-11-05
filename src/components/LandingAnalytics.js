@@ -677,6 +677,107 @@ function LandingTeamLead({ user }) {
     refresh: refreshZoneData
   } = useZoneData(filteredLandings, true);
 
+  // Фильтрация метрик по периоду отображения
+  const filterMetricsByDisplayPeriod = (allDailyData, displayPeriod) => {
+    if (!allDailyData || allDailyData.length === 0) {
+      return [];
+    }
+
+    if (displayPeriod === 'all') {
+      return allDailyData;
+    }
+
+    // Обработка пользовательского диапазона дат
+    if (displayPeriod === 'custom_metrics' && metricsCustomDateFrom && metricsCustomDateTo) {
+      const fromDate = new Date(metricsCustomDateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      const toDate = new Date(metricsCustomDateTo);
+      toDate.setHours(23, 59, 59, 999);
+
+      const filteredData = allDailyData.filter(item => {
+        if (!item.date) return false;
+        const itemDate = new Date(item.date);
+        return itemDate >= fromDate && itemDate <= toDate;
+      });
+
+      console.log(`📊 Фильтрация по пользовательскому периоду метрик:`);
+      console.log(`   От: ${metricsCustomDateFrom.toLocaleDateString('ru-RU')}`);
+      console.log(`   До: ${metricsCustomDateTo.toLocaleDateString('ru-RU')}`);
+      console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
+
+      return filteredData;
+    }
+
+    // Определение диапазонов дат (аналогично фильтру создания лендингов)
+    const now = new Date();
+    let fromDate = null;
+    let toDate = null;
+
+    switch (displayPeriod) {
+      case 'today': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        break;
+      }
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+        break;
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - daysToMonday);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(fromDate);
+        toDate.setDate(fromDate.getDate() + 6);
+        toDate.setHours(23, 59, 59);
+        break;
+      }
+      case 'last_7_days': {
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - 6);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(now);
+        toDate.setHours(23, 59, 59);
+        break;
+      }
+      case 'this_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      }
+      case 'last_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        toDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      }
+      default:
+        return allDailyData;
+    }
+
+    if (!fromDate || !toDate) {
+      return allDailyData;
+    }
+
+    // Фильтруем метрики по диапазону дат
+    const filteredData = allDailyData.filter(item => {
+      if (!item.date) return false;
+      const itemDate = new Date(item.date);
+      return itemDate >= fromDate && itemDate <= toDate;
+    });
+
+    console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
+    console.log(`   От: ${fromDate.toLocaleDateString('ru-RU')}`);
+    console.log(`   До: ${toDate.toLocaleDateString('ru-RU')}`);
+    console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
+
+    return filteredData;
+  };
+
     // Группировка метрик лендинга по байерам
   const getMetricsByBuyers = (landing) => {
     console.log(`🔍🔍🔍 НАЧАЛО getMetricsByBuyers для ${landing.id} (${landing.article})`);
@@ -1084,107 +1185,6 @@ function LandingTeamLead({ user }) {
     });
 
     return result;
-  };
-
-// Фильтрация метрик по периоду отображения
-  const filterMetricsByDisplayPeriod = (allDailyData, displayPeriod) => {
-    if (!allDailyData || allDailyData.length === 0) {
-      return [];
-    }
-
-    if (displayPeriod === 'all') {
-      return allDailyData;
-    }
-
-    // Обработка пользовательского диапазона дат
-    if (displayPeriod === 'custom_metrics' && metricsCustomDateFrom && metricsCustomDateTo) {
-      const fromDate = new Date(metricsCustomDateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      const toDate = new Date(metricsCustomDateTo);
-      toDate.setHours(23, 59, 59, 999);
-
-      const filteredData = allDailyData.filter(item => {
-        if (!item.date) return false;
-        const itemDate = new Date(item.date);
-        return itemDate >= fromDate && itemDate <= toDate;
-      });
-
-      console.log(`📊 Фильтрация по пользовательскому периоду метрик:`);
-      console.log(`   От: ${metricsCustomDateFrom.toLocaleDateString('ru-RU')}`);
-      console.log(`   До: ${metricsCustomDateTo.toLocaleDateString('ru-RU')}`);
-      console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
-
-      return filteredData;
-    }
-
-    // Определение диапазонов дат (аналогично фильтру создания лендингов)
-    const now = new Date();
-    let fromDate = null;
-    let toDate = null;
-
-    switch (displayPeriod) {
-      case 'today': {
-        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        break;
-      }
-      case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-        toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
-        break;
-      }
-      case 'this_week': {
-        const dayOfWeek = now.getDay();
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - daysToMonday);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate = new Date(fromDate);
-        toDate.setDate(fromDate.getDate() + 6);
-        toDate.setHours(23, 59, 59);
-        break;
-      }
-      case 'last_7_days': {
-        fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - 6);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate = new Date(now);
-        toDate.setHours(23, 59, 59);
-        break;
-      }
-      case 'this_month': {
-        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        break;
-      }
-      case 'last_month': {
-        fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        toDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-        break;
-      }
-      default:
-        return allDailyData;
-    }
-
-    if (!fromDate || !toDate) {
-      return allDailyData;
-    }
-
-    // Фильтруем метрики по диапазону дат
-    const filteredData = allDailyData.filter(item => {
-      if (!item.date) return false;
-      const itemDate = new Date(item.date);
-      return itemDate >= fromDate && itemDate <= toDate;
-    });
-
-    console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
-    console.log(`   От: ${fromDate.toLocaleDateString('ru-RU')}`);
-    console.log(`   До: ${toDate.toLocaleDateString('ru-RU')}`);
-    console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
-
-    return filteredData;
   };
 
   // Компонент отображения зональных данных
