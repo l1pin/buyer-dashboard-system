@@ -297,6 +297,9 @@ function LandingTeamLead({ user }) {
                   onClick={(e) => {
                     e.stopPropagation();
 
+                    // Игнорируем клики на disabled опции
+                    if (option.disabled) return;
+
                     if (option.value === 'all') {
                       // Обработка клика на "Все"
                       if (multiSelect) {
@@ -320,13 +323,18 @@ function LandingTeamLead({ user }) {
                       }
                     }
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center"
+                  className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-150 flex items-center ${
+                    option.disabled
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:bg-blue-50 cursor-pointer'
+                  }`}
+                  disabled={option.disabled}
                 >
                   <div className="flex items-center flex-1">
-                    {isSelected && (
+                    {isSelected && !option.disabled && (
                       <Check className="h-4 w-4 text-blue-600 flex-shrink-0 mr-2" strokeWidth={3} />
                     )}
-                    {!isSelected && (
+                    {(!isSelected || option.disabled) && (
                       <div className="h-4 w-4 mr-2"></div>
                     )}
                     {option.value !== 'all' && option.hasOwnProperty('avatar') && (
@@ -348,10 +356,10 @@ function LandingTeamLead({ user }) {
                         </div>
                       </div>
                     )}
-                    <span className="text-gray-700 font-medium flex-1">{option.label}</span>
+                    <span className={`font-medium flex-1 ${option.disabled ? 'text-gray-400' : 'text-gray-700'}`}>{option.label}</span>
                   </div>
                   {option.count !== undefined && (
-                    <span className="text-gray-500 text-sm ml-2">{option.count}</span>
+                    <span className={`text-sm ml-2 ${option.disabled ? 'text-gray-400' : 'text-gray-500'}`}>{option.count}</span>
                   )}
                 </button>
                 {/* Разделитель после опции "Все" */}
@@ -6456,8 +6464,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: designer.id,
             label: getDesignerName(designer.id),
             count: filterCounts.designer[designer.id] || 0,
-            avatar: getDesignerAvatar(designer.id)
-          }))
+            avatar: getDesignerAvatar(designer.id),
+            disabled: (filterCounts.designer[designer.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempDesignerFilter}
         onApply={(value) => {
@@ -6489,8 +6504,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: buyer.id,
             label: getBuyerName(buyer.id),
             count: filterCounts.buyerTable[buyer.id] || 0,
-            avatar: getBuyerAvatar(buyer.id)
-          }))
+            avatar: getBuyerAvatar(buyer.id),
+            disabled: (filterCounts.buyerTable[buyer.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempBuyerFilterTable}
         onApply={(value) => {
@@ -6522,8 +6544,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: searcher.id,
             label: getSearcherName(searcher.id),
             count: filterCounts.searcherTable[searcher.id] || 0,
-            avatar: getSearcherAvatar(searcher.id)
-          }))
+            avatar: getSearcherAvatar(searcher.id),
+            disabled: (filterCounts.searcherTable[searcher.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempSearcherFilterTable}
         onApply={(value) => {
@@ -6555,8 +6584,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: pm.id,
             label: getProductManagerName(pm.id),
             count: filterCounts.productManager[pm.id] || 0,
-            avatar: getProductManagerAvatar(pm.id)
-          }))
+            avatar: getProductManagerAvatar(pm.id),
+            disabled: (filterCounts.productManager[pm.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempProductManagerFilter}
         onApply={(value) => {
@@ -6588,8 +6624,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: gifer.id,
             label: getGiferName(gifer.id),
             count: filterCounts.gifer[gifer.id] || 0,
-            avatar: getGiferAvatar(gifer.id)
-          }))
+            avatar: getGiferAvatar(gifer.id),
+            disabled: (filterCounts.gifer[gifer.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempGiferFilter}
         onApply={(value) => {
@@ -6621,8 +6664,15 @@ data-rt-sub16="${selectedLandingUuid}"
             value: cm.id,
             label: getContentManagerName(cm.id),
             count: filterCounts.contentManager[cm.id] || 0,
-            avatar: getContentManagerAvatar(cm.id)
-          }))
+            avatar: getContentManagerAvatar(cm.id),
+            disabled: (filterCounts.contentManager[cm.id] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempContentManagerFilter}
         onApply={(value) => {
