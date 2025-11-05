@@ -174,7 +174,7 @@ function LandingTeamLead({ user }) {
   );
 
   // Компонент выпадающего фильтра
-  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, multiSelect = false }) => {
+  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false }) => {
     const [position, setPosition] = useState({ top: 0, left: 0 });
 
     useEffect(() => {
@@ -208,23 +208,50 @@ function LandingTeamLead({ user }) {
       >
         <div className="py-2 max-h-[300px] overflow-y-auto">
           {options.map((option) => {
-            const isSelected = multiSelect
-              ? selectedValues.includes(option.value)
-              : selectedValues === option.value;
+            let isSelected;
+
+            if (option.value === 'all') {
+              // Для опции "Все" проверяем, все ли опции выбраны
+              if (multiSelect) {
+                const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+                isSelected = allOptions.every(val => selectedValues.includes(val));
+              } else {
+                // Для одиночного выбора "Все" выбрано, если selectedValues === null или 'all'
+                isSelected = selectedValues === null || selectedValues === 'all';
+              }
+            } else {
+              isSelected = multiSelect
+                ? selectedValues.includes(option.value)
+                : selectedValues === option.value;
+            }
 
             return (
               <button
                 key={option.value}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (multiSelect) {
-                    const newValues = isSelected
-                      ? selectedValues.filter(v => v !== option.value)
-                      : [...selectedValues, option.value];
-                    onApply(newValues);
+
+                  if (option.value === 'all') {
+                    // Обработка клика на "Все"
+                    if (multiSelect) {
+                      // Для множественного выбора - выбираем все опции кроме "Все"
+                      const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+                      onApply(allOptions);
+                    } else {
+                      // Для одиночного выбора - устанавливаем null (все показываем)
+                      onApply(null);
+                    }
                   } else {
-                    // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем
-                    onApply(isSelected ? null : option.value);
+                    // Обработка клика на обычные опции
+                    if (multiSelect) {
+                      const newValues = isSelected
+                        ? selectedValues.filter(v => v !== option.value)
+                        : [...selectedValues, option.value];
+                      onApply(newValues);
+                    } else {
+                      // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем к null
+                      onApply(isSelected ? null : option.value);
+                    }
                   }
                 }}
                 className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
@@ -241,11 +268,13 @@ function LandingTeamLead({ user }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onCancel();
+              if (onReset) {
+                onReset();
+              }
             }}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-150 shadow-sm"
           >
-            Отменить
+            Сбросить
           </button>
           <button
             onClick={(e) => {
@@ -5335,6 +5364,7 @@ data-rt-sub16="${selectedLandingUuid}"
         isOpen={showTypeFilterDropdown}
         referenceElement={typeFilterButtonRef.current}
         options={[
+          { value: 'all', label: 'Все' },
           { value: 'main', label: 'Основные' },
           { value: 'test', label: 'Тестовые' },
           { value: 'edited', label: 'Отредактированные' }
@@ -5351,6 +5381,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setTypeFilters(tempTypeFilters);
           setShowTypeFilterDropdown(false);
         }}
+        onReset={() => {
+          setTypeFilters(['main', 'test', 'edited']);
+          setTempTypeFilters(['main', 'test', 'edited']);
+          setShowTypeFilterDropdown(false);
+        }}
         multiSelect={true}
       />
 
@@ -5358,6 +5393,7 @@ data-rt-sub16="${selectedLandingUuid}"
         isOpen={showVerificationFilterDropdown}
         referenceElement={verificationFilterButtonRef.current}
         options={[
+          { value: 'all', label: 'Все' },
           { value: 'with', label: 'С верифом' },
           { value: 'without', label: 'Без верифа' }
         ]}
@@ -5373,6 +5409,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setVerificationFilter(tempVerificationFilter);
           setShowVerificationFilterDropdown(false);
         }}
+        onReset={() => {
+          setVerificationFilter(null);
+          setTempVerificationFilter(null);
+          setShowVerificationFilterDropdown(false);
+        }}
         multiSelect={false}
       />
 
@@ -5380,6 +5421,7 @@ data-rt-sub16="${selectedLandingUuid}"
         isOpen={showCommentFilterDropdown}
         referenceElement={commentFilterButtonRef.current}
         options={[
+          { value: 'all', label: 'Все' },
           { value: 'with', label: 'С комментарием' },
           { value: 'without', label: 'Без комментария' }
         ]}
@@ -5393,6 +5435,11 @@ data-rt-sub16="${selectedLandingUuid}"
         }}
         onOk={() => {
           setCommentFilter(tempCommentFilter);
+          setShowCommentFilterDropdown(false);
+        }}
+        onReset={() => {
+          setCommentFilter(null);
+          setTempCommentFilter(null);
           setShowCommentFilterDropdown(false);
         }}
         multiSelect={false}
