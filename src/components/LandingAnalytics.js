@@ -140,6 +140,13 @@ function LandingTeamLead({ user }) {
   const [versionFilter, setVersionFilter] = useState(null); // null или конкретная версия
   const [templateFilter, setTemplateFilter] = useState(null); // null или конкретный шаблон
   const [tagsFilter, setTagsFilter] = useState([]); // массив выбранных тегов
+  const [statusFilter, setStatusFilter] = useState(null); // null или конкретный статус
+  const [designerFilter, setDesignerFilter] = useState(null); // null или id дизайнера
+  const [buyerFilterTable, setBuyerFilterTable] = useState(null); // null или id байера (для таблицы)
+  const [searcherFilterTable, setSearcherFilterTable] = useState(null); // null или id серчера (для таблицы)
+  const [productManagerFilter, setProductManagerFilter] = useState(null); // null или id продакт-менеджера
+  const [giferFilter, setGiferFilter] = useState(null); // null или id гифера
+  const [contentManagerFilter, setContentManagerFilter] = useState(null); // null или id контент-менеджера
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
@@ -148,6 +155,13 @@ function LandingTeamLead({ user }) {
   const [showVersionFilterDropdown, setShowVersionFilterDropdown] = useState(false);
   const [showTemplateFilterDropdown, setShowTemplateFilterDropdown] = useState(false);
   const [showTagsFilterDropdown, setShowTagsFilterDropdown] = useState(false);
+  const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
+  const [showDesignerFilterDropdown, setShowDesignerFilterDropdown] = useState(false);
+  const [showBuyerFilterTableDropdown, setShowBuyerFilterTableDropdown] = useState(false);
+  const [showSearcherFilterTableDropdown, setShowSearcherFilterTableDropdown] = useState(false);
+  const [showProductManagerFilterDropdown, setShowProductManagerFilterDropdown] = useState(false);
+  const [showGiferFilterDropdown, setShowGiferFilterDropdown] = useState(false);
+  const [showContentManagerFilterDropdown, setShowContentManagerFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
@@ -156,6 +170,13 @@ function LandingTeamLead({ user }) {
   const [tempVersionFilter, setTempVersionFilter] = useState(null);
   const [tempTemplateFilter, setTempTemplateFilter] = useState(null);
   const [tempTagsFilter, setTempTagsFilter] = useState([]);
+  const [tempStatusFilter, setTempStatusFilter] = useState(null);
+  const [tempDesignerFilter, setTempDesignerFilter] = useState(null);
+  const [tempBuyerFilterTable, setTempBuyerFilterTable] = useState(null);
+  const [tempSearcherFilterTable, setTempSearcherFilterTable] = useState(null);
+  const [tempProductManagerFilter, setTempProductManagerFilter] = useState(null);
+  const [tempGiferFilter, setTempGiferFilter] = useState(null);
+  const [tempContentManagerFilter, setTempContentManagerFilter] = useState(null);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
@@ -166,6 +187,13 @@ function LandingTeamLead({ user }) {
   const versionFilterButtonRef = useRef(null);
   const templateFilterButtonRef = useRef(null);
   const tagsFilterButtonRef = useRef(null);
+  const statusFilterButtonRef = useRef(null);
+  const designerFilterButtonRef = useRef(null);
+  const buyerFilterTableButtonRef = useRef(null);
+  const searcherFilterTableButtonRef = useRef(null);
+  const productManagerFilterButtonRef = useRef(null);
+  const giferFilterButtonRef = useRef(null);
+  const contentManagerFilterButtonRef = useRef(null);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -2593,8 +2621,18 @@ data-rt-sub16="${selectedLandingUuid}"
     });
     const tags = Array.from(tagsSet).sort();
 
-    return { versions, templates, tags };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue]);
+    // Собираем уникальные статусы
+    const statusesSet = new Set();
+    baseLandings.forEach(l => {
+      const status = trelloStatuses.get(l.id);
+      if (status && status.list_name) {
+        statusesSet.add(status.list_name);
+      }
+    });
+    const statuses = Array.from(statusesSet).sort();
+
+    return { versions, templates, tags, statuses };
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, trelloStatuses]);
 
   // Подсчет количества элементов для каждой опции фильтра
   const filterCounts = useMemo(() => {
@@ -3945,26 +3983,236 @@ data-rt-sub16="${selectedLandingUuid}"
                         Trello
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Статус
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Статус</span>
+                          <button
+                            ref={statusFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowStatusFilterDropdown(!showStatusFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempStatusFilter(statusFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              statusFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по статусу"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Designer
+                        <div className="flex items-center gap-1">
+                          <span>Designer</span>
+                          <button
+                            ref={designerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDesignerFilterDropdown(!showDesignerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempDesignerFilter(designerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              designerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по дизайнеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Buyer
+                        <div className="flex items-center gap-1">
+                          <span>Buyer</span>
+                          <button
+                            ref={buyerFilterTableButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowBuyerFilterTableDropdown(!showBuyerFilterTableDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempBuyerFilterTable(buyerFilterTable);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              buyerFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по байеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Searcher
+                        <div className="flex items-center gap-1">
+                          <span>Searcher</span>
+                          <button
+                            ref={searcherFilterTableButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowSearcherFilterTableDropdown(!showSearcherFilterTableDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempSearcherFilterTable(searcherFilterTable);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              searcherFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по серчеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Product
+                        <div className="flex items-center gap-1">
+                          <span>Product</span>
+                          <button
+                            ref={productManagerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowProductManagerFilterDropdown(!showProductManagerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempProductManagerFilter(productManagerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              productManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по продакт-менеджеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        GIFer
+                        <div className="flex items-center gap-1">
+                          <span>GIFer</span>
+                          <button
+                            ref={giferFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowGiferFilterDropdown(!showGiferFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempGiferFilter(giferFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              giferFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по гиферу"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Content
+                        <div className="flex items-center gap-1">
+                          <span>Content</span>
+                          <button
+                            ref={contentManagerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowContentManagerFilterDropdown(!showContentManagerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setTempContentManagerFilter(contentManagerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              contentManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по контент-менеджеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Действия
