@@ -3473,7 +3473,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="text-left pl-2">
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="flex items-center space-x-2 h-10">
+                                      <div className="grid gap-2 h-10" style={{ gridTemplateColumns: '24px 1fr 24px', alignItems: 'center' }}>
+                                        {/* Аватар */}
                                         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                           {buyerMetric.buyer_avatar ? (
                                             <img
@@ -3490,16 +3491,22 @@ data-rt-sub16="${selectedLandingUuid}"
                                             <User className="h-3 w-3 text-gray-400" />
                                           </div>
                                         </div>
-                                        <span className="text-sm font-medium text-gray-900">
+                                        {/* Имя байера */}
+                                        <span className="text-sm font-medium text-gray-900 truncate" title={buyerMetric.buyer_name}>
                                           {buyerMetric.buyer_name}
                                         </span>
-                                        {buyerMetric.buyer_source && (
-                                          <div className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ width: '20px', height: '20px' }}>
-                                            {buyerMetric.buyer_source === 'google' && <GoogleIcon className="w-full h-full" />}
-                                            {buyerMetric.buyer_source === 'facebook' && <FacebookIcon className="w-full h-full" />}
-                                            {buyerMetric.buyer_source === 'tiktok' && <TiktokIcon className="w-full h-full" />}
-                                          </div>
-                                        )}
+                                        {/* Иконка источника */}
+                                        <div className="flex items-center justify-center">
+                                          {buyerMetric.buyer_source ? (
+                                            <div className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ width: '20px', height: '20px' }}>
+                                              {buyerMetric.buyer_source === 'google' && <GoogleIcon className="w-full h-full" />}
+                                              {buyerMetric.buyer_source === 'facebook' && <FacebookIcon className="w-full h-full" />}
+                                              {buyerMetric.buyer_source === 'tiktok' && <TiktokIcon className="w-full h-full" />}
+                                            </div>
+                                          ) : (
+                                            <div style={{ width: '20px', height: '20px' }}></div>
+                                          )}
+                                        </div>
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
