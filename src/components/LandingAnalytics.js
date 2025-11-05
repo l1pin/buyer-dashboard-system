@@ -2803,19 +2803,19 @@ data-rt-sub16="${selectedLandingUuid}"
       ).length;
     });
 
-    // Подсчет для фильтра шаблонов
+    // Подсчет для фильтра шаблонов (включая все шаблоны из базы данных)
     const templateCounts = {};
-    uniqueFilterValues.templates.forEach(template => {
-      templateCounts[template] = baseLandings.filter(l =>
-        l.template && l.template.trim() === template
+    templates.forEach(template => {
+      templateCounts[template.name] = baseLandings.filter(l =>
+        l.template && l.template.trim() === template.name
       ).length;
     });
 
-    // Подсчет для фильтра тегов
+    // Подсчет для фильтра тегов (включая все теги из базы данных)
     const tagCounts = {};
-    uniqueFilterValues.tags.forEach(tag => {
-      tagCounts[tag] = baseLandings.filter(l =>
-        l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === tag)
+    tags.forEach(tag => {
+      tagCounts[tag.name] = baseLandings.filter(l =>
+        l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === tag.name)
       ).length;
     });
 
@@ -2932,7 +2932,7 @@ data-rt-sub16="${selectedLandingUuid}"
         ...contentManagerCounts
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags]);
 
   if (loading) {
     return (
@@ -6311,11 +6311,18 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по шаблону"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.template.all },
-          ...uniqueFilterValues.templates.map(template => ({
-            value: template,
-            label: template,
-            count: filterCounts.template[template] || 0
-          }))
+          ...templates.map(template => ({
+            value: template.name,
+            label: template.name,
+            count: filterCounts.template[template.name] || 0,
+            disabled: (filterCounts.template[template.name] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempTemplateFilter}
         onApply={(value) => {
@@ -6343,11 +6350,18 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по тегам"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.tag.all },
-          ...uniqueFilterValues.tags.map(tag => ({
-            value: tag,
-            label: tag,
-            count: filterCounts.tag[tag] || 0
-          }))
+          ...tags.map(tag => ({
+            value: tag.name,
+            label: tag.name,
+            count: filterCounts.tag[tag.name] || 0,
+            disabled: (filterCounts.tag[tag.name] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempTagsFilter}
         onApply={(values) => {
