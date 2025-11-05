@@ -298,22 +298,24 @@ function LandingTeamLead({ user }) {
       return [];
     }
 
-    // Собираем все дневные данные со source_id_tracker
+    // Собираем все дневные данные со source_id_tracker И источником
     const allDailyDataWithSources = validMetrics.flatMap(metric => {
       const dailyData = metric.data.allDailyData || [];
-      console.log(`📊 Обработка метрики: found=${metric.found}, dailyData.length=${dailyData.length}`);
-      
+      const source = metric.source; // Получаем источник из метрики (google/facebook/tiktok)
+      console.log(`📊 Обработка метрики: found=${metric.found}, source=${source}, dailyData.length=${dailyData.length}`);
+
       if (dailyData.length > 0) {
         console.log(`📊 Первый день метрики:`, {
           date: dailyData[0].date,
           source_id_tracker: dailyData[0].source_id_tracker,
-          has_source_id: !!dailyData[0].source_id_tracker
+          has_source_id: !!dailyData[0].source_id_tracker,
+          source: source
         });
       }
-      
+
       return dailyData.map(day => {
         const sourceId = day.source_id_tracker || 'unknown';
-        console.log(`   День: date=${day.date}, source_id_tracker="${sourceId}"`);
+        console.log(`   День: date=${day.date}, source_id_tracker="${sourceId}", source="${source}"`);
         return {
           date: day.date,
           leads: day.leads || 0,
@@ -323,7 +325,8 @@ function LandingTeamLead({ user }) {
           avg_duration: day.avg_duration || 0,
           cost_from_sources: day.cost_from_sources || 0,
           clicks_on_link: day.clicks_on_link || 0,
-          source_id_tracker: sourceId
+          source_id_tracker: sourceId,
+          source: source // Добавляем источник к данным дня
         };
       });
     });
@@ -472,10 +475,15 @@ function LandingTeamLead({ user }) {
         cpl: cpl
       });
 
+      // Определяем source для байера (берем первый найденный)
+      const buyerSource = filteredDailyData.find(day => day.source)?.source || null;
+      console.log(`  🔍 Источник для байера ${buyer.name}: ${buyerSource}`);
+
       buyerMetrics.push({
         buyer_id: buyer.id,
         buyer_name: buyer.name,
         buyer_avatar: buyer.avatar_url,
+        buyer_source: buyerSource, // Добавляем источник
         found: true,
         data: {
           raw: {
@@ -3485,18 +3493,13 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="text-sm font-medium text-gray-900">
                                           {buyerMetric.buyer_name}
                                         </span>
-                                        {(() => {
-                                          const buyerSource = getBuyerSource(landing.id, buyerMetric.buyer_id);
-                                          if (!buyerSource) return null;
-
-                                          return (
-                                            <div className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ width: '20px', height: '20px' }}>
-                                              {buyerSource === 'google' && <GoogleIcon className="w-full h-full" />}
-                                              {buyerSource === 'facebook' && <FacebookIcon className="w-full h-full" />}
-                                              {buyerSource === 'tiktok' && <TiktokIcon className="w-full h-full" />}
-                                            </div>
-                                          );
-                                        })()}
+                                        {buyerMetric.buyer_source && (
+                                          <div className="rounded-full overflow-hidden bg-white border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ width: '20px', height: '20px' }}>
+                                            {buyerMetric.buyer_source === 'google' && <GoogleIcon className="w-full h-full" />}
+                                            {buyerMetric.buyer_source === 'facebook' && <FacebookIcon className="w-full h-full" />}
+                                            {buyerMetric.buyer_source === 'tiktok' && <TiktokIcon className="w-full h-full" />}
+                                          </div>
+                                        )}
                                       </div>
                                       {/* Разделитель между байерами */}
                                       {idx < buyerMetrics.length - 1 && (
