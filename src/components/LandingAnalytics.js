@@ -1,7 +1,7 @@
 // LandingPanel.js - Полностью переписанная версия для лендингов
 // Заменяет все упоминания креативов на лендинги
 
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
@@ -604,10 +604,7 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Фильтрация по зонам
-    // ВАЖНО: Не используем hasVisibleZone здесь, т.к. она объявлена позже и вызывает getAggregatedLandingMetrics
-    // hasVisibleZone используется только в filterCounts для подсчета
-    // Здесь используем hasZoneData из хука - проверяет только наличие данных в metrics_analytics
+    // Фильтрация по зонам (используем hasZoneData из хука)
     if (zoneFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasZones = hasZoneData(l.article);
@@ -629,7 +626,7 @@ function LandingTeamLead({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources, landingMetrics]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -676,107 +673,6 @@ function LandingTeamLead({ user }) {
     getZonePricesString,
     refresh: refreshZoneData
   } = useZoneData(filteredLandings, true);
-
-  // Фильтрация метрик по периоду отображения
-  const filterMetricsByDisplayPeriod = (allDailyData, displayPeriod) => {
-    if (!allDailyData || allDailyData.length === 0) {
-      return [];
-    }
-
-    if (displayPeriod === 'all') {
-      return allDailyData;
-    }
-
-    // Обработка пользовательского диапазона дат
-    if (displayPeriod === 'custom_metrics' && metricsCustomDateFrom && metricsCustomDateTo) {
-      const fromDate = new Date(metricsCustomDateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      const toDate = new Date(metricsCustomDateTo);
-      toDate.setHours(23, 59, 59, 999);
-
-      const filteredData = allDailyData.filter(item => {
-        if (!item.date) return false;
-        const itemDate = new Date(item.date);
-        return itemDate >= fromDate && itemDate <= toDate;
-      });
-
-      console.log(`📊 Фильтрация по пользовательскому периоду метрик:`);
-      console.log(`   От: ${metricsCustomDateFrom.toLocaleDateString('ru-RU')}`);
-      console.log(`   До: ${metricsCustomDateTo.toLocaleDateString('ru-RU')}`);
-      console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
-
-      return filteredData;
-    }
-
-    // Определение диапазонов дат (аналогично фильтру создания лендингов)
-    const now = new Date();
-    let fromDate = null;
-    let toDate = null;
-
-    switch (displayPeriod) {
-      case 'today': {
-        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        break;
-      }
-      case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-        toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
-        break;
-      }
-      case 'this_week': {
-        const dayOfWeek = now.getDay();
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - daysToMonday);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate = new Date(fromDate);
-        toDate.setDate(fromDate.getDate() + 6);
-        toDate.setHours(23, 59, 59);
-        break;
-      }
-      case 'last_7_days': {
-        fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - 6);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate = new Date(now);
-        toDate.setHours(23, 59, 59);
-        break;
-      }
-      case 'this_month': {
-        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        break;
-      }
-      case 'last_month': {
-        fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        toDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-        break;
-      }
-      default:
-        return allDailyData;
-    }
-
-    if (!fromDate || !toDate) {
-      return allDailyData;
-    }
-
-    // Фильтруем метрики по диапазону дат
-    const filteredData = allDailyData.filter(item => {
-      if (!item.date) return false;
-      const itemDate = new Date(item.date);
-      return itemDate >= fromDate && itemDate <= toDate;
-    });
-
-    console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
-    console.log(`   От: ${fromDate.toLocaleDateString('ru-RU')}`);
-    console.log(`   До: ${toDate.toLocaleDateString('ru-RU')}`);
-    console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
-
-    return filteredData;
-  };
 
     // Группировка метрик лендинга по байерам
   const getMetricsByBuyers = (landing) => {
@@ -1187,6 +1083,107 @@ function LandingTeamLead({ user }) {
     return result;
   };
 
+// Фильтрация метрик по периоду отображения
+  const filterMetricsByDisplayPeriod = (allDailyData, displayPeriod) => {
+    if (!allDailyData || allDailyData.length === 0) {
+      return [];
+    }
+
+    if (displayPeriod === 'all') {
+      return allDailyData;
+    }
+
+    // Обработка пользовательского диапазона дат
+    if (displayPeriod === 'custom_metrics' && metricsCustomDateFrom && metricsCustomDateTo) {
+      const fromDate = new Date(metricsCustomDateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      const toDate = new Date(metricsCustomDateTo);
+      toDate.setHours(23, 59, 59, 999);
+
+      const filteredData = allDailyData.filter(item => {
+        if (!item.date) return false;
+        const itemDate = new Date(item.date);
+        return itemDate >= fromDate && itemDate <= toDate;
+      });
+
+      console.log(`📊 Фильтрация по пользовательскому периоду метрик:`);
+      console.log(`   От: ${metricsCustomDateFrom.toLocaleDateString('ru-RU')}`);
+      console.log(`   До: ${metricsCustomDateTo.toLocaleDateString('ru-RU')}`);
+      console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
+
+      return filteredData;
+    }
+
+    // Определение диапазонов дат (аналогично фильтру создания лендингов)
+    const now = new Date();
+    let fromDate = null;
+    let toDate = null;
+
+    switch (displayPeriod) {
+      case 'today': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        break;
+      }
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        toDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+        break;
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - daysToMonday);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(fromDate);
+        toDate.setDate(fromDate.getDate() + 6);
+        toDate.setHours(23, 59, 59);
+        break;
+      }
+      case 'last_7_days': {
+        fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - 6);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate = new Date(now);
+        toDate.setHours(23, 59, 59);
+        break;
+      }
+      case 'this_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      }
+      case 'last_month': {
+        fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        toDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      }
+      default:
+        return allDailyData;
+    }
+
+    if (!fromDate || !toDate) {
+      return allDailyData;
+    }
+
+    // Фильтруем метрики по диапазону дат
+    const filteredData = allDailyData.filter(item => {
+      if (!item.date) return false;
+      const itemDate = new Date(item.date);
+      return itemDate >= fromDate && itemDate <= toDate;
+    });
+
+    console.log(`📊 Фильтрация по периоду ${displayPeriod}:`);
+    console.log(`   От: ${fromDate.toLocaleDateString('ru-RU')}`);
+    console.log(`   До: ${toDate.toLocaleDateString('ru-RU')}`);
+    console.log(`   Отфильтровано записей: ${filteredData.length} из ${allDailyData.length}`);
+
+    return filteredData;
+  };
+
   // Компонент отображения зональных данных
   const ZoneDataDisplay = ({ article }) => {
     const zoneData = getZoneDataForArticle(article);
@@ -1295,35 +1292,7 @@ function LandingTeamLead({ user }) {
     };
   };
 
-  // Проверка наличия видимой зоны (не "—") для лендинга
-  // Используется для фильтрации: "С зонами" / "Без зон"
-  function hasVisibleZone(landing) {
-    // Получаем агрегированные метрики для лендинга
-    const aggregatedMetrics = getAggregatedLandingMetrics(landing);
-
-    // Если нет метрик, в колонке "Зоны" отображается "—"
-    if (!aggregatedMetrics?.found || !aggregatedMetrics.data) {
-      return false;
-    }
-
-    // Если нет зональных данных, отображается "—"
-    if (!hasZoneData(landing.article)) {
-      return false;
-    }
-
-    // Проверяем, можно ли определить зону по CPL
-    const cplString = aggregatedMetrics.data.formatted.cpl;
-    const cplValue = parseFloat(cplString.replace('$', ''));
-
-    if (isNaN(cplValue)) {
-      return false;
-    }
-
-    // Проверяем, определяется ли зона
-    const currentZone = getCurrentZoneByMetrics(landing.article, cplValue);
-    return currentZone !== null;
-  }
-
+  // Отображение текущей зоны
   const CurrentZoneDisplay = ({ article, metricsData }) => {
     if (!metricsData?.found || !metricsData.data) {
       return (
@@ -2547,9 +2516,8 @@ data-rt-sub16="${selectedLandingUuid}"
   };
 
   // Получение источников метрик для лендинга
-  function getLandingSources(landingId) {
+  const getLandingSources = (landingId) => {
     if (!landingId || !landingMetrics || landingMetrics.size === 0) {
-      console.log(`⚠️ getLandingSources: Нет данных (landingId=${landingId}, landingMetrics.size=${landingMetrics?.size || 0})`);
       return [];
     }
 
@@ -2562,20 +2530,19 @@ data-rt-sub16="${selectedLandingUuid}"
         const metrics = landingMetrics.get(key);
         // Проверяем что метрики найдены и имеют данные
         if (metrics && metrics.found) {
-          console.log(`✅ getLandingSources: Найден источник ${source} для ${landingId}`);
           sources.push(source);
-        } else {
-          console.log(`⚠️ getLandingSources: Источник ${source} для ${landingId} имеет found=false`);
         }
       }
     });
 
-    if (sources.length > 0) {
-      console.log(`✅ getLandingSources: Лендинг ${landingId} имеет источники: ${sources.join(', ')}`);
+    // ДИАГНОСТИКА: Логируем первый найденный лендинг с источниками
+    if (sources.length > 0 && !window._loggedFirstLandingSource) {
+      console.log('✅ ПРИМЕР: Лендинг с источниками:', { landingId, sources });
+      window._loggedFirstLandingSource = true;
     }
 
     return sources;
-  }
+  };
 
   // Получение источника для конкретного байера
   const getBuyerSource = (landingId, buyerId) => {
@@ -3071,21 +3038,20 @@ data-rt-sub16="${selectedLandingUuid}"
       landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Подсчет для фильтра зон
-    // Используем hasVisibleZone - проверяет отображается ли зона в колонке (не "—")
-    // "С зонами" = есть метрики И есть зональные данные И зона определена
-    // "Без зон" = нет метрик ИЛИ нет зональных данных ИЛИ зона не определена
-    const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasVisibleZone(l)).length;
-    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasVisibleZone(l)).length;
-
-    // Подсчет для фильтра источников
-    // Проверяем наличие источников в landingMetrics
-    // Используем getLandingSources - возвращает источники где metrics.found === true
-    console.log(`🔍 Подсчет фильтров источников:`, {
-      landingMetrics_size: landingMetrics?.size || 0,
-      landings_to_count: landingsForZoneAndSourceCount.length
+    // ДИАГНОСТИКА: Проверяем состояние данных перед подсчетом
+    console.log('🔍 ДИАГНОСТИКА ФИЛЬТРОВ:', {
+      landingsForCount: landingsForZoneAndSourceCount.length,
+      landingMetricsSize: landingMetrics?.size || 0,
+      zoneDataMapSize: zoneDataMap?.size || 0
     });
 
+    // Подсчет для фильтра зон (используем hasZoneData из хука useZoneData)
+    const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasZoneData(l.article)).length;
+    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasZoneData(l.article)).length;
+
+    console.log('📊 Подсчет зон:', { withZones: withZonesCount, withoutZones: withoutZonesCount });
+
+    // Подсчет для фильтра источников (используем getLandingSources)
     const facebookCount = landingsForZoneAndSourceCount.filter(l => {
       const sources = getLandingSources(l.id);
       return sources.includes('facebook');
@@ -3099,11 +3065,7 @@ data-rt-sub16="${selectedLandingUuid}"
       return sources.includes('google');
     }).length;
 
-    console.log(`✅ Подсчет источников:`, {
-      facebook: facebookCount,
-      tiktok: tiktokCount,
-      google: googleCount
-    });
+    console.log('📊 Подсчет источников:', { facebook: facebookCount, tiktok: tiktokCount, google: googleCount });
 
     return {
       type: {
@@ -3184,7 +3146,7 @@ data-rt-sub16="${selectedLandingUuid}"
         google: googleCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics]);
 
   if (loading) {
     return (
