@@ -604,10 +604,10 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Фильтрация по зонам
+    // Фильтрация по зонам (используем hasZoneData из хука)
     if (zoneFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
-        const hasZones = l.zones_count && l.zones_count > 0;
+        const hasZones = hasZoneData(l.article);
         if (zoneFilter === 'with') {
           return hasZones;
         } else if (zoneFilter === 'without') {
@@ -617,17 +617,16 @@ function LandingTeamLead({ user }) {
       });
     }
 
-    // Фильтрация по источнику
+    // Фильтрация по источнику (используем getLandingSources)
     if (sourceFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
-        // Получаем источники для байеров этого лендинга
-        const sources = buyerSources.get(l.buyer_id) || [];
+        const sources = getLandingSources(l.id);
         return sources.includes(sourceFilter);
       });
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, buyerSources]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources, landingMetrics]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -3033,21 +3032,21 @@ data-rt-sub16="${selectedLandingUuid}"
       landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Подсчет для фильтра зон (используем landingsForZoneAndSourceCount вместо baseLandings)
-    const withZonesCount = landingsForZoneAndSourceCount.filter(l => l.zones_count && l.zones_count > 0).length;
-    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !l.zones_count || l.zones_count === 0).length;
+    // Подсчет для фильтра зон (используем hasZoneData из хука useZoneData)
+    const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasZoneData(l.article)).length;
+    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasZoneData(l.article)).length;
 
-    // Подсчет для фильтра источников (используем landingsForZoneAndSourceCount вместо baseLandings)
+    // Подсчет для фильтра источников (используем getLandingSources)
     const facebookCount = landingsForZoneAndSourceCount.filter(l => {
-      const sources = buyerSources.get(l.buyer_id) || [];
+      const sources = getLandingSources(l.id);
       return sources.includes('facebook');
     }).length;
     const tiktokCount = landingsForZoneAndSourceCount.filter(l => {
-      const sources = buyerSources.get(l.buyer_id) || [];
+      const sources = getLandingSources(l.id);
       return sources.includes('tiktok');
     }).length;
     const googleCount = landingsForZoneAndSourceCount.filter(l => {
-      const sources = buyerSources.get(l.buyer_id) || [];
+      const sources = getLandingSources(l.id);
       return sources.includes('google');
     }).length;
 
@@ -3130,7 +3129,7 @@ data-rt-sub16="${selectedLandingUuid}"
         google: googleCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, buyerSources, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics]);
 
   if (loading) {
     return (
