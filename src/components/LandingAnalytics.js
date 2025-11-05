@@ -1,7 +1,8 @@
 // LandingPanel.js - Полностью переписанная версия для лендингов
 // Заменяет все упоминания креативов на лендинги
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService, buyerSourceService } from '../supabaseClient';
@@ -140,6 +141,11 @@ function LandingTeamLead({ user }) {
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
 
+  // Refs для кнопок фильтров (для позиционирования дропдаунов)
+  const typeFilterButtonRef = useRef(null);
+  const verificationFilterButtonRef = useRef(null);
+  const commentFilterButtonRef = useRef(null);
+
   // Компоненты флагов
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
@@ -168,12 +174,31 @@ function LandingTeamLead({ user }) {
   );
 
   // Компонент выпадающего фильтра
-  const FilterDropdown = ({ isOpen, onClose, options, selectedValues, onApply, onCancel, onOk, multiSelect = false }) => {
+  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, multiSelect = false }) => {
+    const [position, setPosition] = useState({ top: 0, left: 0 });
+
+    useEffect(() => {
+      if (isOpen && referenceElement) {
+        const rect = referenceElement.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX
+        });
+      }
+    }, [isOpen, referenceElement]);
+
     if (!isOpen) return null;
 
-    return (
-      <div className="absolute top-full mt-1 right-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[200px]">
-        <div className="py-2">
+    const dropdownContent = (
+      <div
+        className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px]"
+        style={{
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+          zIndex: 9999
+        }}
+      >
+        <div className="py-2 max-h-[300px] overflow-y-auto">
           {options.map((option) => {
             const isSelected = multiSelect
               ? selectedValues.includes(option.value)
@@ -182,7 +207,8 @@ function LandingTeamLead({ user }) {
             return (
               <button
                 key={option.value}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (multiSelect) {
                     const newValues = isSelected
                       ? selectedValues.filter(v => v !== option.value)
@@ -193,32 +219,44 @@ function LandingTeamLead({ user }) {
                     onApply(isSelected ? null : option.value);
                   }
                 }}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
               >
-                <span className="text-gray-700">{option.label}</span>
+                <span className="text-gray-700 font-medium">{option.label}</span>
                 {isSelected && (
-                  <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-2" />
+                  <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-3" strokeWidth={3} />
                 )}
               </button>
             );
           })}
         </div>
-        <div className="border-t border-gray-200 px-3 py-2 flex justify-between items-center bg-gray-50 rounded-b-lg">
+        <div className="border-t border-gray-200 px-3 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-lg">
           <button
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-150"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-150 shadow-sm"
           >
             Отменить
           </button>
           <button
-            onClick={onOk || (() => onApply(selectedValues))}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOk) {
+                onOk();
+              } else {
+                onApply(selectedValues);
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150 shadow-sm"
           >
             OK
           </button>
         </div>
       </div>
     );
+
+    return createPortal(dropdownContent, document.body);
   };
 
   // Фильтрация лендингов
@@ -1088,9 +1126,13 @@ function LandingTeamLead({ user }) {
   // Закрытие дропдаунов фильтров при клике вне компонента
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Проверяем, что клик был не на элементах фильтра
-      const isFilterClick = event.target.closest('th[class*="relative"]') !== null;
-      if (!isFilterClick) {
+      // Проверяем, что клик был не на кнопках фильтра и не внутри дропдаунов
+      const clickedOnTypeButton = typeFilterButtonRef.current?.contains(event.target);
+      const clickedOnVerificationButton = verificationFilterButtonRef.current?.contains(event.target);
+      const clickedOnCommentButton = commentFilterButtonRef.current?.contains(event.target);
+      const clickedOnDropdown = event.target.closest('.fixed.bg-white.rounded-lg') !== null;
+
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
@@ -3269,10 +3311,11 @@ data-rt-sub16="${selectedLandingUuid}"
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative" style={{ width: '40px' }}>
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         <div className="flex items-center justify-center gap-1">
                           <span>Тип</span>
                           <button
+                            ref={typeFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowTypeFilterDropdown(!showTypeFilterDropdown);
@@ -3288,39 +3331,19 @@ data-rt-sub16="${selectedLandingUuid}"
                             <Filter className="h-3 w-3" />
                           </button>
                         </div>
-                        <FilterDropdown
-                          isOpen={showTypeFilterDropdown}
-                          options={[
-                            { value: 'main', label: 'Основные' },
-                            { value: 'test', label: 'Тестовые' },
-                            { value: 'edited', label: 'Отредактированные' }
-                          ]}
-                          selectedValues={tempTypeFilters}
-                          onApply={(values) => {
-                            setTempTypeFilters(values);
-                          }}
-                          onCancel={() => {
-                            setShowTypeFilterDropdown(false);
-                            setTempTypeFilters(typeFilters);
-                          }}
-                          onOk={() => {
-                            setTypeFilters(tempTypeFilters);
-                            setShowTypeFilterDropdown(false);
-                          }}
-                          multiSelect={true}
-                        />
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <div className="flex items-center justify-center gap-1">
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                           </svg>
                           <button
+                            ref={verificationFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
@@ -3336,32 +3359,13 @@ data-rt-sub16="${selectedLandingUuid}"
                             <Filter className="h-3 w-3" />
                           </button>
                         </div>
-                        <FilterDropdown
-                          isOpen={showVerificationFilterDropdown}
-                          options={[
-                            { value: 'with', label: 'С верифом' },
-                            { value: 'without', label: 'Без верифа' }
-                          ]}
-                          selectedValues={tempVerificationFilter}
-                          onApply={(value) => {
-                            setTempVerificationFilter(value);
-                          }}
-                          onCancel={() => {
-                            setShowVerificationFilterDropdown(false);
-                            setTempVerificationFilter(verificationFilter);
-                          }}
-                          onOk={() => {
-                            setVerificationFilter(tempVerificationFilter);
-                            setShowVerificationFilterDropdown(false);
-                          }}
-                          multiSelect={false}
-                        />
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <div className="flex items-center justify-center gap-1">
                           <MessageCircle className="h-4 w-4" />
                           <button
+                            ref={commentFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowCommentFilterDropdown(!showCommentFilterDropdown);
@@ -3377,26 +3381,6 @@ data-rt-sub16="${selectedLandingUuid}"
                             <Filter className="h-3 w-3" />
                           </button>
                         </div>
-                        <FilterDropdown
-                          isOpen={showCommentFilterDropdown}
-                          options={[
-                            { value: 'with', label: 'С комментарием' },
-                            { value: 'without', label: 'Без комментария' }
-                          ]}
-                          selectedValues={tempCommentFilter}
-                          onApply={(value) => {
-                            setTempCommentFilter(value);
-                          }}
-                          onCancel={() => {
-                            setShowCommentFilterDropdown(false);
-                            setTempCommentFilter(commentFilter);
-                          }}
-                          onOk={() => {
-                            setCommentFilter(tempCommentFilter);
-                            setShowCommentFilterDropdown(false);
-                          }}
-                          multiSelect={false}
-                        />
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -5295,6 +5279,74 @@ data-rt-sub16="${selectedLandingUuid}"
           </div>
         </div>
       )}
+
+      {/* Дропдауны фильтров (рендерятся через портал) */}
+      <FilterDropdown
+        isOpen={showTypeFilterDropdown}
+        referenceElement={typeFilterButtonRef.current}
+        options={[
+          { value: 'main', label: 'Основные' },
+          { value: 'test', label: 'Тестовые' },
+          { value: 'edited', label: 'Отредактированные' }
+        ]}
+        selectedValues={tempTypeFilters}
+        onApply={(values) => {
+          setTempTypeFilters(values);
+        }}
+        onCancel={() => {
+          setShowTypeFilterDropdown(false);
+          setTempTypeFilters(typeFilters);
+        }}
+        onOk={() => {
+          setTypeFilters(tempTypeFilters);
+          setShowTypeFilterDropdown(false);
+        }}
+        multiSelect={true}
+      />
+
+      <FilterDropdown
+        isOpen={showVerificationFilterDropdown}
+        referenceElement={verificationFilterButtonRef.current}
+        options={[
+          { value: 'with', label: 'С верифом' },
+          { value: 'without', label: 'Без верифа' }
+        ]}
+        selectedValues={tempVerificationFilter}
+        onApply={(value) => {
+          setTempVerificationFilter(value);
+        }}
+        onCancel={() => {
+          setShowVerificationFilterDropdown(false);
+          setTempVerificationFilter(verificationFilter);
+        }}
+        onOk={() => {
+          setVerificationFilter(tempVerificationFilter);
+          setShowVerificationFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showCommentFilterDropdown}
+        referenceElement={commentFilterButtonRef.current}
+        options={[
+          { value: 'with', label: 'С комментарием' },
+          { value: 'without', label: 'Без комментария' }
+        ]}
+        selectedValues={tempCommentFilter}
+        onApply={(value) => {
+          setTempCommentFilter(value);
+        }}
+        onCancel={() => {
+          setShowCommentFilterDropdown(false);
+          setTempCommentFilter(commentFilter);
+        }}
+        onOk={() => {
+          setCommentFilter(tempCommentFilter);
+          setShowCommentFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
 
     </div>
   );
