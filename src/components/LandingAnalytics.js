@@ -3455,7 +3455,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               // Раскрытый вид - сначала кнопка Свернуть, затем байеры
                               <div className="space-y-0">
                                 {/* Кнопка "Свернуть" */}
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -3468,7 +3468,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   </button>
                                 </div>
                                 {/* Разделительная линия */}
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 {/* Байеры по левому краю с разделителями */}
                                 <div className="text-left pl-2">
                                   {buyerMetrics.map((buyerMetric, idx) => (
@@ -3509,9 +3509,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         </div>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3575,11 +3573,11 @@ data-rt-sub16="${selectedLandingUuid}"
                               // Раскрытый вид - сначала общая зона, потом зоны байеров
                               <div className="space-y-0">
                                 {/* Общая зона */}
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   <CurrentZoneDisplay article={landing.article} metricsData={aggregatedMetrics} />
                                 </div>
                                 {/* Разделительная линия */}
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 {/* Зоны байеров */}
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => {
@@ -3619,9 +3617,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                           )}
                                         </div>
                                         {/* Разделитель между байерами */}
-                                        {idx < buyerMetrics.length - 1 && (
-                                          <div className="border-t border-gray-300 my-2"></div>
-                                        )}
+                                        <div className="border-t border-gray-300 my-1"></div>
                                       </React.Fragment>
                                     );
                                   })}
@@ -3643,7 +3639,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               // Раскрытый вид - сначала общие лиды, потом лиды байеров
                               <div className="space-y-0">
                                 {/* Общие лиды */}
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">
                                       {aggregatedMetrics.data.formatted.leads}
@@ -3653,7 +3649,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   )}
                                 </div>
                                 {/* Разделительная линия */}
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 {/* Лиды байеров */}
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
@@ -3664,9 +3660,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         </span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3688,12 +3682,12 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.cpl}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
                                 </div>
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
@@ -3701,9 +3695,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cpl}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3725,12 +3717,12 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.cost}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
                                 </div>
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
@@ -3738,9 +3730,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cost}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3767,12 +3757,12 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.clicks}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
                                 </div>
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
@@ -3780,9 +3770,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.clicks}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3809,14 +3797,14 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">
                                       {aggregatedMetrics.data.raw.clicks > 0 ? ((aggregatedMetrics.data.raw.leads / aggregatedMetrics.data.raw.clicks) * 100).toFixed(2) + '%' : '0.00%'}
                                     </span>
                                   ) : (<span className="text-gray-400">—</span>)}
                                 </div>
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
@@ -3824,9 +3812,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cr}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3859,12 +3845,12 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center">
+                                <div className="h-8 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.days}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
                                 </div>
-                                <div className="border-t border-gray-300 my-2"></div>
+                                <div className="border-t border-gray-300 my-1"></div>
                                 <div>
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
@@ -3872,9 +3858,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.days}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      {idx < buyerMetrics.length - 1 && (
-                                        <div className="border-t border-gray-300 my-2"></div>
-                                      )}
+                                      <div className="border-t border-gray-300 my-1"></div>
                                     </React.Fragment>
                                   ))}
                                 </div>
