@@ -434,6 +434,60 @@ function LandingTeamLead({ user }) {
     return createPortal(dropdownContent, document.body);
   };
 
+  // Хук для метрик лендингов (используем landings вместо filteredLandings)
+  const {
+    landingMetrics,
+    loading: landingMetricsLoading,
+    error: landingMetricsError,
+    stats: landingMetricsStats,
+    refresh: refreshLandingMetrics,
+    getLandingMetrics,
+    getAllLandingMetrics,
+    hasMetrics: hasLandingMetrics
+  } = useLandingMetrics(landings, false, metricsPeriod);
+
+  // Хук для зональных данных (используем landings вместо filteredLandings)
+  const {
+    zoneDataMap,
+    loading: zoneDataLoading,
+    error: zoneDataError,
+    stats: zoneDataStats,
+    getZoneDataForArticle,
+    hasZoneData,
+    getCurrentZone,
+    getZonePricesString,
+    refresh: refreshZoneData
+  } = useZoneData(landings, true);
+
+  // Получение источников метрик для лендинга
+  const getLandingSources = (landingId) => {
+    if (!landingId || !landingMetrics || landingMetrics.size === 0) {
+      return [];
+    }
+
+    const sources = [];
+    const possibleSources = ['google', 'facebook', 'tiktok'];
+
+    possibleSources.forEach(source => {
+      const key = `${landingId}_${source}`;
+      if (landingMetrics.has(key)) {
+        const metrics = landingMetrics.get(key);
+        // Проверяем что метрики найдены и имеют данные
+        if (metrics && metrics.found) {
+          sources.push(source);
+        }
+      }
+    });
+
+    // ДИАГНОСТИКА: Логируем первый найденный лендинг с источниками
+    if (sources.length > 0 && !window._loggedFirstLandingSource) {
+      console.log('✅ ПРИМЕР: Лендинг с источниками:', { landingId, sources });
+      window._loggedFirstLandingSource = true;
+    }
+
+    return sources;
+  };
+
   // Фильтрация лендингов
   const filteredLandings = useMemo(() => {
     let landingsToFilter = landings;
@@ -643,36 +697,11 @@ function LandingTeamLead({ user }) {
     loadingCreativeIds
   } = useBatchMetrics(filteredLandings, true, metricsPeriod);
 
-  // Хук для метрик лендингов
-  const {
-    landingMetrics,
-    loading: landingMetricsLoading,
-    error: landingMetricsError,
-    stats: landingMetricsStats,
-    refresh: refreshLandingMetrics,
-    getLandingMetrics,
-    getAllLandingMetrics,
-    hasMetrics: hasLandingMetrics
-  } = useLandingMetrics(filteredLandings, false, metricsPeriod);
-
   const {
     stats: aggregatedMetricsStats,
     formatStats,
     hasData: hasMetricsData
   } = useMetricsStats(filteredLandings, batchMetrics);
-
-  // Хук для зональных данных
-  const {
-    zoneDataMap,
-    loading: zoneDataLoading,
-    error: zoneDataError,
-    stats: zoneDataStats,
-    getZoneDataForArticle,
-    hasZoneData,
-    getCurrentZone,
-    getZonePricesString,
-    refresh: refreshZoneData
-  } = useZoneData(filteredLandings, true);
 
     // Группировка метрик лендинга по байерам
   const getMetricsByBuyers = (landing) => {
@@ -2513,35 +2542,6 @@ data-rt-sub16="${selectedLandingUuid}"
     if (!contentManagerId) return '—';
     const cm = contentManagers.find(c => c.id === contentManagerId);
     return cm ? cm.name : 'Удален';
-  };
-
-  // Получение источников метрик для лендинга
-  const getLandingSources = (landingId) => {
-    if (!landingId || !landingMetrics || landingMetrics.size === 0) {
-      return [];
-    }
-
-    const sources = [];
-    const possibleSources = ['google', 'facebook', 'tiktok'];
-
-    possibleSources.forEach(source => {
-      const key = `${landingId}_${source}`;
-      if (landingMetrics.has(key)) {
-        const metrics = landingMetrics.get(key);
-        // Проверяем что метрики найдены и имеют данные
-        if (metrics && metrics.found) {
-          sources.push(source);
-        }
-      }
-    });
-
-    // ДИАГНОСТИКА: Логируем первый найденный лендинг с источниками
-    if (sources.length > 0 && !window._loggedFirstLandingSource) {
-      console.log('✅ ПРИМЕР: Лендинг с источниками:', { landingId, sources });
-      window._loggedFirstLandingSource = true;
-    }
-
-    return sources;
   };
 
   // Получение источника для конкретного байера
