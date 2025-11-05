@@ -175,34 +175,39 @@ function LandingTeamLead({ user }) {
 
   // Компонент выпадающего фильтра
   const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр' }) => {
+    const dropdownRef = useRef(null);
     const [position, setPosition] = useState({ top: 0, left: 0 });
-    const [positionCalculated, setPositionCalculated] = useState(false);
-    const positionCalculatedRef = useRef(false);
+    const initialPositionSet = useRef(false);
 
+    // Используем useLayoutEffect для синхронного расчета позиции до отрисовки
     useEffect(() => {
-      if (isOpen && referenceElement && !positionCalculatedRef.current) {
+      if (isOpen && referenceElement && !initialPositionSet.current) {
         const rect = referenceElement.getBoundingClientRect();
-        setPosition({
+        const newPosition = {
           top: rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX
-        });
-        setPositionCalculated(true);
-        positionCalculatedRef.current = true;
+        };
+        setPosition(newPosition);
+        initialPositionSet.current = true;
       } else if (!isOpen) {
-        setPositionCalculated(false);
-        positionCalculatedRef.current = false;
+        initialPositionSet.current = false;
       }
     }, [isOpen, referenceElement]);
 
-    if (!isOpen || !positionCalculated) return null;
+    if (!isOpen) return null;
+    if (!initialPositionSet.current) return null;
 
     const dropdownContent = (
       <div
+        ref={dropdownRef}
         className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px]"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
-          zIndex: 9999
+          zIndex: 9999,
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          willChange: 'auto'
         }}
         onMouseDown={(e) => {
           // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
@@ -283,7 +288,7 @@ function LandingTeamLead({ user }) {
                     <span className="text-gray-700 font-medium flex-1">{option.label}</span>
                   </div>
                   {option.count !== undefined && (
-                    <span className="text-gray-500 text-sm ml-2">({option.count})</span>
+                    <span className="text-gray-500 text-sm ml-2">{option.count}</span>
                   )}
                 </button>
                 {/* Разделитель после опции "Все" */}
