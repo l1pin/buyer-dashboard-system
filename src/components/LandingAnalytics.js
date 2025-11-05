@@ -197,6 +197,14 @@ function LandingTeamLead({ user }) {
           left: `${position.left}px`,
           zIndex: 9999
         }}
+        onMouseDown={(e) => {
+          // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          // Предотвращаем всплытие события
+          e.stopPropagation();
+        }}
       >
         <div className="py-2 max-h-[300px] overflow-y-auto">
           {options.map((option) => {
@@ -1130,7 +1138,23 @@ function LandingTeamLead({ user }) {
       const clickedOnTypeButton = typeFilterButtonRef.current?.contains(event.target);
       const clickedOnVerificationButton = verificationFilterButtonRef.current?.contains(event.target);
       const clickedOnCommentButton = commentFilterButtonRef.current?.contains(event.target);
-      const clickedOnDropdown = event.target.closest('.fixed.bg-white.rounded-lg') !== null;
+
+      // Проверяем, был ли клик внутри любого dropdown фильтра
+      // Используем более надежную проверку, которая учитывает вложенные элементы
+      let element = event.target;
+      let clickedOnDropdown = false;
+
+      // Поднимаемся по дереву DOM до 10 уровней вверх
+      for (let i = 0; i < 10 && element; i++) {
+        if (element.classList &&
+            element.classList.contains('fixed') &&
+            element.classList.contains('bg-white') &&
+            element.classList.contains('rounded-lg')) {
+          clickedOnDropdown = true;
+          break;
+        }
+        element = element.parentElement;
+      }
 
       if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
