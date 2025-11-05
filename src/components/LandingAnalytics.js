@@ -177,17 +177,20 @@ function LandingTeamLead({ user }) {
   const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр' }) => {
     const [position, setPosition] = useState({ top: 0, left: 0 });
     const [positionCalculated, setPositionCalculated] = useState(false);
+    const positionCalculatedRef = useRef(false);
 
     useEffect(() => {
-      if (isOpen && referenceElement) {
+      if (isOpen && referenceElement && !positionCalculatedRef.current) {
         const rect = referenceElement.getBoundingClientRect();
         setPosition({
           top: rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX
         });
         setPositionCalculated(true);
-      } else {
+        positionCalculatedRef.current = true;
+      } else if (!isOpen) {
         setPositionCalculated(false);
+        positionCalculatedRef.current = false;
       }
     }, [isOpen, referenceElement]);
 
@@ -268,11 +271,19 @@ function LandingTeamLead({ user }) {
                       }
                     }
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center"
                 >
-                  <span className="text-gray-700 font-medium">{option.label}</span>
-                  {isSelected && (
-                    <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-3" strokeWidth={3} />
+                  <div className="flex items-center flex-1">
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-blue-600 flex-shrink-0 mr-2" strokeWidth={3} />
+                    )}
+                    {!isSelected && (
+                      <div className="h-4 w-4 mr-2"></div>
+                    )}
+                    <span className="text-gray-700 font-medium flex-1">{option.label}</span>
+                  </div>
+                  {option.count !== undefined && (
+                    <span className="text-gray-500 text-sm ml-2">({option.count})</span>
                   )}
                 </button>
                 {/* Разделитель после опции "Все" */}
@@ -291,7 +302,7 @@ function LandingTeamLead({ user }) {
                 onReset();
               }
             }}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-150 shadow-sm"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors duration-150"
           >
             Сбросить
           </button>
@@ -2431,7 +2442,82 @@ data-rt-sub16="${selectedLandingUuid}"
   };
 
   const totalMetrics = calculateTotalMetrics();
-  
+
+  // Подсчет количества элементов для каждой опции фильтра
+  const filterCounts = useMemo(() => {
+    // Базовая фильтрация (без учета фильтров типа, верификации и комментариев)
+    let baseLandings = landings;
+
+    // Применяем фильтр байеров
+    if (selectedBuyer !== 'all') {
+      baseLandings = baseLandings.filter(l => l.buyer_id === selectedBuyer);
+    }
+
+    // Применяем фильтр серчеров
+    if (selectedSearcher !== 'all') {
+      baseLandings = baseLandings.filter(l => l.searcher_id === selectedSearcher);
+    }
+
+    // Применяем поиск по SKU/UUID
+    if (searchValue.trim()) {
+      if (searchMode === 'sku') {
+        const searchTerm = searchValue.trim().toLowerCase();
+        baseLandings = baseLandings.filter(l =>
+          l.article && l.article.toLowerCase().includes(searchTerm)
+        );
+      } else if (searchMode === 'uuid') {
+        const searchTerm = searchValue.trim().toLowerCase();
+        const landingWithUuid = landings.find(l =>
+          l.id && l.id.toLowerCase() === searchTerm
+        );
+        if (landingWithUuid && landingWithUuid.article) {
+          const targetArticle = landingWithUuid.article.toLowerCase();
+          baseLandings = baseLandings.filter(l =>
+            l.article && l.article.toLowerCase() === targetArticle
+          );
+        } else {
+          baseLandings = [];
+        }
+      }
+    }
+
+    // Подсчет для фильтра типов
+    const mainCount = baseLandings.filter(l => !l.is_test && !l.is_edited).length;
+    const testCount = baseLandings.filter(l => l.is_test).length;
+    const editedCount = baseLandings.filter(l => l.is_edited).length;
+
+    // Подсчет для фильтра верификации
+    const withVerifCount = baseLandings.filter(l =>
+      (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id)
+    ).length;
+    const withoutVerifCount = baseLandings.filter(l =>
+      !((l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id))
+    ).length;
+
+    // Подсчет для фильтра комментариев
+    const withCommentCount = baseLandings.filter(l => l.comment && l.comment.trim()).length;
+    const withoutCommentCount = baseLandings.filter(l => !(l.comment && l.comment.trim())).length;
+
+    return {
+      type: {
+        all: baseLandings.length,
+        main: mainCount,
+        test: testCount,
+        edited: editedCount
+      },
+      verification: {
+        all: baseLandings.length,
+        with: withVerifCount,
+        without: withoutVerifCount
+      },
+      comment: {
+        all: baseLandings.length,
+        with: withCommentCount,
+        without: withoutCommentCount
+      }
+    };
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -5384,10 +5470,10 @@ data-rt-sub16="${selectedLandingUuid}"
         referenceElement={typeFilterButtonRef.current}
         title="Фильтровать по типу"
         options={[
-          { value: 'all', label: 'Все' },
-          { value: 'main', label: 'Основные' },
-          { value: 'test', label: 'Тестовые' },
-          { value: 'edited', label: 'Отредактированные' }
+          { value: 'all', label: 'Все', count: filterCounts.type.all },
+          { value: 'main', label: 'Основные', count: filterCounts.type.main },
+          { value: 'test', label: 'Тестовые', count: filterCounts.type.test },
+          { value: 'edited', label: 'Отредактированные', count: filterCounts.type.edited }
         ]}
         selectedValues={tempTypeFilters}
         onApply={(values) => {
@@ -5414,9 +5500,9 @@ data-rt-sub16="${selectedLandingUuid}"
         referenceElement={verificationFilterButtonRef.current}
         title="Фильтровать по верифу"
         options={[
-          { value: 'all', label: 'Все' },
-          { value: 'with', label: 'С верифом' },
-          { value: 'without', label: 'Без верифа' }
+          { value: 'all', label: 'Все', count: filterCounts.verification.all },
+          { value: 'with', label: 'С верифом', count: filterCounts.verification.with },
+          { value: 'without', label: 'Без верифа', count: filterCounts.verification.without }
         ]}
         selectedValues={tempVerificationFilter}
         onApply={(value) => {
@@ -5443,9 +5529,9 @@ data-rt-sub16="${selectedLandingUuid}"
         referenceElement={commentFilterButtonRef.current}
         title="Фильтровать по комментам"
         options={[
-          { value: 'all', label: 'Все' },
-          { value: 'with', label: 'С комментарием' },
-          { value: 'without', label: 'Без комментария' }
+          { value: 'all', label: 'Все', count: filterCounts.comment.all },
+          { value: 'with', label: 'С комментарием', count: filterCounts.comment.with },
+          { value: 'without', label: 'Без комментария', count: filterCounts.comment.without }
         ]}
         selectedValues={tempCommentFilter}
         onApply={(value) => {
