@@ -137,16 +137,25 @@ function LandingTeamLead({ user }) {
   const [commentFilter, setCommentFilter] = useState(null); // null, 'with' или 'without'
   const [historyFilter, setHistoryFilter] = useState(null); // null, 'with' или 'without'
   const [countryFilter, setCountryFilter] = useState(null); // null, 'ukraine' или 'poland'
+  const [versionFilter, setVersionFilter] = useState(null); // null или конкретная версия
+  const [templateFilter, setTemplateFilter] = useState(null); // null или конкретный шаблон
+  const [tagsFilter, setTagsFilter] = useState([]); // массив выбранных тегов
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
   const [showHistoryFilterDropdown, setShowHistoryFilterDropdown] = useState(false);
   const [showCountryFilterDropdown, setShowCountryFilterDropdown] = useState(false);
+  const [showVersionFilterDropdown, setShowVersionFilterDropdown] = useState(false);
+  const [showTemplateFilterDropdown, setShowTemplateFilterDropdown] = useState(false);
+  const [showTagsFilterDropdown, setShowTagsFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
   const [tempHistoryFilter, setTempHistoryFilter] = useState(null);
   const [tempCountryFilter, setTempCountryFilter] = useState(null);
+  const [tempVersionFilter, setTempVersionFilter] = useState(null);
+  const [tempTemplateFilter, setTempTemplateFilter] = useState(null);
+  const [tempTagsFilter, setTempTagsFilter] = useState([]);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
@@ -154,6 +163,9 @@ function LandingTeamLead({ user }) {
   const commentFilterButtonRef = useRef(null);
   const historyFilterButtonRef = useRef(null);
   const countryFilterButtonRef = useRef(null);
+  const versionFilterButtonRef = useRef(null);
+  const templateFilterButtonRef = useRef(null);
+  const tagsFilterButtonRef = useRef(null);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -442,8 +454,33 @@ function LandingTeamLead({ user }) {
       });
     }
 
+    // Фильтрация по версии
+    if (versionFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l =>
+        l.website && l.website.trim() === versionFilter
+      );
+    }
+
+    // Фильтрация по шаблону
+    if (templateFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l =>
+        l.template && l.template.trim() === templateFilter
+      );
+    }
+
+    // Фильтрация по тегам
+    if (tagsFilter.length > 0) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (!l.tags || !Array.isArray(l.tags)) return false;
+        // Лендинг должен содержать хотя бы один из выбранных тегов
+        return tagsFilter.some(selectedTag =>
+          l.tags.some(tag => tag.trim() === selectedTag)
+        );
+      });
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, landingsWithIntegration, landingsWithHistory]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, landingsWithIntegration, landingsWithHistory]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1233,6 +1270,9 @@ function LandingTeamLead({ user }) {
       const clickedOnCommentButton = commentFilterButtonRef.current?.contains(event.target);
       const clickedOnHistoryButton = historyFilterButtonRef.current?.contains(event.target);
       const clickedOnCountryButton = countryFilterButtonRef.current?.contains(event.target);
+      const clickedOnVersionButton = versionFilterButtonRef.current?.contains(event.target);
+      const clickedOnTemplateButton = templateFilterButtonRef.current?.contains(event.target);
+      const clickedOnTagsButton = tagsFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1251,22 +1291,25 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
         setShowHistoryFilterDropdown(false);
         setShowCountryFilterDropdown(false);
+        setShowVersionFilterDropdown(false);
+        setShowTemplateFilterDropdown(false);
+        setShowTagsFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -2481,6 +2524,78 @@ data-rt-sub16="${selectedLandingUuid}"
 
   const totalMetrics = calculateTotalMetrics();
 
+  // Получаем уникальные значения для фильтров
+  const uniqueFilterValues = useMemo(() => {
+    // Базовая фильтрация (применяем те же фильтры, что и для подсчетов)
+    let baseLandings = landings;
+
+    // Применяем фильтр байеров
+    if (selectedBuyer !== 'all') {
+      baseLandings = baseLandings.filter(l => l.buyer_id === selectedBuyer);
+    }
+
+    // Применяем фильтр серчеров
+    if (selectedSearcher !== 'all') {
+      baseLandings = baseLandings.filter(l => l.searcher_id === selectedSearcher);
+    }
+
+    // Применяем поиск по SKU/UUID
+    if (searchValue.trim()) {
+      if (searchMode === 'sku') {
+        const searchTerm = searchValue.trim().toLowerCase();
+        baseLandings = baseLandings.filter(l =>
+          l.article && l.article.toLowerCase().includes(searchTerm)
+        );
+      } else if (searchMode === 'uuid') {
+        const searchTerm = searchValue.trim().toLowerCase();
+        const landingWithUuid = landings.find(l =>
+          l.id && l.id.toLowerCase() === searchTerm
+        );
+        if (landingWithUuid && landingWithUuid.article) {
+          const targetArticle = landingWithUuid.article.toLowerCase();
+          baseLandings = baseLandings.filter(l =>
+            l.article && l.article.toLowerCase() === targetArticle
+          );
+        } else {
+          baseLandings = [];
+        }
+      }
+    }
+
+    // Собираем уникальные версии
+    const versionsSet = new Set();
+    baseLandings.forEach(l => {
+      if (l.website && l.website.trim()) {
+        versionsSet.add(l.website.trim());
+      }
+    });
+    const versions = Array.from(versionsSet).sort();
+
+    // Собираем уникальные шаблоны
+    const templatesSet = new Set();
+    baseLandings.forEach(l => {
+      if (l.template && l.template.trim()) {
+        templatesSet.add(l.template.trim());
+      }
+    });
+    const templates = Array.from(templatesSet).sort();
+
+    // Собираем уникальные теги
+    const tagsSet = new Set();
+    baseLandings.forEach(l => {
+      if (l.tags && Array.isArray(l.tags)) {
+        l.tags.forEach(tag => {
+          if (tag && tag.trim()) {
+            tagsSet.add(tag.trim());
+          }
+        });
+      }
+    });
+    const tags = Array.from(tagsSet).sort();
+
+    return { versions, templates, tags };
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue]);
+
   // Подсчет количества элементов для каждой опции фильтра
   const filterCounts = useMemo(() => {
     // Базовая фильтрация (без учета фильтров типа, верификации и комментариев)
@@ -2544,6 +2659,30 @@ data-rt-sub16="${selectedLandingUuid}"
     const ukraineCount = baseLandings.filter(l => !l.is_poland).length;
     const polandCount = baseLandings.filter(l => l.is_poland).length;
 
+    // Подсчет для фильтра версий
+    const versionCounts = {};
+    uniqueFilterValues.versions.forEach(version => {
+      versionCounts[version] = baseLandings.filter(l =>
+        l.website && l.website.trim() === version
+      ).length;
+    });
+
+    // Подсчет для фильтра шаблонов
+    const templateCounts = {};
+    uniqueFilterValues.templates.forEach(template => {
+      templateCounts[template] = baseLandings.filter(l =>
+        l.template && l.template.trim() === template
+      ).length;
+    });
+
+    // Подсчет для фильтра тегов
+    const tagCounts = {};
+    uniqueFilterValues.tags.forEach(tag => {
+      tagCounts[tag] = baseLandings.filter(l =>
+        l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === tag)
+      ).length;
+    });
+
     return {
       type: {
         all: baseLandings.length,
@@ -2570,9 +2709,21 @@ data-rt-sub16="${selectedLandingUuid}"
         all: baseLandings.length,
         ukraine: ukraineCount,
         poland: polandCount
+      },
+      version: {
+        all: baseLandings.length,
+        ...versionCounts
+      },
+      template: {
+        all: baseLandings.length,
+        ...templateCounts
+      },
+      tag: {
+        all: baseLandings.length,
+        ...tagCounts
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues]);
 
   if (loading) {
     return (
@@ -3675,15 +3826,84 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Версия
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Версия</span>
+                          <button
+                            ref={versionFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowVersionFilterDropdown(!showVersionFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setTempVersionFilter(versionFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              versionFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по версии"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Шаблон
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Шаблон</span>
+                          <button
+                            ref={templateFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTemplateFilterDropdown(!showTemplateFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setTempTemplateFilter(templateFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              templateFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по шаблону"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Теги
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Теги</span>
+                          <button
+                            ref={tagsFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTagsFilterDropdown(!showTagsFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setTempTagsFilter(tagsFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              tagsFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по тегам"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -5704,6 +5924,102 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowCountryFilterDropdown(false);
         }}
         multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showVersionFilterDropdown}
+        referenceElement={versionFilterButtonRef.current}
+        title="Фильтровать по версии"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.version.all },
+          ...uniqueFilterValues.versions.map(version => ({
+            value: version,
+            label: version,
+            count: filterCounts.version[version] || 0
+          }))
+        ]}
+        selectedValues={tempVersionFilter}
+        onApply={(value) => {
+          setTempVersionFilter(value);
+        }}
+        onCancel={() => {
+          setShowVersionFilterDropdown(false);
+          setTempVersionFilter(versionFilter);
+        }}
+        onOk={() => {
+          setVersionFilter(tempVersionFilter);
+          setShowVersionFilterDropdown(false);
+        }}
+        onReset={() => {
+          setVersionFilter(null);
+          setTempVersionFilter(null);
+          setShowVersionFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showTemplateFilterDropdown}
+        referenceElement={templateFilterButtonRef.current}
+        title="Фильтровать по шаблону"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.template.all },
+          ...uniqueFilterValues.templates.map(template => ({
+            value: template,
+            label: template,
+            count: filterCounts.template[template] || 0
+          }))
+        ]}
+        selectedValues={tempTemplateFilter}
+        onApply={(value) => {
+          setTempTemplateFilter(value);
+        }}
+        onCancel={() => {
+          setShowTemplateFilterDropdown(false);
+          setTempTemplateFilter(templateFilter);
+        }}
+        onOk={() => {
+          setTemplateFilter(tempTemplateFilter);
+          setShowTemplateFilterDropdown(false);
+        }}
+        onReset={() => {
+          setTemplateFilter(null);
+          setTempTemplateFilter(null);
+          setShowTemplateFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showTagsFilterDropdown}
+        referenceElement={tagsFilterButtonRef.current}
+        title="Фильтровать по тегам"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.tag.all },
+          ...uniqueFilterValues.tags.map(tag => ({
+            value: tag,
+            label: tag,
+            count: filterCounts.tag[tag] || 0
+          }))
+        ]}
+        selectedValues={tempTagsFilter}
+        onApply={(values) => {
+          setTempTagsFilter(values);
+        }}
+        onCancel={() => {
+          setShowTagsFilterDropdown(false);
+          setTempTagsFilter(tagsFilter);
+        }}
+        onOk={() => {
+          setTagsFilter(tempTagsFilter);
+          setShowTagsFilterDropdown(false);
+        }}
+        onReset={() => {
+          setTagsFilter([]);
+          setTempTagsFilter([]);
+          setShowTagsFilterDropdown(false);
+        }}
+        multiSelect={true}
       />
 
     </div>
