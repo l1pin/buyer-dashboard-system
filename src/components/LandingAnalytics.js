@@ -1,7 +1,7 @@
 // LandingPanel.js - Полностью переписанная версия для лендингов
 // Заменяет все упоминания креативов на лендинги
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
@@ -176,38 +176,33 @@ function LandingTeamLead({ user }) {
   // Компонент выпадающего фильтра
   const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр' }) => {
     const dropdownRef = useRef(null);
-    const [position, setPosition] = useState({ top: 0, left: 0 });
-    const initialPositionSet = useRef(false);
+    const positionRef = useRef({ top: 0, left: 0 });
+    const [, forceUpdate] = useState({});
 
-    // Используем useLayoutEffect для синхронного расчета позиции до отрисовки
-    useEffect(() => {
-      if (isOpen && referenceElement && !initialPositionSet.current) {
+    // Используем useLayoutEffect для СИНХРОННОГО расчета позиции ДО отрисовки
+    useLayoutEffect(() => {
+      if (isOpen && referenceElement) {
         const rect = referenceElement.getBoundingClientRect();
-        const newPosition = {
+        positionRef.current = {
           top: rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX
         };
-        setPosition(newPosition);
-        initialPositionSet.current = true;
-      } else if (!isOpen) {
-        initialPositionSet.current = false;
+        forceUpdate({});
       }
     }, [isOpen, referenceElement]);
 
     if (!isOpen) return null;
-    if (!initialPositionSet.current) return null;
 
     const dropdownContent = (
       <div
         ref={dropdownRef}
         className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px]"
         style={{
-          top: `${position.top}px`,
-          left: `${position.left}px`,
+          top: `${positionRef.current.top}px`,
+          left: `${positionRef.current.left}px`,
           zIndex: 9999,
           transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          willChange: 'auto'
+          backfaceVisibility: 'hidden'
         }}
         onMouseDown={(e) => {
           // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
