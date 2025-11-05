@@ -2535,6 +2535,12 @@ data-rt-sub16="${selectedLandingUuid}"
       }
     });
 
+    // ДИАГНОСТИКА: Логируем первый найденный лендинг с источниками
+    if (sources.length > 0 && !window._loggedFirstLandingSource) {
+      console.log('✅ ПРИМЕР: Лендинг с источниками:', { landingId, sources });
+      window._loggedFirstLandingSource = true;
+    }
+
     return sources;
   };
 
@@ -3032,9 +3038,18 @@ data-rt-sub16="${selectedLandingUuid}"
       landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
+    // ДИАГНОСТИКА: Проверяем состояние данных перед подсчетом
+    console.log('🔍 ДИАГНОСТИКА ФИЛЬТРОВ:', {
+      landingsForCount: landingsForZoneAndSourceCount.length,
+      landingMetricsSize: landingMetrics?.size || 0,
+      zoneDataMapSize: zoneDataMap?.size || 0
+    });
+
     // Подсчет для фильтра зон (используем hasZoneData из хука useZoneData)
     const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasZoneData(l.article)).length;
     const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasZoneData(l.article)).length;
+
+    console.log('📊 Подсчет зон:', { withZones: withZonesCount, withoutZones: withoutZonesCount });
 
     // Подсчет для фильтра источников (используем getLandingSources)
     const facebookCount = landingsForZoneAndSourceCount.filter(l => {
@@ -3049,6 +3064,8 @@ data-rt-sub16="${selectedLandingUuid}"
       const sources = getLandingSources(l.id);
       return sources.includes('google');
     }).length;
+
+    console.log('📊 Подсчет источников:', { facebook: facebookCount, tiktok: tiktokCount, google: googleCount });
 
     return {
       type: {
