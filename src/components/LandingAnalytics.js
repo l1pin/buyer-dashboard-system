@@ -147,6 +147,8 @@ function LandingTeamLead({ user }) {
   const [productManagerFilter, setProductManagerFilter] = useState(null); // null или id продакт-менеджера
   const [giferFilter, setGiferFilter] = useState(null); // null или id гифера
   const [contentManagerFilter, setContentManagerFilter] = useState(null); // null или id контент-менеджера
+  const [zoneFilter, setZoneFilter] = useState(null); // null, 'with', 'without'
+  const [sourceFilter, setSourceFilter] = useState(null); // null, 'facebook', 'tiktok', 'google'
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
@@ -162,6 +164,8 @@ function LandingTeamLead({ user }) {
   const [showProductManagerFilterDropdown, setShowProductManagerFilterDropdown] = useState(false);
   const [showGiferFilterDropdown, setShowGiferFilterDropdown] = useState(false);
   const [showContentManagerFilterDropdown, setShowContentManagerFilterDropdown] = useState(false);
+  const [showZoneFilterDropdown, setShowZoneFilterDropdown] = useState(false);
+  const [showSourceFilterDropdown, setShowSourceFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
@@ -177,6 +181,8 @@ function LandingTeamLead({ user }) {
   const [tempProductManagerFilter, setTempProductManagerFilter] = useState(null);
   const [tempGiferFilter, setTempGiferFilter] = useState(null);
   const [tempContentManagerFilter, setTempContentManagerFilter] = useState(null);
+  const [tempZoneFilter, setTempZoneFilter] = useState(null);
+  const [tempSourceFilter, setTempSourceFilter] = useState(null);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
@@ -194,6 +200,8 @@ function LandingTeamLead({ user }) {
   const productManagerFilterButtonRef = useRef(null);
   const giferFilterButtonRef = useRef(null);
   const contentManagerFilterButtonRef = useRef(null);
+  const zoneFilterButtonRef = useRef(null);
+  const sourceFilterButtonRef = useRef(null);
 
   // Функция для закрытия всех фильтров
   const closeAllFilterDropdowns = () => {
@@ -212,6 +220,8 @@ function LandingTeamLead({ user }) {
     setShowProductManagerFilterDropdown(false);
     setShowGiferFilterDropdown(false);
     setShowContentManagerFilterDropdown(false);
+    setShowZoneFilterDropdown(false);
+    setShowSourceFilterDropdown(false);
   };
 
   // Компоненты флагов
@@ -594,8 +604,30 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
+    // Фильтрация по зонам
+    if (zoneFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const hasZones = l.zones_count && l.zones_count > 0;
+        if (zoneFilter === 'with') {
+          return hasZones;
+        } else if (zoneFilter === 'without') {
+          return !hasZones;
+        }
+        return true;
+      });
+    }
+
+    // Фильтрация по источнику
+    if (sourceFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        // Получаем источники для байеров этого лендинга
+        const sources = buyerSources.get(l.buyer_id) || [];
+        return sources.includes(sourceFilter);
+      });
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, buyerSources]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1395,6 +1427,8 @@ function LandingTeamLead({ user }) {
       const clickedOnProductManagerButton = productManagerFilterButtonRef.current?.contains(event.target);
       const clickedOnGiferButton = giferFilterButtonRef.current?.contains(event.target);
       const clickedOnContentManagerButton = contentManagerFilterButtonRef.current?.contains(event.target);
+      const clickedOnZoneButton = zoneFilterButtonRef.current?.contains(event.target);
+      const clickedOnSourceButton = sourceFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1413,7 +1447,7 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnStatusButton && !clickedOnDesignerButton && !clickedOnBuyerTableButton && !clickedOnSearcherTableButton && !clickedOnProductManagerButton && !clickedOnGiferButton && !clickedOnContentManagerButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnStatusButton && !clickedOnDesignerButton && !clickedOnBuyerTableButton && !clickedOnSearcherTableButton && !clickedOnProductManagerButton && !clickedOnGiferButton && !clickedOnContentManagerButton && !clickedOnZoneButton && !clickedOnSourceButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
@@ -1429,16 +1463,18 @@ function LandingTeamLead({ user }) {
         setShowProductManagerFilterDropdown(false);
         setShowGiferFilterDropdown(false);
         setShowContentManagerFilterDropdown(false);
+        setShowZoneFilterDropdown(false);
+        setShowSourceFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown || showStatusFilterDropdown || showDesignerFilterDropdown || showBuyerFilterTableDropdown || showSearcherFilterTableDropdown || showProductManagerFilterDropdown || showGiferFilterDropdown || showContentManagerFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown || showStatusFilterDropdown || showDesignerFilterDropdown || showBuyerFilterTableDropdown || showSearcherFilterTableDropdown || showProductManagerFilterDropdown || showGiferFilterDropdown || showContentManagerFilterDropdown || showZoneFilterDropdown || showSourceFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown, showStatusFilterDropdown, showDesignerFilterDropdown, showBuyerFilterTableDropdown, showSearcherFilterTableDropdown, showProductManagerFilterDropdown, showGiferFilterDropdown, showContentManagerFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown, showStatusFilterDropdown, showDesignerFilterDropdown, showBuyerFilterTableDropdown, showSearcherFilterTableDropdown, showProductManagerFilterDropdown, showGiferFilterDropdown, showContentManagerFilterDropdown, showZoneFilterDropdown, showSourceFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -2867,6 +2903,24 @@ data-rt-sub16="${selectedLandingUuid}"
       contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
     });
 
+    // Подсчет для фильтра зон
+    const withZonesCount = baseLandings.filter(l => l.zones_count && l.zones_count > 0).length;
+    const withoutZonesCount = baseLandings.filter(l => !l.zones_count || l.zones_count === 0).length;
+
+    // Подсчет для фильтра источников
+    const facebookCount = baseLandings.filter(l => {
+      const sources = buyerSources.get(l.buyer_id) || [];
+      return sources.includes('facebook');
+    }).length;
+    const tiktokCount = baseLandings.filter(l => {
+      const sources = buyerSources.get(l.buyer_id) || [];
+      return sources.includes('tiktok');
+    }).length;
+    const googleCount = baseLandings.filter(l => {
+      const sources = buyerSources.get(l.buyer_id) || [];
+      return sources.includes('google');
+    }).length;
+
     return {
       type: {
         all: baseLandings.length,
@@ -2933,9 +2987,20 @@ data-rt-sub16="${selectedLandingUuid}"
       contentManager: {
         all: baseLandings.length,
         ...contentManagerCounts
+      },
+      zone: {
+        all: baseLandings.length,
+        with: withZonesCount,
+        without: withoutZonesCount
+      },
+      source: {
+        all: baseLandings.length,
+        facebook: facebookCount,
+        tiktok: tiktokCount,
+        google: googleCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, buyerSources]);
 
   if (loading) {
     return (
@@ -4117,7 +4182,27 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Источник
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Источник</span>
+                          <button
+                            ref={sourceFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const wasOpen = showSourceFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowSourceFilterDropdown(true);
+                              }
+                              setTempSourceFilter(sourceFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              sourceFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по источнику"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -4148,7 +4233,27 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Зоны
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Зоны</span>
+                          <button
+                            ref={zoneFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const wasOpen = showZoneFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowZoneFilterDropdown(true);
+                              }
+                              setTempZoneFilter(zoneFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              zoneFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по зонам"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -6657,6 +6762,65 @@ data-rt-sub16="${selectedLandingUuid}"
         }}
         multiSelect={false}
         alignRight={true}
+      />
+
+      <FilterDropdown
+        isOpen={showZoneFilterDropdown}
+        referenceElement={zoneFilterButtonRef.current}
+        title="Фильтровать по зонам"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.zone.all },
+          { value: 'with', label: 'С зонами', count: filterCounts.zone.with, disabled: filterCounts.zone.with === 0 },
+          { value: 'without', label: 'Без зон', count: filterCounts.zone.without, disabled: filterCounts.zone.without === 0 }
+        ]}
+        selectedValues={tempZoneFilter}
+        onApply={(value) => {
+          setTempZoneFilter(value);
+        }}
+        onCancel={() => {
+          setShowZoneFilterDropdown(false);
+          setTempZoneFilter(zoneFilter);
+        }}
+        onOk={() => {
+          setZoneFilter(tempZoneFilter);
+          setShowZoneFilterDropdown(false);
+        }}
+        onReset={() => {
+          setZoneFilter(null);
+          setTempZoneFilter(null);
+          setShowZoneFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showSourceFilterDropdown}
+        referenceElement={sourceFilterButtonRef.current}
+        title="Фильтровать по источнику"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.source.all },
+          { value: 'facebook', label: 'Facebook', icon: <FacebookIcon className="w-4 h-4" />, count: filterCounts.source.facebook, disabled: filterCounts.source.facebook === 0 },
+          { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
+          { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
+        ]}
+        selectedValues={tempSourceFilter}
+        onApply={(value) => {
+          setTempSourceFilter(value);
+        }}
+        onCancel={() => {
+          setShowSourceFilterDropdown(false);
+          setTempSourceFilter(sourceFilter);
+        }}
+        onOk={() => {
+          setSourceFilter(tempSourceFilter);
+          setShowSourceFilterDropdown(false);
+        }}
+        onReset={() => {
+          setSourceFilter(null);
+          setTempSourceFilter(null);
+          setShowSourceFilterDropdown(false);
+        }}
+        multiSelect={false}
       />
 
     </div>
