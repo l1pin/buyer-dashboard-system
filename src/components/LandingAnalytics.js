@@ -2903,20 +2903,150 @@ data-rt-sub16="${selectedLandingUuid}"
       contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
     });
 
-    // Подсчет для фильтра зон
-    const withZonesCount = baseLandings.filter(l => l.zones_count && l.zones_count > 0).length;
-    const withoutZonesCount = baseLandings.filter(l => !l.zones_count || l.zones_count === 0).length;
+    // Для подсчета зон и источников нужно применить все активные фильтры (кроме самих зон и источников)
+    let landingsForZoneAndSourceCount = baseLandings;
 
-    // Подсчет для фильтра источников
-    const facebookCount = baseLandings.filter(l => {
+    // Применяем фильтр типов (Основные, Тестовые, Отредактированные)
+    if (typeFilters.length > 0 && typeFilters.length < 3) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        const isMain = !l.is_test && !l.is_edited;
+        const isTest = l.is_test;
+        const isEdited = l.is_edited;
+
+        if (typeFilters.includes('main') && isMain) return true;
+        if (typeFilters.includes('test') && isTest) return true;
+        if (typeFilters.includes('edited') && isEdited) return true;
+        return false;
+      });
+    }
+
+    // Применяем фильтр верификации
+    if (verificationFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        const hasVerification = (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id);
+        if (verificationFilter === 'with') {
+          return hasVerification;
+        } else if (verificationFilter === 'without') {
+          return !hasVerification;
+        }
+        return true;
+      });
+    }
+
+    // Применяем фильтр комментариев
+    if (commentFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        const hasComment = l.comment && l.comment.trim();
+        if (commentFilter === 'with') {
+          return hasComment;
+        } else if (commentFilter === 'without') {
+          return !hasComment;
+        }
+        return true;
+      });
+    }
+
+    // Применяем фильтр истории
+    if (historyFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        const hasHistory = landingsWithHistory.has(l.id);
+        if (historyFilter === 'with') {
+          return hasHistory;
+        } else if (historyFilter === 'without') {
+          return !hasHistory;
+        }
+        return true;
+      });
+    }
+
+    // Применяем фильтр страны
+    if (countryFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        if (countryFilter === 'ukraine') {
+          return !l.is_poland;
+        } else if (countryFilter === 'poland') {
+          return l.is_poland;
+        }
+        return true;
+      });
+    }
+
+    // Применяем фильтр версии
+    if (versionFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l =>
+        l.website && l.website.trim() === versionFilter
+      );
+    }
+
+    // Применяем фильтр шаблона
+    if (templateFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l =>
+        l.template && l.template.trim() === templateFilter
+      );
+    }
+
+    // Применяем фильтр тегов
+    if (tagsFilter.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        if (!l.tags || !Array.isArray(l.tags)) return false;
+        return tagsFilter.some(selectedTag =>
+          l.tags.some(tag => tag.trim() === selectedTag)
+        );
+      });
+    }
+
+    // Применяем фильтр статуса
+    if (statusFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        const landingStatus = trelloStatuses.get(l.id);
+        return landingStatus && landingStatus.list_name === statusFilter;
+      });
+    }
+
+    // Применяем фильтр дизайнера
+    if (designerFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.designer_id === designerFilter);
+    }
+
+    // Применяем фильтр байера (таблица)
+    if (buyerFilterTable !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.buyer_id === buyerFilterTable);
+    }
+
+    // Применяем фильтр серчера (таблица)
+    if (searcherFilterTable !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.searcher_id === searcherFilterTable);
+    }
+
+    // Применяем фильтр продакт-менеджера
+    if (productManagerFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.product_manager_id === productManagerFilter);
+    }
+
+    // Применяем фильтр гифера
+    if (giferFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.gifer_id === giferFilter);
+    }
+
+    // Применяем фильтр контент-менеджера
+    if (contentManagerFilter !== null) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
+    }
+
+    // Подсчет для фильтра зон (используем landingsForZoneAndSourceCount вместо baseLandings)
+    const withZonesCount = landingsForZoneAndSourceCount.filter(l => l.zones_count && l.zones_count > 0).length;
+    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !l.zones_count || l.zones_count === 0).length;
+
+    // Подсчет для фильтра источников (используем landingsForZoneAndSourceCount вместо baseLandings)
+    const facebookCount = landingsForZoneAndSourceCount.filter(l => {
       const sources = buyerSources.get(l.buyer_id) || [];
       return sources.includes('facebook');
     }).length;
-    const tiktokCount = baseLandings.filter(l => {
+    const tiktokCount = landingsForZoneAndSourceCount.filter(l => {
       const sources = buyerSources.get(l.buyer_id) || [];
       return sources.includes('tiktok');
     }).length;
-    const googleCount = baseLandings.filter(l => {
+    const googleCount = landingsForZoneAndSourceCount.filter(l => {
       const sources = buyerSources.get(l.buyer_id) || [];
       return sources.includes('google');
     }).length;
@@ -3000,7 +3130,7 @@ data-rt-sub16="${selectedLandingUuid}"
         google: googleCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, buyerSources]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, buyerSources, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter]);
 
   if (loading) {
     return (
