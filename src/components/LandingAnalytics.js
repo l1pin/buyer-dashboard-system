@@ -4552,15 +4552,18 @@ data-rt-sub16="${selectedLandingUuid}"
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-6 border w-full max-w-3xl shadow-lg rounded-lg bg-white my-5">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-5xl shadow-2xl rounded-xl bg-white" style={{ height: '85vh', maxHeight: '900px' }}>
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Settings className="h-6 w-6 text-gray-600" />
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center space-x-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                  <Settings className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="text-2xl font-semibold text-gray-900">Настройки</h3>
+                <div>
+                  <h3 className="text-3xl font-bold text-gray-900">Настройки</h3>
+                  <p className="text-sm text-gray-600 mt-1">Управление шаблонами, тегами и источниками</p>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -4571,51 +4574,60 @@ data-rt-sub16="${selectedLandingUuid}"
                   setNewTagName('');
                   setNewTagColor('blue');
                 }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition-all"
               >
-                <X className="h-6 w-6" />
+                <X className="h-7 w-7" />
               </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
+            <div className="flex space-x-1 px-8 pt-4 pb-2 border-b border-gray-200 bg-gray-50">
               <button
                 onClick={() => setSettingsTab('templates')}
-                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                className={`pb-3 px-6 text-sm font-semibold transition-all rounded-t-lg ${
                   settingsTab === 'templates'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-blue-600 shadow-sm border-t-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                Шаблоны ({templates.length})
+                <span className="flex items-center space-x-2">
+                  <span>Шаблоны</span>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{templates.length}</span>
+                </span>
               </button>
               <button
                 onClick={() => setSettingsTab('tags')}
-                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                className={`pb-3 px-6 text-sm font-semibold transition-all rounded-t-lg ${
                   settingsTab === 'tags'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-blue-600 shadow-sm border-t-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                Теги ({tags.length})
+                <span className="flex items-center space-x-2">
+                  <span>Теги</span>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{tags.length}</span>
+                </span>
               </button>
               <button
                 onClick={() => {
                   setSettingsTab('sources');
                   loadBuyerSources();
                 }}
-                className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                className={`pb-3 px-6 text-sm font-semibold transition-all rounded-t-lg ${
                   settingsTab === 'sources'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-blue-600 shadow-sm border-t-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                Источники байеров ({buyers.length})
+                <span className="flex items-center space-x-2">
+                  <span>Источники байеров</span>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{buyers.length}</span>
+                </span>
               </button>
             </div>
 
             {/* Content */}
-            <div className="max-h-[600px] overflow-y-auto">
+            <div className="overflow-y-auto px-8 py-6" style={{ height: 'calc(85vh - 240px)', maxHeight: 'calc(900px - 240px)' }}>
               {/* Templates Tab */}
               {settingsTab === 'templates' && (
                 <div className="space-y-4">
@@ -4888,157 +4900,223 @@ data-rt-sub16="${selectedLandingUuid}"
               {settingsTab === 'sources' && (
                 <div className="space-y-4">
                   {loadingBuyerSources ? (
-                    <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center justify-center py-20">
                       <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Загрузка источников байеров...</p>
+                        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto"></div>
+                        <p className="mt-6 text-lg text-gray-600 font-medium">Загрузка источников байеров...</p>
                       </div>
                     </div>
                   ) : buyers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                      <p>Нет байеров в системе</p>
+                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-200 mb-4">
+                        <User className="h-10 w-10 text-gray-400" />
+                      </div>
+                      <p className="text-lg text-gray-600 font-medium">Нет байеров в системе</p>
+                      <p className="text-sm text-gray-500 mt-2">Добавьте байеров для настройки источников</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {buyers.map((buyer) => {
-                        const isEditing = editingBuyerId === buyer.id;
-                        const sources = buyerSources.get(buyer.id) || [];
+                    <div>
+                      {/* Info Banner */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-blue-900 mb-1">Настройка источников</h4>
+                            <p className="text-xs text-blue-700">Нажмите на карточку байера для добавления или редактирования ID источников. Источники используются для фильтрации метрик.</p>
+                          </div>
+                        </div>
+                      </div>
 
-                        return (
-                          <div
-                            key={buyer.id}
-                            className="bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                          >
-                            {/* Buyer Header */}
+                      {/* Buyers Grid */}
+                      <div className="grid grid-cols-1 gap-4">
+                        {buyers.map((buyer) => {
+                          const isEditing = editingBuyerId === buyer.id;
+                          const sources = buyerSources.get(buyer.id) || [];
+
+                          return (
                             <div
-                              className="flex items-center justify-between p-4 cursor-pointer"
-                              onClick={() => !isEditing && handleEditBuyerSources(buyer.id)}
+                              key={buyer.id}
+                              className={`bg-white border-2 rounded-xl transition-all duration-200 ${
+                                isEditing
+                                  ? 'border-blue-500 shadow-lg ring-4 ring-blue-100'
+                                  : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                              }`}
                             >
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                  {buyer.avatar_url ? (
-                                    <img
-                                      src={buyer.avatar_url}
-                                      alt={buyer.name}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
-                                    <User className="h-5 w-5 text-gray-400" />
+                              {/* Buyer Header */}
+                              <div
+                                className={`flex items-center justify-between p-5 cursor-pointer ${isEditing ? 'bg-gradient-to-r from-blue-50 to-indigo-50' : 'hover:bg-gray-50'} transition-colors rounded-t-xl`}
+                                onClick={() => !isEditing && handleEditBuyerSources(buyer.id)}
+                              >
+                                <div className="flex items-center space-x-4">
+                                  <div className="relative">
+                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center flex-shrink-0 shadow-md">
+                                      {buyer.avatar_url ? (
+                                        <img
+                                          src={buyer.avatar_url}
+                                          alt={buyer.name}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div className={`w-full h-full flex items-center justify-center ${buyer.avatar_url ? 'hidden' : ''}`}>
+                                        <User className="h-7 w-7 text-gray-500" />
+                                      </div>
+                                    </div>
+                                    {sources.length > 0 && (
+                                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg border-2 border-white">
+                                        {sources.length}
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                                <div>
-                                  <div className="font-medium text-gray-900">{buyer.name}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {sources.length > 0 ? `${sources.length} источник(ов)` : 'Источники не настроены'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {!isEditing && (
-                                <div className="flex items-center space-x-2">
-                                  {sources.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 max-w-xs">
-                                      {sources.slice(0, 3).map((sourceId, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
-                                        >
-                                          {sourceId}
-                                        </span>
-                                      ))}
-                                      {sources.length > 3 && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                          +{sources.length - 3}
+                                  <div>
+                                    <div className="font-bold text-lg text-gray-900">{buyer.name}</div>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      {sources.length > 0 ? (
+                                        <>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                            ✓ Настроено
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {sources.length} {sources.length === 1 ? 'источник' : sources.length < 5 ? 'источника' : 'источников'}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+                                          ⚠ Не настроено
                                         </span>
                                       )}
                                     </div>
-                                  )}
-                                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                </div>
+
+                                {!isEditing && (
+                                  <div className="flex items-center space-x-3">
+                                    {sources.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 max-w-md justify-end">
+                                        {sources.slice(0, 4).map((sourceId, idx) => (
+                                          <span
+                                            key={idx}
+                                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm"
+                                          >
+                                            {sourceId}
+                                          </span>
+                                        ))}
+                                        {sources.length > 4 && (
+                                          <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-600 text-white shadow-sm">
+                                            +{sources.length - 4}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div className="p-2 rounded-lg hover:bg-blue-100 transition-colors">
+                                      <ChevronDown className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Editing Sources */}
+                              {isEditing && (
+                                <div className="border-t-2 border-blue-200 p-6 bg-gradient-to-b from-blue-50 to-white">
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <label className="text-base font-bold text-gray-900 flex items-center space-x-2">
+                                        <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                        </svg>
+                                        <span>ID источников</span>
+                                      </label>
+                                      <button
+                                        onClick={handleAddSourceField}
+                                        className="inline-flex items-center px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
+                                      >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Добавить источник
+                                      </button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      {tempSourceIds.map((sourceId, index) => (
+                                        <div key={index} className="flex items-center space-x-3 group">
+                                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                                            {index + 1}
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={sourceId}
+                                            onChange={(e) => handleSourceChange(index, e.target.value)}
+                                            placeholder="Введите ID источника (например, 123456789)..."
+                                            className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium shadow-sm hover:border-blue-400 transition-colors"
+                                          />
+                                          {tempSourceIds.length > 1 && (
+                                            <button
+                                              onClick={() => handleRemoveSourceField(index)}
+                                              className="p-2.5 text-red-600 hover:bg-red-100 rounded-lg transition-all hover:shadow-md opacity-0 group-hover:opacity-100"
+                                            >
+                                              <X className="h-5 w-5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {tempSourceIds.length === 0 && (
+                                      <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                        <p className="text-sm text-gray-600">Нажмите "Добавить источник" для начала</p>
+                                      </div>
+                                    )}
+
+                                    <div className="flex justify-end space-x-3 mt-6 pt-4 border-t-2 border-gray-200">
+                                      <button
+                                        onClick={handleCancelEditSources}
+                                        className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-all shadow-sm hover:shadow"
+                                      >
+                                        Отмена
+                                      </button>
+                                      <button
+                                        onClick={() => handleSaveBuyerSources(buyer.id)}
+                                        disabled={savingSettings}
+                                        className="inline-flex items-center px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                                      >
+                                        {savingSettings ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Сохранение...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Save className="h-4 w-4 mr-2" />
+                                            Сохранить изменения
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
-
-                            {/* Editing Sources */}
-                            {isEditing && (
-                              <div className="border-t border-gray-200 p-4 bg-gray-50">
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <label className="text-sm font-medium text-gray-700">ID источников:</label>
-                                    <button
-                                      onClick={handleAddSourceField}
-                                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-                                    >
-                                      <Plus className="h-3 w-3 mr-1" />
-                                      Добавить поле
-                                    </button>
-                                  </div>
-
-                                  {tempSourceIds.map((sourceId, index) => (
-                                    <div key={index} className="flex items-center space-x-2">
-                                      <input
-                                        type="text"
-                                        value={sourceId}
-                                        onChange={(e) => handleSourceChange(index, e.target.value)}
-                                        placeholder="Введите ID источника..."
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                      />
-                                      {tempSourceIds.length > 1 && (
-                                        <button
-                                          onClick={() => handleRemoveSourceField(index)}
-                                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                        >
-                                          <X className="h-4 w-4" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-
-                                  <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-200">
-                                    <button
-                                      onClick={handleCancelEditSources}
-                                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                                    >
-                                      Отмена
-                                    </button>
-                                    <button
-                                      onClick={() => handleSaveBuyerSources(buyer.id)}
-                                      disabled={savingSettings}
-                                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                      {savingSettings ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                          Сохранение...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Save className="h-4 w-4 mr-2" />
-                                          Сохранить
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
             {/* Footer */}
-            <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-500">
-                Перетаскивайте элементы для изменения порядка отображения
+            <div className="flex justify-between items-center px-8 py-5 border-t-2 border-gray-200 bg-gray-50 rounded-b-xl">
+              <p className="text-sm text-gray-600 font-medium flex items-center space-x-2">
+                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Изменения сохраняются автоматически</span>
               </p>
               <button
                 onClick={() => {
@@ -5049,9 +5127,9 @@ data-rt-sub16="${selectedLandingUuid}"
                   setNewTagName('');
                   setNewTagColor('blue');
                 }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium"
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all font-bold shadow-lg hover:shadow-xl"
               >
-                Готово
+                Закрыть
               </button>
             </div>
           </div>
