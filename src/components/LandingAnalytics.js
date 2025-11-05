@@ -3453,7 +3453,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               <span className="text-gray-400 cursor-text select-text">—</span>
                             ) : isBuyersExpanded ? (
                               // Раскрытый вид - сначала кнопка Свернуть, затем байеры
-                              <div className="space-y-0">
+                              <div className="space-y-0 -mt-2 -mb-2">
                                 {/* Кнопка "Свернуть" */}
                                 <div className="h-10 flex items-center justify-center pt-2">
                                   <button
@@ -3573,7 +3573,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           <td className="px-3 py-4 text-sm text-gray-900 text-center">
                             {isBuyersExpanded && buyerMetrics.length > 0 ? (
                               // Раскрытый вид - сначала общая зона, потом зоны байеров
-                              <div className="space-y-0">
+                              <div className="space-y-0 -mt-2 -mb-2">
                                 {/* Общая зона */}
                                 <div className="h-10 flex items-center justify-center pt-2">
                                   <CurrentZoneDisplay article={landing.article} metricsData={aggregatedMetrics} />
@@ -3641,7 +3641,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
                               // Раскрытый вид - сначала общие лиды, потом лиды байеров
-                              <div className="space-y-0">
+                              <div className="space-y-0 -mt-2 -mb-2">
                                 {/* Общие лиды */}
                                 <div className="h-10 flex items-center justify-center pt-2">
                                   {aggregatedMetrics?.found ? (
@@ -3687,8 +3687,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
-                              <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center pt-2">
+                              <div className="space-y-0 -mt-2 -mb-2">
+                                <div className="h-10 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.cpl}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
@@ -3724,8 +3724,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
-                              <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center pt-2">
+                              <div className="space-y-0 -mt-2 -mb-2">
+                                <div className="h-10 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.cost}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
@@ -3766,8 +3766,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
-                              <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center pt-2">
+                              <div className="space-y-0 -mt-2 -mb-2">
+                                <div className="h-10 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.clicks}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
@@ -3808,8 +3808,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
-                              <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center pt-2">
+                              <div className="space-y-0 -mt-2 -mb-2">
+                                <div className="h-10 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">
                                       {aggregatedMetrics.data.raw.clicks > 0 ? ((aggregatedMetrics.data.raw.leads / aggregatedMetrics.data.raw.clicks) * 100).toFixed(2) + '%' : '0.00%'}
@@ -3858,8 +3858,8 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                               </div>
                             ) : isBuyersExpanded && buyerMetrics.length > 0 ? (
-                              <div className="space-y-0">
-                                <div className="h-10 flex items-center justify-center pt-2">
+                              <div className="space-y-0 -mt-2 -mb-2">
+                                <div className="h-10 flex items-center justify-center">
                                   {aggregatedMetrics?.found ? (
                                     <span className="font-bold text-sm text-black">{aggregatedMetrics.data.formatted.days}</span>
                                   ) : (<span className="text-gray-400">—</span>)}
