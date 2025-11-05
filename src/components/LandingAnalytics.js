@@ -604,10 +604,11 @@ function LandingTeamLead({ user }) {
       landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Фильтрация по зонам (используем hasZoneData из хука)
+    // Фильтрация по зонам
+    // Используем hasVisibleZone - проверяет отображается ли зона в колонке "Зоны" (не "—")
     if (zoneFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
-        const hasZones = hasZoneData(l.article);
+        const hasZones = hasVisibleZone(l);
         if (zoneFilter === 'with') {
           return hasZones;
         } else if (zoneFilter === 'without') {
@@ -626,7 +627,7 @@ function LandingTeamLead({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasVisibleZone, getLandingSources, landingMetrics]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1293,6 +1294,35 @@ function LandingTeamLead({ user }) {
   };
 
   // Отображение текущей зоны
+  // Проверка наличия видимой зоны (не "—") для лендинга
+  // Используется для фильтрации: "С зонами" / "Без зон"
+  const hasVisibleZone = useCallback((landing) => {
+    // Получаем агрегированные метрики для лендинга
+    const aggregatedMetrics = getAggregatedLandingMetrics(landing);
+
+    // Если нет метрик, в колонке "Зоны" отображается "—"
+    if (!aggregatedMetrics?.found || !aggregatedMetrics.data) {
+      return false;
+    }
+
+    // Если нет зональных данных, отображается "—"
+    if (!hasZoneData(landing.article)) {
+      return false;
+    }
+
+    // Проверяем, можно ли определить зону по CPL
+    const cplString = aggregatedMetrics.data.formatted.cpl;
+    const cplValue = parseFloat(cplString.replace('$', ''));
+
+    if (isNaN(cplValue)) {
+      return false;
+    }
+
+    // Проверяем, определяется ли зона
+    const currentZone = getCurrentZoneByMetrics(landing.article, cplValue);
+    return currentZone !== null;
+  }, [hasZoneData, getCurrentZoneByMetrics, getAggregatedLandingMetrics]);
+
   const CurrentZoneDisplay = ({ article, metricsData }) => {
     if (!metricsData?.found || !metricsData.data) {
       return (
@@ -2518,6 +2548,7 @@ data-rt-sub16="${selectedLandingUuid}"
   // Получение источников метрик для лендинга
   const getLandingSources = (landingId) => {
     if (!landingId || !landingMetrics || landingMetrics.size === 0) {
+      console.log(`⚠️ getLandingSources: Нет данных (landingId=${landingId}, landingMetrics.size=${landingMetrics?.size || 0})`);
       return [];
     }
 
@@ -2530,10 +2561,17 @@ data-rt-sub16="${selectedLandingUuid}"
         const metrics = landingMetrics.get(key);
         // Проверяем что метрики найдены и имеют данные
         if (metrics && metrics.found) {
+          console.log(`✅ getLandingSources: Найден источник ${source} для ${landingId}`);
           sources.push(source);
+        } else {
+          console.log(`⚠️ getLandingSources: Источник ${source} для ${landingId} имеет found=false`);
         }
       }
     });
+
+    if (sources.length > 0) {
+      console.log(`✅ getLandingSources: Лендинг ${landingId} имеет источники: ${sources.join(', ')}`);
+    }
 
     return sources;
   };
@@ -3032,11 +3070,21 @@ data-rt-sub16="${selectedLandingUuid}"
       landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
     }
 
-    // Подсчет для фильтра зон (используем hasZoneData из хука useZoneData)
-    const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasZoneData(l.article)).length;
-    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasZoneData(l.article)).length;
+    // Подсчет для фильтра зон
+    // Используем hasVisibleZone - проверяет отображается ли зона в колонке (не "—")
+    // "С зонами" = есть метрики И есть зональные данные И зона определена
+    // "Без зон" = нет метрик ИЛИ нет зональных данных ИЛИ зона не определена
+    const withZonesCount = landingsForZoneAndSourceCount.filter(l => hasVisibleZone(l)).length;
+    const withoutZonesCount = landingsForZoneAndSourceCount.filter(l => !hasVisibleZone(l)).length;
 
-    // Подсчет для фильтра источников (используем getLandingSources)
+    // Подсчет для фильтра источников
+    // Проверяем наличие источников в landingMetrics
+    // Используем getLandingSources - возвращает источники где metrics.found === true
+    console.log(`🔍 Подсчет фильтров источников:`, {
+      landingMetrics_size: landingMetrics?.size || 0,
+      landings_to_count: landingsForZoneAndSourceCount.length
+    });
+
     const facebookCount = landingsForZoneAndSourceCount.filter(l => {
       const sources = getLandingSources(l.id);
       return sources.includes('facebook');
@@ -3049,6 +3097,12 @@ data-rt-sub16="${selectedLandingUuid}"
       const sources = getLandingSources(l.id);
       return sources.includes('google');
     }).length;
+
+    console.log(`✅ Подсчет источников:`, {
+      facebook: facebookCount,
+      tiktok: tiktokCount,
+      google: googleCount
+    });
 
     return {
       type: {
@@ -3129,7 +3183,7 @@ data-rt-sub16="${selectedLandingUuid}"
         google: googleCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics, hasVisibleZone]);
 
   if (loading) {
     return (
