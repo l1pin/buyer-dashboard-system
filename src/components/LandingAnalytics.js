@@ -356,6 +356,9 @@ function LandingTeamLead({ user }) {
                     {(!isSelected || option.disabled) && (
                       <div className="h-4 w-4 mr-2"></div>
                     )}
+                    {option.value !== 'all' && option.hasOwnProperty('icon') && (
+                      <span className="text-lg mr-2 flex-shrink-0">{option.icon}</span>
+                    )}
                     {option.value !== 'all' && option.hasOwnProperty('avatar') && (
                       <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
                         {option.avatar ? (
@@ -6250,8 +6253,8 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по стране"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.country.all },
-          { value: 'ukraine', label: 'Украина', count: filterCounts.country.ukraine },
-          { value: 'poland', label: 'Польша', count: filterCounts.country.poland }
+          { value: 'ukraine', label: 'Украина', icon: '🇺🇦', count: filterCounts.country.ukraine },
+          { value: 'poland', label: 'Польша', icon: '🇵🇱', count: filterCounts.country.poland }
         ]}
         selectedValues={tempCountryFilter}
         onApply={(value) => {
