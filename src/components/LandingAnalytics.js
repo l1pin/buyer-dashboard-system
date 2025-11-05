@@ -1,7 +1,7 @@
 // LandingPanel.js - Полностью переписанная версия для лендингов
 // Заменяет все упоминания креативов на лендинги
 
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
