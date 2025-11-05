@@ -136,20 +136,24 @@ function LandingTeamLead({ user }) {
   const [verificationFilter, setVerificationFilter] = useState(null); // null, 'with' или 'without'
   const [commentFilter, setCommentFilter] = useState(null); // null, 'with' или 'without'
   const [historyFilter, setHistoryFilter] = useState(null); // null, 'with' или 'without'
+  const [countryFilter, setCountryFilter] = useState(null); // null, 'ukraine' или 'poland'
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
   const [showHistoryFilterDropdown, setShowHistoryFilterDropdown] = useState(false);
+  const [showCountryFilterDropdown, setShowCountryFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
   const [tempHistoryFilter, setTempHistoryFilter] = useState(null);
+  const [tempCountryFilter, setTempCountryFilter] = useState(null);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
   const verificationFilterButtonRef = useRef(null);
   const commentFilterButtonRef = useRef(null);
   const historyFilterButtonRef = useRef(null);
+  const countryFilterButtonRef = useRef(null);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -426,8 +430,20 @@ function LandingTeamLead({ user }) {
       });
     }
 
+    // Фильтрация по стране
+    if (countryFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (countryFilter === 'ukraine') {
+          return !l.is_poland;
+        } else if (countryFilter === 'poland') {
+          return l.is_poland;
+        }
+        return true;
+      });
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, landingsWithIntegration, landingsWithHistory]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, landingsWithIntegration, landingsWithHistory]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1216,6 +1232,7 @@ function LandingTeamLead({ user }) {
       const clickedOnVerificationButton = verificationFilterButtonRef.current?.contains(event.target);
       const clickedOnCommentButton = commentFilterButtonRef.current?.contains(event.target);
       const clickedOnHistoryButton = historyFilterButtonRef.current?.contains(event.target);
+      const clickedOnCountryButton = countryFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1234,21 +1251,22 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
         setShowHistoryFilterDropdown(false);
+        setShowCountryFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -2522,6 +2540,10 @@ data-rt-sub16="${selectedLandingUuid}"
     const withHistoryCount = baseLandings.filter(l => landingsWithHistory.has(l.id)).length;
     const withoutHistoryCount = baseLandings.filter(l => !landingsWithHistory.has(l.id)).length;
 
+    // Подсчет для фильтра стран
+    const ukraineCount = baseLandings.filter(l => !l.is_poland).length;
+    const polandCount = baseLandings.filter(l => l.is_poland).length;
+
     return {
       type: {
         all: baseLandings.length,
@@ -2543,6 +2565,11 @@ data-rt-sub16="${selectedLandingUuid}"
         all: baseLandings.length,
         with: withHistoryCount,
         without: withoutHistoryCount
+      },
+      country: {
+        all: baseLandings.length,
+        ukraine: ukraineCount,
+        poland: polandCount
       }
     };
   }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory]);
@@ -3620,7 +3647,27 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <Globe className="h-4 w-4 mx-auto" />
+                        <div className="flex items-center justify-center gap-1">
+                          <Globe className="h-4 w-4" />
+                          <button
+                            ref={countryFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCountryFilterDropdown(!showCountryFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setTempCountryFilter(countryFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              countryFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по стране"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -5626,6 +5673,35 @@ data-rt-sub16="${selectedLandingUuid}"
           setHistoryFilter(null);
           setTempHistoryFilter(null);
           setShowHistoryFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showCountryFilterDropdown}
+        referenceElement={countryFilterButtonRef.current}
+        title="Фильтровать по стране"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.country.all },
+          { value: 'ukraine', label: 'Украина', count: filterCounts.country.ukraine },
+          { value: 'poland', label: 'Польша', count: filterCounts.country.poland }
+        ]}
+        selectedValues={tempCountryFilter}
+        onApply={(value) => {
+          setTempCountryFilter(value);
+        }}
+        onCancel={() => {
+          setShowCountryFilterDropdown(false);
+          setTempCountryFilter(countryFilter);
+        }}
+        onOk={() => {
+          setCountryFilter(tempCountryFilter);
+          setShowCountryFilterDropdown(false);
+        }}
+        onReset={() => {
+          setCountryFilter(null);
+          setTempCountryFilter(null);
+          setShowCountryFilterDropdown(false);
         }}
         multiSelect={false}
       />
