@@ -1339,6 +1339,13 @@ function LandingTeamLead({ user }) {
       const clickedOnVersionButton = versionFilterButtonRef.current?.contains(event.target);
       const clickedOnTemplateButton = templateFilterButtonRef.current?.contains(event.target);
       const clickedOnTagsButton = tagsFilterButtonRef.current?.contains(event.target);
+      const clickedOnStatusButton = statusFilterButtonRef.current?.contains(event.target);
+      const clickedOnDesignerButton = designerFilterButtonRef.current?.contains(event.target);
+      const clickedOnBuyerTableButton = buyerFilterTableButtonRef.current?.contains(event.target);
+      const clickedOnSearcherTableButton = searcherFilterTableButtonRef.current?.contains(event.target);
+      const clickedOnProductManagerButton = productManagerFilterButtonRef.current?.contains(event.target);
+      const clickedOnGiferButton = giferFilterButtonRef.current?.contains(event.target);
+      const clickedOnContentManagerButton = contentManagerFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1357,7 +1364,7 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnStatusButton && !clickedOnDesignerButton && !clickedOnBuyerTableButton && !clickedOnSearcherTableButton && !clickedOnProductManagerButton && !clickedOnGiferButton && !clickedOnContentManagerButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
@@ -1366,16 +1373,23 @@ function LandingTeamLead({ user }) {
         setShowVersionFilterDropdown(false);
         setShowTemplateFilterDropdown(false);
         setShowTagsFilterDropdown(false);
+        setShowStatusFilterDropdown(false);
+        setShowDesignerFilterDropdown(false);
+        setShowBuyerFilterTableDropdown(false);
+        setShowSearcherFilterTableDropdown(false);
+        setShowProductManagerFilterDropdown(false);
+        setShowGiferFilterDropdown(false);
+        setShowContentManagerFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown || showStatusFilterDropdown || showDesignerFilterDropdown || showBuyerFilterTableDropdown || showSearcherFilterTableDropdown || showProductManagerFilterDropdown || showGiferFilterDropdown || showContentManagerFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown, showStatusFilterDropdown, showDesignerFilterDropdown, showBuyerFilterTableDropdown, showSearcherFilterTableDropdown, showProductManagerFilterDropdown, showGiferFilterDropdown, showContentManagerFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -6373,12 +6387,236 @@ data-rt-sub16="${selectedLandingUuid}"
           setTagsFilter(tempTagsFilter);
           setShowTagsFilterDropdown(false);
         }}
-        onReset={() => {
+        onReset(() => {
           setTagsFilter([]);
           setTempTagsFilter([]);
           setShowTagsFilterDropdown(false);
         }}
         multiSelect={true}
+      />
+
+      <FilterDropdown
+        isOpen={showStatusFilterDropdown}
+        referenceElement={statusFilterButtonRef.current}
+        title="Фильтровать по статусу"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.status.all },
+          ...uniqueFilterValues.statuses.map(status => ({
+            value: status,
+            label: status,
+            count: filterCounts.status[status] || 0
+          }))
+        ]}
+        selectedValues={tempStatusFilter}
+        onApply={(value) => {
+          setTempStatusFilter(value);
+        }}
+        onCancel={() => {
+          setShowStatusFilterDropdown(false);
+          setTempStatusFilter(statusFilter);
+        }}
+        onOk={() => {
+          setStatusFilter(tempStatusFilter);
+          setShowStatusFilterDropdown(false);
+        }}
+        onReset={() => {
+          setStatusFilter(null);
+          setTempStatusFilter(null);
+          setShowStatusFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showDesignerFilterDropdown}
+        referenceElement={designerFilterButtonRef.current}
+        title="Фильтровать по дизайнеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.designer.all },
+          ...designers.map(designer => ({
+            value: designer.id,
+            label: getDesignerName(designer.id),
+            count: filterCounts.designer[designer.id] || 0
+          }))
+        ]}
+        selectedValues={tempDesignerFilter}
+        onApply={(value) => {
+          setTempDesignerFilter(value);
+        }}
+        onCancel={() => {
+          setShowDesignerFilterDropdown(false);
+          setTempDesignerFilter(designerFilter);
+        }}
+        onOk={() => {
+          setDesignerFilter(tempDesignerFilter);
+          setShowDesignerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setDesignerFilter(null);
+          setTempDesignerFilter(null);
+          setShowDesignerFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showBuyerFilterTableDropdown}
+        referenceElement={buyerFilterTableButtonRef.current}
+        title="Фильтровать по байеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.buyerTable.all },
+          ...buyers.map(buyer => ({
+            value: buyer.id,
+            label: getBuyerName(buyer.id),
+            count: filterCounts.buyerTable[buyer.id] || 0
+          }))
+        ]}
+        selectedValues={tempBuyerFilterTable}
+        onApply={(value) => {
+          setTempBuyerFilterTable(value);
+        }}
+        onCancel={() => {
+          setShowBuyerFilterTableDropdown(false);
+          setTempBuyerFilterTable(buyerFilterTable);
+        }}
+        onOk={() => {
+          setBuyerFilterTable(tempBuyerFilterTable);
+          setShowBuyerFilterTableDropdown(false);
+        }}
+        onReset={() => {
+          setBuyerFilterTable(null);
+          setTempBuyerFilterTable(null);
+          setShowBuyerFilterTableDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showSearcherFilterTableDropdown}
+        referenceElement={searcherFilterTableButtonRef.current}
+        title="Фильтровать по серчеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.searcherTable.all },
+          ...searchers.map(searcher => ({
+            value: searcher.id,
+            label: getSearcherName(searcher.id),
+            count: filterCounts.searcherTable[searcher.id] || 0
+          }))
+        ]}
+        selectedValues={tempSearcherFilterTable}
+        onApply={(value) => {
+          setTempSearcherFilterTable(value);
+        }}
+        onCancel={() => {
+          setShowSearcherFilterTableDropdown(false);
+          setTempSearcherFilterTable(searcherFilterTable);
+        }}
+        onOk={() => {
+          setSearcherFilterTable(tempSearcherFilterTable);
+          setShowSearcherFilterTableDropdown(false);
+        }}
+        onReset={() => {
+          setSearcherFilterTable(null);
+          setTempSearcherFilterTable(null);
+          setShowSearcherFilterTableDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showProductManagerFilterDropdown}
+        referenceElement={productManagerFilterButtonRef.current}
+        title="Фильтровать по продакт-менеджеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.productManager.all },
+          ...productManagers.map(pm => ({
+            value: pm.id,
+            label: getProductManagerName(pm.id),
+            count: filterCounts.productManager[pm.id] || 0
+          }))
+        ]}
+        selectedValues={tempProductManagerFilter}
+        onApply={(value) => {
+          setTempProductManagerFilter(value);
+        }}
+        onCancel={() => {
+          setShowProductManagerFilterDropdown(false);
+          setTempProductManagerFilter(productManagerFilter);
+        }}
+        onOk={() => {
+          setProductManagerFilter(tempProductManagerFilter);
+          setShowProductManagerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setProductManagerFilter(null);
+          setTempProductManagerFilter(null);
+          setShowProductManagerFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showGiferFilterDropdown}
+        referenceElement={giferFilterButtonRef.current}
+        title="Фильтровать по гиферу"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.gifer.all },
+          ...gifers.map(gifer => ({
+            value: gifer.id,
+            label: getGiferName(gifer.id),
+            count: filterCounts.gifer[gifer.id] || 0
+          }))
+        ]}
+        selectedValues={tempGiferFilter}
+        onApply={(value) => {
+          setTempGiferFilter(value);
+        }}
+        onCancel={() => {
+          setShowGiferFilterDropdown(false);
+          setTempGiferFilter(giferFilter);
+        }}
+        onOk={() => {
+          setGiferFilter(tempGiferFilter);
+          setShowGiferFilterDropdown(false);
+        }}
+        onReset={() => {
+          setGiferFilter(null);
+          setTempGiferFilter(null);
+          setShowGiferFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showContentManagerFilterDropdown}
+        referenceElement={contentManagerFilterButtonRef.current}
+        title="Фильтровать по контент-менеджеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.contentManager.all },
+          ...contentManagers.map(cm => ({
+            value: cm.id,
+            label: getContentManagerName(cm.id),
+            count: filterCounts.contentManager[cm.id] || 0
+          }))
+        ]}
+        selectedValues={tempContentManagerFilter}
+        onApply={(value) => {
+          setTempContentManagerFilter(value);
+        }}
+        onCancel={() => {
+          setShowContentManagerFilterDropdown(false);
+          setTempContentManagerFilter(contentManagerFilter);
+        }}
+        onOk={() => {
+          setContentManagerFilter(tempContentManagerFilter);
+          setShowContentManagerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setContentManagerFilter(null);
+          setTempContentManagerFilter(null);
+          setShowContentManagerFilterDropdown(false);
+        }}
+        multiSelect={false}
       />
 
     </div>
