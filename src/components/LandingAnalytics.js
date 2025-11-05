@@ -174,8 +174,9 @@ function LandingTeamLead({ user }) {
   );
 
   // Компонент выпадающего фильтра
-  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false }) => {
+  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр' }) => {
     const [position, setPosition] = useState({ top: 0, left: 0 });
+    const [positionCalculated, setPositionCalculated] = useState(false);
 
     useEffect(() => {
       if (isOpen && referenceElement) {
@@ -184,10 +185,13 @@ function LandingTeamLead({ user }) {
           top: rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX
         });
+        setPositionCalculated(true);
+      } else {
+        setPositionCalculated(false);
       }
     }, [isOpen, referenceElement]);
 
-    if (!isOpen) return null;
+    if (!isOpen || !positionCalculated) return null;
 
     const dropdownContent = (
       <div
@@ -206,61 +210,76 @@ function LandingTeamLead({ user }) {
           e.stopPropagation();
         }}
       >
+        {/* Заголовок */}
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+          <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+        </div>
+
         <div className="py-2 max-h-[300px] overflow-y-auto">
-          {options.map((option) => {
+          {options.map((option, index) => {
             let isSelected;
 
+            // Проверяем, все ли опции выбраны (для отображения галочки у "Все")
+            const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+            const allSelected = allOptions.every(val =>
+              multiSelect ? selectedValues.includes(val) : selectedValues === val
+            ) && (multiSelect ? selectedValues.length === allOptions.length : true);
+
             if (option.value === 'all') {
-              // Для опции "Все" проверяем, все ли опции выбраны
-              if (multiSelect) {
-                const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
-                isSelected = allOptions.every(val => selectedValues.includes(val));
-              } else {
-                // Для одиночного выбора "Все" выбрано, если selectedValues === null или 'all'
-                isSelected = selectedValues === null || selectedValues === 'all';
-              }
-            } else {
+              // Для опции "Все" галочка показывается, когда все опции выбраны
               isSelected = multiSelect
-                ? selectedValues.includes(option.value)
-                : selectedValues === option.value;
+                ? allSelected
+                : (selectedValues === null || selectedValues === 'all');
+            } else {
+              // Для обычных опций проверяем их выбор ИЛИ выбрана ли опция "Все"
+              if (multiSelect) {
+                isSelected = selectedValues.includes(option.value);
+              } else {
+                isSelected = selectedValues === option.value || selectedValues === null;
+              }
             }
 
             return (
-              <button
-                key={option.value}
-                onClick={(e) => {
-                  e.stopPropagation();
+              <React.Fragment key={option.value}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
 
-                  if (option.value === 'all') {
-                    // Обработка клика на "Все"
-                    if (multiSelect) {
-                      // Для множественного выбора - выбираем все опции кроме "Все"
-                      const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
-                      onApply(allOptions);
+                    if (option.value === 'all') {
+                      // Обработка клика на "Все"
+                      if (multiSelect) {
+                        // Для множественного выбора - выбираем все опции кроме "Все"
+                        const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
+                        onApply(allOptions);
+                      } else {
+                        // Для одиночного выбора - устанавливаем null (все показываем)
+                        onApply(null);
+                      }
                     } else {
-                      // Для одиночного выбора - устанавливаем null (все показываем)
-                      onApply(null);
+                      // Обработка клика на обычные опции
+                      if (multiSelect) {
+                        const newValues = selectedValues.includes(option.value)
+                          ? selectedValues.filter(v => v !== option.value)
+                          : [...selectedValues, option.value];
+                        onApply(newValues);
+                      } else {
+                        // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем к null
+                        onApply(selectedValues === option.value ? null : option.value);
+                      }
                     }
-                  } else {
-                    // Обработка клика на обычные опции
-                    if (multiSelect) {
-                      const newValues = isSelected
-                        ? selectedValues.filter(v => v !== option.value)
-                        : [...selectedValues, option.value];
-                      onApply(newValues);
-                    } else {
-                      // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем к null
-                      onApply(isSelected ? null : option.value);
-                    }
-                  }
-                }}
-                className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
-              >
-                <span className="text-gray-700 font-medium">{option.label}</span>
-                {isSelected && (
-                  <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-3" strokeWidth={3} />
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
+                >
+                  <span className="text-gray-700 font-medium">{option.label}</span>
+                  {isSelected && (
+                    <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-3" strokeWidth={3} />
+                  )}
+                </button>
+                {/* Разделитель после опции "Все" */}
+                {option.value === 'all' && (
+                  <div className="border-b border-gray-200 my-1"></div>
                 )}
-              </button>
+              </React.Fragment>
             );
           })}
         </div>
@@ -5363,6 +5382,7 @@ data-rt-sub16="${selectedLandingUuid}"
       <FilterDropdown
         isOpen={showTypeFilterDropdown}
         referenceElement={typeFilterButtonRef.current}
+        title="Фильтровать по типу"
         options={[
           { value: 'all', label: 'Все' },
           { value: 'main', label: 'Основные' },
@@ -5392,6 +5412,7 @@ data-rt-sub16="${selectedLandingUuid}"
       <FilterDropdown
         isOpen={showVerificationFilterDropdown}
         referenceElement={verificationFilterButtonRef.current}
+        title="Фильтровать по верифу"
         options={[
           { value: 'all', label: 'Все' },
           { value: 'with', label: 'С верифом' },
@@ -5420,6 +5441,7 @@ data-rt-sub16="${selectedLandingUuid}"
       <FilterDropdown
         isOpen={showCommentFilterDropdown}
         referenceElement={commentFilterButtonRef.current}
+        title="Фильтровать по комментам"
         options={[
           { value: 'all', label: 'Все' },
           { value: 'with', label: 'С комментарием' },
