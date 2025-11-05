@@ -223,7 +223,7 @@ function LandingTeamLead({ user }) {
   );
 
   // Компонент выпадающего фильтра
-  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр' }) => {
+  const FilterDropdown = ({ isOpen, referenceElement, options, selectedValues, onApply, onCancel, onOk, onReset, multiSelect = false, title = 'Фильтр', alignRight = false }) => {
     const dropdownRef = useRef(null);
     const positionRef = useRef({ top: 0, left: 0 });
     const [, forceUpdate] = useState({});
@@ -234,11 +234,11 @@ function LandingTeamLead({ user }) {
         const rect = referenceElement.getBoundingClientRect();
         positionRef.current = {
           top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX
+          left: alignRight ? rect.right + window.scrollX : rect.left + window.scrollX
         };
         forceUpdate({});
       }
-    }, [isOpen, referenceElement]);
+    }, [isOpen, referenceElement, alignRight]);
 
     if (!isOpen) return null;
 
@@ -250,7 +250,7 @@ function LandingTeamLead({ user }) {
           top: `${positionRef.current.top}px`,
           left: `${positionRef.current.left}px`,
           zIndex: 9999,
-          transform: 'translateZ(0)',
+          transform: alignRight ? 'translateX(-100%) translateZ(0)' : 'translateZ(0)',
           backfaceVisibility: 'hidden'
         }}
         onMouseDown={(e) => {
@@ -329,7 +329,7 @@ function LandingTeamLead({ user }) {
                     {!isSelected && (
                       <div className="h-4 w-4 mr-2"></div>
                     )}
-                    {option.avatar && option.value !== 'all' && (
+                    {option.value !== 'all' && option.hasOwnProperty('avatar') && (
                       <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
                         {option.avatar ? (
                           <img
@@ -338,6 +338,8 @@ function LandingTeamLead({ user }) {
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.style.display = 'none';
+                              const placeholder = e.target.parentElement.querySelector('div');
+                              if (placeholder) placeholder.classList.remove('hidden');
                             }}
                           />
                         ) : null}
@@ -6640,6 +6642,7 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowContentManagerFilterDropdown(false);
         }}
         multiSelect={false}
+        alignRight={true}
       />
 
     </div>
