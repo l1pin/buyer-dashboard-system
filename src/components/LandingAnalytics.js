@@ -507,8 +507,46 @@ function LandingTeamLead({ user }) {
       });
     }
 
+    // Фильтрация по статусу
+    if (statusFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const landingStatus = trelloStatuses.get(l.id);
+        return landingStatus && landingStatus.list_name === statusFilter;
+      });
+    }
+
+    // Фильтрация по дизайнеру
+    if (designerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.designer_id === designerFilter);
+    }
+
+    // Фильтрация по байеру (таблица)
+    if (buyerFilterTable !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.buyer_id === buyerFilterTable);
+    }
+
+    // Фильтрация по серчеру (таблица)
+    if (searcherFilterTable !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.searcher_id === searcherFilterTable);
+    }
+
+    // Фильтрация по продакт-менеджеру
+    if (productManagerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.product_manager_id === productManagerFilter);
+    }
+
+    // Фильтрация по гиферу
+    if (giferFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.gifer_id === giferFilter);
+    }
+
+    // Фильтрация по контент-менеджеру
+    if (contentManagerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, landingsWithIntegration, landingsWithHistory]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -2721,6 +2759,51 @@ data-rt-sub16="${selectedLandingUuid}"
       ).length;
     });
 
+    // Подсчет для фильтра статусов
+    const statusCounts = {};
+    uniqueFilterValues.statuses.forEach(status => {
+      statusCounts[status] = baseLandings.filter(l => {
+        const landingStatus = trelloStatuses.get(l.id);
+        return landingStatus && landingStatus.list_name === status;
+      }).length;
+    });
+
+    // Подсчет для фильтра дизайнеров
+    const designerCounts = {};
+    designers.forEach(designer => {
+      designerCounts[designer.id] = baseLandings.filter(l => l.designer_id === designer.id).length;
+    });
+
+    // Подсчет для фильтра байеров (таблица)
+    const buyerTableCounts = {};
+    buyers.forEach(buyer => {
+      buyerTableCounts[buyer.id] = baseLandings.filter(l => l.buyer_id === buyer.id).length;
+    });
+
+    // Подсчет для фильтра серчеров (таблица)
+    const searcherTableCounts = {};
+    searchers.forEach(searcher => {
+      searcherTableCounts[searcher.id] = baseLandings.filter(l => l.searcher_id === searcher.id).length;
+    });
+
+    // Подсчет для фильтра продакт-менеджеров
+    const productManagerCounts = {};
+    productManagers.forEach(pm => {
+      productManagerCounts[pm.id] = baseLandings.filter(l => l.product_manager_id === pm.id).length;
+    });
+
+    // Подсчет для фильтра гиферов
+    const giferCounts = {};
+    gifers.forEach(gifer => {
+      giferCounts[gifer.id] = baseLandings.filter(l => l.gifer_id === gifer.id).length;
+    });
+
+    // Подсчет для фильтра контент-менеджеров
+    const contentManagerCounts = {};
+    contentManagers.forEach(cm => {
+      contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
+    });
+
     return {
       type: {
         all: baseLandings.length,
@@ -2759,9 +2842,37 @@ data-rt-sub16="${selectedLandingUuid}"
       tag: {
         all: baseLandings.length,
         ...tagCounts
+      },
+      status: {
+        all: baseLandings.length,
+        ...statusCounts
+      },
+      designer: {
+        all: baseLandings.length,
+        ...designerCounts
+      },
+      buyerTable: {
+        all: baseLandings.length,
+        ...buyerTableCounts
+      },
+      searcherTable: {
+        all: baseLandings.length,
+        ...searcherTableCounts
+      },
+      productManager: {
+        all: baseLandings.length,
+        ...productManagerCounts
+      },
+      gifer: {
+        all: baseLandings.length,
+        ...giferCounts
+      },
+      contentManager: {
+        all: baseLandings.length,
+        ...contentManagerCounts
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers]);
 
   if (loading) {
     return (
