@@ -43,7 +43,8 @@ import {
   Settings,
   Save,
   GripVertical,
-  Check
+  Check,
+  History
 } from 'lucide-react';
 
 function LandingTeamLead({ user }) {
@@ -134,17 +135,21 @@ function LandingTeamLead({ user }) {
   const [typeFilters, setTypeFilters] = useState(['main', 'test', 'edited']); // Все типы выбраны по умолчанию
   const [verificationFilter, setVerificationFilter] = useState(null); // null, 'with' или 'without'
   const [commentFilter, setCommentFilter] = useState(null); // null, 'with' или 'without'
+  const [historyFilter, setHistoryFilter] = useState(null); // null, 'with' или 'without'
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
+  const [showHistoryFilterDropdown, setShowHistoryFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
+  const [tempHistoryFilter, setTempHistoryFilter] = useState(null);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
   const verificationFilterButtonRef = useRef(null);
   const commentFilterButtonRef = useRef(null);
+  const historyFilterButtonRef = useRef(null);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -408,8 +413,21 @@ function LandingTeamLead({ user }) {
       });
     }
 
+    // Фильтрация по истории
+    if (historyFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const hasHistory = landingsWithHistory.has(l.id);
+        if (historyFilter === 'with') {
+          return hasHistory;
+        } else if (historyFilter === 'without') {
+          return !hasHistory;
+        }
+        return true;
+      });
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, landingsWithIntegration]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, landingsWithIntegration, landingsWithHistory]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1197,6 +1215,7 @@ function LandingTeamLead({ user }) {
       const clickedOnTypeButton = typeFilterButtonRef.current?.contains(event.target);
       const clickedOnVerificationButton = verificationFilterButtonRef.current?.contains(event.target);
       const clickedOnCommentButton = commentFilterButtonRef.current?.contains(event.target);
+      const clickedOnHistoryButton = historyFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1215,20 +1234,21 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
+        setShowHistoryFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -2498,6 +2518,10 @@ data-rt-sub16="${selectedLandingUuid}"
     const withCommentCount = baseLandings.filter(l => l.comment && l.comment.trim()).length;
     const withoutCommentCount = baseLandings.filter(l => !(l.comment && l.comment.trim())).length;
 
+    // Подсчет для фильтра истории
+    const withHistoryCount = baseLandings.filter(l => landingsWithHistory.has(l.id)).length;
+    const withoutHistoryCount = baseLandings.filter(l => !landingsWithHistory.has(l.id)).length;
+
     return {
       type: {
         all: baseLandings.length,
@@ -2514,9 +2538,14 @@ data-rt-sub16="${selectedLandingUuid}"
         all: baseLandings.length,
         with: withCommentCount,
         without: withoutCommentCount
+      },
+      history: {
+        all: baseLandings.length,
+        with: withHistoryCount,
+        without: withoutHistoryCount
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory]);
 
   if (loading) {
     return (
@@ -3568,7 +3597,26 @@ data-rt-sub16="${selectedLandingUuid}"
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <Clock className="h-4 w-4 mx-auto" />
+                        <div className="flex items-center justify-center gap-1">
+                          <History className="h-4 w-4" />
+                          <button
+                            ref={historyFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowHistoryFilterDropdown(!showHistoryFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setTempHistoryFilter(historyFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              historyFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по истории"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -5549,6 +5597,35 @@ data-rt-sub16="${selectedLandingUuid}"
           setCommentFilter(null);
           setTempCommentFilter(null);
           setShowCommentFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showHistoryFilterDropdown}
+        referenceElement={historyFilterButtonRef.current}
+        title="Фильтровать по истории"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.history.all },
+          { value: 'with', label: 'С историей', count: filterCounts.history.with },
+          { value: 'without', label: 'Без истории', count: filterCounts.history.without }
+        ]}
+        selectedValues={tempHistoryFilter}
+        onApply={(value) => {
+          setTempHistoryFilter(value);
+        }}
+        onCancel={() => {
+          setShowHistoryFilterDropdown(false);
+          setTempHistoryFilter(historyFilter);
+        }}
+        onOk={() => {
+          setHistoryFilter(tempHistoryFilter);
+          setShowHistoryFilterDropdown(false);
+        }}
+        onReset={() => {
+          setHistoryFilter(null);
+          setTempHistoryFilter(null);
+          setShowHistoryFilterDropdown(false);
         }}
         multiSelect={false}
       />
