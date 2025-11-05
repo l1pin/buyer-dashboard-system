@@ -329,6 +329,23 @@ function LandingTeamLead({ user }) {
                     {!isSelected && (
                       <div className="h-4 w-4 mr-2"></div>
                     )}
+                    {option.avatar && option.value !== 'all' && (
+                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-2">
+                        {option.avatar ? (
+                          <img
+                            src={option.avatar}
+                            alt={option.label}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center ${option.avatar ? 'hidden' : ''}`}>
+                          <User className="h-3 w-3 text-gray-400" />
+                        </div>
+                      </div>
+                    )}
                     <span className="text-gray-700 font-medium flex-1">{option.label}</span>
                   </div>
                   {option.count !== undefined && (
@@ -6436,7 +6453,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...designers.map(designer => ({
             value: designer.id,
             label: getDesignerName(designer.id),
-            count: filterCounts.designer[designer.id] || 0
+            count: filterCounts.designer[designer.id] || 0,
+            avatar: getDesignerAvatar(designer.id)
           }))
         ]}
         selectedValues={tempDesignerFilter}
@@ -6468,7 +6486,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...buyers.map(buyer => ({
             value: buyer.id,
             label: getBuyerName(buyer.id),
-            count: filterCounts.buyerTable[buyer.id] || 0
+            count: filterCounts.buyerTable[buyer.id] || 0,
+            avatar: getBuyerAvatar(buyer.id)
           }))
         ]}
         selectedValues={tempBuyerFilterTable}
@@ -6500,7 +6519,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...searchers.map(searcher => ({
             value: searcher.id,
             label: getSearcherName(searcher.id),
-            count: filterCounts.searcherTable[searcher.id] || 0
+            count: filterCounts.searcherTable[searcher.id] || 0,
+            avatar: getSearcherAvatar(searcher.id)
           }))
         ]}
         selectedValues={tempSearcherFilterTable}
@@ -6532,7 +6552,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...productManagers.map(pm => ({
             value: pm.id,
             label: getProductManagerName(pm.id),
-            count: filterCounts.productManager[pm.id] || 0
+            count: filterCounts.productManager[pm.id] || 0,
+            avatar: getProductManagerAvatar(pm.id)
           }))
         ]}
         selectedValues={tempProductManagerFilter}
@@ -6564,7 +6585,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...gifers.map(gifer => ({
             value: gifer.id,
             label: getGiferName(gifer.id),
-            count: filterCounts.gifer[gifer.id] || 0
+            count: filterCounts.gifer[gifer.id] || 0,
+            avatar: getGiferAvatar(gifer.id)
           }))
         ]}
         selectedValues={tempGiferFilter}
@@ -6596,7 +6618,8 @@ data-rt-sub16="${selectedLandingUuid}"
           ...contentManagers.map(cm => ({
             value: cm.id,
             label: getContentManagerName(cm.id),
-            count: filterCounts.contentManager[cm.id] || 0
+            count: filterCounts.contentManager[cm.id] || 0,
+            avatar: getContentManagerAvatar(cm.id)
           }))
         ]}
         selectedValues={tempContentManagerFilter}
