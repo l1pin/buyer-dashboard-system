@@ -6136,9 +6136,9 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по типу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.type.all },
-          { value: 'main', label: 'Основные', count: filterCounts.type.main },
-          { value: 'test', label: 'Тестовые', count: filterCounts.type.test },
-          { value: 'edited', label: 'Отредактированные', count: filterCounts.type.edited }
+          { value: 'main', label: 'Основные', count: filterCounts.type.main, disabled: filterCounts.type.main === 0 },
+          { value: 'test', label: 'Тестовые', count: filterCounts.type.test, disabled: filterCounts.type.test === 0 },
+          { value: 'edited', label: 'Отредактированные', count: filterCounts.type.edited, disabled: filterCounts.type.edited === 0 }
         ]}
         selectedValues={tempTypeFilters}
         onApply={(values) => {
@@ -6166,8 +6166,8 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по верифу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.verification.all },
-          { value: 'with', label: 'С верифом', count: filterCounts.verification.with },
-          { value: 'without', label: 'Без верифа', count: filterCounts.verification.without }
+          { value: 'with', label: 'С верифом', count: filterCounts.verification.with, disabled: filterCounts.verification.with === 0 },
+          { value: 'without', label: 'Без верифа', count: filterCounts.verification.without, disabled: filterCounts.verification.without === 0 }
         ]}
         selectedValues={tempVerificationFilter}
         onApply={(value) => {
@@ -6195,8 +6195,8 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по комментам"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.comment.all },
-          { value: 'with', label: 'С комментарием', count: filterCounts.comment.with },
-          { value: 'without', label: 'Без комментария', count: filterCounts.comment.without }
+          { value: 'with', label: 'С комментарием', count: filterCounts.comment.with, disabled: filterCounts.comment.with === 0 },
+          { value: 'without', label: 'Без комментария', count: filterCounts.comment.without, disabled: filterCounts.comment.without === 0 }
         ]}
         selectedValues={tempCommentFilter}
         onApply={(value) => {
@@ -6224,8 +6224,8 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по истории"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.history.all },
-          { value: 'with', label: 'С историей', count: filterCounts.history.with },
-          { value: 'without', label: 'Без истории', count: filterCounts.history.without }
+          { value: 'with', label: 'С историей', count: filterCounts.history.with, disabled: filterCounts.history.with === 0 },
+          { value: 'without', label: 'Без истории', count: filterCounts.history.without, disabled: filterCounts.history.without === 0 }
         ]}
         selectedValues={tempHistoryFilter}
         onApply={(value) => {
@@ -6253,8 +6253,8 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по стране"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.country.all },
-          { value: 'ukraine', label: 'Украина', icon: '🇺🇦', count: filterCounts.country.ukraine },
-          { value: 'poland', label: 'Польша', icon: '🇵🇱', count: filterCounts.country.poland }
+          { value: 'ukraine', label: 'Украина', icon: '🇺🇦', count: filterCounts.country.ukraine, disabled: filterCounts.country.ukraine === 0 },
+          { value: 'poland', label: 'Польша', icon: '🇵🇱', count: filterCounts.country.poland, disabled: filterCounts.country.poland === 0 }
         ]}
         selectedValues={tempCountryFilter}
         onApply={(value) => {
