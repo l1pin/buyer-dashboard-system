@@ -1147,6 +1147,32 @@ function LandingTeamLead({ user }) {
     }
   }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown]);
 
+  // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Проверяем, что клик был не на кнопках фильтра и не внутри дропдаунов
+      const clickedOnBuyerButton = event.target.closest('.filter-buyer-trigger') !== null;
+      const clickedOnSearcherButton = event.target.closest('.filter-searcher-trigger') !== null;
+      const clickedOnBuyerDropdown = event.target.closest('.filter-buyer-dropdown') !== null;
+      const clickedOnSearcherDropdown = event.target.closest('.filter-searcher-dropdown') !== null;
+
+      if (!clickedOnBuyerButton && !clickedOnBuyerDropdown) {
+        setShowFilterBuyerDropdown(false);
+      }
+
+      if (!clickedOnSearcherButton && !clickedOnSearcherDropdown) {
+        setShowFilterSearcherDropdown(false);
+      }
+    };
+
+    if (showFilterBuyerDropdown || showFilterSearcherDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showFilterBuyerDropdown, showFilterSearcherDropdown]);
+
   // Автозагрузка метрик после загрузки лендингов
   useEffect(() => {
     if (filteredLandings.length > 0 && !landingMetricsLoading) {
