@@ -3473,7 +3473,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 <div className="text-left pl-2">
                                   {buyerMetrics.map((buyerMetric, idx) => (
                                     <React.Fragment key={idx}>
-                                      <div className="grid gap-2 h-10" style={{ gridTemplateColumns: '24px 1fr 24px', alignItems: 'center' }}>
+                                      <div className="grid gap-2 h-10" style={{ gridTemplateColumns: '24px max-content 24px', alignItems: 'center' }}>
                                         {/* Аватар */}
                                         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                           {buyerMetric.buyer_avatar ? (
@@ -3492,7 +3492,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                           </div>
                                         </div>
                                         {/* Имя байера */}
-                                        <span className="text-sm font-medium text-gray-900 truncate" title={buyerMetric.buyer_name}>
+                                        <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                                           {buyerMetric.buyer_name}
                                         </span>
                                         {/* Иконка источника */}
