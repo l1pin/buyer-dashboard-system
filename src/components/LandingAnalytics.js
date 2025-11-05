@@ -41,7 +41,8 @@ import {
   CheckCircle,
   Settings,
   Save,
-  GripVertical
+  GripVertical,
+  Check
 } from 'lucide-react';
 
 function LandingTeamLead({ user }) {
@@ -127,7 +128,18 @@ function LandingTeamLead({ user }) {
   const [newTagColor, setNewTagColor] = useState('blue');
   const [savingSettings, setSavingSettings] = useState(false);
   const [draggedItem, setDraggedItem] = useState(null);
-  
+
+  // Состояния для фильтров таблицы
+  const [typeFilters, setTypeFilters] = useState(['main', 'test', 'edited']); // Все типы выбраны по умолчанию
+  const [verificationFilter, setVerificationFilter] = useState(null); // null, 'with' или 'without'
+  const [commentFilter, setCommentFilter] = useState(null); // null, 'with' или 'without'
+  const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
+  const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
+  const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
+  const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
+  const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
+  const [tempCommentFilter, setTempCommentFilter] = useState(null);
+
   // Компоненты флагов
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
@@ -154,6 +166,60 @@ function LandingTeamLead({ user }) {
       Склад
     </span>
   );
+
+  // Компонент выпадающего фильтра
+  const FilterDropdown = ({ isOpen, onClose, options, selectedValues, onApply, onCancel, onOk, multiSelect = false }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="absolute top-full mt-1 right-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[200px]">
+        <div className="py-2">
+          {options.map((option) => {
+            const isSelected = multiSelect
+              ? selectedValues.includes(option.value)
+              : selectedValues === option.value;
+
+            return (
+              <button
+                key={option.value}
+                onClick={() => {
+                  if (multiSelect) {
+                    const newValues = isSelected
+                      ? selectedValues.filter(v => v !== option.value)
+                      : [...selectedValues, option.value];
+                    onApply(newValues);
+                  } else {
+                    // В режиме одиночного выбора: если выбран тот же элемент - сбрасываем
+                    onApply(isSelected ? null : option.value);
+                  }
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 transition-colors duration-150 flex items-center justify-between"
+              >
+                <span className="text-gray-700">{option.label}</span>
+                {isSelected && (
+                  <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-2" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="border-t border-gray-200 px-3 py-2 flex justify-between items-center bg-gray-50 rounded-b-lg">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-150"
+          >
+            Отменить
+          </button>
+          <button
+            onClick={onOk || (() => onApply(selectedValues))}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Фильтрация лендингов
   const filteredLandings = useMemo(() => {
@@ -197,8 +263,48 @@ function LandingTeamLead({ user }) {
       }
     }
 
+    // Фильтрация по типу (Основные, Тестовые, Отредактированные)
+    if (typeFilters.length > 0 && typeFilters.length < 3) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const isMain = !l.is_test && !l.is_edited;
+        const isTest = l.is_test;
+        const isEdited = l.is_edited;
+
+        if (typeFilters.includes('main') && isMain) return true;
+        if (typeFilters.includes('test') && isTest) return true;
+        if (typeFilters.includes('edited') && isEdited) return true;
+        return false;
+      });
+    }
+
+    // Фильтрация по верификации
+    if (verificationFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const hasVerification = (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id);
+        if (verificationFilter === 'with') {
+          return hasVerification;
+        } else if (verificationFilter === 'without') {
+          return !hasVerification;
+        }
+        return true;
+      });
+    }
+
+    // Фильтрация по комментарию
+    if (commentFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const hasComment = l.comment && l.comment.trim();
+        if (commentFilter === 'with') {
+          return hasComment;
+        } else if (commentFilter === 'without') {
+          return !hasComment;
+        }
+        return true;
+      });
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, landingsWithIntegration]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -978,6 +1084,26 @@ function LandingTeamLead({ user }) {
 
     init();
   }, []);
+
+  // Закрытие дропдаунов фильтров при клике вне компонента
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Проверяем, что клик был не на элементах фильтра
+      const isFilterClick = event.target.closest('th[class*="relative"]') !== null;
+      if (!isFilterClick) {
+        setShowTypeFilterDropdown(false);
+        setShowVerificationFilterDropdown(false);
+        setShowCommentFilterDropdown(false);
+      }
+    };
+
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown]);
 
   // Автозагрузка метрик после загрузки лендингов
   useEffect(() => {
@@ -3143,22 +3269,134 @@ data-rt-sub16="${selectedLandingUuid}"
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
-                        Тип
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative" style={{ width: '40px' }}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Тип</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTypeFilterDropdown(!showTypeFilterDropdown);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setTempTypeFilters(typeFilters);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              typeFilters.length < 3 ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по типу"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <FilterDropdown
+                          isOpen={showTypeFilterDropdown}
+                          options={[
+                            { value: 'main', label: 'Основные' },
+                            { value: 'test', label: 'Тестовые' },
+                            { value: 'edited', label: 'Отредактированные' }
+                          ]}
+                          selectedValues={tempTypeFilters}
+                          onApply={(values) => {
+                            setTempTypeFilters(values);
+                          }}
+                          onCancel={() => {
+                            setShowTypeFilterDropdown(false);
+                            setTempTypeFilters(typeFilters);
+                          }}
+                          onOk={() => {
+                            setTypeFilters(tempTypeFilters);
+                            setShowTypeFilterDropdown(false);
+                          }}
+                          multiSelect={true}
+                        />
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <svg className="h-4 w-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                        <div className="flex items-center justify-center gap-1">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                          </svg>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setTempVerificationFilter(verificationFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              verificationFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по верификации"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <FilterDropdown
+                          isOpen={showVerificationFilterDropdown}
+                          options={[
+                            { value: 'with', label: 'С верифом' },
+                            { value: 'without', label: 'Без верифа' }
+                          ]}
+                          selectedValues={tempVerificationFilter}
+                          onApply={(value) => {
+                            setTempVerificationFilter(value);
+                          }}
+                          onCancel={() => {
+                            setShowVerificationFilterDropdown(false);
+                            setTempVerificationFilter(verificationFilter);
+                          }}
+                          onOk={() => {
+                            setVerificationFilter(tempVerificationFilter);
+                            setShowVerificationFilterDropdown(false);
+                          }}
+                          multiSelect={false}
+                        />
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        <MessageCircle className="h-4 w-4 mx-auto" />
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 relative">
+                        <div className="flex items-center justify-center gap-1">
+                          <MessageCircle className="h-4 w-4" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCommentFilterDropdown(!showCommentFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setTempCommentFilter(commentFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              commentFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по комментарию"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <FilterDropdown
+                          isOpen={showCommentFilterDropdown}
+                          options={[
+                            { value: 'with', label: 'С комментарием' },
+                            { value: 'without', label: 'Без комментария' }
+                          ]}
+                          selectedValues={tempCommentFilter}
+                          onApply={(value) => {
+                            setTempCommentFilter(value);
+                          }}
+                          onCancel={() => {
+                            setShowCommentFilterDropdown(false);
+                            setTempCommentFilter(commentFilter);
+                          }}
+                          onOk={() => {
+                            setCommentFilter(tempCommentFilter);
+                            setShowCommentFilterDropdown(false);
+                          }}
+                          multiSelect={false}
+                        />
                       </th>
 
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
