@@ -6387,7 +6387,7 @@ data-rt-sub16="${selectedLandingUuid}"
           setTagsFilter(tempTagsFilter);
           setShowTagsFilterDropdown(false);
         }}
-        onReset(() => {
+        onReset={() => {
           setTagsFilter([]);
           setTempTagsFilter([]);
           setShowTagsFilterDropdown(false);
