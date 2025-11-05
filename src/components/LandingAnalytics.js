@@ -195,6 +195,25 @@ function LandingTeamLead({ user }) {
   const giferFilterButtonRef = useRef(null);
   const contentManagerFilterButtonRef = useRef(null);
 
+  // Функция для закрытия всех фильтров
+  const closeAllFilterDropdowns = () => {
+    setShowTypeFilterDropdown(false);
+    setShowVerificationFilterDropdown(false);
+    setShowCommentFilterDropdown(false);
+    setShowHistoryFilterDropdown(false);
+    setShowCountryFilterDropdown(false);
+    setShowVersionFilterDropdown(false);
+    setShowTemplateFilterDropdown(false);
+    setShowTagsFilterDropdown(false);
+    setShowStatusFilterDropdown(false);
+    setShowDesignerFilterDropdown(false);
+    setShowBuyerFilterTableDropdown(false);
+    setShowSearcherFilterTableDropdown(false);
+    setShowProductManagerFilterDropdown(false);
+    setShowGiferFilterDropdown(false);
+    setShowContentManagerFilterDropdown(false);
+  };
+
   // Компоненты флагов
   const UkraineFlag = () => (
     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
@@ -3899,9 +3918,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={typeFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowTypeFilterDropdown(!showTypeFilterDropdown);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
+                              const wasOpen = showTypeFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowTypeFilterDropdown(true);
+                              }
                               setTempTypeFilters(typeFilters);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -3927,9 +3948,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={verificationFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowVerificationFilterDropdown(!showVerificationFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
+                              const wasOpen = showVerificationFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowVerificationFilterDropdown(true);
+                              }
                               setTempVerificationFilter(verificationFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -3949,9 +3972,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={commentFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowCommentFilterDropdown(!showCommentFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
+                              const wasOpen = showCommentFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowCommentFilterDropdown(true);
+                              }
                               setTempCommentFilter(commentFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -3971,10 +3996,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={historyFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowHistoryFilterDropdown(!showHistoryFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
+                              const wasOpen = showHistoryFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowHistoryFilterDropdown(true);
+                              }
                               setTempHistoryFilter(historyFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -3994,11 +4020,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={countryFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowCountryFilterDropdown(!showCountryFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
+                              const wasOpen = showCountryFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowCountryFilterDropdown(true);
+                              }
                               setTempCountryFilter(countryFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4022,14 +4048,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={versionFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowVersionFilterDropdown(!showVersionFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
+                              const wasOpen = showVersionFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowVersionFilterDropdown(true);
+                              }
                               setTempVersionFilter(versionFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4049,14 +4072,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={templateFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowTemplateFilterDropdown(!showTemplateFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
+                              const wasOpen = showTemplateFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowTemplateFilterDropdown(true);
+                              }
                               setTempTemplateFilter(templateFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4076,14 +4096,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={tagsFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowTagsFilterDropdown(!showTagsFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
+                              const wasOpen = showTagsFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowTagsFilterDropdown(true);
+                              }
                               setTempTagsFilter(tagsFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4141,21 +4158,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={statusFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowStatusFilterDropdown(!showStatusFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowGiferFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showStatusFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowStatusFilterDropdown(true);
+                              }
                               setTempStatusFilter(statusFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4175,21 +4182,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={designerFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowDesignerFilterDropdown(!showDesignerFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowGiferFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showDesignerFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowDesignerFilterDropdown(true);
+                              }
                               setTempDesignerFilter(designerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4208,21 +4205,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={buyerFilterTableButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowBuyerFilterTableDropdown(!showBuyerFilterTableDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowGiferFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showBuyerFilterTableDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowBuyerFilterTableDropdown(true);
+                              }
                               setTempBuyerFilterTable(buyerFilterTable);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4241,21 +4228,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={searcherFilterTableButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowSearcherFilterTableDropdown(!showSearcherFilterTableDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowGiferFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showSearcherFilterTableDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowSearcherFilterTableDropdown(true);
+                              }
                               setTempSearcherFilterTable(searcherFilterTable);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4274,21 +4251,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={productManagerFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowProductManagerFilterDropdown(!showProductManagerFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowGiferFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showProductManagerFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowProductManagerFilterDropdown(true);
+                              }
                               setTempProductManagerFilter(productManagerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4307,21 +4274,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={giferFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowGiferFilterDropdown(!showGiferFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowContentManagerFilterDropdown(false);
+                              const wasOpen = showGiferFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowGiferFilterDropdown(true);
+                              }
                               setTempGiferFilter(giferFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
@@ -4340,21 +4297,11 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={contentManagerFilterButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowContentManagerFilterDropdown(!showContentManagerFilterDropdown);
-                              setShowTypeFilterDropdown(false);
-                              setShowVerificationFilterDropdown(false);
-                              setShowCommentFilterDropdown(false);
-                              setShowHistoryFilterDropdown(false);
-                              setShowCountryFilterDropdown(false);
-                              setShowVersionFilterDropdown(false);
-                              setShowTemplateFilterDropdown(false);
-                              setShowTagsFilterDropdown(false);
-                              setShowStatusFilterDropdown(false);
-                              setShowDesignerFilterDropdown(false);
-                              setShowBuyerFilterTableDropdown(false);
-                              setShowSearcherFilterTableDropdown(false);
-                              setShowProductManagerFilterDropdown(false);
-                              setShowGiferFilterDropdown(false);
+                              const wasOpen = showContentManagerFilterDropdown;
+                              closeAllFilterDropdowns();
+                              if (!wasOpen) {
+                                setShowContentManagerFilterDropdown(true);
+                              }
                               setTempContentManagerFilter(contentManagerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
