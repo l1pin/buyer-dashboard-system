@@ -280,14 +280,11 @@ function LandingTeamLead({ user }) {
           left: `${positionRef.current.left}px`,
           zIndex: 9999,
           transform: alignRight ? 'translateX(-100%) translateZ(0)' : 'translateZ(0)',
-          backfaceVisibility: 'hidden'
+          backfaceVisibility: 'hidden',
+          pointerEvents: 'auto'
         }}
         onMouseDown={(e) => {
           // Предотвращаем всплытие события, чтобы handleClickOutside не закрывал dropdown
-          e.stopPropagation();
-        }}
-        onClick={(e) => {
-          // Предотвращаем всплытие события
           e.stopPropagation();
         }}
       >
@@ -324,8 +321,6 @@ function LandingTeamLead({ user }) {
               <React.Fragment key={option.value}>
                 <button
                   onClick={(e) => {
-                    e.stopPropagation();
-
                     // Игнорируем клики на disabled опции
                     if (option.disabled) return;
 
@@ -404,8 +399,7 @@ function LandingTeamLead({ user }) {
         </div>
         <div className="border-t border-gray-200 px-3 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-lg">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               if (onReset) {
                 onReset();
               }
@@ -415,8 +409,7 @@ function LandingTeamLead({ user }) {
             Сбросить
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               if (onOk) {
                 onOk();
               } else {
