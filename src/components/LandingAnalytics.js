@@ -605,10 +605,12 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по зонам
-    // Используем hasVisibleZone - проверяет отображается ли зона в колонке "Зоны" (не "—")
+    // ВАЖНО: Не используем hasVisibleZone здесь, т.к. она объявлена позже и вызывает getAggregatedLandingMetrics
+    // hasVisibleZone используется только в filterCounts для подсчета
+    // Здесь используем hasZoneData из хука - проверяет только наличие данных в metrics_analytics
     if (zoneFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
-        const hasZones = hasVisibleZone(l);
+        const hasZones = hasZoneData(l.article);
         if (zoneFilter === 'with') {
           return hasZones;
         } else if (zoneFilter === 'without') {
@@ -627,7 +629,7 @@ function LandingTeamLead({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasVisibleZone, getLandingSources, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources, landingMetrics]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
