@@ -3509,7 +3509,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         </div>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3617,7 +3619,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                           )}
                                         </div>
                                         {/* Разделитель между байерами */}
-                                        <div className="border-t border-gray-300 my-1"></div>
+                                        {idx !== buyerMetrics.length - 1 && (
+                                          <div className="border-t border-gray-300 my-1"></div>
+                                        )}
                                       </React.Fragment>
                                     );
                                   })}
@@ -3660,7 +3664,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         </span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3695,7 +3701,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cpl}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3730,7 +3738,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cost}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3770,7 +3780,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.clicks}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3812,7 +3824,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.cr}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
@@ -3858,7 +3872,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                         <span className="font-bold text-sm text-black">{buyerMetric.data.formatted.days}</span>
                                       </div>
                                       {/* Разделитель между байерами */}
-                                      <div className="border-t border-gray-300 my-1"></div>
+                                      {idx !== buyerMetrics.length - 1 && (
+                                        <div className="border-t border-gray-300 my-1"></div>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </div>
