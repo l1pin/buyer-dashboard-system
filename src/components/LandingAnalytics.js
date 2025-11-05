@@ -140,6 +140,13 @@ function LandingTeamLead({ user }) {
   const [versionFilter, setVersionFilter] = useState(null); // null или конкретная версия
   const [templateFilter, setTemplateFilter] = useState(null); // null или конкретный шаблон
   const [tagsFilter, setTagsFilter] = useState([]); // массив выбранных тегов
+  const [statusFilter, setStatusFilter] = useState(null); // null или конкретный статус
+  const [designerFilter, setDesignerFilter] = useState(null); // null или id дизайнера
+  const [buyerFilterTable, setBuyerFilterTable] = useState(null); // null или id байера (для таблицы)
+  const [searcherFilterTable, setSearcherFilterTable] = useState(null); // null или id серчера (для таблицы)
+  const [productManagerFilter, setProductManagerFilter] = useState(null); // null или id продакт-менеджера
+  const [giferFilter, setGiferFilter] = useState(null); // null или id гифера
+  const [contentManagerFilter, setContentManagerFilter] = useState(null); // null или id контент-менеджера
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
@@ -148,6 +155,13 @@ function LandingTeamLead({ user }) {
   const [showVersionFilterDropdown, setShowVersionFilterDropdown] = useState(false);
   const [showTemplateFilterDropdown, setShowTemplateFilterDropdown] = useState(false);
   const [showTagsFilterDropdown, setShowTagsFilterDropdown] = useState(false);
+  const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
+  const [showDesignerFilterDropdown, setShowDesignerFilterDropdown] = useState(false);
+  const [showBuyerFilterTableDropdown, setShowBuyerFilterTableDropdown] = useState(false);
+  const [showSearcherFilterTableDropdown, setShowSearcherFilterTableDropdown] = useState(false);
+  const [showProductManagerFilterDropdown, setShowProductManagerFilterDropdown] = useState(false);
+  const [showGiferFilterDropdown, setShowGiferFilterDropdown] = useState(false);
+  const [showContentManagerFilterDropdown, setShowContentManagerFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
   const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
   const [tempCommentFilter, setTempCommentFilter] = useState(null);
@@ -156,6 +170,13 @@ function LandingTeamLead({ user }) {
   const [tempVersionFilter, setTempVersionFilter] = useState(null);
   const [tempTemplateFilter, setTempTemplateFilter] = useState(null);
   const [tempTagsFilter, setTempTagsFilter] = useState([]);
+  const [tempStatusFilter, setTempStatusFilter] = useState(null);
+  const [tempDesignerFilter, setTempDesignerFilter] = useState(null);
+  const [tempBuyerFilterTable, setTempBuyerFilterTable] = useState(null);
+  const [tempSearcherFilterTable, setTempSearcherFilterTable] = useState(null);
+  const [tempProductManagerFilter, setTempProductManagerFilter] = useState(null);
+  const [tempGiferFilter, setTempGiferFilter] = useState(null);
+  const [tempContentManagerFilter, setTempContentManagerFilter] = useState(null);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
@@ -166,6 +187,13 @@ function LandingTeamLead({ user }) {
   const versionFilterButtonRef = useRef(null);
   const templateFilterButtonRef = useRef(null);
   const tagsFilterButtonRef = useRef(null);
+  const statusFilterButtonRef = useRef(null);
+  const designerFilterButtonRef = useRef(null);
+  const buyerFilterTableButtonRef = useRef(null);
+  const searcherFilterTableButtonRef = useRef(null);
+  const productManagerFilterButtonRef = useRef(null);
+  const giferFilterButtonRef = useRef(null);
+  const contentManagerFilterButtonRef = useRef(null);
 
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -479,8 +507,46 @@ function LandingTeamLead({ user }) {
       });
     }
 
+    // Фильтрация по статусу
+    if (statusFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        const landingStatus = trelloStatuses.get(l.id);
+        return landingStatus && landingStatus.list_name === statusFilter;
+      });
+    }
+
+    // Фильтрация по дизайнеру
+    if (designerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.designer_id === designerFilter);
+    }
+
+    // Фильтрация по байеру (таблица)
+    if (buyerFilterTable !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.buyer_id === buyerFilterTable);
+    }
+
+    // Фильтрация по серчеру (таблица)
+    if (searcherFilterTable !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.searcher_id === searcherFilterTable);
+    }
+
+    // Фильтрация по продакт-менеджеру
+    if (productManagerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.product_manager_id === productManagerFilter);
+    }
+
+    // Фильтрация по гиферу
+    if (giferFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.gifer_id === giferFilter);
+    }
+
+    // Фильтрация по контент-менеджеру
+    if (contentManagerFilter !== null) {
+      landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
+    }
+
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, landingsWithIntegration, landingsWithHistory]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1273,6 +1339,13 @@ function LandingTeamLead({ user }) {
       const clickedOnVersionButton = versionFilterButtonRef.current?.contains(event.target);
       const clickedOnTemplateButton = templateFilterButtonRef.current?.contains(event.target);
       const clickedOnTagsButton = tagsFilterButtonRef.current?.contains(event.target);
+      const clickedOnStatusButton = statusFilterButtonRef.current?.contains(event.target);
+      const clickedOnDesignerButton = designerFilterButtonRef.current?.contains(event.target);
+      const clickedOnBuyerTableButton = buyerFilterTableButtonRef.current?.contains(event.target);
+      const clickedOnSearcherTableButton = searcherFilterTableButtonRef.current?.contains(event.target);
+      const clickedOnProductManagerButton = productManagerFilterButtonRef.current?.contains(event.target);
+      const clickedOnGiferButton = giferFilterButtonRef.current?.contains(event.target);
+      const clickedOnContentManagerButton = contentManagerFilterButtonRef.current?.contains(event.target);
 
       // Проверяем, был ли клик внутри любого dropdown фильтра
       // Используем более надежную проверку, которая учитывает вложенные элементы
@@ -1291,7 +1364,7 @@ function LandingTeamLead({ user }) {
         element = element.parentElement;
       }
 
-      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnDropdown) {
+      if (!clickedOnTypeButton && !clickedOnVerificationButton && !clickedOnCommentButton && !clickedOnHistoryButton && !clickedOnCountryButton && !clickedOnVersionButton && !clickedOnTemplateButton && !clickedOnTagsButton && !clickedOnStatusButton && !clickedOnDesignerButton && !clickedOnBuyerTableButton && !clickedOnSearcherTableButton && !clickedOnProductManagerButton && !clickedOnGiferButton && !clickedOnContentManagerButton && !clickedOnDropdown) {
         setShowTypeFilterDropdown(false);
         setShowVerificationFilterDropdown(false);
         setShowCommentFilterDropdown(false);
@@ -1300,16 +1373,23 @@ function LandingTeamLead({ user }) {
         setShowVersionFilterDropdown(false);
         setShowTemplateFilterDropdown(false);
         setShowTagsFilterDropdown(false);
+        setShowStatusFilterDropdown(false);
+        setShowDesignerFilterDropdown(false);
+        setShowBuyerFilterTableDropdown(false);
+        setShowSearcherFilterTableDropdown(false);
+        setShowProductManagerFilterDropdown(false);
+        setShowGiferFilterDropdown(false);
+        setShowContentManagerFilterDropdown(false);
       }
     };
 
-    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown) {
+    if (showTypeFilterDropdown || showVerificationFilterDropdown || showCommentFilterDropdown || showHistoryFilterDropdown || showCountryFilterDropdown || showVersionFilterDropdown || showTemplateFilterDropdown || showTagsFilterDropdown || showStatusFilterDropdown || showDesignerFilterDropdown || showBuyerFilterTableDropdown || showSearcherFilterTableDropdown || showProductManagerFilterDropdown || showGiferFilterDropdown || showContentManagerFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown]);
+  }, [showTypeFilterDropdown, showVerificationFilterDropdown, showCommentFilterDropdown, showHistoryFilterDropdown, showCountryFilterDropdown, showVersionFilterDropdown, showTemplateFilterDropdown, showTagsFilterDropdown, showStatusFilterDropdown, showDesignerFilterDropdown, showBuyerFilterTableDropdown, showSearcherFilterTableDropdown, showProductManagerFilterDropdown, showGiferFilterDropdown, showContentManagerFilterDropdown]);
 
   // Закрытие дропдаунов фильтров байеров, серчеров и гиферов при клике вне компонента
   useEffect(() => {
@@ -2593,8 +2673,18 @@ data-rt-sub16="${selectedLandingUuid}"
     });
     const tags = Array.from(tagsSet).sort();
 
-    return { versions, templates, tags };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue]);
+    // Собираем уникальные статусы
+    const statusesSet = new Set();
+    baseLandings.forEach(l => {
+      const status = trelloStatuses.get(l.id);
+      if (status && status.list_name) {
+        statusesSet.add(status.list_name);
+      }
+    });
+    const statuses = Array.from(statusesSet).sort();
+
+    return { versions, templates, tags, statuses };
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, trelloStatuses]);
 
   // Подсчет количества элементов для каждой опции фильтра
   const filterCounts = useMemo(() => {
@@ -2683,6 +2773,51 @@ data-rt-sub16="${selectedLandingUuid}"
       ).length;
     });
 
+    // Подсчет для фильтра статусов
+    const statusCounts = {};
+    uniqueFilterValues.statuses.forEach(status => {
+      statusCounts[status] = baseLandings.filter(l => {
+        const landingStatus = trelloStatuses.get(l.id);
+        return landingStatus && landingStatus.list_name === status;
+      }).length;
+    });
+
+    // Подсчет для фильтра дизайнеров
+    const designerCounts = {};
+    designers.forEach(designer => {
+      designerCounts[designer.id] = baseLandings.filter(l => l.designer_id === designer.id).length;
+    });
+
+    // Подсчет для фильтра байеров (таблица)
+    const buyerTableCounts = {};
+    buyers.forEach(buyer => {
+      buyerTableCounts[buyer.id] = baseLandings.filter(l => l.buyer_id === buyer.id).length;
+    });
+
+    // Подсчет для фильтра серчеров (таблица)
+    const searcherTableCounts = {};
+    searchers.forEach(searcher => {
+      searcherTableCounts[searcher.id] = baseLandings.filter(l => l.searcher_id === searcher.id).length;
+    });
+
+    // Подсчет для фильтра продакт-менеджеров
+    const productManagerCounts = {};
+    productManagers.forEach(pm => {
+      productManagerCounts[pm.id] = baseLandings.filter(l => l.product_manager_id === pm.id).length;
+    });
+
+    // Подсчет для фильтра гиферов
+    const giferCounts = {};
+    gifers.forEach(gifer => {
+      giferCounts[gifer.id] = baseLandings.filter(l => l.gifer_id === gifer.id).length;
+    });
+
+    // Подсчет для фильтра контент-менеджеров
+    const contentManagerCounts = {};
+    contentManagers.forEach(cm => {
+      contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
+    });
+
     return {
       type: {
         all: baseLandings.length,
@@ -2721,9 +2856,37 @@ data-rt-sub16="${selectedLandingUuid}"
       tag: {
         all: baseLandings.length,
         ...tagCounts
+      },
+      status: {
+        all: baseLandings.length,
+        ...statusCounts
+      },
+      designer: {
+        all: baseLandings.length,
+        ...designerCounts
+      },
+      buyerTable: {
+        all: baseLandings.length,
+        ...buyerTableCounts
+      },
+      searcherTable: {
+        all: baseLandings.length,
+        ...searcherTableCounts
+      },
+      productManager: {
+        all: baseLandings.length,
+        ...productManagerCounts
+      },
+      gifer: {
+        all: baseLandings.length,
+        ...giferCounts
+      },
+      contentManager: {
+        all: baseLandings.length,
+        ...contentManagerCounts
       }
     };
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers]);
 
   if (loading) {
     return (
@@ -3945,26 +4108,236 @@ data-rt-sub16="${selectedLandingUuid}"
                         Trello
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Статус
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Статус</span>
+                          <button
+                            ref={statusFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowStatusFilterDropdown(!showStatusFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempStatusFilter(statusFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              statusFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по статусу"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
 
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Designer
+                        <div className="flex items-center gap-1">
+                          <span>Designer</span>
+                          <button
+                            ref={designerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDesignerFilterDropdown(!showDesignerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempDesignerFilter(designerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              designerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по дизайнеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Buyer
+                        <div className="flex items-center gap-1">
+                          <span>Buyer</span>
+                          <button
+                            ref={buyerFilterTableButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowBuyerFilterTableDropdown(!showBuyerFilterTableDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempBuyerFilterTable(buyerFilterTable);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              buyerFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по байеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Searcher
+                        <div className="flex items-center gap-1">
+                          <span>Searcher</span>
+                          <button
+                            ref={searcherFilterTableButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowSearcherFilterTableDropdown(!showSearcherFilterTableDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempSearcherFilterTable(searcherFilterTable);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              searcherFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по серчеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Product
+                        <div className="flex items-center gap-1">
+                          <span>Product</span>
+                          <button
+                            ref={productManagerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowProductManagerFilterDropdown(!showProductManagerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempProductManagerFilter(productManagerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              productManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по продакт-менеджеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        GIFer
+                        <div className="flex items-center gap-1">
+                          <span>GIFer</span>
+                          <button
+                            ref={giferFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowGiferFilterDropdown(!showGiferFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowContentManagerFilterDropdown(false);
+                              setTempGiferFilter(giferFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              giferFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по гиферу"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Content
+                        <div className="flex items-center gap-1">
+                          <span>Content</span>
+                          <button
+                            ref={contentManagerFilterButtonRef}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowContentManagerFilterDropdown(!showContentManagerFilterDropdown);
+                              setShowTypeFilterDropdown(false);
+                              setShowVerificationFilterDropdown(false);
+                              setShowCommentFilterDropdown(false);
+                              setShowHistoryFilterDropdown(false);
+                              setShowCountryFilterDropdown(false);
+                              setShowVersionFilterDropdown(false);
+                              setShowTemplateFilterDropdown(false);
+                              setShowTagsFilterDropdown(false);
+                              setShowStatusFilterDropdown(false);
+                              setShowDesignerFilterDropdown(false);
+                              setShowBuyerFilterTableDropdown(false);
+                              setShowSearcherFilterTableDropdown(false);
+                              setShowProductManagerFilterDropdown(false);
+                              setShowGiferFilterDropdown(false);
+                              setTempContentManagerFilter(contentManagerFilter);
+                            }}
+                            className={`p-1 rounded hover:bg-gray-200 transition-colors ${
+                              contentManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                            }`}
+                            title="Фильтр по контент-менеджеру"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </div>
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Действия
@@ -6014,12 +6387,236 @@ data-rt-sub16="${selectedLandingUuid}"
           setTagsFilter(tempTagsFilter);
           setShowTagsFilterDropdown(false);
         }}
-        onReset={() => {
+        onReset(() => {
           setTagsFilter([]);
           setTempTagsFilter([]);
           setShowTagsFilterDropdown(false);
         }}
         multiSelect={true}
+      />
+
+      <FilterDropdown
+        isOpen={showStatusFilterDropdown}
+        referenceElement={statusFilterButtonRef.current}
+        title="Фильтровать по статусу"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.status.all },
+          ...uniqueFilterValues.statuses.map(status => ({
+            value: status,
+            label: status,
+            count: filterCounts.status[status] || 0
+          }))
+        ]}
+        selectedValues={tempStatusFilter}
+        onApply={(value) => {
+          setTempStatusFilter(value);
+        }}
+        onCancel={() => {
+          setShowStatusFilterDropdown(false);
+          setTempStatusFilter(statusFilter);
+        }}
+        onOk={() => {
+          setStatusFilter(tempStatusFilter);
+          setShowStatusFilterDropdown(false);
+        }}
+        onReset={() => {
+          setStatusFilter(null);
+          setTempStatusFilter(null);
+          setShowStatusFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showDesignerFilterDropdown}
+        referenceElement={designerFilterButtonRef.current}
+        title="Фильтровать по дизайнеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.designer.all },
+          ...designers.map(designer => ({
+            value: designer.id,
+            label: getDesignerName(designer.id),
+            count: filterCounts.designer[designer.id] || 0
+          }))
+        ]}
+        selectedValues={tempDesignerFilter}
+        onApply={(value) => {
+          setTempDesignerFilter(value);
+        }}
+        onCancel={() => {
+          setShowDesignerFilterDropdown(false);
+          setTempDesignerFilter(designerFilter);
+        }}
+        onOk={() => {
+          setDesignerFilter(tempDesignerFilter);
+          setShowDesignerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setDesignerFilter(null);
+          setTempDesignerFilter(null);
+          setShowDesignerFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showBuyerFilterTableDropdown}
+        referenceElement={buyerFilterTableButtonRef.current}
+        title="Фильтровать по байеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.buyerTable.all },
+          ...buyers.map(buyer => ({
+            value: buyer.id,
+            label: getBuyerName(buyer.id),
+            count: filterCounts.buyerTable[buyer.id] || 0
+          }))
+        ]}
+        selectedValues={tempBuyerFilterTable}
+        onApply={(value) => {
+          setTempBuyerFilterTable(value);
+        }}
+        onCancel={() => {
+          setShowBuyerFilterTableDropdown(false);
+          setTempBuyerFilterTable(buyerFilterTable);
+        }}
+        onOk={() => {
+          setBuyerFilterTable(tempBuyerFilterTable);
+          setShowBuyerFilterTableDropdown(false);
+        }}
+        onReset={() => {
+          setBuyerFilterTable(null);
+          setTempBuyerFilterTable(null);
+          setShowBuyerFilterTableDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showSearcherFilterTableDropdown}
+        referenceElement={searcherFilterTableButtonRef.current}
+        title="Фильтровать по серчеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.searcherTable.all },
+          ...searchers.map(searcher => ({
+            value: searcher.id,
+            label: getSearcherName(searcher.id),
+            count: filterCounts.searcherTable[searcher.id] || 0
+          }))
+        ]}
+        selectedValues={tempSearcherFilterTable}
+        onApply={(value) => {
+          setTempSearcherFilterTable(value);
+        }}
+        onCancel={() => {
+          setShowSearcherFilterTableDropdown(false);
+          setTempSearcherFilterTable(searcherFilterTable);
+        }}
+        onOk={() => {
+          setSearcherFilterTable(tempSearcherFilterTable);
+          setShowSearcherFilterTableDropdown(false);
+        }}
+        onReset={() => {
+          setSearcherFilterTable(null);
+          setTempSearcherFilterTable(null);
+          setShowSearcherFilterTableDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showProductManagerFilterDropdown}
+        referenceElement={productManagerFilterButtonRef.current}
+        title="Фильтровать по продакт-менеджеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.productManager.all },
+          ...productManagers.map(pm => ({
+            value: pm.id,
+            label: getProductManagerName(pm.id),
+            count: filterCounts.productManager[pm.id] || 0
+          }))
+        ]}
+        selectedValues={tempProductManagerFilter}
+        onApply={(value) => {
+          setTempProductManagerFilter(value);
+        }}
+        onCancel={() => {
+          setShowProductManagerFilterDropdown(false);
+          setTempProductManagerFilter(productManagerFilter);
+        }}
+        onOk={() => {
+          setProductManagerFilter(tempProductManagerFilter);
+          setShowProductManagerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setProductManagerFilter(null);
+          setTempProductManagerFilter(null);
+          setShowProductManagerFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showGiferFilterDropdown}
+        referenceElement={giferFilterButtonRef.current}
+        title="Фильтровать по гиферу"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.gifer.all },
+          ...gifers.map(gifer => ({
+            value: gifer.id,
+            label: getGiferName(gifer.id),
+            count: filterCounts.gifer[gifer.id] || 0
+          }))
+        ]}
+        selectedValues={tempGiferFilter}
+        onApply={(value) => {
+          setTempGiferFilter(value);
+        }}
+        onCancel={() => {
+          setShowGiferFilterDropdown(false);
+          setTempGiferFilter(giferFilter);
+        }}
+        onOk={() => {
+          setGiferFilter(tempGiferFilter);
+          setShowGiferFilterDropdown(false);
+        }}
+        onReset={() => {
+          setGiferFilter(null);
+          setTempGiferFilter(null);
+          setShowGiferFilterDropdown(false);
+        }}
+        multiSelect={false}
+      />
+
+      <FilterDropdown
+        isOpen={showContentManagerFilterDropdown}
+        referenceElement={contentManagerFilterButtonRef.current}
+        title="Фильтровать по контент-менеджеру"
+        options={[
+          { value: 'all', label: 'Все', count: filterCounts.contentManager.all },
+          ...contentManagers.map(cm => ({
+            value: cm.id,
+            label: getContentManagerName(cm.id),
+            count: filterCounts.contentManager[cm.id] || 0
+          }))
+        ]}
+        selectedValues={tempContentManagerFilter}
+        onApply={(value) => {
+          setTempContentManagerFilter(value);
+        }}
+        onCancel={() => {
+          setShowContentManagerFilterDropdown(false);
+          setTempContentManagerFilter(contentManagerFilter);
+        }}
+        onOk={() => {
+          setContentManagerFilter(tempContentManagerFilter);
+          setShowContentManagerFilterDropdown(false);
+        }}
+        onReset={() => {
+          setContentManagerFilter(null);
+          setTempContentManagerFilter(null);
+          setShowContentManagerFilterDropdown(false);
+        }}
+        multiSelect={false}
       />
 
     </div>
