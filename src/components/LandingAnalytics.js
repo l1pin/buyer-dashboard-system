@@ -6658,6 +6658,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6692,8 +6697,20 @@ data-rt-sub16="${selectedLandingUuid}"
           ...uniqueFilterValues.statuses.map(status => ({
             value: status,
             label: status,
-            count: filterCounts.status[status] || 0
-          }))
+            count: filterCounts.status[status] || 0,
+            disabled: (filterCounts.status[status] || 0) === 0
+          })).sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempStatusFilter}
         onApply={(value) => {
@@ -6732,6 +6749,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6773,6 +6795,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6814,6 +6841,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6855,6 +6887,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6896,6 +6933,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6937,6 +6979,11 @@ data-rt-sub16="${selectedLandingUuid}"
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
@@ -6997,10 +7044,23 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по источнику"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.source.all },
-          { value: 'empty', label: '—', count: filterCounts.source.empty || 0, disabled: (filterCounts.source.empty || 0) === 0 },
-          { value: 'facebook', label: 'Facebook', icon: <FacebookIcon className="w-4 h-4" />, count: filterCounts.source.facebook, disabled: filterCounts.source.facebook === 0 },
-          { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
-          { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
+          ...[
+            { value: 'empty', label: '—', count: filterCounts.source.empty || 0, disabled: (filterCounts.source.empty || 0) === 0 },
+            { value: 'facebook', label: 'Facebook', icon: <FacebookIcon className="w-4 h-4" />, count: filterCounts.source.facebook, disabled: filterCounts.source.facebook === 0 },
+            { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
+            { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
+          ].sort((a, b) => {
+            // Сначала сортируем по наличию count (с count > 0 идут вверх)
+            if (a.count === 0 && b.count > 0) return 1;
+            if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
+            // Затем сортируем по убыванию count
+            return b.count - a.count;
+          })
         ]}
         selectedValues={tempSourceFilter}
         onApply={(value) => {
