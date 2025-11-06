@@ -101,16 +101,17 @@ const FilterDropdown = React.memo(({ isOpen, referenceElement, options, selected
           ) && (multiSelect ? selectedValues.length === allOptions.length : true);
 
           if (option.value === 'all') {
-            // Для опции "Все" галочка показывается, когда все опции выбраны или selectedValues === null
+            // Для опции "Все" галочка показывается, когда все опции выбраны
             isSelected = multiSelect
               ? allSelected
-              : (selectedValues === null || selectedValues === 'all');
+              : selectedValues === 'all';
           } else {
-            // Для обычных опций проверяем их выбор (НЕ показываем галочку при selectedValues === null)
+            // Для обычных опций проверяем их выбор
             if (multiSelect) {
               isSelected = selectedValues.includes(option.value);
             } else {
-              isSelected = selectedValues === option.value;
+              // Для single select: галочка если выбрана эта опция ИЛИ выбрано "Все"
+              isSelected = selectedValues === option.value || selectedValues === 'all';
             }
           }
 
@@ -128,8 +129,8 @@ const FilterDropdown = React.memo(({ isOpen, referenceElement, options, selected
                       const allOptions = options.filter(opt => opt.value !== 'all').map(opt => opt.value);
                       onApply(allOptions);
                     } else {
-                      // Для одиночного выбора - устанавливаем null (все показываем)
-                      onApply(null);
+                      // Для одиночного выбора - устанавливаем 'all' (все чекбоксы проставляются)
+                      onApply('all');
                     }
                   } else {
                     // Обработка клика на обычные опции
@@ -541,7 +542,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по верификации
-    if (verificationFilter !== null) {
+    if (verificationFilter !== null && verificationFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasVerification = (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id);
         if (verificationFilter === 'with') {
@@ -554,7 +555,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по комментарию
-    if (commentFilter !== null) {
+    if (commentFilter !== null && commentFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasComment = l.comment && l.comment.trim();
         if (commentFilter === 'with') {
@@ -567,7 +568,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по истории
-    if (historyFilter !== null) {
+    if (historyFilter !== null && historyFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasHistory = landingsWithHistory.has(l.id);
         if (historyFilter === 'with') {
@@ -580,7 +581,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по стране
-    if (countryFilter !== null) {
+    if (countryFilter !== null && countryFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (countryFilter === 'ukraine') {
           return !l.is_poland;
@@ -592,14 +593,14 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по версии
-    if (versionFilter !== null) {
+    if (versionFilter !== null && versionFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l =>
         l.website && l.website.trim() === versionFilter
       );
     }
 
     // Фильтрация по шаблону
-    if (templateFilter !== null) {
+    if (templateFilter !== null && templateFilter !== 'all') {
       if (templateFilter === 'empty') {
         landingsToFilter = landingsToFilter.filter(l =>
           !l.template || !l.template.trim()
@@ -627,7 +628,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по статусу
-    if (statusFilter !== null) {
+    if (statusFilter !== null && statusFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (statusFilter === 'empty') {
           return !trelloStatuses.get(l.id);
@@ -638,7 +639,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по дизайнеру
-    if (designerFilter !== null) {
+    if (designerFilter !== null && designerFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (designerFilter === 'empty') {
           return !l.designer_id;
@@ -648,7 +649,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по байеру (таблица)
-    if (buyerFilterTable !== null) {
+    if (buyerFilterTable !== null && buyerFilterTable !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (buyerFilterTable === 'empty') {
           return !l.buyer_id;
@@ -658,7 +659,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по серчеру (таблица)
-    if (searcherFilterTable !== null) {
+    if (searcherFilterTable !== null && searcherFilterTable !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (searcherFilterTable === 'empty') {
           return !l.searcher_id;
@@ -668,7 +669,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по продакт-менеджеру
-    if (productManagerFilter !== null) {
+    if (productManagerFilter !== null && productManagerFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (productManagerFilter === 'empty') {
           return !l.product_manager_id;
@@ -678,7 +679,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по гиферу
-    if (giferFilter !== null) {
+    if (giferFilter !== null && giferFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (giferFilter === 'empty') {
           return !l.gifer_id;
@@ -688,7 +689,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по контент-менеджеру
-    if (contentManagerFilter !== null) {
+    if (contentManagerFilter !== null && contentManagerFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         if (contentManagerFilter === 'empty') {
           return !l.content_manager_id;
@@ -698,7 +699,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по зонам (используем hasZoneData из хука)
-    if (zoneFilter !== null) {
+    if (zoneFilter !== null && zoneFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasZones = hasZoneData(l.article);
         if (zoneFilter === 'with') {
@@ -711,7 +712,7 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по источнику (используем getLandingSources)
-    if (sourceFilter !== null) {
+    if (sourceFilter !== null && sourceFilter !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => {
         const sources = getLandingSources(l.id);
         if (sourceFilter === 'empty') {
