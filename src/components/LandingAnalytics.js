@@ -313,22 +313,22 @@ function LandingTeamLead({ user }) {
 
   // Состояния для фильтров таблицы
   const [typeFilters, setTypeFilters] = useState(['main', 'test', 'edited']); // Все типы выбраны по умолчанию
-  const [verificationFilter, setVerificationFilter] = useState(null); // null, 'with' или 'without'
-  const [commentFilter, setCommentFilter] = useState(null); // null, 'with' или 'without'
-  const [historyFilter, setHistoryFilter] = useState(null); // null, 'with' или 'without'
-  const [countryFilter, setCountryFilter] = useState(null); // null, 'ukraine' или 'poland'
-  const [versionFilter, setVersionFilter] = useState(null); // null или конкретная версия
-  const [templateFilter, setTemplateFilter] = useState(null); // null или конкретный шаблон
+  const [verificationFilter, setVerificationFilter] = useState([]); // массив: 'with', 'without'
+  const [commentFilter, setCommentFilter] = useState([]); // массив: 'with', 'without'
+  const [historyFilter, setHistoryFilter] = useState([]); // массив: 'with', 'without'
+  const [countryFilter, setCountryFilter] = useState([]); // массив: 'ukraine', 'poland'
+  const [versionFilter, setVersionFilter] = useState([]); // массив версий
+  const [templateFilter, setTemplateFilter] = useState([]); // массив шаблонов
   const [tagsFilter, setTagsFilter] = useState([]); // массив выбранных тегов
-  const [statusFilter, setStatusFilter] = useState(null); // null или конкретный статус
-  const [designerFilter, setDesignerFilter] = useState(null); // null или id дизайнера
-  const [buyerFilterTable, setBuyerFilterTable] = useState(null); // null или id байера (для таблицы)
-  const [searcherFilterTable, setSearcherFilterTable] = useState(null); // null или id серчера (для таблицы)
-  const [productManagerFilter, setProductManagerFilter] = useState(null); // null или id продакт-менеджера
-  const [giferFilter, setGiferFilter] = useState(null); // null или id гифера
-  const [contentManagerFilter, setContentManagerFilter] = useState(null); // null или id контент-менеджера
-  const [zoneFilter, setZoneFilter] = useState(null); // null, 'with', 'without'
-  const [sourceFilter, setSourceFilter] = useState(null); // null, 'facebook', 'tiktok', 'google'
+  const [statusFilter, setStatusFilter] = useState([]); // массив статусов
+  const [designerFilter, setDesignerFilter] = useState([]); // массив id дизайнеров
+  const [buyerFilterTable, setBuyerFilterTable] = useState([]); // массив id байеров
+  const [searcherFilterTable, setSearcherFilterTable] = useState([]); // массив id серчеров
+  const [productManagerFilter, setProductManagerFilter] = useState([]); // массив id продакт-менеджеров
+  const [giferFilter, setGiferFilter] = useState([]); // массив id гиферов
+  const [contentManagerFilter, setContentManagerFilter] = useState([]); // массив id контент-менеджеров
+  const [zoneFilter, setZoneFilter] = useState([]); // массив: 'with', 'without'
+  const [sourceFilter, setSourceFilter] = useState([]); // массив: 'facebook', 'tiktok', 'google', 'empty'
   const [showTypeFilterDropdown, setShowTypeFilterDropdown] = useState(false);
   const [showVerificationFilterDropdown, setShowVerificationFilterDropdown] = useState(false);
   const [showCommentFilterDropdown, setShowCommentFilterDropdown] = useState(false);
@@ -347,22 +347,22 @@ function LandingTeamLead({ user }) {
   const [showZoneFilterDropdown, setShowZoneFilterDropdown] = useState(false);
   const [showSourceFilterDropdown, setShowSourceFilterDropdown] = useState(false);
   const [tempTypeFilters, setTempTypeFilters] = useState(['main', 'test', 'edited']);
-  const [tempVerificationFilter, setTempVerificationFilter] = useState(null);
-  const [tempCommentFilter, setTempCommentFilter] = useState(null);
-  const [tempHistoryFilter, setTempHistoryFilter] = useState(null);
-  const [tempCountryFilter, setTempCountryFilter] = useState(null);
-  const [tempVersionFilter, setTempVersionFilter] = useState(null);
-  const [tempTemplateFilter, setTempTemplateFilter] = useState(null);
+  const [tempVerificationFilter, setTempVerificationFilter] = useState([]);
+  const [tempCommentFilter, setTempCommentFilter] = useState([]);
+  const [tempHistoryFilter, setTempHistoryFilter] = useState([]);
+  const [tempCountryFilter, setTempCountryFilter] = useState([]);
+  const [tempVersionFilter, setTempVersionFilter] = useState([]);
+  const [tempTemplateFilter, setTempTemplateFilter] = useState([]);
   const [tempTagsFilter, setTempTagsFilter] = useState([]);
-  const [tempStatusFilter, setTempStatusFilter] = useState(null);
-  const [tempDesignerFilter, setTempDesignerFilter] = useState(null);
-  const [tempBuyerFilterTable, setTempBuyerFilterTable] = useState(null);
-  const [tempSearcherFilterTable, setTempSearcherFilterTable] = useState(null);
-  const [tempProductManagerFilter, setTempProductManagerFilter] = useState(null);
-  const [tempGiferFilter, setTempGiferFilter] = useState(null);
-  const [tempContentManagerFilter, setTempContentManagerFilter] = useState(null);
-  const [tempZoneFilter, setTempZoneFilter] = useState(null);
-  const [tempSourceFilter, setTempSourceFilter] = useState(null);
+  const [tempStatusFilter, setTempStatusFilter] = useState([]);
+  const [tempDesignerFilter, setTempDesignerFilter] = useState([]);
+  const [tempBuyerFilterTable, setTempBuyerFilterTable] = useState([]);
+  const [tempSearcherFilterTable, setTempSearcherFilterTable] = useState([]);
+  const [tempProductManagerFilter, setTempProductManagerFilter] = useState([]);
+  const [tempGiferFilter, setTempGiferFilter] = useState([]);
+  const [tempContentManagerFilter, setTempContentManagerFilter] = useState([]);
+  const [tempZoneFilter, setTempZoneFilter] = useState([]);
+  const [tempSourceFilter, setTempSourceFilter] = useState([]);
 
   // Refs для кнопок фильтров (для позиционирования дропдаунов)
   const typeFilterButtonRef = useRef(null);
@@ -542,74 +542,67 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по верификации
-    if (verificationFilter !== null && verificationFilter !== 'all') {
+    if (verificationFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasVerification = (l.verified_urls && l.verified_urls.length > 0) || landingsWithIntegration.get(l.id);
-        if (verificationFilter === 'with') {
-          return hasVerification;
-        } else if (verificationFilter === 'without') {
-          return !hasVerification;
-        }
-        return true;
+        return verificationFilter.some(filter => {
+          if (filter === 'with') return hasVerification;
+          if (filter === 'without') return !hasVerification;
+          return false;
+        });
       });
     }
 
     // Фильтрация по комментарию
-    if (commentFilter !== null && commentFilter !== 'all') {
+    if (commentFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasComment = l.comment && l.comment.trim();
-        if (commentFilter === 'with') {
-          return hasComment;
-        } else if (commentFilter === 'without') {
-          return !hasComment;
-        }
-        return true;
+        return commentFilter.some(filter => {
+          if (filter === 'with') return hasComment;
+          if (filter === 'without') return !hasComment;
+          return false;
+        });
       });
     }
 
     // Фильтрация по истории
-    if (historyFilter !== null && historyFilter !== 'all') {
+    if (historyFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasHistory = landingsWithHistory.has(l.id);
-        if (historyFilter === 'with') {
-          return hasHistory;
-        } else if (historyFilter === 'without') {
-          return !hasHistory;
-        }
-        return true;
+        return historyFilter.some(filter => {
+          if (filter === 'with') return hasHistory;
+          if (filter === 'without') return !hasHistory;
+          return false;
+        });
       });
     }
 
     // Фильтрация по стране
-    if (countryFilter !== null && countryFilter !== 'all') {
+    if (countryFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (countryFilter === 'ukraine') {
-          return !l.is_poland;
-        } else if (countryFilter === 'poland') {
-          return l.is_poland;
-        }
-        return true;
+        return countryFilter.some(filter => {
+          if (filter === 'ukraine') return !l.is_poland;
+          if (filter === 'poland') return l.is_poland;
+          return false;
+        });
       });
     }
 
     // Фильтрация по версии
-    if (versionFilter !== null && versionFilter !== 'all') {
+    if (versionFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l =>
-        l.website && l.website.trim() === versionFilter
+        l.website && versionFilter.includes(l.website.trim())
       );
     }
 
     // Фильтрация по шаблону
-    if (templateFilter !== null && templateFilter !== 'all') {
-      if (templateFilter === 'empty') {
-        landingsToFilter = landingsToFilter.filter(l =>
-          !l.template || !l.template.trim()
-        );
-      } else {
-        landingsToFilter = landingsToFilter.filter(l =>
-          l.template && l.template.trim() === templateFilter
-        );
-      }
+    if (templateFilter.length > 0) {
+      landingsToFilter = landingsToFilter.filter(l => {
+        return templateFilter.some(filter => {
+          if (filter === 'empty') return !l.template || !l.template.trim();
+          return l.template && l.template.trim() === filter;
+        });
+      });
     }
 
     // Фильтрация по тегам
@@ -628,97 +621,96 @@ function LandingTeamLead({ user }) {
     }
 
     // Фильтрация по статусу
-    if (statusFilter !== null && statusFilter !== 'all') {
+    if (statusFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (statusFilter === 'empty') {
-          return !trelloStatuses.get(l.id);
-        }
-        const landingStatus = trelloStatuses.get(l.id);
-        return landingStatus && landingStatus.list_name === statusFilter;
+        return statusFilter.some(filter => {
+          if (filter === 'empty') return !trelloStatuses.get(l.id);
+          const landingStatus = trelloStatuses.get(l.id);
+          return landingStatus && landingStatus.list_name === filter;
+        });
       });
     }
 
     // Фильтрация по дизайнеру
-    if (designerFilter !== null && designerFilter !== 'all') {
+    if (designerFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (designerFilter === 'empty') {
-          return !l.designer_id;
-        }
-        return l.designer_id === designerFilter;
+        return designerFilter.some(filter => {
+          if (filter === 'empty') return !l.designer_id;
+          return l.designer_id === filter;
+        });
       });
     }
 
     // Фильтрация по байеру (таблица)
-    if (buyerFilterTable !== null && buyerFilterTable !== 'all') {
+    if (buyerFilterTable.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (buyerFilterTable === 'empty') {
-          return !l.buyer_id;
-        }
-        return l.buyer_id === buyerFilterTable;
+        return buyerFilterTable.some(filter => {
+          if (filter === 'empty') return !l.buyer_id;
+          return l.buyer_id === filter;
+        });
       });
     }
 
     // Фильтрация по серчеру (таблица)
-    if (searcherFilterTable !== null && searcherFilterTable !== 'all') {
+    if (searcherFilterTable.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (searcherFilterTable === 'empty') {
-          return !l.searcher_id;
-        }
-        return l.searcher_id === searcherFilterTable;
+        return searcherFilterTable.some(filter => {
+          if (filter === 'empty') return !l.searcher_id;
+          return l.searcher_id === filter;
+        });
       });
     }
 
     // Фильтрация по продакт-менеджеру
-    if (productManagerFilter !== null && productManagerFilter !== 'all') {
+    if (productManagerFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (productManagerFilter === 'empty') {
-          return !l.product_manager_id;
-        }
-        return l.product_manager_id === productManagerFilter;
+        return productManagerFilter.some(filter => {
+          if (filter === 'empty') return !l.product_manager_id;
+          return l.product_manager_id === filter;
+        });
       });
     }
 
     // Фильтрация по гиферу
-    if (giferFilter !== null && giferFilter !== 'all') {
+    if (giferFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (giferFilter === 'empty') {
-          return !l.gifer_id;
-        }
-        return l.gifer_id === giferFilter;
+        return giferFilter.some(filter => {
+          if (filter === 'empty') return !l.gifer_id;
+          return l.gifer_id === filter;
+        });
       });
     }
 
     // Фильтрация по контент-менеджеру
-    if (contentManagerFilter !== null && contentManagerFilter !== 'all') {
+    if (contentManagerFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
-        if (contentManagerFilter === 'empty') {
-          return !l.content_manager_id;
-        }
-        return l.content_manager_id === contentManagerFilter;
+        return contentManagerFilter.some(filter => {
+          if (filter === 'empty') return !l.content_manager_id;
+          return l.content_manager_id === filter;
+        });
       });
     }
 
     // Фильтрация по зонам (используем hasZoneData из хука)
-    if (zoneFilter !== null && zoneFilter !== 'all') {
+    if (zoneFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
         const hasZones = hasZoneData(l.article);
-        if (zoneFilter === 'with') {
-          return hasZones;
-        } else if (zoneFilter === 'without') {
-          return !hasZones;
-        }
-        return true;
+        return zoneFilter.some(filter => {
+          if (filter === 'with') return hasZones;
+          if (filter === 'without') return !hasZones;
+          return false;
+        });
       });
     }
 
     // Фильтрация по источнику (используем getLandingSources)
-    if (sourceFilter !== null && sourceFilter !== 'all') {
+    if (sourceFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
         const sources = getLandingSources(l.id);
-        if (sourceFilter === 'empty') {
-          return sources.length === 0;
-        }
-        return sources.includes(sourceFilter);
+        return sourceFilter.some(filter => {
+          if (filter === 'empty') return sources.length === 0;
+          return sources.includes(filter);
+        });
       });
     }
 
@@ -3183,41 +3175,74 @@ data-rt-sub16="${selectedLandingUuid}"
     }
 
     // Применяем фильтр статуса
-    if (statusFilter !== null) {
+    if (statusFilter.length > 0) {
       landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
-        const landingStatus = trelloStatuses.get(l.id);
-        return landingStatus && landingStatus.list_name === statusFilter;
+        return statusFilter.some(filter => {
+          if (filter === 'empty') return !trelloStatuses.get(l.id);
+          const landingStatus = trelloStatuses.get(l.id);
+          return landingStatus && landingStatus.list_name === filter;
+        });
       });
     }
 
     // Применяем фильтр дизайнера
-    if (designerFilter !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.designer_id === designerFilter);
+    if (designerFilter.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return designerFilter.some(filter => {
+          if (filter === 'empty') return !l.designer_id;
+          return l.designer_id === filter;
+        });
+      });
     }
 
     // Применяем фильтр байера (таблица)
-    if (buyerFilterTable !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.buyer_id === buyerFilterTable);
+    if (buyerFilterTable.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return buyerFilterTable.some(filter => {
+          if (filter === 'empty') return !l.buyer_id;
+          return l.buyer_id === filter;
+        });
+      });
     }
 
     // Применяем фильтр серчера (таблица)
-    if (searcherFilterTable !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.searcher_id === searcherFilterTable);
+    if (searcherFilterTable.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return searcherFilterTable.some(filter => {
+          if (filter === 'empty') return !l.searcher_id;
+          return l.searcher_id === filter;
+        });
+      });
     }
 
     // Применяем фильтр продакт-менеджера
-    if (productManagerFilter !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.product_manager_id === productManagerFilter);
+    if (productManagerFilter.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return productManagerFilter.some(filter => {
+          if (filter === 'empty') return !l.product_manager_id;
+          return l.product_manager_id === filter;
+        });
+      });
     }
 
     // Применяем фильтр гифера
-    if (giferFilter !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.gifer_id === giferFilter);
+    if (giferFilter.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return giferFilter.some(filter => {
+          if (filter === 'empty') return !l.gifer_id;
+          return l.gifer_id === filter;
+        });
+      });
     }
 
     // Применяем фильтр контент-менеджера
-    if (contentManagerFilter !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => l.content_manager_id === contentManagerFilter);
+    if (contentManagerFilter.length > 0) {
+      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l => {
+        return contentManagerFilter.some(filter => {
+          if (filter === 'empty') return !l.content_manager_id;
+          return l.content_manager_id === filter;
+        });
+      });
     }
 
     // ДИАГНОСТИКА: Проверяем состояние данных перед подсчетом
@@ -4368,7 +4393,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempVerificationFilter(verificationFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              verificationFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              verificationFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по верификации"
                           >
@@ -4392,7 +4417,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempCommentFilter(commentFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              commentFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              commentFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по комментарию"
                           >
@@ -4416,7 +4441,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempHistoryFilter(historyFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              historyFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              historyFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по истории"
                           >
@@ -4440,7 +4465,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempCountryFilter(countryFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              countryFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              countryFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по стране"
                           >
@@ -4468,7 +4493,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempVersionFilter(versionFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              versionFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              versionFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по версии"
                           >
@@ -4492,7 +4517,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempTemplateFilter(templateFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              templateFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              templateFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по шаблону"
                           >
@@ -4540,7 +4565,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempSourceFilter(sourceFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              sourceFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              sourceFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по источнику"
                           >
@@ -4591,7 +4616,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempZoneFilter(zoneFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              zoneFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              zoneFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по зонам"
                           >
@@ -4618,7 +4643,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempStatusFilter(statusFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              statusFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              statusFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по статусу"
                           >
@@ -4642,7 +4667,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempDesignerFilter(designerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              designerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              designerFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по дизайнеру"
                           >
@@ -4665,7 +4690,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempBuyerFilterTable(buyerFilterTable);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              buyerFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                              buyerFilterTable.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по байеру"
                           >
@@ -4688,7 +4713,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempSearcherFilterTable(searcherFilterTable);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              searcherFilterTable !== null ? 'text-blue-600' : 'text-gray-400'
+                              searcherFilterTable.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по серчеру"
                           >
@@ -4711,7 +4736,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempProductManagerFilter(productManagerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              productManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              productManagerFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по продакт-менеджеру"
                           >
@@ -4734,7 +4759,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempGiferFilter(giferFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              giferFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              giferFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по гиферу"
                           >
@@ -4757,7 +4782,7 @@ data-rt-sub16="${selectedLandingUuid}"
                               setTempContentManagerFilter(contentManagerFilter);
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
-                              contentManagerFilter !== null ? 'text-blue-600' : 'text-gray-400'
+                              contentManagerFilter.length > 0 ? 'text-blue-600' : 'text-gray-400'
                             }`}
                             title="Фильтр по контент-менеджеру"
                           >
@@ -6643,11 +6668,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowVerificationFilterDropdown(false);
         }}
         onReset={() => {
-          setVerificationFilter(null);
-          setTempVerificationFilter(null);
+          setVerificationFilter([]);
+          setTempVerificationFilter([]);
           setShowVerificationFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6672,11 +6697,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowCommentFilterDropdown(false);
         }}
         onReset={() => {
-          setCommentFilter(null);
-          setTempCommentFilter(null);
+          setCommentFilter([]);
+          setTempCommentFilter([]);
           setShowCommentFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6701,11 +6726,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowHistoryFilterDropdown(false);
         }}
         onReset={() => {
-          setHistoryFilter(null);
-          setTempHistoryFilter(null);
+          setHistoryFilter([]);
+          setTempHistoryFilter([]);
           setShowHistoryFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6730,11 +6755,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowCountryFilterDropdown(false);
         }}
         onReset={() => {
-          setCountryFilter(null);
-          setTempCountryFilter(null);
+          setCountryFilter([]);
+          setTempCountryFilter([]);
           setShowCountryFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6762,11 +6787,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowVersionFilterDropdown(false);
         }}
         onReset={() => {
-          setVersionFilter(null);
-          setTempVersionFilter(null);
+          setVersionFilter([]);
+          setTempVersionFilter([]);
           setShowVersionFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6821,11 +6846,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowTemplateFilterDropdown(false);
         }}
         onReset={() => {
-          setTemplateFilter(null);
-          setTempTemplateFilter(null);
+          setTemplateFilter([]);
+          setTempTemplateFilter([]);
           setShowTemplateFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6933,11 +6958,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowStatusFilterDropdown(false);
         }}
         onReset={() => {
-          setStatusFilter(null);
-          setTempStatusFilter(null);
+          setStatusFilter([]);
+          setTempStatusFilter([]);
           setShowStatusFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -6993,11 +7018,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowDesignerFilterDropdown(false);
         }}
         onReset={() => {
-          setDesignerFilter(null);
-          setTempDesignerFilter(null);
+          setDesignerFilter([]);
+          setTempDesignerFilter([]);
           setShowDesignerFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7053,11 +7078,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowBuyerFilterTableDropdown(false);
         }}
         onReset={() => {
-          setBuyerFilterTable(null);
-          setTempBuyerFilterTable(null);
+          setBuyerFilterTable([]);
+          setTempBuyerFilterTable([]);
           setShowBuyerFilterTableDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7113,11 +7138,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowSearcherFilterTableDropdown(false);
         }}
         onReset={() => {
-          setSearcherFilterTable(null);
-          setTempSearcherFilterTable(null);
+          setSearcherFilterTable([]);
+          setTempSearcherFilterTable([]);
           setShowSearcherFilterTableDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7173,11 +7198,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowProductManagerFilterDropdown(false);
         }}
         onReset={() => {
-          setProductManagerFilter(null);
-          setTempProductManagerFilter(null);
+          setProductManagerFilter([]);
+          setTempProductManagerFilter([]);
           setShowProductManagerFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7233,11 +7258,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowGiferFilterDropdown(false);
         }}
         onReset={() => {
-          setGiferFilter(null);
-          setTempGiferFilter(null);
+          setGiferFilter([]);
+          setTempGiferFilter([]);
           setShowGiferFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7293,11 +7318,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowContentManagerFilterDropdown(false);
         }}
         onReset={() => {
-          setContentManagerFilter(null);
-          setTempContentManagerFilter(null);
+          setContentManagerFilter([]);
+          setTempContentManagerFilter([]);
           setShowContentManagerFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
         alignRight={true}
       />
 
@@ -7323,11 +7348,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowZoneFilterDropdown(false);
         }}
         onReset={() => {
-          setZoneFilter(null);
-          setTempZoneFilter(null);
+          setZoneFilter([]);
+          setTempZoneFilter([]);
           setShowZoneFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
       <FilterDropdown
@@ -7373,11 +7398,11 @@ data-rt-sub16="${selectedLandingUuid}"
           setShowSourceFilterDropdown(false);
         }}
         onReset={() => {
-          setSourceFilter(null);
-          setTempSourceFilter(null);
+          setSourceFilter([]);
+          setTempSourceFilter([]);
           setShowSourceFilterDropdown(false);
         }}
-        multiSelect={false}
+        multiSelect={true}
       />
 
     </div>
