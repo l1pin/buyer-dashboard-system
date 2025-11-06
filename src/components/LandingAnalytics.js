@@ -6630,13 +6630,13 @@ data-rt-sub16="${selectedLandingUuid}"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.template.all },
           ...[
-            { value: 'empty', label: '—', count: filterCounts.template.empty || 0, disabled: (filterCounts.template.empty || 0) === 0 },
             ...templates.map(template => ({
               value: template.name,
               label: template.name,
               count: filterCounts.template[template.name] || 0,
               disabled: (filterCounts.template[template.name] || 0) === 0
-            }))
+            })),
+            { value: 'empty', label: '—', count: filterCounts.template.empty || 0, disabled: (filterCounts.template.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
@@ -6682,13 +6682,15 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по тегам"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.tag.all },
-          { value: 'empty', label: '—', count: filterCounts.tag.empty || 0, disabled: (filterCounts.tag.empty || 0) === 0 },
-          ...tags.map(tag => ({
-            value: tag.name,
-            label: tag.name,
-            count: filterCounts.tag[tag.name] || 0,
-            disabled: (filterCounts.tag[tag.name] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...tags.map(tag => ({
+              value: tag.name,
+              label: tag.name,
+              count: filterCounts.tag[tag.name] || 0,
+              disabled: (filterCounts.tag[tag.name] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.tag.empty || 0, disabled: (filterCounts.tag.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6733,13 +6735,15 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по статусу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.status.all },
-          { value: 'empty', label: '—', count: filterCounts.status.empty || 0, disabled: (filterCounts.status.empty || 0) === 0 },
-          ...uniqueFilterValues.statuses.map(status => ({
-            value: status,
-            label: status,
-            count: filterCounts.status[status] || 0,
-            disabled: (filterCounts.status[status] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...uniqueFilterValues.statuses.map(status => ({
+              value: status,
+              label: status,
+              count: filterCounts.status[status] || 0,
+              disabled: (filterCounts.status[status] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.status.empty || 0, disabled: (filterCounts.status.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6784,14 +6788,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по дизайнеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.designer.all },
-          { value: 'empty', label: '—', count: filterCounts.designer.empty || 0, disabled: (filterCounts.designer.empty || 0) === 0 },
-          ...designers.map(designer => ({
-            value: designer.id,
-            label: getDesignerName(designer.id),
-            count: filterCounts.designer[designer.id] || 0,
-            avatar: getDesignerAvatar(designer.id),
-            disabled: (filterCounts.designer[designer.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...designers.map(designer => ({
+              value: designer.id,
+              label: getDesignerName(designer.id),
+              count: filterCounts.designer[designer.id] || 0,
+              avatar: getDesignerAvatar(designer.id),
+              disabled: (filterCounts.designer[designer.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.designer.empty || 0, disabled: (filterCounts.designer.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6836,14 +6842,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по байеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.buyerTable.all },
-          { value: 'empty', label: '—', count: filterCounts.buyerTable.empty || 0, disabled: (filterCounts.buyerTable.empty || 0) === 0 },
-          ...buyers.map(buyer => ({
-            value: buyer.id,
-            label: getBuyerName(buyer.id),
-            count: filterCounts.buyerTable[buyer.id] || 0,
-            avatar: getBuyerAvatar(buyer.id),
-            disabled: (filterCounts.buyerTable[buyer.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...buyers.map(buyer => ({
+              value: buyer.id,
+              label: getBuyerName(buyer.id),
+              count: filterCounts.buyerTable[buyer.id] || 0,
+              avatar: getBuyerAvatar(buyer.id),
+              disabled: (filterCounts.buyerTable[buyer.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.buyerTable.empty || 0, disabled: (filterCounts.buyerTable.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6888,14 +6896,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по серчеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.searcherTable.all },
-          { value: 'empty', label: '—', count: filterCounts.searcherTable.empty || 0, disabled: (filterCounts.searcherTable.empty || 0) === 0 },
-          ...searchers.map(searcher => ({
-            value: searcher.id,
-            label: getSearcherName(searcher.id),
-            count: filterCounts.searcherTable[searcher.id] || 0,
-            avatar: getSearcherAvatar(searcher.id),
-            disabled: (filterCounts.searcherTable[searcher.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...searchers.map(searcher => ({
+              value: searcher.id,
+              label: getSearcherName(searcher.id),
+              count: filterCounts.searcherTable[searcher.id] || 0,
+              avatar: getSearcherAvatar(searcher.id),
+              disabled: (filterCounts.searcherTable[searcher.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.searcherTable.empty || 0, disabled: (filterCounts.searcherTable.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6940,14 +6950,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по продакт-менеджеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.productManager.all },
-          { value: 'empty', label: '—', count: filterCounts.productManager.empty || 0, disabled: (filterCounts.productManager.empty || 0) === 0 },
-          ...productManagers.map(pm => ({
-            value: pm.id,
-            label: getProductManagerName(pm.id),
-            count: filterCounts.productManager[pm.id] || 0,
-            avatar: getProductManagerAvatar(pm.id),
-            disabled: (filterCounts.productManager[pm.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...productManagers.map(pm => ({
+              value: pm.id,
+              label: getProductManagerName(pm.id),
+              count: filterCounts.productManager[pm.id] || 0,
+              avatar: getProductManagerAvatar(pm.id),
+              disabled: (filterCounts.productManager[pm.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.productManager.empty || 0, disabled: (filterCounts.productManager.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -6992,14 +7004,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по гиферу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.gifer.all },
-          { value: 'empty', label: '—', count: filterCounts.gifer.empty || 0, disabled: (filterCounts.gifer.empty || 0) === 0 },
-          ...gifers.map(gifer => ({
-            value: gifer.id,
-            label: getGiferName(gifer.id),
-            count: filterCounts.gifer[gifer.id] || 0,
-            avatar: getGiferAvatar(gifer.id),
-            disabled: (filterCounts.gifer[gifer.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...gifers.map(gifer => ({
+              value: gifer.id,
+              label: getGiferName(gifer.id),
+              count: filterCounts.gifer[gifer.id] || 0,
+              avatar: getGiferAvatar(gifer.id),
+              disabled: (filterCounts.gifer[gifer.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.gifer.empty || 0, disabled: (filterCounts.gifer.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -7044,14 +7058,16 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по контент-менеджеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.contentManager.all },
-          { value: 'empty', label: '—', count: filterCounts.contentManager.empty || 0, disabled: (filterCounts.contentManager.empty || 0) === 0 },
-          ...contentManagers.map(cm => ({
-            value: cm.id,
-            label: getContentManagerName(cm.id),
-            count: filterCounts.contentManager[cm.id] || 0,
-            avatar: getContentManagerAvatar(cm.id),
-            disabled: (filterCounts.contentManager[cm.id] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            ...contentManagers.map(cm => ({
+              value: cm.id,
+              label: getContentManagerName(cm.id),
+              count: filterCounts.contentManager[cm.id] || 0,
+              avatar: getContentManagerAvatar(cm.id),
+              disabled: (filterCounts.contentManager[cm.id] || 0) === 0
+            })),
+            { value: 'empty', label: '—', count: filterCounts.contentManager.empty || 0, disabled: (filterCounts.contentManager.empty || 0) === 0 }
+          ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
             const aIsEmpty = a.value === 'empty';
@@ -7127,10 +7143,10 @@ data-rt-sub16="${selectedLandingUuid}"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.source.all },
           ...[
-            { value: 'empty', label: '—', count: filterCounts.source.empty || 0, disabled: (filterCounts.source.empty || 0) === 0 },
             { value: 'facebook', label: 'Facebook', icon: <FacebookIcon className="w-4 h-4" />, count: filterCounts.source.facebook, disabled: filterCounts.source.facebook === 0 },
             { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
-            { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
+            { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 },
+            { value: 'empty', label: '—', count: filterCounts.source.empty || 0, disabled: (filterCounts.source.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
             const bActive = b.count > 0;
