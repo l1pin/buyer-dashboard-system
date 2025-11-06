@@ -4888,13 +4888,13 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="text-center cursor-text select-text">
+                            <div className="text-left cursor-text select-text">
                               {landing.website || <span className="text-gray-400">—</span>}
                             </div>
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="text-center cursor-text select-text">
+                            <div className="text-left cursor-text select-text">
                               {landing.template ? (
                                 <span className="font-medium text-gray-900">{landing.template}</span>
                               ) : (
