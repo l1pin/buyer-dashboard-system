@@ -608,10 +608,14 @@ function LandingTeamLead({ user }) {
     // Фильтрация по тегам
     if (tagsFilter.length > 0) {
       landingsToFilter = landingsToFilter.filter(l => {
+        // Проверяем наличие пустого тега
+        if (tagsFilter.includes('empty')) {
+          if (!l.tags || !Array.isArray(l.tags) || l.tags.length === 0) return true;
+        }
         if (!l.tags || !Array.isArray(l.tags)) return false;
         // Лендинг должен содержать хотя бы один из выбранных тегов
         return tagsFilter.some(selectedTag =>
-          l.tags.some(tag => tag.trim() === selectedTag)
+          selectedTag !== 'empty' && l.tags.some(tag => tag.trim() === selectedTag)
         );
       });
     }
@@ -619,6 +623,9 @@ function LandingTeamLead({ user }) {
     // Фильтрация по статусу
     if (statusFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
+        if (statusFilter === 'empty') {
+          return !trelloStatuses.get(l.id);
+        }
         const landingStatus = trelloStatuses.get(l.id);
         return landingStatus && landingStatus.list_name === statusFilter;
       });
@@ -626,32 +633,62 @@ function LandingTeamLead({ user }) {
 
     // Фильтрация по дизайнеру
     if (designerFilter !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.designer_id === designerFilter);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (designerFilter === 'empty') {
+          return !l.designer_id;
+        }
+        return l.designer_id === designerFilter;
+      });
     }
 
     // Фильтрация по байеру (таблица)
     if (buyerFilterTable !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.buyer_id === buyerFilterTable);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (buyerFilterTable === 'empty') {
+          return !l.buyer_id;
+        }
+        return l.buyer_id === buyerFilterTable;
+      });
     }
 
     // Фильтрация по серчеру (таблица)
     if (searcherFilterTable !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.searcher_id === searcherFilterTable);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (searcherFilterTable === 'empty') {
+          return !l.searcher_id;
+        }
+        return l.searcher_id === searcherFilterTable;
+      });
     }
 
     // Фильтрация по продакт-менеджеру
     if (productManagerFilter !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.product_manager_id === productManagerFilter);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (productManagerFilter === 'empty') {
+          return !l.product_manager_id;
+        }
+        return l.product_manager_id === productManagerFilter;
+      });
     }
 
     // Фильтрация по гиферу
     if (giferFilter !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.gifer_id === giferFilter);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (giferFilter === 'empty') {
+          return !l.gifer_id;
+        }
+        return l.gifer_id === giferFilter;
+      });
     }
 
     // Фильтрация по контент-менеджеру
     if (contentManagerFilter !== null) {
-      landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === contentManagerFilter);
+      landingsToFilter = landingsToFilter.filter(l => {
+        if (contentManagerFilter === 'empty') {
+          return !l.content_manager_id;
+        }
+        return l.content_manager_id === contentManagerFilter;
+      });
     }
 
     // Фильтрация по зонам (используем hasZoneData из хука)
@@ -671,6 +708,9 @@ function LandingTeamLead({ user }) {
     if (sourceFilter !== null) {
       landingsToFilter = landingsToFilter.filter(l => {
         const sources = getLandingSources(l.id);
+        if (sourceFilter === 'empty') {
+          return sources.length === 0;
+        }
         return sources.includes(sourceFilter);
       });
     }
@@ -2845,6 +2885,8 @@ data-rt-sub16="${selectedLandingUuid}"
         l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === tag.name)
       ).length;
     });
+    // Подсчет лендингов без тегов
+    tagCounts['empty'] = baseLandings.filter(l => !l.tags || !Array.isArray(l.tags) || l.tags.length === 0).length;
 
     // Подсчет для фильтра статусов
     const statusCounts = {};
@@ -2854,42 +2896,56 @@ data-rt-sub16="${selectedLandingUuid}"
         return landingStatus && landingStatus.list_name === status;
       }).length;
     });
+    // Подсчет лендингов без статуса
+    statusCounts['empty'] = baseLandings.filter(l => !trelloStatuses.get(l.id)).length;
 
     // Подсчет для фильтра дизайнеров
     const designerCounts = {};
     designers.forEach(designer => {
       designerCounts[designer.id] = baseLandings.filter(l => l.designer_id === designer.id).length;
     });
+    // Подсчет лендингов без дизайнера
+    designerCounts['empty'] = baseLandings.filter(l => !l.designer_id).length;
 
     // Подсчет для фильтра байеров (таблица)
     const buyerTableCounts = {};
     buyers.forEach(buyer => {
       buyerTableCounts[buyer.id] = baseLandings.filter(l => l.buyer_id === buyer.id).length;
     });
+    // Подсчет лендингов без байера
+    buyerTableCounts['empty'] = baseLandings.filter(l => !l.buyer_id).length;
 
     // Подсчет для фильтра серчеров (таблица)
     const searcherTableCounts = {};
     searchers.forEach(searcher => {
       searcherTableCounts[searcher.id] = baseLandings.filter(l => l.searcher_id === searcher.id).length;
     });
+    // Подсчет лендингов без серчера
+    searcherTableCounts['empty'] = baseLandings.filter(l => !l.searcher_id).length;
 
     // Подсчет для фильтра продакт-менеджеров
     const productManagerCounts = {};
     productManagers.forEach(pm => {
       productManagerCounts[pm.id] = baseLandings.filter(l => l.product_manager_id === pm.id).length;
     });
+    // Подсчет лендингов без продакт-менеджера
+    productManagerCounts['empty'] = baseLandings.filter(l => !l.product_manager_id).length;
 
     // Подсчет для фильтра гиферов
     const giferCounts = {};
     gifers.forEach(gifer => {
       giferCounts[gifer.id] = baseLandings.filter(l => l.gifer_id === gifer.id).length;
     });
+    // Подсчет лендингов без гифера
+    giferCounts['empty'] = baseLandings.filter(l => !l.gifer_id).length;
 
     // Подсчет для фильтра контент-менеджеров
     const contentManagerCounts = {};
     contentManagers.forEach(cm => {
       contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
     });
+    // Подсчет лендингов без контент-менеджера
+    contentManagerCounts['empty'] = baseLandings.filter(l => !l.content_manager_id).length;
 
     // Для подсчета зон и источников нужно применить все активные фильтры (кроме самих зон и источников)
     let landingsForZoneAndSourceCount = baseLandings;
@@ -3047,8 +3103,12 @@ data-rt-sub16="${selectedLandingUuid}"
       const sources = getLandingSources(l.id);
       return sources.includes('google');
     }).length;
+    const noSourceCount = landingsForZoneAndSourceCount.filter(l => {
+      const sources = getLandingSources(l.id);
+      return sources.length === 0;
+    }).length;
 
-    console.log('📊 Подсчет источников:', { facebook: facebookCount, tiktok: tiktokCount, google: googleCount });
+    console.log('📊 Подсчет источников:', { facebook: facebookCount, tiktok: tiktokCount, google: googleCount, noSource: noSourceCount });
 
     return {
       type: {
@@ -3126,7 +3186,8 @@ data-rt-sub16="${selectedLandingUuid}"
         all: baseLandings.length,
         facebook: facebookCount,
         tiktok: tiktokCount,
-        google: googleCount
+        google: googleCount,
+        empty: noSourceCount
       }
     };
   }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics]);
@@ -5230,7 +5291,7 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex items-center justify-center space-x-2">
+                            <div className="flex items-center justify-start space-x-2">
                               {landing.designer_id ? (
                                 <>
                                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
@@ -6587,6 +6648,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по тегам"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.tag.all },
+          { value: 'empty', label: '—', count: filterCounts.tag.empty || 0, disabled: (filterCounts.tag.empty || 0) === 0 },
           ...tags.map(tag => ({
             value: tag.name,
             label: tag.name,
@@ -6626,6 +6688,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по статусу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.status.all },
+          { value: 'empty', label: '—', count: filterCounts.status.empty || 0, disabled: (filterCounts.status.empty || 0) === 0 },
           ...uniqueFilterValues.statuses.map(status => ({
             value: status,
             label: status,
@@ -6658,6 +6721,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по дизайнеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.designer.all },
+          { value: 'empty', label: '—', count: filterCounts.designer.empty || 0, disabled: (filterCounts.designer.empty || 0) === 0 },
           ...designers.map(designer => ({
             value: designer.id,
             label: getDesignerName(designer.id),
@@ -6698,6 +6762,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по байеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.buyerTable.all },
+          { value: 'empty', label: '—', count: filterCounts.buyerTable.empty || 0, disabled: (filterCounts.buyerTable.empty || 0) === 0 },
           ...buyers.map(buyer => ({
             value: buyer.id,
             label: getBuyerName(buyer.id),
@@ -6738,6 +6803,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по серчеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.searcherTable.all },
+          { value: 'empty', label: '—', count: filterCounts.searcherTable.empty || 0, disabled: (filterCounts.searcherTable.empty || 0) === 0 },
           ...searchers.map(searcher => ({
             value: searcher.id,
             label: getSearcherName(searcher.id),
@@ -6778,6 +6844,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по продакт-менеджеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.productManager.all },
+          { value: 'empty', label: '—', count: filterCounts.productManager.empty || 0, disabled: (filterCounts.productManager.empty || 0) === 0 },
           ...productManagers.map(pm => ({
             value: pm.id,
             label: getProductManagerName(pm.id),
@@ -6818,6 +6885,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по гиферу"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.gifer.all },
+          { value: 'empty', label: '—', count: filterCounts.gifer.empty || 0, disabled: (filterCounts.gifer.empty || 0) === 0 },
           ...gifers.map(gifer => ({
             value: gifer.id,
             label: getGiferName(gifer.id),
@@ -6858,6 +6926,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по контент-менеджеру"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.contentManager.all },
+          { value: 'empty', label: '—', count: filterCounts.contentManager.empty || 0, disabled: (filterCounts.contentManager.empty || 0) === 0 },
           ...contentManagers.map(cm => ({
             value: cm.id,
             label: getContentManagerName(cm.id),
@@ -6928,6 +6997,7 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по источнику"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.source.all },
+          { value: 'empty', label: '—', count: filterCounts.source.empty || 0, disabled: (filterCounts.source.empty || 0) === 0 },
           { value: 'facebook', label: 'Facebook', icon: <FacebookIcon className="w-4 h-4" />, count: filterCounts.source.facebook, disabled: filterCounts.source.facebook === 0 },
           { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
           { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
