@@ -5321,7 +5321,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <span className="text-sm text-gray-900">{getDesignerName(landing.designer_id)}</span>
                                 </>
                               ) : (
-                                <span className="text-gray-400 text-sm">—</span>
+                                <div className="flex justify-center">
+                                  <span className="text-gray-400 text-sm">—</span>
+                                </div>
                               )}
                             </div>
                           </td>
@@ -5356,7 +5358,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <WarehouseBadge />
                                 </div>
                               ) : (
-                                <span className="text-gray-400 cursor-text select-text">—</span>
+                                <div className="flex justify-center">
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                </div>
                               )
                             )}
                           </td>
@@ -5385,7 +5389,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="flex justify-center">
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              </div>
                             )}
                           </td>
 
@@ -5413,7 +5419,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="flex justify-center">
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              </div>
                             )}
                           </td>
 
@@ -5441,7 +5449,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="flex justify-center">
+                                <span className="text-gray-400 cursor-text select-text">—</span>
+                              </div>
                             )}
                           </td>
 
@@ -5462,7 +5472,9 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <WarehouseBadge />
                                 </div>
                               ) : (
-                                <span className="text-gray-400 cursor-text select-text">—</span>
+                                <div className="flex justify-center">
+                                  <span className="text-gray-400 cursor-text select-text">—</span>
+                                </div>
                               )
                             )}
                           </td>
@@ -6626,15 +6638,21 @@ data-rt-sub16="${selectedLandingUuid}"
               disabled: (filterCounts.template[template.name] || 0) === 0
             }))
           ].sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6671,15 +6689,21 @@ data-rt-sub16="${selectedLandingUuid}"
             count: filterCounts.tag[tag.name] || 0,
             disabled: (filterCounts.tag[tag.name] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6716,15 +6740,21 @@ data-rt-sub16="${selectedLandingUuid}"
             count: filterCounts.status[status] || 0,
             disabled: (filterCounts.status[status] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6762,15 +6792,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getDesignerAvatar(designer.id),
             disabled: (filterCounts.designer[designer.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6808,15 +6844,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getBuyerAvatar(buyer.id),
             disabled: (filterCounts.buyerTable[buyer.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6854,15 +6896,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getSearcherAvatar(searcher.id),
             disabled: (filterCounts.searcherTable[searcher.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6900,15 +6948,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getProductManagerAvatar(pm.id),
             disabled: (filterCounts.productManager[pm.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6946,15 +7000,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getGiferAvatar(gifer.id),
             disabled: (filterCounts.gifer[gifer.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -6992,15 +7052,21 @@ data-rt-sub16="${selectedLandingUuid}"
             avatar: getContentManagerAvatar(cm.id),
             disabled: (filterCounts.contentManager[cm.id] || 0) === 0
           })).sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
@@ -7066,15 +7132,21 @@ data-rt-sub16="${selectedLandingUuid}"
             { value: 'tiktok', label: 'TikTok', icon: <TiktokIcon className="w-4 h-4" />, count: filterCounts.source.tiktok, disabled: filterCounts.source.tiktok === 0 },
             { value: 'google', label: 'Google', icon: <GoogleIcon className="w-4 h-4" />, count: filterCounts.source.google, disabled: filterCounts.source.google === 0 }
           ].sort((a, b) => {
-            // Сначала сортируем по наличию count (с count > 0 идут вверх)
-            if (a.count === 0 && b.count > 0) return 1;
-            if (a.count > 0 && b.count === 0) return -1;
+            const aActive = a.count > 0;
+            const bActive = b.count > 0;
+            const aIsEmpty = a.value === 'empty';
+            const bIsEmpty = b.value === 'empty';
 
-            // В пределах одной группы (активные или неактивные) "—" идет в конец
-            if (a.value === 'empty' && b.value !== 'empty') return 1;
-            if (a.value !== 'empty' && b.value === 'empty') return -1;
+            // Сначала разделяем на активные и неактивные
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
 
-            // Затем сортируем по убыванию count
+            // Внутри одной группы (активные или неактивные)
+            // "—" всегда в конец группы
+            if (aIsEmpty && !bIsEmpty) return 1;
+            if (!aIsEmpty && bIsEmpty) return -1;
+
+            // Остальные сортируем по убыванию count
             return b.count - a.count;
           })
         ]}
