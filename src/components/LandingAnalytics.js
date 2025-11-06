@@ -101,12 +101,12 @@ const FilterDropdown = React.memo(({ isOpen, referenceElement, options, selected
           ) && (multiSelect ? selectedValues.length === allOptions.length : true);
 
           if (option.value === 'all') {
-            // Для опции "Все" галочка показывается, когда все опции выбраны
+            // Для опции "Все" галочка показывается, когда все опции выбраны или selectedValues === null
             isSelected = multiSelect
               ? allSelected
-              : selectedValues === 'all';
+              : (selectedValues === null || selectedValues === 'all');
           } else {
-            // Для обычных опций проверяем их выбор
+            // Для обычных опций проверяем их выбор (НЕ показываем галочку при selectedValues === null)
             if (multiSelect) {
               isSelected = selectedValues.includes(option.value);
             } else {
