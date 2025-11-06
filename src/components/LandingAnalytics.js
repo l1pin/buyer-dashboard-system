@@ -2877,6 +2877,8 @@ data-rt-sub16="${selectedLandingUuid}"
         l.template && l.template.trim() === template.name
       ).length;
     });
+    // Подсчет лендингов без шаблона
+    templateCounts['empty'] = baseLandings.filter(l => !l.template || !l.template.trim()).length;
 
     // Подсчет для фильтра тегов (включая все теги из базы данных)
     const tagCounts = {};
@@ -3024,9 +3026,15 @@ data-rt-sub16="${selectedLandingUuid}"
 
     // Применяем фильтр шаблона
     if (templateFilter !== null) {
-      landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l =>
-        l.template && l.template.trim() === templateFilter
-      );
+      if (templateFilter === 'empty') {
+        landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l =>
+          !l.template || !l.template.trim()
+        );
+      } else {
+        landingsForZoneAndSourceCount = landingsForZoneAndSourceCount.filter(l =>
+          l.template && l.template.trim() === templateFilter
+        );
+      }
     }
 
     // Применяем фильтр тегов
@@ -6609,15 +6617,23 @@ data-rt-sub16="${selectedLandingUuid}"
         title="Фильтровать по шаблону"
         options={[
           { value: 'all', label: 'Все', count: filterCounts.template.all },
-          ...templates.map(template => ({
-            value: template.name,
-            label: template.name,
-            count: filterCounts.template[template.name] || 0,
-            disabled: (filterCounts.template[template.name] || 0) === 0
-          })).sort((a, b) => {
+          ...[
+            { value: 'empty', label: '—', count: filterCounts.template.empty || 0, disabled: (filterCounts.template.empty || 0) === 0 },
+            ...templates.map(template => ({
+              value: template.name,
+              label: template.name,
+              count: filterCounts.template[template.name] || 0,
+              disabled: (filterCounts.template[template.name] || 0) === 0
+            }))
+          ].sort((a, b) => {
             // Сначала сортируем по наличию count (с count > 0 идут вверх)
             if (a.count === 0 && b.count > 0) return 1;
             if (a.count > 0 && b.count === 0) return -1;
+
+            // В пределах одной группы (активные или неактивные) "—" идет в конец
+            if (a.value === 'empty' && b.value !== 'empty') return 1;
+            if (a.value !== 'empty' && b.value === 'empty') return -1;
+
             // Затем сортируем по убыванию count
             return b.count - a.count;
           })
