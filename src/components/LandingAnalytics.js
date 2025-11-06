@@ -104,13 +104,13 @@ const FilterDropdown = React.memo(({ isOpen, referenceElement, options, selected
             // Для опции "Все" галочка показывается, когда все опции выбраны
             isSelected = multiSelect
               ? allSelected
-              : (selectedValues === null || selectedValues === 'all');
+              : selectedValues === 'all';
           } else {
-            // Для обычных опций проверяем их выбор ИЛИ выбрана ли опция "Все"
+            // Для обычных опций проверяем их выбор
             if (multiSelect) {
               isSelected = selectedValues.includes(option.value);
             } else {
-              isSelected = selectedValues === option.value || selectedValues === null;
+              isSelected = selectedValues === option.value;
             }
           }
 
