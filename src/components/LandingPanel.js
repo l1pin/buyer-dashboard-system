@@ -4220,12 +4220,12 @@ data-rt-sub16="${selectedLandingUuid}"
                         }`}
                       >
                       <div className="flex items-center space-x-2 flex-1">
-                        {getSelectedProductManagerEdit() ? (
+                        {getSelectedProductManager() ? (
                           <>
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getSelectedProductManagerEdit().avatar_url ? (
+                              {getSelectedProductManager().avatar_url ? (
                                 <img
-                                  src={getSelectedProductManagerEdit().avatar_url}
+                                  src={getSelectedProductManager().avatar_url}
                                   alt="Product"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -4234,11 +4234,11 @@ data-rt-sub16="${selectedLandingUuid}"
                                   }}
                                 />
                               ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManagerEdit().avatar_url ? 'hidden' : ''}`}>
+                              <div className={`w-full h-full flex items-center justify-center ${getSelectedProductManager().avatar_url ? 'hidden' : ''}`}>
                                 <Target className="h-3 w-3 text-gray-400" />
                               </div>
                             </div>
-                            <span className="text-gray-900 truncate">{getSelectedProductManagerEdit().name}</span>
+                            <span className="text-gray-900 truncate">{getSelectedProductManager().name}</span>
                           </>
                           ) : (
                             <span className="text-gray-500">Выберите продакт менеджера</span>
