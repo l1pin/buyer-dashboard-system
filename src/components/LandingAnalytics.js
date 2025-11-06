@@ -600,9 +600,15 @@ function LandingTeamLead({ user }) {
 
     // Фильтрация по шаблону
     if (templateFilter !== null) {
-      landingsToFilter = landingsToFilter.filter(l =>
-        l.template && l.template.trim() === templateFilter
-      );
+      if (templateFilter === 'empty') {
+        landingsToFilter = landingsToFilter.filter(l =>
+          !l.template || !l.template.trim()
+        );
+      } else {
+        landingsToFilter = landingsToFilter.filter(l =>
+          l.template && l.template.trim() === templateFilter
+        );
+      }
     }
 
     // Фильтрация по тегам
@@ -2872,21 +2878,59 @@ data-rt-sub16="${selectedLandingUuid}"
 
     // Подсчет для фильтра шаблонов (включая все шаблоны из базы данных)
     const templateCounts = {};
+    const activeTemplateNames = new Set(templates.map(t => t.name));
     templates.forEach(template => {
       templateCounts[template.name] = baseLandings.filter(l =>
         l.template && l.template.trim() === template.name
       ).length;
     });
+
+    // Найти удаленные шаблоны (есть в данных, но нет в списке активных)
+    const deletedTemplateNames = new Set();
+    baseLandings.forEach(l => {
+      if (l.template && l.template.trim() && !activeTemplateNames.has(l.template.trim())) {
+        deletedTemplateNames.add(l.template.trim());
+      }
+    });
+
+    // Подсчет удаленных шаблонов
+    deletedTemplateNames.forEach(name => {
+      templateCounts[name] = baseLandings.filter(l =>
+        l.template && l.template.trim() === name
+      ).length;
+    });
+
     // Подсчет лендингов без шаблона
     templateCounts['empty'] = baseLandings.filter(l => !l.template || !l.template.trim()).length;
 
     // Подсчет для фильтра тегов (включая все теги из базы данных)
     const tagCounts = {};
+    const activeTagNames = new Set(tags.map(t => t.name));
     tags.forEach(tag => {
       tagCounts[tag.name] = baseLandings.filter(l =>
         l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === tag.name)
       ).length;
     });
+
+    // Найти удаленные теги (есть в данных, но нет в списке активных)
+    const deletedTagNames = new Set();
+    baseLandings.forEach(l => {
+      if (l.tags && Array.isArray(l.tags)) {
+        l.tags.forEach(tagName => {
+          if (tagName.trim() && !activeTagNames.has(tagName.trim())) {
+            deletedTagNames.add(tagName.trim());
+          }
+        });
+      }
+    });
+
+    // Подсчет удаленных тегов
+    deletedTagNames.forEach(name => {
+      tagCounts[name] = baseLandings.filter(l =>
+        l.tags && Array.isArray(l.tags) && l.tags.some(t => t.trim() === name)
+      ).length;
+    });
+
     // Подсчет лендингов без тегов
     tagCounts['empty'] = baseLandings.filter(l => !l.tags || !Array.isArray(l.tags) || l.tags.length === 0).length;
 
@@ -2903,49 +2947,139 @@ data-rt-sub16="${selectedLandingUuid}"
 
     // Подсчет для фильтра дизайнеров
     const designerCounts = {};
+    const activeDesignerIds = new Set(designers.map(d => d.id));
     designers.forEach(designer => {
       designerCounts[designer.id] = baseLandings.filter(l => l.designer_id === designer.id).length;
     });
+
+    // Найти удаленных дизайнеров (есть в данных, но нет в списке активных)
+    const deletedDesignerIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.designer_id && !activeDesignerIds.has(l.designer_id)) {
+        deletedDesignerIds.add(l.designer_id);
+      }
+    });
+
+    // Подсчет удаленных дизайнеров
+    deletedDesignerIds.forEach(id => {
+      designerCounts[id] = baseLandings.filter(l => l.designer_id === id).length;
+    });
+
     // Подсчет лендингов без дизайнера
     designerCounts['empty'] = baseLandings.filter(l => !l.designer_id).length;
 
     // Подсчет для фильтра байеров (таблица)
     const buyerTableCounts = {};
+    const activeBuyerIds = new Set(buyers.map(b => b.id));
     buyers.forEach(buyer => {
       buyerTableCounts[buyer.id] = baseLandings.filter(l => l.buyer_id === buyer.id).length;
     });
+
+    // Найти удаленных байеров (есть в данных, но нет в списке активных)
+    const deletedBuyerIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.buyer_id && !activeBuyerIds.has(l.buyer_id)) {
+        deletedBuyerIds.add(l.buyer_id);
+      }
+    });
+
+    // Подсчет удаленных байеров
+    deletedBuyerIds.forEach(id => {
+      buyerTableCounts[id] = baseLandings.filter(l => l.buyer_id === id).length;
+    });
+
     // Подсчет лендингов без байера
     buyerTableCounts['empty'] = baseLandings.filter(l => !l.buyer_id).length;
 
     // Подсчет для фильтра серчеров (таблица)
     const searcherTableCounts = {};
+    const activeSearcherIds = new Set(searchers.map(s => s.id));
     searchers.forEach(searcher => {
       searcherTableCounts[searcher.id] = baseLandings.filter(l => l.searcher_id === searcher.id).length;
     });
+
+    // Найти удаленных серчеров (есть в данных, но нет в списке активных)
+    const deletedSearcherIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.searcher_id && !activeSearcherIds.has(l.searcher_id)) {
+        deletedSearcherIds.add(l.searcher_id);
+      }
+    });
+
+    // Подсчет удаленных серчеров
+    deletedSearcherIds.forEach(id => {
+      searcherTableCounts[id] = baseLandings.filter(l => l.searcher_id === id).length;
+    });
+
     // Подсчет лендингов без серчера
     searcherTableCounts['empty'] = baseLandings.filter(l => !l.searcher_id).length;
 
     // Подсчет для фильтра продакт-менеджеров
     const productManagerCounts = {};
+    const activePMIds = new Set(productManagers.map(pm => pm.id));
     productManagers.forEach(pm => {
       productManagerCounts[pm.id] = baseLandings.filter(l => l.product_manager_id === pm.id).length;
     });
+
+    // Найти удаленных продакт-менеджеров (есть в данных, но нет в списке активных)
+    const deletedPMIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.product_manager_id && !activePMIds.has(l.product_manager_id)) {
+        deletedPMIds.add(l.product_manager_id);
+      }
+    });
+
+    // Подсчет удаленных продакт-менеджеров
+    deletedPMIds.forEach(id => {
+      productManagerCounts[id] = baseLandings.filter(l => l.product_manager_id === id).length;
+    });
+
     // Подсчет лендингов без продакт-менеджера
     productManagerCounts['empty'] = baseLandings.filter(l => !l.product_manager_id).length;
 
     // Подсчет для фильтра гиферов
     const giferCounts = {};
+    const activeGiferIds = new Set(gifers.map(g => g.id));
     gifers.forEach(gifer => {
       giferCounts[gifer.id] = baseLandings.filter(l => l.gifer_id === gifer.id).length;
     });
+
+    // Найти удаленных гиферов (есть в данных, но нет в списке активных)
+    const deletedGiferIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.gifer_id && !activeGiferIds.has(l.gifer_id)) {
+        deletedGiferIds.add(l.gifer_id);
+      }
+    });
+
+    // Подсчет удаленных гиферов
+    deletedGiferIds.forEach(id => {
+      giferCounts[id] = baseLandings.filter(l => l.gifer_id === id).length;
+    });
+
     // Подсчет лендингов без гифера
     giferCounts['empty'] = baseLandings.filter(l => !l.gifer_id).length;
 
     // Подсчет для фильтра контент-менеджеров
     const contentManagerCounts = {};
+    const activeCMIds = new Set(contentManagers.map(cm => cm.id));
     contentManagers.forEach(cm => {
       contentManagerCounts[cm.id] = baseLandings.filter(l => l.content_manager_id === cm.id).length;
     });
+
+    // Найти удаленных контент-менеджеров (есть в данных, но нет в списке активных)
+    const deletedCMIds = new Set();
+    baseLandings.forEach(l => {
+      if (l.content_manager_id && !activeCMIds.has(l.content_manager_id)) {
+        deletedCMIds.add(l.content_manager_id);
+      }
+    });
+
+    // Подсчет удаленных контент-менеджеров
+    deletedCMIds.forEach(id => {
+      contentManagerCounts[id] = baseLandings.filter(l => l.content_manager_id === id).length;
+    });
+
     // Подсчет лендингов без контент-менеджера
     contentManagerCounts['empty'] = baseLandings.filter(l => !l.content_manager_id).length;
 
@@ -3196,6 +3330,17 @@ data-rt-sub16="${selectedLandingUuid}"
         tiktok: tiktokCount,
         google: googleCount,
         empty: noSourceCount
+      },
+      // Удаленные значения (есть в данных, но нет в активных списках)
+      deleted: {
+        templates: Array.from(deletedTemplateNames),
+        tags: Array.from(deletedTagNames),
+        designers: Array.from(deletedDesignerIds),
+        buyers: Array.from(deletedBuyerIds),
+        searchers: Array.from(deletedSearcherIds),
+        productManagers: Array.from(deletedPMIds),
+        gifers: Array.from(deletedGiferIds),
+        contentManagers: Array.from(deletedCMIds)
       }
     };
   }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, landingsWithIntegration, landingsWithHistory, uniqueFilterValues, trelloStatuses, designers, buyers, searchers, productManagers, gifers, contentManagers, templates, tags, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, hasZoneData, getLandingSources, landingMetrics]);
@@ -6636,6 +6781,12 @@ data-rt-sub16="${selectedLandingUuid}"
               count: filterCounts.template[template.name] || 0,
               disabled: (filterCounts.template[template.name] || 0) === 0
             })),
+            ...filterCounts.deleted.templates.map(templateName => ({
+              value: templateName,
+              label: `${templateName} (удален)`,
+              count: filterCounts.template[templateName] || 0,
+              disabled: (filterCounts.template[templateName] || 0) === 0
+            })),
             { value: 'empty', label: '—', count: filterCounts.template.empty || 0, disabled: (filterCounts.template.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
@@ -6688,6 +6839,12 @@ data-rt-sub16="${selectedLandingUuid}"
               label: tag.name,
               count: filterCounts.tag[tag.name] || 0,
               disabled: (filterCounts.tag[tag.name] || 0) === 0
+            })),
+            ...filterCounts.deleted.tags.map(tagName => ({
+              value: tagName,
+              label: `${tagName} (удален)`,
+              count: filterCounts.tag[tagName] || 0,
+              disabled: (filterCounts.tag[tagName] || 0) === 0
             })),
             { value: 'empty', label: '—', count: filterCounts.tag.empty || 0, disabled: (filterCounts.tag.empty || 0) === 0 }
           ].sort((a, b) => {
@@ -6796,6 +6953,12 @@ data-rt-sub16="${selectedLandingUuid}"
               avatar: getDesignerAvatar(designer.id),
               disabled: (filterCounts.designer[designer.id] || 0) === 0
             })),
+            ...filterCounts.deleted.designers.map(designerId => ({
+              value: designerId,
+              label: `${designerId} (удален)`,
+              count: filterCounts.designer[designerId] || 0,
+              disabled: (filterCounts.designer[designerId] || 0) === 0
+            })),
             { value: 'empty', label: '—', count: filterCounts.designer.empty || 0, disabled: (filterCounts.designer.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
@@ -6849,6 +7012,12 @@ data-rt-sub16="${selectedLandingUuid}"
               count: filterCounts.buyerTable[buyer.id] || 0,
               avatar: getBuyerAvatar(buyer.id),
               disabled: (filterCounts.buyerTable[buyer.id] || 0) === 0
+            })),
+            ...filterCounts.deleted.buyers.map(buyerId => ({
+              value: buyerId,
+              label: `${buyerId} (удален)`,
+              count: filterCounts.buyerTable[buyerId] || 0,
+              disabled: (filterCounts.buyerTable[buyerId] || 0) === 0
             })),
             { value: 'empty', label: '—', count: filterCounts.buyerTable.empty || 0, disabled: (filterCounts.buyerTable.empty || 0) === 0 }
           ].sort((a, b) => {
@@ -6904,6 +7073,12 @@ data-rt-sub16="${selectedLandingUuid}"
               avatar: getSearcherAvatar(searcher.id),
               disabled: (filterCounts.searcherTable[searcher.id] || 0) === 0
             })),
+            ...filterCounts.deleted.searchers.map(searcherId => ({
+              value: searcherId,
+              label: `${searcherId} (удален)`,
+              count: filterCounts.searcherTable[searcherId] || 0,
+              disabled: (filterCounts.searcherTable[searcherId] || 0) === 0
+            })),
             { value: 'empty', label: '—', count: filterCounts.searcherTable.empty || 0, disabled: (filterCounts.searcherTable.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
@@ -6957,6 +7132,12 @@ data-rt-sub16="${selectedLandingUuid}"
               count: filterCounts.productManager[pm.id] || 0,
               avatar: getProductManagerAvatar(pm.id),
               disabled: (filterCounts.productManager[pm.id] || 0) === 0
+            })),
+            ...filterCounts.deleted.productManagers.map(pmId => ({
+              value: pmId,
+              label: `${pmId} (удален)`,
+              count: filterCounts.productManager[pmId] || 0,
+              disabled: (filterCounts.productManager[pmId] || 0) === 0
             })),
             { value: 'empty', label: '—', count: filterCounts.productManager.empty || 0, disabled: (filterCounts.productManager.empty || 0) === 0 }
           ].sort((a, b) => {
@@ -7012,6 +7193,12 @@ data-rt-sub16="${selectedLandingUuid}"
               avatar: getGiferAvatar(gifer.id),
               disabled: (filterCounts.gifer[gifer.id] || 0) === 0
             })),
+            ...filterCounts.deleted.gifers.map(giferId => ({
+              value: giferId,
+              label: `${giferId} (удален)`,
+              count: filterCounts.gifer[giferId] || 0,
+              disabled: (filterCounts.gifer[giferId] || 0) === 0
+            })),
             { value: 'empty', label: '—', count: filterCounts.gifer.empty || 0, disabled: (filterCounts.gifer.empty || 0) === 0 }
           ].sort((a, b) => {
             const aActive = a.count > 0;
@@ -7065,6 +7252,12 @@ data-rt-sub16="${selectedLandingUuid}"
               count: filterCounts.contentManager[cm.id] || 0,
               avatar: getContentManagerAvatar(cm.id),
               disabled: (filterCounts.contentManager[cm.id] || 0) === 0
+            })),
+            ...filterCounts.deleted.contentManagers.map(cmId => ({
+              value: cmId,
+              label: `${cmId} (удален)`,
+              count: filterCounts.contentManager[cmId] || 0,
+              disabled: (filterCounts.contentManager[cmId] || 0) === 0
             })),
             { value: 'empty', label: '—', count: filterCounts.contentManager.empty || 0, disabled: (filterCounts.contentManager.empty || 0) === 0 }
           ].sort((a, b) => {
