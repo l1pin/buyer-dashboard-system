@@ -5,10 +5,6 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Calendar,
-  BarChart3,
-  TrendingUp,
-  Target,
   Search,
   ChevronDown,
   ChevronUp
@@ -106,15 +102,6 @@ function OffersTL({ user }) {
     }
   };
 
-  const getStats = () => {
-    const totalItems = filteredMetrics.length;
-    const withActualLead = filteredMetrics.filter(m => m.actual_lead !== null && m.actual_lead !== 'нет данных').length;
-    const avgROI = filteredMetrics.reduce((sum, m) => sum + (m.actual_roi_percent || 0), 0) / (totalItems || 1);
-
-    return { totalItems, withActualLead, avgROI };
-  };
-
-  const stats = getStats();
 
   if (loading) {
     return (
@@ -137,9 +124,6 @@ function OffersTL({ user }) {
             <h1 className="text-2xl font-semibold text-gray-900">
               Офферы
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Просмотр офферов в удобном формате карточек
-            </p>
           </div>
           <div className="flex items-center space-x-3">
             <button
@@ -169,84 +153,6 @@ function OffersTL({ user }) {
         </div>
       )}
 
-      {/* Stats */}
-      {metrics.length > 0 && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <BarChart3 className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Всего офферов
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.totalItems.toLocaleString('ru-RU')}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С данными по лидам
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.withActualLead.toLocaleString('ru-RU')}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний ROI
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.avgROI.toFixed(1)}%
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {lastUpdated && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
-                Последнее обновление: {formatKyivTime(lastUpdated)}
-              </div>
-              <div className="text-xs text-gray-500">
-                Отображено офферов: {filteredMetrics.length.toLocaleString('ru-RU')}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
@@ -309,18 +215,18 @@ function OffersTL({ user }) {
                 <div className="w-20 flex-shrink-0">CPL 4дн</div>
                 <div className="w-20 flex-shrink-0">Лиды 4дн</div>
                 <div className="w-12 flex-shrink-0" title="Продажи на 1 заявку">
-                  <svg className="text-blue-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                   </svg>
                 </div>
                 <div className="w-12 flex-shrink-0" title="Рейтинг">
-                  <svg className="text-yellow-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <path d="M12 17.75l-6.172 3.245 1.179-6.873-4.993-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z" />
                   </svg>
                 </div>
                 <div className="w-12 flex-shrink-0" title="Реклама">
-                  <svg className="text-purple-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <rect x="3" y="5" width="18" height="14" rx="2" />
                     <path d="M7 15v-4a2 2 0 0 1 4 0v4" />
@@ -329,7 +235,7 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-16 flex-shrink-0" title="Зона эффективности">
-                  <svg className="text-indigo-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <ellipse cx="12" cy="6" rx="8" ry="3"></ellipse>
                     <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
@@ -337,12 +243,12 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-20 flex-shrink-0" title="Цена лида в зоне">
-                  <svg className="text-green-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </div>
                 <div className="w-16 flex-shrink-0" title="Дней продаж">
-                  <svg className="text-blue-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <rect x="4" y="5" width="16" height="16" rx="2" />
                     <line x1="16" y1="3" x2="16" y2="7" />
@@ -353,7 +259,7 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-16 flex-shrink-0" title="Остаток">
-                  <svg className="text-orange-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <path d="M3 21v-13l9-4l9 4v13" />
                     <path d="M13 13h4v8h-10v-6h6" />
@@ -361,7 +267,7 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-20 flex-shrink-0" title="Дней до прихода">
-                  <svg className="text-teal-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <circle cx="7" cy="17" r="2" />
                     <circle cx="17" cy="17" r="2" />
@@ -369,14 +275,14 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-16 flex-shrink-0" title="% отказа от продаж">
-                  <svg className="text-red-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <line x1="19" y1="5" x2="5" y2="19" />
                     <circle cx="6.5" cy="6.5" r="2.5" />
                     <circle cx="17.5" cy="17.5" r="2.5" />
                   </svg>
                 </div>
                 <div className="w-16 flex-shrink-0" title="% невыкупа">
-                  <svg className="text-gray-600 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <path d="M9 5H7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2V7a2 2 0 0 0 -2 -2h-2" />
                     <rect x="9" y="3" width="6" height="4" rx="2" />
@@ -385,7 +291,7 @@ function OffersTL({ user }) {
                 </div>
                 <div className="w-16 flex-shrink-0">Сезон</div>
                 <div className="w-20 flex-shrink-0" title="Цена">
-                  <svg className="text-green-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </div>
@@ -432,12 +338,12 @@ function OffersTL({ user }) {
                     <div className="w-12 flex-shrink-0 text-xs text-gray-600">—</div>
 
                     {/* Зона эффективности (Факт ROI) */}
-                    <div className="w-16 flex-shrink-0 font-mono text-xs text-indigo-700">
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}
                     </div>
 
                     {/* Цена лида в зоне (Факт лид) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-green-700">
+                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900">
                       {metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}
                     </div>
 
@@ -448,17 +354,17 @@ function OffersTL({ user }) {
                     <div className="w-16 flex-shrink-0 text-xs text-gray-600">—</div>
 
                     {/* Дней до прихода (Расчетный приход) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs text-teal-700">
+                    <div className="w-20 flex-shrink-0 font-mono text-xs text-gray-900">
                       {formatDate(metric.next_calculated_arrival)}
                     </div>
 
                     {/* % отказа от продаж */}
-                    <div className="w-16 flex-shrink-0 font-mono text-xs text-red-700">
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(1)}%` : '—'}
                     </div>
 
                     {/* % невыкупа */}
-                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-700">
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(1)}%` : '—'}
                     </div>
 
@@ -466,7 +372,7 @@ function OffersTL({ user }) {
                     <div className="w-16 flex-shrink-0 text-xs text-gray-600">—</div>
 
                     {/* Цена (Цена оффера) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-green-800">
+                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900">
                       {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                     </div>
                   </div>
