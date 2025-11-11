@@ -10,6 +10,7 @@ import CreativeBuyer from './CreativeBuyer';
 import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
+import OffersTL from './OffersTL';
 import LandingPanel from './LandingPanel';
 import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
@@ -25,7 +26,7 @@ function Dashboard({ user, session, updateUser }) {
   // Маппинг URL путей к внутренним секциям
   const urlToSection = {
     '/admin/tables': 'table',
-    '/admin/users': 'users', 
+    '/admin/users': 'users',
     '/workspace/creatives': 'creatives',
     '/workspace/landings': 'landings',
     '/workspace/landing-editor': 'landing-editor',
@@ -33,6 +34,7 @@ function Dashboard({ user, session, updateUser }) {
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
     '/analytics/landings': 'landing-analytics',
+    '/analytics/offers': 'offers-tl',
     '/settings': 'settings'
   };
 
@@ -47,6 +49,7 @@ function Dashboard({ user, session, updateUser }) {
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
     'landing-analytics': '/analytics/landings',
+    'offers-tl': '/analytics/offers',
     'settings': '/settings'
   };
 
@@ -84,6 +87,8 @@ function Dashboard({ user, session, updateUser }) {
       case 'analytics':
         return role === 'teamlead';
       case 'metrics-analytics':
+        return role === 'teamlead';
+      case 'offers-tl':
         return role === 'teamlead';
       case 'settings':
         return true; // Настройки доступны всем
@@ -186,6 +191,8 @@ function Dashboard({ user, session, updateUser }) {
         return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
         return user?.role === 'teamlead' ? <MetricsAnalytics user={user} /> : null;
+      case 'offers-tl':
+        return user?.role === 'teamlead' ? <OffersTL user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:

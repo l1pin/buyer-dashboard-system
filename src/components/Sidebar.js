@@ -101,6 +101,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: user?.role === 'teamlead'
     },
     {
+      id: 'offers-tl',
+      label: 'Офферы',
+      icon: Package,
+      show: user?.role === 'teamlead'
+    },
+    {
       id: 'settings',
       label: 'Настройки',
       icon: Settings,
