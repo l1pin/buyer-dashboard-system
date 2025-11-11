@@ -20,6 +20,7 @@ function OffersTL({ user }) {
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
   const [openTooltip, setOpenTooltip] = useState(null);
+  const [openDateTooltip, setOpenDateTooltip] = useState(null);
 
   useEffect(() => {
     loadMetrics();
@@ -31,13 +32,16 @@ function OffersTL({ user }) {
       if (openTooltip !== null && !event.target.closest('.tooltip-container')) {
         setOpenTooltip(null);
       }
+      if (openDateTooltip !== null && !event.target.closest('.date-tooltip-container')) {
+        setOpenDateTooltip(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openTooltip]);
+  }, [openTooltip, openDateTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -87,6 +91,35 @@ function OffersTL({ user }) {
       return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
     } catch (error) {
       return '—';
+    }
+  };
+
+  const formatFullDate = (dateString) => {
+    if (!dateString) return '—';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return '—';
+    }
+  };
+
+  const calculateDaysUntilArrival = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const arrivalDate = new Date(dateString);
+      arrivalDate.setHours(0, 0, 0, 0);
+      const diffTime = arrivalDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (error) {
+      return null;
     }
   };
 
@@ -190,6 +223,26 @@ function OffersTL({ user }) {
               </span>
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  // Компонент тултипа с датой прихода
+  const DateTooltip = ({ dateString, onClose }) => {
+    return (
+      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
+           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-sm font-semibold text-gray-900">Дата прихода</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="text-sm text-gray-900 font-mono">
+          {formatFullDate(dateString)}
         </div>
       </div>
     );
@@ -613,13 +666,70 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Дней до прихода (Расчетный приход) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs text-gray-900 flex items-center justify-center gap-1">
-                      <span>{formatDate(metric.next_calculated_arrival)}</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-20 flex-shrink-0 font-mono text-xs flex items-center justify-center gap-1 relative date-tooltip-container">
+                      {(() => {
+                        const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
+                        if (daysUntil === null) {
+                          return (
+                            <>
+                              <span className="text-gray-900">—</span>
+                              <svg
+                                className="text-gray-500 w-3 h-3 cursor-pointer hover:text-gray-700"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenDateTooltip(openDateTooltip === index ? null : index);
+                                }}
+                              >
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </>
+                          );
+                        }
+                        const textColor = daysUntil < 0 ? 'text-red-600' : 'text-green-600';
+                        const displayValue = daysUntil > 0 ? `+${daysUntil}` : `${daysUntil}`;
+                        return (
+                          <>
+                            <span className={textColor}>{displayValue}</span>
+                            <svg
+                              className="text-gray-500 w-3 h-3 cursor-pointer hover:text-gray-700"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDateTooltip(openDateTooltip === index ? null : index);
+                              }}
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </>
+                        );
+                      })()}
+                      {openDateTooltip === index && (
+                        <DateTooltip
+                          dateString={metric.next_calculated_arrival}
+                          onClose={() => setOpenDateTooltip(null)}
+                        />
+                      )}
                     </div>
 
                     {/* % отказа от продаж */}
