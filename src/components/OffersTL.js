@@ -19,10 +19,25 @@ function OffersTL({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [openTooltip, setOpenTooltip] = useState(null);
 
   useEffect(() => {
     loadMetrics();
   }, []);
+
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openTooltip !== null && !event.target.closest('.tooltip-container')) {
+        setOpenTooltip(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -112,6 +127,72 @@ function OffersTL({ user }) {
     if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
     if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
     return null;
+  };
+
+  // Функция для получения цветов зон по типу
+  const getZoneColorsByType = (zoneType) => {
+    switch (zoneType) {
+      case 'red': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+      case 'pink': return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+      case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+      case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+      default: return null;
+    }
+  };
+
+  // Компонент тултипа с информацией о зонах
+  const ZonesTooltip = ({ metric, onClose }) => {
+    return (
+      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
+           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Цена лида в зоне</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          {/* Красная зона */}
+          {metric.red_zone_price !== null && metric.red_zone_price !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20">Красная:</span>
+              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('red').bg} ${getZoneColorsByType('red').text} ${getZoneColorsByType('red').border}`}>
+                ${Number(metric.red_zone_price).toFixed(2)}
+              </span>
+            </div>
+          )}
+          {/* Розовая зона */}
+          {metric.pink_zone_price !== null && metric.pink_zone_price !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20">Розовая:</span>
+              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('pink').bg} ${getZoneColorsByType('pink').text} ${getZoneColorsByType('pink').border}`}>
+                ${Number(metric.pink_zone_price).toFixed(2)}
+              </span>
+            </div>
+          )}
+          {/* Золотая зона */}
+          {metric.gold_zone_price !== null && metric.gold_zone_price !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20">Золотая:</span>
+              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('gold').bg} ${getZoneColorsByType('gold').text} ${getZoneColorsByType('gold').border}`}>
+                ${Number(metric.gold_zone_price).toFixed(2)}
+              </span>
+            </div>
+          )}
+          {/* Зеленая зона */}
+          {metric.green_zone_price !== null && metric.green_zone_price !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20">Зеленая:</span>
+              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('green').bg} ${getZoneColorsByType('green').text} ${getZoneColorsByType('green').border}`}>
+                ${Number(metric.green_zone_price).toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
 
@@ -418,13 +499,28 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Цена лида в зоне (Факт лид) */}
-                    <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
+                    <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1 relative tooltip-container">
                       {(() => {
                         if (metric.actual_lead === 'нет данных') {
                           return (
                             <>
                               <span className="text-gray-500 italic text-xs">нет данных</span>
-                              <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg
+                                className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenTooltip(openTooltip === index ? null : index);
+                                }}
+                              >
                                 <circle cx="12" cy="12" r="10" />
                                 <line x1="12" y1="16" x2="12" y2="12" />
                                 <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -439,7 +535,22 @@ function OffersTL({ user }) {
                               <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
                                 ${Number(metric.actual_lead).toFixed(2)}
                               </span>
-                              <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg
+                                className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenTooltip(openTooltip === index ? null : index);
+                                }}
+                              >
                                 <circle cx="12" cy="12" r="10" />
                                 <line x1="12" y1="16" x2="12" y2="12" />
                                 <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -450,7 +561,22 @@ function OffersTL({ user }) {
                         return (
                           <>
                             <span className="font-mono text-xs text-gray-900">{metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—'}</span>
-                            <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenTooltip(openTooltip === index ? null : index);
+                              }}
+                            >
                               <circle cx="12" cy="12" r="10" />
                               <line x1="12" y1="16" x2="12" y2="12" />
                               <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -458,6 +584,12 @@ function OffersTL({ user }) {
                           </>
                         );
                       })()}
+                      {openTooltip === index && (
+                        <ZonesTooltip
+                          metric={metric}
+                          onClose={() => setOpenTooltip(null)}
+                        />
+                      )}
                     </div>
 
                     {/* Дней продаж */}
