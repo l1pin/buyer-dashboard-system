@@ -5,61 +5,19 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Target,
-  Package,
-  Clock,
-  Percent,
-  Snowflake,
-  BarChart3,
-  Star,
   Search,
   ChevronDown,
-  ChevronUp,
-  Layers,
-  ShoppingCart,
-  TrendingDown,
-  Boxes
+  ChevronUp
 } from 'lucide-react';
-
-// Кастомная иконка Ad
-const AdIcon = ({ className }) => (
-  <svg
-    className={className}
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    strokeWidth="2"
-    stroke="currentColor"
-    fill="none"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path stroke="none" d="M0 0h24v24H0z"/>
-    <rect x="3" y="5" width="18" height="14" rx="2" />
-    <path d="M7 15v-4a2 2 0 0 1 4 0v4" />
-    <line x1="7" y1="13" x2="11" y2="13" />
-    <path d="M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5" />
-  </svg>
-);
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [loadingStats, setLoadingStats] = useState({
-    actualCount: 0,
-    totalRecords: 0,
-    databaseCount: 0
-  });
 
   useEffect(() => {
     loadMetrics();
@@ -74,13 +32,6 @@ function OffersTL({ user }) {
 
       const data = await metricsAnalyticsService.getAllMetricsLarge();
       setMetrics(data.metrics || []);
-      setLastUpdated(data.lastUpdated);
-
-      setLoadingStats({
-        actualCount: data.actualCount,
-        totalRecords: data.totalRecords,
-        databaseCount: data.databaseCount || data.actualCount
-      });
 
       if (data.actualCount > 0) {
         setSuccess(`✅ Успешно загружено ${data.actualCount.toLocaleString('ru-RU')} офферов`);
@@ -92,48 +43,6 @@ function OffersTL({ user }) {
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(''), 5000);
-    }
-  };
-
-  // Функция для получения цветов зон
-  const getZoneColors = (zoneName) => {
-    if (!zoneName) return null;
-    const name = zoneName.toLowerCase();
-    if (name.includes('sos')) return { bg: 'bg-black', text: 'text-yellow-400', border: 'border-black' };
-    if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' };
-    if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300' };
-    if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' };
-    if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' };
-    return null;
-  };
-
-  const ZoneBadge = ({ zone }) => {
-    const colors = getZoneColors(zone);
-    if (!colors) {
-      return <span className="text-gray-600 font-semibold text-xs">{zone}</span>;
-    }
-
-    return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${colors.bg} ${colors.text} ${colors.border}`}>
-        {zone}
-      </span>
-    );
-  };
-
-  const formatKyivTime = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString('ru-RU', {
-        timeZone: 'Europe/Kiev',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-    } catch (error) {
-      return new Date(dateString).toLocaleDateString('ru-RU');
     }
   };
 
@@ -174,16 +83,6 @@ function OffersTL({ user }) {
     }
   };
 
-  const getStats = () => {
-    const totalItems = filteredMetrics.length;
-    const withActualLead = filteredMetrics.filter(m => m.actual_lead !== null && m.actual_lead !== 'нет данных').length;
-    const avgROI = filteredMetrics.reduce((sum, m) => sum + (m.actual_roi_percent || 0), 0) / (totalItems || 1);
-
-    return { totalItems, withActualLead, avgROI };
-  };
-
-  const stats = getStats();
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -205,9 +104,6 @@ function OffersTL({ user }) {
             <h1 className="text-2xl font-semibold text-gray-900">
               Офферы
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Просмотр офферов в удобном формате карточек
-            </p>
           </div>
           <div className="flex items-center space-x-3">
             <button
@@ -234,85 +130,6 @@ function OffersTL({ user }) {
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
           <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {success}
-        </div>
-      )}
-
-      {/* Stats */}
-      {metrics.length > 0 && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <BarChart3 className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Всего офферов
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.totalItems.toLocaleString('ru-RU')}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        С данными по лидам
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.withActualLead.toLocaleString('ru-RU')}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <div className="ml-3 w-0 flex-1">
-                    <dl>
-                      <dt className="text-xs font-medium text-gray-500 truncate">
-                        Средний ROI
-                      </dt>
-                      <dd className="text-lg font-semibold text-gray-900">
-                        {stats.avgROI.toFixed(1)}%
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {lastUpdated && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
-                Последнее обновление: {formatKyivTime(lastUpdated)}
-              </div>
-              <div className="text-xs text-gray-500">
-                Отображено офферов: {filteredMetrics.length.toLocaleString('ru-RU')}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -354,7 +171,9 @@ function OffersTL({ user }) {
         {metrics.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <svg className="h-16 w-16 text-gray-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Нет данных офферов
               </h3>
@@ -366,156 +185,173 @@ function OffersTL({ user }) {
         ) : (
           <div className="px-6 py-4">
             {/* Header Row */}
-            <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-3">
-              <div className="grid grid-cols-18 gap-2 items-center text-xs font-semibold text-gray-700 text-center">
-                <div className="col-span-1">№</div>
-                <div className="col-span-1">Артикул</div>
-                <div className="col-span-2">Название</div>
-                <div className="col-span-1">Статус</div>
-                <div className="col-span-1">CPL 4дн</div>
-                <div className="col-span-1">Лиды 4дн</div>
-                <div className="col-span-1" title="Продажи на 1 заявку">
-                  <ShoppingCart className="h-4 w-4 mx-auto" />
+            <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 text-center">
+                <div className="w-12 flex-shrink-0">№</div>
+                <div className="w-24 flex-shrink-0">Артикул</div>
+                <div className="w-48 flex-shrink-0 text-left">Название</div>
+                <div className="w-20 flex-shrink-0">Статус</div>
+                <div className="w-20 flex-shrink-0">CPL 4дн</div>
+                <div className="w-20 flex-shrink-0">Лиды 4дн</div>
+                <div className="w-12 flex-shrink-0" title="Продажи на 1 заявку">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Рейтинг">
-                  <Star className="h-4 w-4 mx-auto" />
+                <div className="w-12 flex-shrink-0" title="Рейтинг">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <path d="M12 17.75l-6.172 3.245 1.179-6.873-4.993-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Реклама">
-                  <AdIcon className="h-4 w-4 mx-auto" />
+                <div className="w-12 flex-shrink-0" title="Реклама">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M7 15v-4a2 2 0 0 1 4 0v4" />
+                    <line x1="7" y1="13" x2="11" y2="13" />
+                    <path d="M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Рейтинг">
-                  <Star className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0" title="Зона эффективности">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <ellipse cx="12" cy="6" rx="8" ry="3"></ellipse>
+                    <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
+                    <path d="M4 12v6a8 3 0 0 0 16 0v-6" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Зоны эффективности">
-                  <Layers className="h-4 w-4 mx-auto" />
+                <div className="w-20 flex-shrink-0" title="Цена лида в зоне">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Зоны">
-                  <Target className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0" title="Дней продаж">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <rect x="4" y="5" width="16" height="16" rx="2" />
+                    <line x1="16" y1="3" x2="16" y2="7" />
+                    <line x1="8" y1="3" x2="8" y2="7" />
+                    <line x1="4" y1="11" x2="20" y2="11" />
+                    <line x1="10" y1="16" x2="14" y2="16" />
+                    <line x1="12" y1="14" x2="12" y2="18" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Дней продаж">
-                  <Calendar className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0" title="Остаток">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <path d="M3 21v-13l9-4l9 4v13" />
+                    <path d="M13 13h4v8h-10v-6h6" />
+                    <path d="M13 21v-9a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v3" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Остаток">
-                  <Boxes className="h-4 w-4 mx-auto" />
+                <div className="w-20 flex-shrink-0" title="Дней до прихода">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <circle cx="7" cy="17" r="2" />
+                    <circle cx="17" cy="17" r="2" />
+                    <path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="Дней до прихода">
-                  <Clock className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0" title="% отказа от продаж">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="5" x2="5" y2="19" />
+                    <circle cx="6.5" cy="6.5" r="2.5" />
+                    <circle cx="17.5" cy="17.5" r="2.5" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="% отказа от продаж">
-                  <Percent className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0" title="% невыкупа">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <path d="M9 5H7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2V7a2 2 0 0 0 -2 -2h-2" />
+                    <rect x="9" y="3" width="6" height="4" rx="2" />
+                    <path d="M10 12l4 4m0 -4l-4 4" />
+                  </svg>
                 </div>
-                <div className="col-span-1" title="% невыкупа">
-                  <TrendingDown className="h-4 w-4 mx-auto" />
-                </div>
-                <div className="col-span-1" title="Сезонность товара">
-                  <Snowflake className="h-4 w-4 mx-auto" />
-                </div>
-                <div className="col-span-1" title="Цена товара">
-                  <DollarSign className="h-4 w-4 mx-auto" />
+                <div className="w-16 flex-shrink-0">Сезон</div>
+                <div className="w-20 flex-shrink-0" title="Цена">
+                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
                 </div>
               </div>
             </div>
 
             {/* Cards */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               {filteredMetrics.map((metric, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-3"
+                  className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-2"
                 >
-                  <div className="grid grid-cols-18 gap-2 items-center text-sm text-center">
+                  <div className="flex items-center gap-2 text-sm text-center">
                     {/* № */}
-                    <div className="col-span-1 font-semibold text-gray-900">{metric.id}</div>
+                    <div className="w-12 flex-shrink-0 font-semibold text-gray-900">{metric.id}</div>
 
                     {/* Артикул */}
-                    <div className="col-span-1 font-mono text-xs text-gray-900">{metric.article || '—'}</div>
+                    <div className="w-24 flex-shrink-0 font-mono text-xs text-gray-900">{metric.article || '—'}</div>
 
                     {/* Название */}
-                    <div className="col-span-2 text-left">
+                    <div className="w-48 flex-shrink-0 text-left">
                       <span className="font-medium text-sm text-gray-900 truncate block" title={metric.offer}>
                         {metric.offer || '—'}
                       </span>
                     </div>
 
-                    {/* Статус (Зона) */}
-                    <div className="col-span-1">
-                      <ZoneBadge zone={metric.offer_zone} />
-                    </div>
+                    {/* Статус */}
+                    <div className="w-20 flex-shrink-0 text-xs text-gray-900">—</div>
 
                     {/* CPL 4 дн. */}
-                    <div className="col-span-1 font-mono text-xs font-semibold text-green-700">
-                      {metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}
-                    </div>
+                    <div className="w-20 flex-shrink-0 text-xs text-gray-900">—</div>
 
-                    {/* Лиды 4 дн. (можно взять k_lead или другое поле) */}
-                    <div className="col-span-1 font-mono text-xs text-gray-900">
-                      {metric.k_lead ? Number(metric.k_lead).toFixed(0) : '—'}
-                    </div>
+                    {/* Лиды 4 дн. */}
+                    <div className="w-20 flex-shrink-0 text-xs text-gray-900">—</div>
 
-                    {/* Продажи на 1 заявку (K лид) */}
-                    <div className="col-span-1 font-mono text-xs text-blue-700">
-                      {metric.k_lead ? Number(metric.k_lead).toFixed(2) : '—'}
-                    </div>
+                    {/* Продажи на 1 заявку */}
+                    <div className="w-12 flex-shrink-0 text-xs text-gray-900">—</div>
 
-                    {/* Рейтинг (ROI) */}
-                    <div className="col-span-1 font-mono text-xs text-yellow-700">
+                    {/* Рейтинг */}
+                    <div className="w-12 flex-shrink-0 text-xs text-gray-900">—</div>
+
+                    {/* Реклама */}
+                    <div className="w-12 flex-shrink-0 text-xs text-gray-900">—</div>
+
+                    {/* Зона эффективности (Факт ROI) */}
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}
                     </div>
 
-                    {/* Реклама (Ad) - можно показать что-то другое */}
-                    <div className="col-span-1 text-xs text-gray-600">
-                      —
+                    {/* Цена лида в зоне (Факт лид) */}
+                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900">
+                      {metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}
                     </div>
 
-                    {/* Рейтинг (дубликат или другая метрика) */}
-                    <div className="col-span-1 font-mono text-xs text-purple-700">
-                      {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(0)}` : '—'}
-                    </div>
-
-                    {/* Зоны эффективности */}
-                    <div className="col-span-1 text-xs">
-                      <ZoneBadge zone={metric.offer_zone} />
-                    </div>
-
-                    {/* Зоны (может быть копия или depth_selection) */}
-                    <div className="col-span-1 font-mono text-xs text-gray-700">
-                      {metric.depth_selection ? `${Number(metric.depth_selection).toFixed(0)}%` : '—'}
-                    </div>
-
-                    {/* Дней продаж (total_batches) */}
-                    <div className="col-span-1 font-mono text-xs text-gray-900">
-                      {metric.total_batches || '—'}
-                    </div>
+                    {/* Дней продаж */}
+                    <div className="w-16 flex-shrink-0 text-xs text-gray-900">—</div>
 
                     {/* Остаток */}
-                    <div className="col-span-1 text-xs text-orange-700">
-                      {metric.high_stock_high_mcpl || '—'}
-                    </div>
+                    <div className="w-16 flex-shrink-0 text-xs text-gray-900">—</div>
 
-                    {/* Дней до прихода */}
-                    <div className="col-span-1 font-mono text-xs text-purple-700">
+                    {/* Дней до прихода (Расчетный приход) */}
+                    <div className="w-20 flex-shrink-0 font-mono text-xs text-gray-900">
                       {formatDate(metric.next_calculated_arrival)}
                     </div>
 
                     {/* % отказа от продаж */}
-                    <div className="col-span-1 font-mono text-xs text-red-700">
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(1)}%` : '—'}
                     </div>
 
                     {/* % невыкупа */}
-                    <div className="col-span-1 font-mono text-xs text-gray-700">
+                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900">
                       {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(1)}%` : '—'}
                     </div>
 
-                    {/* Сезонность */}
-                    <div className="col-span-1 text-xs text-cyan-700">
-                      {metric.special_season_start && metric.special_season_end
-                        ? `${metric.special_season_start.substring(0, 3)}-${metric.special_season_end.substring(0, 3)}`
-                        : '—'}
-                    </div>
+                    {/* Сезон */}
+                    <div className="w-16 flex-shrink-0 text-xs text-gray-900">—</div>
 
-                    {/* Цена */}
-                    <div className="col-span-1 font-mono text-xs font-semibold text-green-800">
+                    {/* Цена (Цена оффера) */}
+                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900">
                       {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                     </div>
                   </div>
