@@ -354,7 +354,7 @@ function OffersTL({ user }) {
             {/* Horizontal Scroll Container */}
             <div className="overflow-x-auto">
               {/* Header Row */}
-              <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-2">
+              <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-2 sticky top-0 z-10">
                 <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 text-center min-w-max">
                 <div className="w-12 flex-shrink-0">№</div>
                 <div className="w-24 flex-shrink-0">Артикул</div>
