@@ -8,7 +8,6 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  TrendingDown,
   Target,
   Package,
   Clock,
@@ -18,7 +17,11 @@ import {
   Star,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Layers,
+  ShoppingCart,
+  TrendingDown,
+  Boxes
 } from 'lucide-react';
 
 // Кастомная иконка Ad
@@ -138,7 +141,7 @@ function OffersTL({ user }) {
     if (!dateString) return '—';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('ru-RU');
+      return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
     } catch (error) {
       return '—';
     }
@@ -346,8 +349,8 @@ function OffersTL({ user }) {
         </div>
       </div>
 
-      {/* Cards Grid */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* Cards with Header Row */}
+      <div className="flex-1 overflow-auto bg-gray-50">
         {metrics.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -361,142 +364,164 @@ function OffersTL({ user }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredMetrics.map((metric, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-4"
-              >
-                <div className="grid grid-cols-12 gap-3 items-center">
-                  {/* № */}
-                  <div className="col-span-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-500 mb-1">№</span>
-                    <span className="font-semibold text-gray-900">{metric.id}</span>
-                  </div>
+          <div className="px-6 py-4">
+            {/* Header Row */}
+            <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-3">
+              <div className="grid grid-cols-18 gap-2 items-center text-xs font-semibold text-gray-700 text-center">
+                <div className="col-span-1">№</div>
+                <div className="col-span-1">Артикул</div>
+                <div className="col-span-2">Название</div>
+                <div className="col-span-1">Статус</div>
+                <div className="col-span-1">CPL 4дн</div>
+                <div className="col-span-1">Лиды 4дн</div>
+                <div className="col-span-1" title="Продажи на 1 заявку">
+                  <ShoppingCart className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Рейтинг">
+                  <Star className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Реклама">
+                  <AdIcon className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Рейтинг">
+                  <Star className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Зоны эффективности">
+                  <Layers className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Зоны">
+                  <Target className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Дней продаж">
+                  <Calendar className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Остаток">
+                  <Boxes className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Дней до прихода">
+                  <Clock className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="% отказа от продаж">
+                  <Percent className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="% невыкупа">
+                  <TrendingDown className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Сезонность товара">
+                  <Snowflake className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="col-span-1" title="Цена товара">
+                  <DollarSign className="h-4 w-4 mx-auto" />
+                </div>
+              </div>
+            </div>
 
-                  {/* Артикул */}
-                  <div className="col-span-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-500 mb-1">Артикул</span>
-                    <span className="font-mono text-xs text-gray-900">{metric.article || '—'}</span>
-                  </div>
+            {/* Cards */}
+            <div className="space-y-2">
+              {filteredMetrics.map((metric, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-3"
+                >
+                  <div className="grid grid-cols-18 gap-2 items-center text-sm text-center">
+                    {/* № */}
+                    <div className="col-span-1 font-semibold text-gray-900">{metric.id}</div>
 
-                  {/* Название */}
-                  <div className="col-span-2 flex flex-col justify-center">
-                    <span className="text-xs text-gray-500 mb-1">Название</span>
-                    <span className="font-medium text-sm text-gray-900 truncate" title={metric.offer}>
-                      {metric.offer || '—'}
-                    </span>
-                  </div>
+                    {/* Артикул */}
+                    <div className="col-span-1 font-mono text-xs text-gray-900">{metric.article || '—'}</div>
 
-                  {/* Статус (Зона) */}
-                  <div className="col-span-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-500 mb-1">Статус</span>
-                    <ZoneBadge zone={metric.offer_zone} />
-                  </div>
-
-                  {/* CPL 4 дн. */}
-                  <div className="col-span-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-500 mb-1">CPL</span>
-                    <div className="flex items-center">
-                      <DollarSign className="h-3 w-3 text-green-600 mr-0.5" />
-                      <span className="font-mono text-xs font-semibold text-gray-900">
-                        {metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}
+                    {/* Название */}
+                    <div className="col-span-2 text-left">
+                      <span className="font-medium text-sm text-gray-900 truncate block" title={metric.offer}>
+                        {metric.offer || '—'}
                       </span>
                     </div>
-                  </div>
 
-                  {/* Продажи на 1 заявку (K лид) */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Продажи на 1 заявку">
-                    <span className="text-xs text-gray-500 mb-1">K лид</span>
-                    <div className="flex items-center">
-                      <Target className="h-3 w-3 text-blue-600 mr-0.5" />
-                      <span className="font-mono text-xs text-gray-900">
-                        {metric.k_lead ? Number(metric.k_lead).toFixed(2) : '—'}
-                      </span>
+                    {/* Статус (Зона) */}
+                    <div className="col-span-1">
+                      <ZoneBadge zone={metric.offer_zone} />
                     </div>
-                  </div>
 
-                  {/* Рейтинг (ROI) */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Рейтинг (ROI %)">
-                    <span className="text-xs text-gray-500 mb-1">ROI</span>
-                    <div className="flex items-center">
-                      <Star className="h-3 w-3 text-yellow-500 mr-0.5" />
-                      <span className="font-mono text-xs text-gray-900">
-                        {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}
-                      </span>
+                    {/* CPL 4 дн. */}
+                    <div className="col-span-1 font-mono text-xs font-semibold text-green-700">
+                      {metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}
                     </div>
-                  </div>
 
-                  {/* Остаток */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Большой остаток">
-                    <span className="text-xs text-gray-500 mb-1">Остаток</span>
-                    <div className="flex items-center">
-                      <Package className="h-3 w-3 text-orange-600 mr-0.5" />
-                      <span className="text-xs text-gray-900">
-                        {metric.high_stock_high_mcpl || '—'}
-                      </span>
+                    {/* Лиды 4 дн. (можно взять k_lead или другое поле) */}
+                    <div className="col-span-1 font-mono text-xs text-gray-900">
+                      {metric.k_lead ? Number(metric.k_lead).toFixed(0) : '—'}
                     </div>
-                  </div>
 
-                  {/* Дней до прихода */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Дней до прихода">
-                    <span className="text-xs text-gray-500 mb-1">Приход</span>
-                    <div className="flex items-center">
-                      <Clock className="h-3 w-3 text-purple-600 mr-0.5" />
-                      <span className="text-xs text-gray-900">
-                        {formatDate(metric.next_calculated_arrival)}
-                      </span>
+                    {/* Продажи на 1 заявку (K лид) */}
+                    <div className="col-span-1 font-mono text-xs text-blue-700">
+                      {metric.k_lead ? Number(metric.k_lead).toFixed(2) : '—'}
                     </div>
-                  </div>
 
-                  {/* % отказа от продаж */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="% отказа от продаж">
-                    <span className="text-xs text-gray-500 mb-1">Отказ</span>
-                    <div className="flex items-center">
-                      <Percent className="h-3 w-3 text-red-600 mr-0.5" />
-                      <span className="font-mono text-xs text-gray-900">
-                        {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(1)}%` : '—'}
-                      </span>
+                    {/* Рейтинг (ROI) */}
+                    <div className="col-span-1 font-mono text-xs text-yellow-700">
+                      {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}
                     </div>
-                  </div>
 
-                  {/* % невыкупа */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="% невыкупа">
-                    <span className="text-xs text-gray-500 mb-1">Невыкуп</span>
-                    <div className="flex items-center">
-                      <Percent className="h-3 w-3 text-gray-600 mr-0.5" />
-                      <span className="font-mono text-xs text-gray-900">
-                        {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(1)}%` : '—'}
-                      </span>
+                    {/* Реклама (Ad) - можно показать что-то другое */}
+                    <div className="col-span-1 text-xs text-gray-600">
+                      —
                     </div>
-                  </div>
 
-                  {/* Сезонность */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Сезонность товара">
-                    <span className="text-xs text-gray-500 mb-1">Сезон</span>
-                    <div className="flex items-center">
-                      <Snowflake className="h-3 w-3 text-cyan-600 mr-0.5" />
-                      <span className="text-xs text-gray-900">
-                        {metric.special_season_start && metric.special_season_end
-                          ? `${metric.special_season_start}-${metric.special_season_end}`
-                          : '—'}
-                      </span>
+                    {/* Рейтинг (дубликат или другая метрика) */}
+                    <div className="col-span-1 font-mono text-xs text-purple-700">
+                      {metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(0)}` : '—'}
                     </div>
-                  </div>
 
-                  {/* Цена */}
-                  <div className="col-span-1 flex flex-col items-center justify-center" title="Цена товара">
-                    <span className="text-xs text-gray-500 mb-1">Цена</span>
-                    <div className="flex items-center">
-                      <DollarSign className="h-3 w-3 text-green-700 mr-0.5" />
-                      <span className="font-mono text-xs font-semibold text-gray-900">
-                        {metric.offer_price ? `${Number(metric.offer_price).toFixed(2)}₴` : '—'}
-                      </span>
+                    {/* Зоны эффективности */}
+                    <div className="col-span-1 text-xs">
+                      <ZoneBadge zone={metric.offer_zone} />
+                    </div>
+
+                    {/* Зоны (может быть копия или depth_selection) */}
+                    <div className="col-span-1 font-mono text-xs text-gray-700">
+                      {metric.depth_selection ? `${Number(metric.depth_selection).toFixed(0)}%` : '—'}
+                    </div>
+
+                    {/* Дней продаж (total_batches) */}
+                    <div className="col-span-1 font-mono text-xs text-gray-900">
+                      {metric.total_batches || '—'}
+                    </div>
+
+                    {/* Остаток */}
+                    <div className="col-span-1 text-xs text-orange-700">
+                      {metric.high_stock_high_mcpl || '—'}
+                    </div>
+
+                    {/* Дней до прихода */}
+                    <div className="col-span-1 font-mono text-xs text-purple-700">
+                      {formatDate(metric.next_calculated_arrival)}
+                    </div>
+
+                    {/* % отказа от продаж */}
+                    <div className="col-span-1 font-mono text-xs text-red-700">
+                      {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(1)}%` : '—'}
+                    </div>
+
+                    {/* % невыкупа */}
+                    <div className="col-span-1 font-mono text-xs text-gray-700">
+                      {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(1)}%` : '—'}
+                    </div>
+
+                    {/* Сезонность */}
+                    <div className="col-span-1 text-xs text-cyan-700">
+                      {metric.special_season_start && metric.special_season_end
+                        ? `${metric.special_season_start.substring(0, 3)}-${metric.special_season_end.substring(0, 3)}`
+                        : '—'}
+                    </div>
+
+                    {/* Цена */}
+                    <div className="col-span-1 font-mono text-xs font-semibold text-green-800">
+                      {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
