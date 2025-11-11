@@ -697,7 +697,7 @@ function OffersTL({ user }) {
                           );
                         }
                         const textColor = daysUntil < 0 ? 'text-red-600' : 'text-green-600';
-                        const displayValue = daysUntil > 0 ? `+${daysUntil}` : `${daysUntil}`;
+                        const displayValue = `${daysUntil}`;
                         return (
                           <>
                             <span className={textColor}>{displayValue}</span>
