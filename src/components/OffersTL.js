@@ -350,11 +350,11 @@ function OffersTL({ user }) {
             </div>
           </div>
         ) : (
-          <div className="px-6 py-4">
-            {/* Horizontal Scroll Container */}
-            <div className="overflow-x-auto">
-              {/* Header Row */}
-              <div className="bg-gray-100 rounded-lg border border-gray-300 mb-2 p-2 sticky top-[60px] z-10">
+          <>
+            {/* Sticky Header Row */}
+            <div className="sticky top-0 z-10 bg-gray-50 px-6 pt-4 pb-2">
+              <div className="overflow-x-auto">
+                <div className="bg-gray-100 rounded-lg border border-gray-300 p-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 text-center min-w-max">
                 <div className="w-12 flex-shrink-0">№</div>
                 <div className="w-24 flex-shrink-0">Артикул</div>
@@ -444,10 +444,14 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 </div>
+                </div>
               </div>
+            </div>
 
-              {/* Cards */}
-              <div className="space-y-1">
+            {/* Cards */}
+            <div className="px-6 pb-4">
+              <div className="overflow-x-auto">
+                <div className="space-y-1">
               {filteredMetrics.map((metric, index) => (
                 <div
                   key={index}
@@ -776,9 +780,10 @@ function OffersTL({ user }) {
                   </div>
                 </div>
               ))}
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
