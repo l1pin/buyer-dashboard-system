@@ -102,6 +102,18 @@ function OffersTL({ user }) {
     }
   };
 
+  // Функция для получения цветов зон
+  const getZoneColors = (zoneName) => {
+    if (!zoneName) return null;
+    const name = zoneName.toLowerCase();
+    if (name.includes('sos')) return { bg: 'bg-black', text: 'text-yellow-400', border: 'border-black' };
+    if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+    if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+    if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+    if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+    return null;
+  };
+
 
   if (loading) {
     return (
@@ -309,14 +321,14 @@ function OffersTL({ user }) {
                 >
                   <div className="flex items-center gap-2 text-sm text-center min-w-max">
                     {/* № */}
-                    <div className="w-12 flex-shrink-0 font-semibold text-gray-900">{metric.id}</div>
+                    <div className="w-12 flex-shrink-0 text-gray-900">{metric.id}</div>
 
                     {/* Артикул */}
                     <div className="w-24 flex-shrink-0 font-mono text-xs text-gray-900">{metric.article || '—'}</div>
 
                     {/* Название */}
                     <div className="w-48 flex-shrink-0 text-left">
-                      <span className="font-medium text-sm text-gray-900 truncate block" title={metric.offer}>
+                      <span className="text-sm text-gray-900 truncate block" title={metric.offer}>
                         {metric.offer || '—'}
                       </span>
                     </div>
@@ -375,23 +387,77 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Зона эффективности (Факт ROI) */}
-                    <div className="w-16 flex-shrink-0 font-mono text-xs text-gray-900 flex items-center justify-center gap-1">
-                      <span>{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1">
+                      {(() => {
+                        const zoneColors = getZoneColors(metric.offer_zone);
+                        if (zoneColors && metric.actual_roi_percent) {
+                          return (
+                            <>
+                              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+                                {Number(metric.actual_roi_percent).toFixed(1)}%
+                              </span>
+                              <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <span className="font-mono text-xs text-gray-900">{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(1)}%` : '—'}</span>
+                            <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Цена лида в зоне (Факт лид) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900 flex items-center justify-center gap-1">
-                      <span>{metric.actual_lead === 'нет данных' ? '—' : (metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—')}</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
+                      {(() => {
+                        if (metric.actual_lead === 'нет данных') {
+                          return (
+                            <>
+                              <span className="text-gray-500 italic text-xs">нет данных</span>
+                              <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </>
+                          );
+                        }
+                        const zoneColors = getZoneColors(metric.offer_zone);
+                        if (zoneColors && metric.actual_lead) {
+                          return (
+                            <>
+                              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+                                ${Number(metric.actual_lead).toFixed(2)}
+                              </span>
+                              <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <span className="font-mono text-xs text-gray-900">{metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—'}</span>
+                            <svg className="text-gray-500 w-3 h-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Дней продаж */}
@@ -455,7 +521,7 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Цена (Цена оффера) */}
-                    <div className="w-20 flex-shrink-0 font-mono text-xs font-semibold text-gray-900 flex items-center justify-center gap-1">
+                    <div className="w-20 flex-shrink-0 font-mono text-xs text-gray-900 flex items-center justify-center gap-1">
                       <span>{metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}</span>
                       <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10" />
