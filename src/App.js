@@ -133,6 +133,7 @@ function App() {
         <Route path="/analytics/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Navigate to="/settings" replace />} />
