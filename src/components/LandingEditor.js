@@ -3778,7 +3778,11 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {(landing.buyer_id || landing.buyer) ? (
+                            {landing.buyer === 'Склад' ? (
+                              <div className="flex justify-center">
+                                <WarehouseBadge />
+                              </div>
+                            ) : (landing.buyer_id || landing.buyer) ? (
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                   {getBuyerAvatar(landing.buyer_id) ? (
@@ -3841,7 +3845,11 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {(landing.product_manager_id || landing.product_manager) ? (
+                            {landing.product_manager === 'Склад' ? (
+                              <div className="flex justify-center">
+                                <WarehouseBadge />
+                              </div>
+                            ) : (landing.product_manager_id || landing.product_manager) ? (
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                   {getProductManagerAvatar(landing.product_manager_id) ? (
