@@ -457,7 +457,7 @@ function LandingTeamLead({ user }) {
   } = useZoneData(landings, true);
 
   // Получение источников метрик для лендинга
-  const getLandingSources = (landingId) => {
+  const getLandingSources = React.useCallback((landingId) => {
     if (!landingId || !landingMetrics || landingMetrics.size === 0) {
       return [];
     }
@@ -483,7 +483,7 @@ function LandingTeamLead({ user }) {
     }
 
     return sources;
-  };
+  }, [landingMetrics]);
 
   // Фильтрация лендингов
   const filteredLandings = useMemo(() => {
@@ -715,7 +715,7 @@ function LandingTeamLead({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources, landingMetrics]);
+  }, [landings, selectedBuyer, selectedSearcher, searchMode, searchValue, typeFilters, verificationFilter, commentFilter, historyFilter, countryFilter, versionFilter, templateFilter, tagsFilter, statusFilter, designerFilter, buyerFilterTable, searcherFilterTable, productManagerFilter, giferFilter, contentManagerFilter, zoneFilter, sourceFilter, landingsWithIntegration, landingsWithHistory, trelloStatuses, hasZoneData, getLandingSources]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
