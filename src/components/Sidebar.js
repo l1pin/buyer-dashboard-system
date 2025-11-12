@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Table,
   Users,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Database,
   Shield,
   Video,
   BarChart3,
@@ -47,34 +45,10 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
 
   const menuItems = [
     {
-      id: 'table',
-      label: user?.role === 'teamlead' ? 'Управление таблицами' : 'Рабочая таблица',
-      icon: user?.role === 'teamlead' ? Database : Table,
+      id: 'offers-tl',
+      label: 'Офферы',
+      icon: Package,
       show: user?.role === 'teamlead'
-    },
-    {
-      id: 'users',
-      label: 'Пользователи',
-      icon: Users,
-      show: user?.role === 'teamlead'
-    },
-    {
-      id: 'creatives',
-      label: 'Креативы',
-      icon: Video,
-      show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
-    },
-    {
-      id: 'landings',
-      label: 'Лендинги',
-      icon: Globe,
-      show: user?.role === 'content_manager'
-    },
-    {
-      id: 'landing-editor',
-      label: 'Лендинги',
-      icon: Globe,
-      show: user?.role === 'proofreader' || user?.role === 'editor'
     },
     {
       id: 'landing-teamlead',
@@ -101,10 +75,28 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: user?.role === 'teamlead'
     },
     {
-      id: 'offers-tl',
-      label: 'Офферы',
-      icon: Package,
+      id: 'users',
+      label: 'Пользователи',
+      icon: Users,
       show: user?.role === 'teamlead'
+    },
+    {
+      id: 'creatives',
+      label: 'Креативы',
+      icon: Video,
+      show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
+    },
+    {
+      id: 'landings',
+      label: 'Лендинги',
+      icon: Globe,
+      show: user?.role === 'content_manager'
+    },
+    {
+      id: 'landing-editor',
+      label: 'Лендинги',
+      icon: Globe,
+      show: user?.role === 'proofreader' || user?.role === 'editor'
     },
     {
       id: 'settings',
