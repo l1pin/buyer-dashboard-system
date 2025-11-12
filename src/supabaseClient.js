@@ -3119,40 +3119,37 @@ export const metricsAnalyticsService = {
 
   async getAllMetricsLarge() {
     try {
-      console.log('📡 Запрос всех метрик (режим больших таблиц)...');
+      console.log('📡 Запрос всех метрик (оптимизированный режим)...');
 
-      let allMetrics = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Делаем параллельные запросы для ускорения
+      const [metricsResult, metaResult] = await Promise.all([
+        supabase
+          .from('metrics_analytics')
+          .select('*')
+          .order('id', { ascending: true })
+          .limit(50000), // Один большой запрос вместо множества маленьких
+        supabase
+          .from('metrics_analytics_meta')
+          .select('*')
+          .eq('id', 1)
+          .single()
+      ]);
 
-      while (hasMore) {
-        const result = await this.getMetricsWithPagination(page, pageSize);
-        allMetrics = [...allMetrics, ...result.metrics];
-        hasMore = result.hasMore;
-        page++;
-
-        console.log(`📄 Загружена страница ${page}, всего записей: ${allMetrics.length}`);
-
-        if (page > 50) {
-          console.warn('⚠️ Достигнут лимит страниц (50), прерываем загрузку');
-          break;
-        }
+      if (metricsResult.error) {
+        throw metricsResult.error;
       }
 
-      const { data: meta, error: metaError } = await supabase
-        .from('metrics_analytics_meta')
-        .select('*')
-        .eq('id', 1)
-        .single();
+      const metrics = metricsResult.data || [];
+      const meta = metaResult.data;
+      const actualCount = metrics.length;
 
-      console.log(`✅ Загружены все метрики: ${allMetrics.length} записей`);
+      console.log(`✅ Загружены все метрики одним запросом: ${actualCount} записей`);
 
       return {
-        metrics: allMetrics,
+        metrics: metrics,
         lastUpdated: meta?.last_updated,
-        totalRecords: meta?.total_records || allMetrics.length,
-        actualCount: allMetrics.length
+        totalRecords: meta?.total_records || actualCount,
+        actualCount: actualCount
       };
 
     } catch (error) {
