@@ -1148,15 +1148,10 @@ function CreativePanel({ user }) {
       const data = await creativeService.getUserCreatives(user.id);
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов`);
-      
-      // Проверяем наличие истории для каждого креатива
-      const creativesWithHistorySet = new Set();
-      for (const creative of data) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
-        if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
-        }
-      }
+
+      // Батчевая проверка истории для всех креативов одним запросом
+      const creativeIds = data.map(c => c.id);
+      const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
       
       // Возвращаем загруженные креативы для дальнейшего использования
