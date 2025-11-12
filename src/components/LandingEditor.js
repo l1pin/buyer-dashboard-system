@@ -1579,9 +1579,9 @@ function LandingEditor({ user }) {
       setUuidSuggestions([]);
       setSelectedSource('warehouse');
       setSourceBuyerId(null);
-      setSourceContentId(null);
+      setSourceProductId(null);
       setShowSourceBuyerDropdown(false);
-      setShowSourceContentDropdown(false);
+      setShowSourceProductDropdown(false);
       setShowCreateModal(false);
       setIsEditMode(false); // Сбрасываем режим
 
@@ -1864,12 +1864,12 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.uuid-suggestions') && !event.target.closest('.uuid-input')) {
         setShowUuidSuggestions(false);
       }
-      // Source Buyer и Source Content dropdowns
+      // Source Buyer и Source Product dropdowns
       if (!event.target.closest('.source-buyer-dropdown') && !event.target.closest('.source-buyer-trigger')) {
         setShowSourceBuyerDropdown(false);
       }
-      if (!event.target.closest('.source-content-dropdown') && !event.target.closest('.source-content-trigger')) {
-        setShowSourceContentDropdown(false);
+      if (!event.target.closest('.source-product-dropdown') && !event.target.closest('.source-product-trigger')) {
+        setShowSourceProductDropdown(false);
       }
 
       const periodMenuContainer = event.target.closest('.period-menu-container');
@@ -3391,18 +3391,18 @@ data-rt-sub16="${selectedLandingUuid}"
                                     });
                                     
                                     // Определяем источник на основе существующих полей
-                                    if (landing.content_manager_id) {
-                                      setSelectedSource('content');
-                                      setSourceContentId(landing.content_manager_id);
+                                    if (landing.product_manager_id) {
+                                      setSelectedSource('product');
+                                      setSourceProductId(landing.product_manager_id);
                                       setSourceBuyerId(null);
                                     } else if (landing.buyer_id) {
                                       setSelectedSource('buyer');
                                       setSourceBuyerId(landing.buyer_id);
-                                      setSourceContentId(null);
+                                      setSourceProductId(null);
                                     } else {
                                       setSelectedSource('warehouse');
                                       setSourceBuyerId(null);
-                                      setSourceContentId(null);
+                                      setSourceProductId(null);
                                     }
                                   }}
                                   disabled={!canEdit}
@@ -3954,9 +3954,9 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowGiferDropdown(false);
                   setSelectedSource('warehouse');
                   setSourceBuyerId(null);
-                  setSourceContentId(null);
+                  setSourceProductId(null);
                   setShowSourceBuyerDropdown(false);
-                  setShowSourceContentDropdown(false);
+                  setShowSourceProductDropdown(false);
                   clearMessages();
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -4840,9 +4840,9 @@ data-rt-sub16="${selectedLandingUuid}"
                   setShowGiferDropdown(false);
                   setSelectedSource('warehouse');
                   setSourceBuyerId(null);
-                  setSourceContentId(null);
+                  setSourceProductId(null);
                   setShowSourceBuyerDropdown(false);
-                  setShowSourceContentDropdown(false);
+                  setShowSourceProductDropdown(false);
                   clearMessages();
                 }}
                 disabled={creating}
