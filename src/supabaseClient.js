@@ -1491,6 +1491,36 @@ export const landingHistoryService = {
       console.error('Ошибка проверки наличия истории:', error);
       return false;
     }
+  },
+
+  // Батчевая проверка истории для нескольких лендингов одним запросом
+  async checkHistoryBatch(landingIds) {
+    try {
+      if (!landingIds || landingIds.length === 0) {
+        return new Set();
+      }
+
+      console.log(`🔍 Батчевая проверка истории для ${landingIds.length} лендингов...`);
+
+      const { data, error } = await supabase
+        .from('landing_history')
+        .select('landing_id')
+        .in('landing_id', landingIds);
+
+      if (error) {
+        console.error('❌ Ошибка батчевой проверки истории:', error);
+        return new Set();
+      }
+
+      // Создаём Set с уникальными landing_id, у которых есть история
+      const landingsWithHistory = new Set(data.map(item => item.landing_id));
+      console.log(`✅ Найдено ${landingsWithHistory.size} лендингов с историей`);
+
+      return landingsWithHistory;
+    } catch (error) {
+      console.error('💥 Критическая ошибка батчевой проверки истории:', error);
+      return new Set();
+    }
   }
 };
 
