@@ -1422,23 +1422,29 @@ function LandingEditor({ user }) {
       const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
       const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
-      // Определяем buyer_id, buyer, product_manager_id и product_manager в зависимости от источника
+      // Определяем buyer_id, buyer, product_manager_id, product_manager и content_manager в зависимости от источника
+      // Content всегда берется из материнского лендинга (создатель)
       let finalBuyerId = null;
       let finalBuyerName = null;
       let finalProductManagerId = null;
       let finalProductManagerName = null;
+      const finalContentManagerId = existingLanding.content_manager_id || null;
+      const finalContentManagerName = existingLanding.content_manager_name || null;
 
       if (selectedSource === 'warehouse') {
+        // Склад: Buyer = "Склад", Product = "Склад"
         finalBuyerId = null;
-        finalBuyerName = null;
+        finalBuyerName = 'Склад';
         finalProductManagerId = null;
-        finalProductManagerName = null;
+        finalProductManagerName = 'Склад';
       } else if (selectedSource === 'buyer') {
+        // Buyer: Buyer = выбранный байер, Product = null
         finalBuyerId = sourceBuyerId;
         finalBuyerName = getBuyerName(sourceBuyerId);
         finalProductManagerId = null;
         finalProductManagerName = null;
       } else if (selectedSource === 'product') {
+        // Product: Buyer = null, Product = выбранный продакт
         finalBuyerId = null;
         finalBuyerName = null;
         finalProductManagerId = sourceProductId;
@@ -1491,11 +1497,13 @@ function LandingEditor({ user }) {
           gifer_id: finalGiferId,
           buyer_id: finalBuyerId,
           product_manager_id: finalProductManagerId,
+          content_manager_id: finalContentManagerId,
           designer: designerName !== '—' ? designerName : null,
           searcher: searcherName !== '—' ? searcherName : null,
           gifer: giferName !== '—' ? giferName : null,
           buyer: finalBuyerName,
-          product_manager: finalProductManagerName
+          product_manager: finalProductManagerName,
+          content_manager_name: finalContentManagerName
         });
 
         console.log('✅ Лендинг успешно обновлен');
@@ -1524,8 +1532,8 @@ function LandingEditor({ user }) {
         // Создаем новую запись лендинга на основе существующего
         const newLandingData = await landingService.createLanding({
           user_id: user.id,
-          content_manager_id: null,
-          content_manager_name: null,
+          content_manager_id: finalContentManagerId,
+          content_manager_name: finalContentManagerName,
           article: existingLanding.article,
           template: newLanding.template || existingLanding.template,
           tags: newLanding.tags,
