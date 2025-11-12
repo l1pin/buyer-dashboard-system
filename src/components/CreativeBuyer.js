@@ -1147,15 +1147,22 @@ const loadCreatives = async () => {
       const data = await creativeService.getCreativesByBuyerId(user.id);
       setCreatives(data);
       console.log(`✅ Загружено ${data.length} креативов для байера`);
-      
-      // Проверяем наличие истории для каждого креатива
+
+      // ОПТИМИЗАЦИЯ: Проверяем наличие истории параллельно вместо последовательно
       const creativesWithHistorySet = new Set();
-      for (const creative of data) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+      const historyChecks = await Promise.all(
+        data.map(async (creative) => {
+          const hasHistory = await creativeHistoryService.hasHistory(creative.id);
+          return { id: creative.id, hasHistory };
+        })
+      );
+
+      historyChecks.forEach(({ id, hasHistory }) => {
         if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
+          creativesWithHistorySet.add(id);
         }
-      }
+      });
+
       setCreativesWithHistory(creativesWithHistorySet);
     } catch (error) {
       console.error('❌ Ошибка загрузки креативов:', error);
@@ -1169,15 +1176,15 @@ const loadCreatives = async () => {
     try {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
-      
-      const [editorsData, buyersData, searchersData] = await Promise.all([
-        userService.getAllUsers(),
-        userService.getUsersByRole('buyer'),
-        userService.getUsersByRole('search_manager')
-      ]);
-      
-      // Фильтруем только монтажеров
-      const filteredEditors = editorsData.filter(u => u.role === 'editor');
+
+      // ОПТИМИЗАЦИЯ: Один запрос вместо трёх
+      const allUsers = await userService.getAllUsers();
+
+      // Фильтруем локально по ролям
+      const filteredEditors = allUsers.filter(u => u.role === 'editor');
+      const buyersData = allUsers.filter(u => u.role === 'buyer');
+      const searchersData = allUsers.filter(u => u.role === 'search_manager');
+
       setEditors(filteredEditors);
       setBuyers(buyersData);
       setSearchers(searchersData);
