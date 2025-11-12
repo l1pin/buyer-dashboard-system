@@ -1853,6 +1853,36 @@ export const creativeHistoryService = {
       console.error('Ошибка проверки наличия истории:', error);
       return false;
     }
+  },
+
+  // Батчевая проверка истории для нескольких креативов одним запросом
+  async checkHistoryBatch(creativeIds) {
+    try {
+      if (!creativeIds || creativeIds.length === 0) {
+        return new Set();
+      }
+
+      console.log(`🔍 Батчевая проверка истории для ${creativeIds.length} креативов...`);
+
+      const { data, error } = await supabase
+        .from('creative_history')
+        .select('creative_id')
+        .in('creative_id', creativeIds);
+
+      if (error) {
+        console.error('❌ Ошибка батчевой проверки истории:', error);
+        return new Set();
+      }
+
+      // Создаём Set с уникальными creative_id, у которых есть история
+      const creativesWithHistory = new Set(data.map(item => item.creative_id));
+      console.log(`✅ Найдено ${creativesWithHistory.size} креативов с историей`);
+
+      return creativesWithHistory;
+    } catch (error) {
+      console.error('💥 Критическая ошибка батчевой проверки истории:', error);
+      return new Set();
+    }
   }
 };
 
