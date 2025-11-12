@@ -145,11 +145,11 @@ function LandingEditor({ user }) {
   const [uuidSuggestions, setUuidSuggestions] = useState([]);
   const [showUuidSuggestions, setShowUuidSuggestions] = useState(false);
   const [selectedLandingForEdit, setSelectedLandingForEdit] = useState(null);
-  const [selectedSource, setSelectedSource] = useState('warehouse'); // 'warehouse', 'buyer', 'content'
+  const [selectedSource, setSelectedSource] = useState('warehouse'); // 'warehouse', 'buyer', 'product'
   const [showSourceBuyerDropdown, setShowSourceBuyerDropdown] = useState(false);
-  const [showSourceContentDropdown, setShowSourceContentDropdown] = useState(false);
+  const [showSourceProductDropdown, setShowSourceProductDropdown] = useState(false);
   const [sourceBuyerId, setSourceBuyerId] = useState(null);
-  const [sourceContentId, setSourceContentId] = useState(null);
+  const [sourceProductId, setSourceProductId] = useState(null);
   
   // Компоненты флагов
   const UkraineFlag = () => (
@@ -1374,9 +1374,9 @@ function LandingEditor({ user }) {
       errorMessages.push('Необходимо выбрать Media Buyer для источника');
     }
 
-    if (selectedSource === 'content' && !sourceContentId) {
-      errors.source_content = true;
-      errorMessages.push('Необходимо выбрать Content Manager для источника');
+    if (selectedSource === 'product' && !sourceProductId) {
+      errors.source_product = true;
+      errorMessages.push('Необходимо выбрать Product Manager для источника');
     }
 
     if (!newLanding.comment || !newLanding.comment.trim()) {
@@ -1422,27 +1422,27 @@ function LandingEditor({ user }) {
       const searcherName = finalSearcherId ? getSearcherName(finalSearcherId) : null;
       const giferName = finalGiferId ? getGiferName(finalGiferId) : null;
 
-      // Определяем buyer_id, buyer, content_manager_id и content_manager_name в зависимости от источника
+      // Определяем buyer_id, buyer, product_manager_id и product_manager в зависимости от источника
       let finalBuyerId = null;
       let finalBuyerName = null;
-      let finalContentManagerId = null;
-      let finalContentManagerName = null;
+      let finalProductManagerId = null;
+      let finalProductManagerName = null;
 
       if (selectedSource === 'warehouse') {
         finalBuyerId = null;
         finalBuyerName = null;
-        finalContentManagerId = null;
-        finalContentManagerName = null;
+        finalProductManagerId = null;
+        finalProductManagerName = null;
       } else if (selectedSource === 'buyer') {
         finalBuyerId = sourceBuyerId;
         finalBuyerName = getBuyerName(sourceBuyerId);
-        finalContentManagerId = null;
-        finalContentManagerName = null;
-      } else if (selectedSource === 'content') {
+        finalProductManagerId = null;
+        finalProductManagerName = null;
+      } else if (selectedSource === 'product') {
         finalBuyerId = null;
         finalBuyerName = null;
-        finalContentManagerId = sourceContentId;
-        finalContentManagerName = getContentManagerName(sourceContentId);
+        finalProductManagerId = sourceProductId;
+        finalProductManagerName = getProductManagerName(sourceProductId);
       }
 
       // РЕЖИМ РЕДАКТИРОВАНИЯ (обновление существующего лендинга)
@@ -1490,12 +1490,12 @@ function LandingEditor({ user }) {
           searcher_id: finalSearcherId,
           gifer_id: finalGiferId,
           buyer_id: finalBuyerId,
-          content_manager_id: finalContentManagerId,
+          product_manager_id: finalProductManagerId,
           designer: designerName !== '—' ? designerName : null,
           searcher: searcherName !== '—' ? searcherName : null,
           gifer: giferName !== '—' ? giferName : null,
           buyer: finalBuyerName,
-          content_manager_name: finalContentManagerName
+          product_manager: finalProductManagerName
         });
 
         console.log('✅ Лендинг успешно обновлен');
@@ -1524,8 +1524,8 @@ function LandingEditor({ user }) {
         // Создаем новую запись лендинга на основе существующего
         const newLandingData = await landingService.createLanding({
           user_id: user.id,
-          content_manager_id: finalContentManagerId,
-          content_manager_name: finalContentManagerName,
+          content_manager_id: null,
+          content_manager_name: null,
           article: existingLanding.article,
           template: newLanding.template || existingLanding.template,
           tags: newLanding.tags,
@@ -1543,8 +1543,8 @@ function LandingEditor({ user }) {
           is_test: false,
           editor_id: user.id,
           editor: user.name,
-          product_manager_id: existingLanding.product_manager_id,
-          product_manager: existingLanding.product_manager,
+          product_manager_id: finalProductManagerId,
+          product_manager: finalProductManagerName,
           website: website,
           is_edited: true
         });
@@ -1884,7 +1884,7 @@ data-rt-sub16="${selectedLandingUuid}"
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown, showSourceBuyerDropdown, showSourceContentDropdown]);
+  }, [showPeriodMenu, customDateFrom, customDateTo, showTemplateDropdown, showTagsDropdown, showDesignerDropdown, showFilterBuyerDropdown, showFilterSearcherDropdown, showBuyerDropdown, showSearcherDropdown, showProductDropdown, showGiferDropdown, showSourceBuyerDropdown, showSourceProductDropdown]);
 
   const handlePeriodChange = (period) => {
     console.log(`🔄 МГНОВЕННАЯ смена периода отображения метрик: ${metricsDisplayPeriod} -> ${period}`);
@@ -4410,12 +4410,12 @@ data-rt-sub16="${selectedLandingUuid}"
                       onClick={() => {
                         setSelectedSource('warehouse');
                         setSourceBuyerId(null);
-                        setSourceContentId(null);
+                        setSourceProductId(null);
                         setShowSourceBuyerDropdown(false);
-                        setShowSourceContentDropdown(false);
+                        setShowSourceProductDropdown(false);
                         clearFieldError('source');
                         clearFieldError('source_buyer');
-                        clearFieldError('source_content');
+                        clearFieldError('source_product');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                         selectedSource === 'warehouse'
@@ -4429,10 +4429,10 @@ data-rt-sub16="${selectedLandingUuid}"
                       type="button"
                       onClick={() => {
                         setSelectedSource('buyer');
-                        setSourceContentId(null);
-                        setShowSourceContentDropdown(false);
+                        setSourceProductId(null);
+                        setShowSourceProductDropdown(false);
                         clearFieldError('source');
-                        clearFieldError('source_content');
+                        clearFieldError('source_product');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                         selectedSource === 'buyer'
@@ -4445,19 +4445,20 @@ data-rt-sub16="${selectedLandingUuid}"
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedSource('content');
+                        setSelectedSource('product');
                         setSourceBuyerId(null);
                         setShowSourceBuyerDropdown(false);
                         clearFieldError('source');
                         clearFieldError('source_buyer');
+                        clearFieldError('source_product');
                       }}
                       className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                        selectedSource === 'content'
+                        selectedSource === 'product'
                           ? 'bg-white text-blue-700 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      Content
+                      Product
                     </button>
                   </div>
                 </div>
@@ -4566,35 +4567,35 @@ data-rt-sub16="${selectedLandingUuid}"
                 </div>
               )}
 
-              {/* Дропдаун Content если выбран источник Content */}
-              {selectedSource === 'content' && (
+              {/* Дропдаун Product если выбран источник Product */}
+              {selectedSource === 'product' && (
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_content ? 'text-red-600' : 'text-gray-700'}`}>
-                    Выберите Content Manager *
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.source_product ? 'text-red-600' : 'text-gray-700'}`}>
+                    Выберите Product Manager *
                   </label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => {
                         if (!loadingUsers) {
-                          setShowSourceContentDropdown(!showSourceContentDropdown);
+                          setShowSourceProductDropdown(!showSourceProductDropdown);
                         }
                       }}
                       disabled={loadingUsers}
-                      className={`source-content-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
-                        fieldErrors.source_content
+                      className={`source-product-trigger w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent bg-white text-left flex items-center justify-between disabled:opacity-50 ${
+                        fieldErrors.source_product
                           ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                           : 'border-gray-300 focus:ring-blue-500'
                       }`}
                     >
                       <div className="flex items-center space-x-2 flex-1">
-                        {sourceContentId ? (
+                        {sourceProductId ? (
                           <>
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {getContentManagerAvatar(sourceContentId) ? (
+                              {getProductManagerAvatar(sourceProductId) ? (
                                 <img
-                                  src={getContentManagerAvatar(sourceContentId)}
-                                  alt="Content Manager"
+                                  src={getProductManagerAvatar(sourceProductId)}
+                                  alt="Product Manager"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.target.style.display = 'none';
@@ -4602,24 +4603,24 @@ data-rt-sub16="${selectedLandingUuid}"
                                   }}
                                 />
                               ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${getContentManagerAvatar(sourceContentId) ? 'hidden' : ''}`}>
+                              <div className={`w-full h-full flex items-center justify-center ${getProductManagerAvatar(sourceProductId) ? 'hidden' : ''}`}>
                                 <User className="h-3 w-3 text-gray-400" />
                               </div>
                             </div>
-                            <span className="text-gray-900 truncate">{getContentManagerName(sourceContentId)}</span>
+                            <span className="text-gray-900 truncate">{getProductManagerName(sourceProductId)}</span>
                           </>
                         ) : (
-                          <span className="text-gray-500">Выберите контент менеджера</span>
+                          <span className="text-gray-500">Выберите продакт менеджера</span>
                         )}
                       </div>
                       <div className="flex items-center space-x-1">
-                        {sourceContentId && (
+                        {sourceProductId && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSourceContentId(null);
-                              clearFieldError('source_content');
+                              setSourceProductId(null);
+                              clearFieldError('source_product');
                             }}
                             className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
                             title="Очистить выбор"
@@ -4631,24 +4632,24 @@ data-rt-sub16="${selectedLandingUuid}"
                       </div>
                     </button>
 
-                    {showSourceContentDropdown && !loadingUsers && (
-                      <div className="source-content-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {contentManagers.map((cm) => (
+                    {showSourceProductDropdown && !loadingUsers && (
+                      <div className="source-product-dropdown absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {productManagers.map((pm) => (
                           <button
-                            key={cm.id}
+                            key={pm.id}
                             type="button"
                             onClick={() => {
-                              setSourceContentId(cm.id);
-                              setShowSourceContentDropdown(false);
-                              clearFieldError('source_content');
+                              setSourceProductId(pm.id);
+                              setShowSourceProductDropdown(false);
+                              clearFieldError('source_product');
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 border-b border-gray-100 last:border-b-0"
                           >
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                              {cm.avatar_url ? (
+                              {pm.avatar_url ? (
                                 <img
-                                  src={cm.avatar_url}
-                                  alt="Content Manager"
+                                  src={pm.avatar_url}
+                                  alt="Product Manager"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.target.style.display = 'none';
@@ -4656,11 +4657,11 @@ data-rt-sub16="${selectedLandingUuid}"
                                   }}
                                 />
                               ) : null}
-                              <div className={`w-full h-full flex items-center justify-center ${cm.avatar_url ? 'hidden' : ''}`}>
+                              <div className={`w-full h-full flex items-center justify-center ${pm.avatar_url ? 'hidden' : ''}`}>
                                 <User className="h-3 w-3 text-gray-400" />
                               </div>
                             </div>
-                            <span className="text-gray-900 truncate">{cm.name}</span>
+                            <span className="text-gray-900 truncate">{pm.name}</span>
                           </button>
                         ))}
                       </div>
