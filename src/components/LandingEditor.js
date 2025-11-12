@@ -1432,11 +1432,11 @@ function LandingEditor({ user }) {
       const finalContentManagerName = existingLanding.content_manager_name || null;
 
       if (selectedSource === 'warehouse') {
-        // Склад: Buyer = "Склад", Product = "Склад"
+        // Склад: Buyer = null, Product = null (отображается в желтой плашке)
         finalBuyerId = null;
-        finalBuyerName = 'Склад';
+        finalBuyerName = null;
         finalProductManagerId = null;
-        finalProductManagerName = 'Склад';
+        finalProductManagerName = null;
       } else if (selectedSource === 'buyer') {
         // Buyer: Buyer = выбранный байер, Product = null
         finalBuyerId = sourceBuyerId;
