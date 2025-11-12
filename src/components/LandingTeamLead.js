@@ -2752,11 +2752,11 @@ data-rt-sub16="${selectedLandingUuid}"
                         Артикул
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Версия
                       </th>
 
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Шаблон
                       </th>
 
@@ -2931,17 +2931,17 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="text-center cursor-text select-text">
-                              {landing.website || <span className="text-gray-400">—</span>}
+                            <div className="cursor-text select-text">
+                              {landing.website || <div className="text-center"><span className="text-gray-400">—</span></div>}
                             </div>
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="text-center cursor-text select-text">
+                            <div className="cursor-text select-text">
                               {landing.template ? (
                                 <span className="font-medium text-gray-900">{landing.template}</span>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <div className="text-center"><span className="text-gray-400">—</span></div>
                               )}
                             </div>
                           </td>
@@ -3000,7 +3000,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 )}
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3018,7 +3018,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 {aggregatedMetrics.data.formatted.leads}
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3032,7 +3032,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 {aggregatedMetrics.data.formatted.cpl}
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3051,7 +3051,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3070,7 +3070,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3095,7 +3095,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3109,7 +3109,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 {aggregatedMetrics.data.formatted.days}
                               </span>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3132,7 +3132,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3150,31 +3150,29 @@ data-rt-sub16="${selectedLandingUuid}"
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex items-center justify-center space-x-2">
-                              {landing.designer_id ? (
-                                <>
-                                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                    {getDesignerAvatar(landing.designer_id) ? (
-                                      <img
-                                        src={getDesignerAvatar(landing.designer_id)}
-                                        alt="Designer"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          e.target.style.display = 'none';
-                                          e.target.nextSibling.style.display = 'flex';
-                                        }}
-                                      />
-                                    ) : null}
-                                    <div className={`w-full h-full flex items-center justify-center ${getDesignerAvatar(landing.designer_id) ? 'hidden' : ''}`}>
-                                      <Palette className="h-3 w-3 text-gray-400" />
-                                    </div>
+                            {landing.designer_id ? (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  {getDesignerAvatar(landing.designer_id) ? (
+                                    <img
+                                      src={getDesignerAvatar(landing.designer_id)}
+                                      alt="Designer"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full flex items-center justify-center ${getDesignerAvatar(landing.designer_id) ? 'hidden' : ''}`}>
+                                    <Palette className="h-3 w-3 text-gray-400" />
                                   </div>
-                                  <span className="text-sm text-gray-900">{getDesignerName(landing.designer_id)}</span>
-                                </>
-                              ) : (
-                                <span className="text-gray-400 text-sm">—</span>
-                              )}
-                            </div>
+                                </div>
+                                <span className="text-sm text-gray-900">{getDesignerName(landing.designer_id)}</span>
+                              </div>
+                            ) : (
+                              <div className="text-center"><span className="text-gray-400 text-sm">—</span></div>
+                            )}
                           </td>
 
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -3211,7 +3209,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <WarehouseBadge />
                                 </div>
                               ) : (
-                                <span className="text-gray-400 cursor-text select-text">—</span>
+                                <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                               )
                             )}
                           </td>
@@ -3240,7 +3238,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3272,7 +3270,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3300,7 +3298,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-gray-400 cursor-text select-text">—</span>
+                              <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                             )}
                           </td>
 
@@ -3321,7 +3319,7 @@ data-rt-sub16="${selectedLandingUuid}"
                                   <WarehouseBadge />
                                 </div>
                               ) : (
-                                <span className="text-gray-400 cursor-text select-text">—</span>
+                                <div className="text-center"><span className="text-gray-400 cursor-text select-text">—</span></div>
                               )
                             )}
                           </td>
