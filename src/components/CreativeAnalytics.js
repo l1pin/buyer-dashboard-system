@@ -1230,16 +1230,12 @@ function CreativeAnalytics({ user }) {
 
       const safeCreatives = creativesData || [];
       const safeEditors = editorsData || [];
-      
+
       const editors = safeEditors.filter(u => u.role === 'editor');
-      
-      const creativesWithHistorySet = new Set();
-      for (const creative of safeCreatives) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
-        if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
-        }
-      }
+
+      // Батчевая проверка истории для всех креативов одним запросом
+      const creativeIds = safeCreatives.map(c => c.id);
+      const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
 
       const now = new Date();
