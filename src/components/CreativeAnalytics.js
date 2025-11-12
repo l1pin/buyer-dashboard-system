@@ -40,11 +40,7 @@ import {
 
 function CreativeAnalytics({ user }) {
   console.log('✅ CreativeAnalytics компонент загружен с полным функционалом');
-  
-  // Время жизни кеша в миллисекундах (5 минут)
-  const CACHE_LIFETIME = 5 * 60 * 1000;
-  const CACHE_KEY = 'creatives_analytics_cache';
-  
+
   const [analytics, setAnalytics] = useState({
     creatives: [],
     editors: [],
@@ -947,10 +943,7 @@ function CreativeAnalytics({ user }) {
         updated.delete(creative.id);
         return updated;
       });
-      
-      // Очищаем кеш аналитики
-      clearAnalyticsCache();
-      
+
       console.log('✅ UI обновлен моментально');
       
     } catch (error) {
@@ -972,53 +965,6 @@ function CreativeAnalytics({ user }) {
     setExpandedWorkTypes(newExpanded);
   };
 
-  const saveAnalyticsToCache = (data) => {
-    try {
-      const cacheData = {
-        data: data,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-      console.log('💾 Данные аналитики сохранены в кеш');
-    } catch (error) {
-      console.error('❌ Ошибка сохранения в кеш:', error);
-    }
-  };
-
-  const loadAnalyticsFromCache = () => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (!cached) {
-        console.log('📭 Кеш аналитики пуст');
-        return null;
-      }
-
-      const cacheData = JSON.parse(cached);
-      const age = Date.now() - cacheData.timestamp;
-      
-      if (age > CACHE_LIFETIME) {
-        console.log('⏰ Кеш аналитики устарел (возраст:', Math.round(age / 1000), 'сек)');
-        localStorage.removeItem(CACHE_KEY);
-        return null;
-      }
-
-      console.log('✅ Аналитика загружена из кеша (возраст:', Math.round(age / 1000), 'сек)');
-      return cacheData.data;
-    } catch (error) {
-      console.error('❌ Ошибка чтения кеша аналитики:', error);
-      localStorage.removeItem(CACHE_KEY);
-      return null;
-    }
-  };
-
-  const clearAnalyticsCache = () => {
-    try {
-      localStorage.removeItem(CACHE_KEY);
-      console.log('🗑️ Кеш аналитики очищен');
-    } catch (error) {
-      console.error('❌ Ошибка очистки кеша:', error);
-    }
-  };
 
   // 🆕 НОВАЯ ФУНКЦИЯ: Синхронизация пропущенных статусов
   const syncMissingTrelloStatuses = async (currentStatusMap) => {
@@ -1200,23 +1146,11 @@ function CreativeAnalytics({ user }) {
 
   const loadAnalytics = async (forceRefresh = false) => {
     console.log('🚀 Начинаем загрузку полной аналитики креативов...');
-    
+
     try {
       setLoading(true);
       setError('');
-      
-      // Проверяем кеш, если не принудительное обновление
-      if (!forceRefresh) {
-        const cachedData = loadAnalyticsFromCache();
-        if (cachedData) {
-          setAnalytics(cachedData.analytics);
-          setCreativesWithHistory(new Set(cachedData.creativesWithHistory));
-          console.log('✅ Аналитика загружена из кеша');
-          setLoading(false);
-          return;
-        }
-      }
-      
+
       console.log('📡 Запрос к базе данных...');
       const [creativesData, editorsData] = await Promise.all([
         creativeService.getAllCreatives(),
@@ -1280,12 +1214,6 @@ function CreativeAnalytics({ user }) {
       };
 
       setAnalytics(analyticsData);
-
-      // Сохраняем в кеш
-      saveAnalyticsToCache({
-        analytics: analyticsData,
-        creativesWithHistory: Array.from(creativesWithHistorySet)
-      });
 
       console.log('✅ Аналитика успешно загружена');
 
@@ -1400,19 +1328,6 @@ function CreativeAnalytics({ user }) {
             
             console.log('✅ Новый креатив добавлен в аналитику');
             console.log('🤖 Хук useBatchMetrics автоматически загрузит метрики из кеша БД');
-            
-            // 💾 СОХРАНЯЕМ ОБНОВЛЕННЫЕ ДАННЫЕ В КЕШ
-            if (updatedAnalyticsData) {
-              try {
-                saveAnalyticsToCache({
-                  analytics: updatedAnalyticsData,
-                  creativesWithHistory: Array.from(creativesWithHistory)
-                });
-                console.log('💾 Кеш обновлен с новым креативом');
-              } catch (error) {
-                console.error('❌ Ошибка сохранения в кеш:', error);
-              }
-            }
           }, 6000); // Ждем 6 секунд
           
           // Если у нового креатива есть Trello ссылка, ждем появления статуса
