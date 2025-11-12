@@ -1159,17 +1159,12 @@ function CreativeSearch({ user }) {
       }
       
       console.log(`✅ Загружено ${directData.length} креативов для Search Manager`);
-      
+
       setCreatives(directData);
-      
-      // Проверяем наличие истории для каждого креатива
-      const creativesWithHistorySet = new Set();
-      for (const creative of directData) {
-        const hasHistory = await creativeHistoryService.hasHistory(creative.id);
-        if (hasHistory) {
-          creativesWithHistorySet.add(creative.id);
-        }
-      }
+
+      // Батчевая проверка истории для всех креативов одним запросом
+      const creativeIds = directData.map(c => c.id);
+      const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
     } catch (error) {
       console.error('❌ Ошибка загрузки креативов:', error);
