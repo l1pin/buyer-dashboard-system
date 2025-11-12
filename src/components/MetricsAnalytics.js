@@ -1,5 +1,5 @@
 // src/components/MetricsAnalytics.js - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ ОШИБКИ JSX
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import Papa from 'papaparse';
 import { 
@@ -487,22 +487,24 @@ function MetricsAnalytics({ user }) {
   };
 
   // Фильтрация и сортировка
-  const filteredMetrics = metrics.filter(metric => {
-    const matchesSearch = searchTerm === '' || 
-      metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  }).sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
-    
-    if (aValue === null || aValue === undefined) return 1;
-    if (bValue === null || bValue === undefined) return -1;
-    
-    const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    return sortDirection === 'asc' ? comparison : -comparison;
-  });
+  const filteredMetrics = useMemo(() => {
+    return metrics.filter(metric => {
+      const matchesSearch = searchTerm === '' ||
+        metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchesSearch;
+    }).sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [metrics, searchTerm, sortField, sortDirection]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -513,16 +515,14 @@ function MetricsAnalytics({ user }) {
     }
   };
 
-  const getStats = () => {
+  const stats = useMemo(() => {
     const totalItems = filteredMetrics.length;
     const withActualLead = filteredMetrics.filter(m => m.actual_lead !== null && m.actual_lead !== 'нет данных').length;
-    const avgROI = filteredMetrics.reduce((sum, m) => sum + (m.actual_roi_percent || 0), 0) / totalItems;
+    const avgROI = totalItems > 0 ? filteredMetrics.reduce((sum, m) => sum + (m.actual_roi_percent || 0), 0) / totalItems : 0;
     const zones = [...new Set(filteredMetrics.map(m => m.offer_zone).filter(Boolean))];
-    
-    return { totalItems, withActualLead, avgROI, zones };
-  };
 
-  const stats = getStats();
+    return { totalItems, withActualLead, avgROI, zones };
+  }, [filteredMetrics]);
 
   if (loading) {
     return (

@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import {
   RefreshCw,
@@ -124,22 +124,24 @@ function OffersTL({ user }) {
   };
 
   // Фильтрация и сортировка
-  const filteredMetrics = metrics.filter(metric => {
-    const matchesSearch = searchTerm === '' ||
-      metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredMetrics = useMemo(() => {
+    return metrics.filter(metric => {
+      const matchesSearch = searchTerm === '' ||
+        metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesSearch;
-  }).sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+      return matchesSearch;
+    }).sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
 
-    if (aValue === null || aValue === undefined) return 1;
-    if (bValue === null || bValue === undefined) return -1;
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
 
-    const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    return sortDirection === 'asc' ? comparison : -comparison;
-  });
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [metrics, searchTerm, sortField, sortDirection]);
 
   const handleSort = (field) => {
     if (sortField === field) {
