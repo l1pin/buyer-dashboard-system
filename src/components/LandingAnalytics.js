@@ -1776,30 +1776,15 @@ function LandingTeamLead({ user }) {
       console.log('🔍 Шаблон первого лендинга:', data[0]?.template);
       console.log('🔍 Теги первого лендинга:', data[0]?.tags);
 
-      // Загружаем данные о verified_urls для каждого лендинга
-      const landingsWithUrls = await Promise.all(
-        data.map(async (landing) => {
-          try {
-            const { data: landingData, error } = await supabase
-              .from('landings')
-              .select('verified_urls')
-              .eq('id', landing.id)
-              .single();
-
-            if (!error && landingData) {
-              return { ...landing, verified_urls: landingData.verified_urls || [] };
-            }
-            return { ...landing, verified_urls: [] };
-          } catch (err) {
-            console.error(`Ошибка загрузки verified_urls для ${landing.id}:`, err);
-            return { ...landing, verified_urls: [] };
-          }
-        })
-      );
+      // Убедимся что у всех лендингов есть verified_urls (уже приходят из getAllLandings)
+      const landingsWithUrls = data.map(landing => ({
+        ...landing,
+        verified_urls: landing.verified_urls || []
+      }));
 
       setLandings(landingsWithUrls);
       console.log(`✅ Загружено ${landingsWithUrls.length} лендингов`);
-      
+
       // ДЕТАЛЬНАЯ ДИАГНОСТИКА
       if (landingsWithUrls.length > 0) {
         console.log('🔍 ДИАГНОСТИКА ПЕРВОГО ЛЕНДИНГА:');
@@ -1813,13 +1798,9 @@ function LandingTeamLead({ user }) {
         console.log('  Tags is array:', Array.isArray(landingsWithUrls[0].tags));
       }
 
-      const landingsWithHistorySet = new Set();
-      for (const landing of landingsWithUrls) {
-        const hasHistory = await landingHistoryService.hasHistory(landing.id);
-        if (hasHistory) {
-          landingsWithHistorySet.add(landing.id);
-        }
-      }
+      // Батчевая проверка истории для всех лендингов одним запросом
+      const landingIds = landingsWithUrls.map(l => l.id);
+      const landingsWithHistorySet = await landingHistoryService.checkHistoryBatch(landingIds);
       setLandingsWithHistory(landingsWithHistorySet);
 
       return landingsWithUrls;
