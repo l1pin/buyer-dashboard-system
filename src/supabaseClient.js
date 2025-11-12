@@ -3119,36 +3119,77 @@ export const metricsAnalyticsService = {
 
   async getAllMetricsLarge() {
     try {
-      console.log('📡 Запрос всех метрик (оптимизированный режим)...');
+      console.log('📡 Запрос всех метрик (параллельная загрузка всех страниц)...');
 
-      // Делаем параллельные запросы для ускорения
-      const [metricsResult, metaResult] = await Promise.all([
-        supabase
-          .from('metrics_analytics')
-          .select('*')
-          .order('id', { ascending: true })
-          .limit(50000), // Один большой запрос вместо множества маленьких
+      // Шаг 1: Узнаём общее количество записей
+      const { count, error: countError } = await supabase
+        .from('metrics_analytics')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        throw countError;
+      }
+
+      if (!count || count === 0) {
+        console.log('✅ Нет метрик для загрузки');
+        return {
+          metrics: [],
+          lastUpdated: null,
+          totalRecords: 0,
+          actualCount: 0
+        };
+      }
+
+      console.log(`📊 Всего записей в БД: ${count}`);
+
+      // Шаг 2: Рассчитываем количество страниц
+      const pageSize = 1000;
+      const totalPages = Math.ceil(count / pageSize);
+      console.log(`📄 Нужно загрузить ${totalPages} страниц по ${pageSize} записей`);
+
+      // Шаг 3: Создаём массив промисов для ПАРАЛЛЕЛЬНОЙ загрузки всех страниц
+      const pagePromises = [];
+      for (let page = 0; page < totalPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        pagePromises.push(
+          supabase
+            .from('metrics_analytics')
+            .select('*')
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+      }
+
+      // Шаг 4: Загружаем ВСЕ страницы ОДНОВРЕМЕННО + метаданные
+      console.log(`🚀 Запускаем параллельную загрузку ${totalPages} страниц...`);
+      const [metaResult, ...pageResults] = await Promise.all([
         supabase
           .from('metrics_analytics_meta')
           .select('*')
           .eq('id', 1)
-          .single()
+          .single(),
+        ...pagePromises
       ]);
 
-      if (metricsResult.error) {
-        throw metricsResult.error;
+      // Шаг 5: Объединяем все данные
+      const allMetrics = [];
+      for (const result of pageResults) {
+        if (result.error) {
+          console.error('❌ Ошибка загрузки страницы:', result.error);
+          continue;
+        }
+        allMetrics.push(...(result.data || []));
       }
 
-      const metrics = metricsResult.data || [];
-      const meta = metaResult.data;
-      const actualCount = metrics.length;
-
-      console.log(`✅ Загружены все метрики одним запросом: ${actualCount} записей`);
+      const actualCount = allMetrics.length;
+      console.log(`✅ Загружены все метрики параллельно: ${actualCount} записей из ${count}`);
 
       return {
-        metrics: metrics,
-        lastUpdated: meta?.last_updated,
-        totalRecords: meta?.total_records || actualCount,
+        metrics: allMetrics,
+        lastUpdated: metaResult.data?.last_updated,
+        totalRecords: metaResult.data?.total_records || actualCount,
         actualCount: actualCount
       };
 
