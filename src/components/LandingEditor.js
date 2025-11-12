@@ -1120,13 +1120,8 @@ function LandingEditor({ user }) {
         console.log('  Tags is array:', Array.isArray(landingsWithUrls[0].tags));
       }
 
-      const landingsWithHistorySet = new Set();
-      for (const landing of landingsWithUrls) {
-        const hasHistory = await landingHistoryService.hasHistory(landing.id);
-        if (hasHistory) {
-          landingsWithHistorySet.add(landing.id);
-        }
-      }
+      const landingIds = landingsWithUrls.map(l => l.id);
+      const landingsWithHistorySet = await landingHistoryService.checkHistoryBatch(landingIds);
       setLandingsWithHistory(landingsWithHistorySet);
 
       return landingsWithUrls;
