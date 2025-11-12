@@ -1323,6 +1323,7 @@ function LandingPanel({ user }) {
       const searcherName = editLanding.searcher_id ? getSearcherName(editLanding.searcher_id) : null;
       const designerName = editLanding.designer_id ? getDesignerName(editLanding.designer_id) : null;
       const giferName = editLanding.gifer_id ? getGiferName(editLanding.gifer_id) : null;
+      const productManagerName = editLanding.product_manager_id ? getProductManagerName(editLanding.product_manager_id) : null;
 
       // Сохраняем старое состояние в историю ПЕРЕД обновлением
       await landingHistoryService.createHistoryEntry({
@@ -1361,10 +1362,12 @@ function LandingPanel({ user }) {
         buyer_id: editLanding.buyer_id,
         searcher_id: editLanding.searcher_id,
         gifer_id: editLanding.gifer_id,
+        product_manager_id: editLanding.product_manager_id,
         designer: designerName !== '—' ? designerName : null,
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null,
-        gifer: giferName !== '—' ? giferName : null
+        gifer: giferName !== '—' ? giferName : null,
+        product_manager: productManagerName !== '—' ? productManagerName : null
       });
 
       setEditLanding({
@@ -1377,7 +1380,8 @@ function LandingPanel({ user }) {
         designer_id: null,
         buyer_id: null,
         searcher_id: null,
-        gifer_id: null
+        gifer_id: null,
+        product_manager_id: null
       });
       setEditingLanding(null);
       setShowEditModal(false);
