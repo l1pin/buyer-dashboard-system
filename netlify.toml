@@ -11,6 +11,13 @@
 [functions]
   directory = "netlify/functions/"
   included_files = ["netlify/functions/**"]
+  # Увеличиваем таймаут до максимального (26 секунд)
+  node_bundler = "esbuild"
+
+# Настройки для sql-proxy функции
+[functions."sql-proxy"]
+  # Максимальный таймаут (в секундах)
+  timeout = 26
 
 # Настройки для SPA
 [[redirects]]

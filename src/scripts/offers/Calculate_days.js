@@ -104,19 +104,14 @@ export const calculateRemainingDays = async (metrics) => {
 };
 
 /**
- * Достаёт минимальную дату, затем итерирует по месяцам и собирает всё в один массив.
+ * Достаёт данные за последние 12 месяцев и собирает всё в один массив.
+ * Оптимизировано для быстрой загрузки без таймаутов.
  */
 async function fetchTrackerAll() {
-  // 1) Узнаём самую раннюю дату
-  const minRes = await getDataBySql("SELECT MIN(adv_date) AS minDate FROM ads_collection");
-  const minDateStr = minRes[0]?.minDate;
-
-  if (!minDateStr) {
-    throw new Error('Не удалось получить MIN(adv_date)');
-  }
-
-  const start = new Date(minDateStr);
+  // Загружаем только последние 12 месяцев для ускорения
   const end = new Date(); // до сегодня
+  const start = new Date();
+  start.setMonth(start.getMonth() - 12); // 12 месяцев назад
 
   // 2) Составляем список месячных интервалов
   const periods = [];
@@ -139,10 +134,10 @@ async function fetchTrackerAll() {
 
   console.log(`Будет загружено периодов: ${periods.length}`);
 
-  // 3) Для каждого месяца — SQL и конкатенация
-  let all = [];
+  // 3) Параллельная загрузка всех периодов для ускорения
+  console.log('🚀 Запускаем параллельную загрузку периодов...');
 
-  for (const p of periods) {
+  const promises = periods.map(async (p) => {
     const sql =
       "SELECT offer_name, adv_date, valid, cost " +
       "FROM ads_collection " +
@@ -153,13 +148,21 @@ async function fetchTrackerAll() {
     const chunk = await getDataBySql(sql);
     console.log(`  строк: ${chunk.length}`);
 
-    all = all.concat(chunk.map(it => ({
+    return chunk.map(it => ({
       offer: it.offer_name || '',
       date: new Date(it.adv_date),
       leads: Number(it.valid) || 0,
       cost: Number(it.cost) || 0
-    })));
-  }
+    }));
+  });
+
+  // Ждем завершения всех запросов
+  const results = await Promise.all(promises);
+
+  // Объединяем все результаты
+  const all = results.flat();
+
+  console.log(`✅ Загружено ${all.length} записей за ${periods.length} периодов`);
 
   return all;
 }
