@@ -21,6 +21,7 @@ function OffersTL({ user }) {
   const [sortDirection, setSortDirection] = useState('asc');
   const [openTooltip, setOpenTooltip] = useState(null);
   const [openDateTooltip, setOpenDateTooltip] = useState(null);
+  const [loadingStocks, setLoadingStocks] = useState(false);
 
   useEffect(() => {
     loadMetrics();
@@ -63,6 +64,117 @@ function OffersTL({ user }) {
       setError('Ошибка загрузки метрик: ' + error.message);
     } finally {
       setLoading(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const updateStocksFromYml = async () => {
+    try {
+      setLoadingStocks(true);
+      setError('');
+
+      console.log('🔄 Начинаем загрузку остатков из YML...');
+
+      const url = "https://senik.salesdrive.me/export/yml/export.yml?publicKey=wlOjIqfmiP78HuTVF_8fc1r4s-9vK6pxPt9m6x7dAt4z43lCe8O4erQlcPv7vQx_PRX4KTareAu";
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Ошибка загрузки YML-файла. Код ответа: ${response.status}`);
+      }
+
+      const xmlString = await response.text();
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+      // Проверка на ошибки парсинга
+      const parserError = xmlDoc.querySelector("parsererror");
+      if (parserError) {
+        throw new Error("Ошибка парсинга XML");
+      }
+
+      // Парсинг категорий
+      const categoriesMap = {};
+      const categoryNodes = xmlDoc.querySelectorAll("shop > categories > category");
+      categoryNodes.forEach((categoryEl) => {
+        const categoryId = categoryEl.getAttribute("id");
+        const categoryName = categoryEl.textContent.trim();
+        categoriesMap[categoryId] = categoryName;
+      });
+      console.log(`Найдено категорий: ${Object.keys(categoriesMap).length}`);
+
+      // Парсинг офферов
+      const offerNodes = xmlDoc.querySelectorAll("shop > offers > offer");
+      console.log(`Найдено офферов: ${offerNodes.length}`);
+
+      const skuData = {};
+
+      offerNodes.forEach((offerEl) => {
+        const articleElem = offerEl.querySelector("article");
+        if (!articleElem) return;
+
+        const article = articleElem.textContent.trim();
+        if (!article) return;
+
+        const qtyEl = offerEl.querySelector("quantity_in_stock");
+        const priceEl = offerEl.querySelector("price");
+        const nameEl = offerEl.querySelector("name");
+        const categoryEl = offerEl.querySelector("categoryId");
+
+        const quantity = qtyEl && qtyEl.textContent ? parseInt(qtyEl.textContent) : 0;
+        const price = priceEl && priceEl.textContent ? parseFloat(priceEl.textContent) : 0;
+        const name = nameEl && nameEl.textContent ? nameEl.textContent.trim() : "Неизвестный товар";
+        const categoryId = categoryEl && categoryEl.textContent ? categoryEl.textContent.trim() : "";
+
+        // Игнорируем категорию 52
+        if (categoryId === "52") return;
+
+        const baseArticle = article.split("-")[0];
+        const offerId = offerEl.getAttribute("id") || article;
+
+        if (!skuData[baseArticle]) {
+          skuData[baseArticle] = {
+            total: 0,
+            modifications: [],
+            categories: new Set(),
+            categoryDetails: []
+          };
+        }
+
+        skuData[baseArticle].total += quantity;
+
+        // Не добавляем в комментарии если в названии есть "[" или "]"
+        if (!name.includes("[") && !name.includes("]")) {
+          skuData[baseArticle].modifications.push(`${name} ${quantity} шт - ${price.toFixed(2)} грн`);
+        }
+
+        // Добавляем категорию если она есть, не равна "52" и в названии нет "[" или "]"
+        if (categoryId && categoryId !== "52" && !name.includes("[") && !name.includes("]")) {
+          skuData[baseArticle].categories.add(categoryId);
+          const categoryName = categoriesMap[categoryId] || `Категория ${categoryId}`;
+          skuData[baseArticle].categoryDetails.push(`${offerId} - ${categoryName}`);
+        }
+      });
+
+      // Обновляем метрики с остатками
+      const updatedMetrics = metrics.map(metric => {
+        if (skuData.hasOwnProperty(metric.article)) {
+          return {
+            ...metric,
+            stock_quantity: skuData[metric.article].total
+          };
+        }
+        return metric;
+      });
+
+      setMetrics(updatedMetrics);
+      setSuccess(`✅ Остатки успешно обновлены для ${Object.keys(skuData).length} артикулов`);
+      console.log('✅ Остатки обновлены');
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки остатков:', error);
+      setError('Ошибка загрузки остатков: ' + error.message);
+    } finally {
+      setLoadingStocks(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -408,13 +520,21 @@ function OffersTL({ user }) {
                     <line x1="12" y1="14" x2="12" y2="18" />
                   </svg>
                 </div>
-                <div className="w-16 flex-shrink-0" title="Остаток">
-                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1" title="Остаток">
+                  <svg className="text-gray-700 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <path d="M3 21v-13l9-4l9 4v13" />
                     <path d="M13 13h4v8h-10v-6h6" />
                     <path d="M13 21v-9a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v3" />
                   </svg>
+                  <button
+                    onClick={updateStocksFromYml}
+                    disabled={loadingStocks}
+                    className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    title="Обновить остатки из YML"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingStocks ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <div className="w-20 flex-shrink-0" title="Дней до прихода">
                   <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -637,13 +757,21 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Остаток */}
-                    <div className="w-16 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                      {loadingStocks ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      ) : (
+                        <>
+                          <span className={`font-mono ${metric.stock_quantity !== null && metric.stock_quantity !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
+                            {metric.stock_quantity !== null && metric.stock_quantity !== undefined ? metric.stock_quantity : '—'}
+                          </span>
+                          <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </>
+                      )}
                     </div>
 
                     {/* Дней до прихода (Расчетный приход) */}
