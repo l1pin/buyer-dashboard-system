@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
-import { updateCplFrom4Days as updateCplFrom4DaysScript } from '../scripts/offers/Redtrack_cpl';
 import { updateLeadsFromRedtrack as updateLeadsFromRedtrackScript } from '../scripts/offers/Redtrack_leads';
 import { updateLeadRatings as updateLeadRatingsScript } from '../scripts/offers/Redtrack_rating';
 
@@ -28,6 +27,7 @@ function OffersTL({ user }) {
   const [openDateTooltip, setOpenDateTooltip] = useState(null);
   const [openStockTooltip, setOpenStockTooltip] = useState(null);
   const [openLeadsTooltip, setOpenLeadsTooltip] = useState(null);
+  const [openCplTooltip, setOpenCplTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
   const [loadingCpl, setLoadingCpl] = useState(false);
@@ -54,13 +54,16 @@ function OffersTL({ user }) {
       if (openLeadsTooltip !== null && !event.target.closest('.leads-tooltip-container')) {
         setOpenLeadsTooltip(null);
       }
+      if (openCplTooltip !== null && !event.target.closest('.cpl-tooltip-container')) {
+        setOpenCplTooltip(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openTooltip, openDateTooltip, openStockTooltip, openLeadsTooltip]);
+  }, [openTooltip, openDateTooltip, openStockTooltip, openLeadsTooltip, openCplTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -132,8 +135,8 @@ function OffersTL({ user }) {
       setLoadingCpl(true);
       setError('');
 
-      // Используем функцию из отдельного скрипта
-      const result = await updateCplFrom4DaysScript(metrics);
+      // Используем тот же скрипт что и для лидов (единый скрипт для обеих колонок)
+      const result = await updateLeadsFromRedtrackScript(metrics);
 
       setMetrics(result.metrics);
       setSuccess(`✅ CPL за 4 дня обновлен для ${result.processedCount} офферов`);
@@ -541,7 +544,10 @@ function OffersTL({ user }) {
                   </svg>
                 </div>
                 <div className="w-12 flex-shrink-0 flex items-center justify-center gap-1">
-                  <span title="Рейтинг">⭐</span>
+                  <svg className="text-gray-700 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round" title="Рейтинг">
+                    <path stroke="none" d="M0 0h24v24H0z"/>
+                    <path d="M12 17.75l-6.172 3.245 1.179-6.873-4.993-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z" />
+                  </svg>
                   <button
                     onClick={updateRating}
                     disabled={loadingRating}
@@ -672,13 +678,66 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* CPL 4 дн. */}
-                    <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                    <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative cpl-tooltip-container">
                       {loadingCpl ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
-                        <span className={`font-mono ${metric.cpl_4days !== null && metric.cpl_4days !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
-                          {metric.cpl_4days !== null && metric.cpl_4days !== undefined ? Number(metric.cpl_4days).toFixed(2) : '—'}
-                        </span>
+                        <>
+                          <span className={`font-mono ${metric.leads_data?.[4]?.cpl !== null && metric.leads_data?.[4]?.cpl !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
+                            {metric.leads_data?.[4]?.cpl !== null && metric.leads_data?.[4]?.cpl !== undefined ? metric.leads_data[4].cpl.toFixed(2) : '—'}
+                          </span>
+                          {metric.leads_data && (
+                            <svg
+                              className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenCplTooltip(openCplTooltip === index ? null : index);
+                              }}
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          )}
+                          {openCplTooltip === index && metric.leads_data && (
+                            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-80">
+                              <div className="text-sm font-semibold mb-2 text-gray-800">Статистика CPL по периодам</div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
+                                    <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {[7, 14, 30, 60, 90].map(days => {
+                                    const data = metric.leads_data[days];
+                                    if (!data) return null;
+                                    return (
+                                      <tr key={days} className="border-b border-gray-100">
+                                        <td className="py-1 px-2 text-gray-900">{data.label}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
