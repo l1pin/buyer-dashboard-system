@@ -157,8 +157,8 @@ function OffersTL({ user }) {
     if (!zoneName) return null;
     const name = zoneName.toLowerCase();
     if (name.includes('sos')) return { bg: 'bg-black', text: 'text-yellow-400', border: 'border-black' };
-    if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
-    if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+    if (name.includes('красн')) return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
+    if (name.includes('розов')) return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
     if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
     if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
     return null;
@@ -167,8 +167,8 @@ function OffersTL({ user }) {
   // Функция для получения цветов зон по типу
   const getZoneColorsByType = (zoneType) => {
     switch (zoneType) {
-      case 'red': return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
-      case 'pink': return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+      case 'red': return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
+      case 'pink': return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
       case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
       case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
       default: return null;
@@ -555,10 +555,14 @@ function OffersTL({ user }) {
                       })()}
                     </div>
 
-                    {/* Цена лида в зоне (Факт лид) */}
+                    {/* Цена лида в зоне (Красная зона) */}
                     <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1 relative tooltip-container">
                       {(() => {
-                        if (metric.actual_lead === 'нет данных') {
+                        // Используем цену из красной зоны
+                        const redZonePrice = metric.red_zone_price;
+                        const zoneColors = getZoneColorsByType('red');
+
+                        if (redZonePrice === null || redZonePrice === undefined) {
                           return (
                             <>
                               <span className="text-gray-500 italic text-xs">нет данных</span>
@@ -585,39 +589,12 @@ function OffersTL({ user }) {
                             </>
                           );
                         }
-                        const zoneColors = getZoneColors(metric.offer_zone);
-                        if (zoneColors && metric.actual_lead) {
-                          return (
-                            <>
-                              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
-                                ${Number(metric.actual_lead).toFixed(2)}
-                              </span>
-                              <svg
-                                className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenTooltip(openTooltip === index ? null : index);
-                                }}
-                              >
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="16" x2="12" y2="12" />
-                                <line x1="12" y1="8" x2="12.01" y2="8" />
-                              </svg>
-                            </>
-                          );
-                        }
+
                         return (
                           <>
-                            <span className="font-mono text-xs text-gray-900">{metric.actual_lead ? `$${Number(metric.actual_lead).toFixed(2)}` : '—'}</span>
+                            <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+                              ${Number(redZonePrice).toFixed(2)}
+                            </span>
                             <svg
                               className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
                               xmlns="http://www.w3.org/2000/svg"
