@@ -134,33 +134,40 @@ async function fetchTrackerAll() {
 
   console.log(`Будет загружено периодов: ${periods.length}`);
 
-  // 3) Параллельная загрузка всех периодов для ускорения
-  console.log('🚀 Запускаем параллельную загрузку периодов...');
+  // 3) Пакетная загрузка периодов (по 3 запроса одновременно)
+  console.log('🚀 Запускаем пакетную загрузку периодов...');
 
-  const promises = periods.map(async (p) => {
-    const sql =
-      "SELECT offer_name, adv_date, valid, cost " +
-      "FROM ads_collection " +
-      `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'`;
+  const BATCH_SIZE = 3; // Количество параллельных запросов
+  const all = [];
 
-    console.log(`Запрос ${p.from}..${p.to}`);
+  for (let i = 0; i < periods.length; i += BATCH_SIZE) {
+    const batch = periods.slice(i, i + BATCH_SIZE);
 
-    const chunk = await getDataBySql(sql);
-    console.log(`  строк: ${chunk.length}`);
+    console.log(`📦 Пакет ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(periods.length / BATCH_SIZE)}: загрузка ${batch.length} периодов`);
 
-    return chunk.map(it => ({
-      offer: it.offer_name || '',
-      date: new Date(it.adv_date),
-      leads: Number(it.valid) || 0,
-      cost: Number(it.cost) || 0
-    }));
-  });
+    const batchPromises = batch.map(async (p) => {
+      const sql =
+        "SELECT offer_name, adv_date, valid, cost " +
+        "FROM ads_collection " +
+        `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'`;
 
-  // Ждем завершения всех запросов
-  const results = await Promise.all(promises);
+      console.log(`  Запрос ${p.from}..${p.to}`);
 
-  // Объединяем все результаты
-  const all = results.flat();
+      const chunk = await getDataBySql(sql);
+      console.log(`  ✓ ${p.from}..${p.to}: ${chunk.length} строк`);
+
+      return chunk.map(it => ({
+        offer: it.offer_name || '',
+        date: new Date(it.adv_date),
+        leads: Number(it.valid) || 0,
+        cost: Number(it.cost) || 0
+      }));
+    });
+
+    // Ждем завершения текущего пакета
+    const batchResults = await Promise.all(batchPromises);
+    all.push(...batchResults.flat());
+  }
 
   console.log(`✅ Загружено ${all.length} записей за ${periods.length} периодов`);
 
