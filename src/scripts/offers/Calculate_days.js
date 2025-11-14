@@ -136,6 +136,8 @@ async function fetchTrackerAll() {
 
   // 3) Для каждого месяца — SQL и конкатенация (ПОСЛЕДОВАТЕЛЬНО, как в Google Apps Script)
   let all = [];
+  let successCount = 0;
+  let failedPeriods = [];
 
   for (const p of periods) {
     const sql =
@@ -145,18 +147,30 @@ async function fetchTrackerAll() {
 
     console.log(`Запрос ${p.from}..${p.to}`);
 
-    const chunk = await getDataBySql(sql);
-    console.log(`  строк: ${chunk.length}`);
+    try {
+      const chunk = await getDataBySql(sql);
+      console.log(`  ✅ ${p.from}..${p.to}: ${chunk.length} строк`);
 
-    all = all.concat(chunk.map(it => ({
-      offer: it.offer_name || '',
-      date: new Date(it.adv_date),
-      leads: Number(it.valid) || 0,
-      cost: Number(it.cost) || 0
-    })));
+      all = all.concat(chunk.map(it => ({
+        offer: it.offer_name || '',
+        date: new Date(it.adv_date),
+        leads: Number(it.valid) || 0,
+        cost: Number(it.cost) || 0
+      })));
+
+      successCount++;
+    } catch (error) {
+      // Пропускаем проблемный период и продолжаем
+      console.warn(`⚠️ Пропускаем период ${p.from}..${p.to}: ${error.message}`);
+      failedPeriods.push(`${p.from}..${p.to}`);
+    }
   }
 
-  console.log(`✅ Загружено ${all.length} записей за ${periods.length} периодов`);
+  if (failedPeriods.length > 0) {
+    console.warn(`⚠️ Не удалось загрузить ${failedPeriods.length} периодов: ${failedPeriods.join(', ')}`);
+  }
+
+  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} периодов`);
 
   return all;
 }
@@ -167,7 +181,7 @@ async function fetchTrackerAll() {
  */
 async function getDataBySql(strSQL, retryCount = 0) {
   const MAX_RETRIES = 3;
-  const RETRY_DELAY = 2000; // 2 секунды базовая задержка
+  const RETRY_DELAY = 3000; // 3 секунды базовая задержка (увеличено для стабильности)
 
   try {
     const response = await fetch(CORE_URL, {
