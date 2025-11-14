@@ -5,7 +5,8 @@
  * – Возвращает результаты для обновления метрик
  */
 
-const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
+// Используем Netlify Function для обхода CORS
+const CORE_URL = '/.netlify/functions/sql-proxy';
 
 /**
  * Рассчитывает оставшиеся дни продаж для массива метрик
