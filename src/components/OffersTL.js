@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
+import { updateCplFrom4Days as updateCplFrom4DaysScript } from '../scripts/offers/Redtrack_cpl';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -26,6 +27,7 @@ function OffersTL({ user }) {
   const [openStockTooltip, setOpenStockTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
+  const [loadingCpl, setLoadingCpl] = useState(false);
   const [stockData, setStockData] = useState({});
 
   useEffect(() => {
@@ -113,6 +115,26 @@ function OffersTL({ user }) {
       setError('Ошибка расчета дней продаж: ' + error.message);
     } finally {
       setLoadingDays(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const updateCpl = async () => {
+    try {
+      setLoadingCpl(true);
+      setError('');
+
+      // Используем функцию из отдельного скрипта
+      const result = await updateCplFrom4DaysScript(metrics);
+
+      setMetrics(result.metrics);
+      setSuccess(`✅ CPL за 4 дня обновлен для ${result.processedCount} офферов`);
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки CPL за 4 дня:', error);
+      setError('Ошибка загрузки CPL: ' + error.message);
+    } finally {
+      setLoadingCpl(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -443,7 +465,17 @@ function OffersTL({ user }) {
                 <div className="w-24 flex-shrink-0">Артикул</div>
                 <div className="w-48 flex-shrink-0 text-left">Название</div>
                 <div className="w-20 flex-shrink-0">Статус</div>
-                <div className="w-20 flex-shrink-0">CPL 4дн</div>
+                <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
+                  <span>CPL 4дн</span>
+                  <button
+                    onClick={updateCpl}
+                    disabled={loadingCpl}
+                    className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    title="Обновить CPL за 4 дня из RedTrack"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingCpl ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
                 <div className="w-20 flex-shrink-0">Лиды 4дн</div>
                 <div className="w-12 flex-shrink-0" title="Продажи на 1 заявку">
                   <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -577,13 +609,14 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* CPL 4 дн. */}
-                    <div className="w-20 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                      {loadingCpl ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      ) : (
+                        <span className={`font-mono ${metric.cpl_4days !== null && metric.cpl_4days !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
+                          {metric.cpl_4days !== null && metric.cpl_4days !== undefined ? Number(metric.cpl_4days).toFixed(2) : '—'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Лиды 4 дн. */}
