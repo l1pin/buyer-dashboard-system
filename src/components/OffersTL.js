@@ -30,8 +30,7 @@ function OffersTL({ user }) {
   const [openCplTooltip, setOpenCplTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
-  const [loadingCpl, setLoadingCpl] = useState(false);
-  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL и Лидов
   const [loadingRating, setLoadingRating] = useState(false);
   const [stockData, setStockData] = useState({});
 
@@ -130,42 +129,23 @@ function OffersTL({ user }) {
     }
   };
 
-  const updateCpl = async () => {
+  // Единая функция для обновления данных о лидах и CPL (используется обеими кнопками)
+  const updateLeadsData = async () => {
     try {
-      setLoadingCpl(true);
+      setLoadingLeadsData(true);
       setError('');
 
-      // Используем тот же скрипт что и для лидов (единый скрипт для обеих колонок)
+      // Используем единый скрипт для обеих колонок (оптимизированный с одним запросом на 90 дней)
       const result = await updateLeadsFromRedtrackScript(metrics);
 
       setMetrics(result.metrics);
-      setSuccess(`✅ CPL за 4 дня обновлен для ${result.processedCount} офферов`);
+      setSuccess(`✅ Данные о лидах и CPL обновлены для ${result.processedCount} офферов`);
 
     } catch (error) {
-      console.error('❌ Ошибка загрузки CPL за 4 дня:', error);
-      setError('Ошибка загрузки CPL: ' + error.message);
+      console.error('❌ Ошибка загрузки данных о лидах и CPL:', error);
+      setError('Ошибка загрузки данных: ' + error.message);
     } finally {
-      setLoadingCpl(false);
-      setTimeout(() => setSuccess(''), 5000);
-    }
-  };
-
-  const updateLeads = async () => {
-    try {
-      setLoadingLeads(true);
-      setError('');
-
-      // Используем функцию из отдельного скрипта
-      const result = await updateLeadsFromRedtrackScript(metrics);
-
-      setMetrics(result.metrics);
-      setSuccess(`✅ Данные о лидах обновлены для ${result.processedCount} офферов`);
-
-    } catch (error) {
-      console.error('❌ Ошибка загрузки данных о лидах:', error);
-      setError('Ошибка загрузки данных о лидах: ' + error.message);
-    } finally {
-      setLoadingLeads(false);
+      setLoadingLeadsData(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -519,23 +499,23 @@ function OffersTL({ user }) {
                 <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
                   <span>CPL 4дн</span>
                   <button
-                    onClick={updateCpl}
-                    disabled={loadingCpl}
+                    onClick={updateLeadsData}
+                    disabled={loadingLeadsData}
                     className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                    title="Обновить CPL за 4 дня из RedTrack"
+                    title="Обновить CPL и лиды из RedTrack"
                   >
-                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingCpl ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeadsData ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
                 <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
                   <span>Лиды 4дн</span>
                   <button
-                    onClick={updateLeads}
-                    disabled={loadingLeads}
+                    onClick={updateLeadsData}
+                    disabled={loadingLeadsData}
                     className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                    title="Обновить данные о лидах из RedTrack"
+                    title="Обновить CPL и лиды из RedTrack"
                   >
-                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeads ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeadsData ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
                 <div className="w-12 flex-shrink-0" title="Продажи на 1 заявку">
@@ -679,7 +659,7 @@ function OffersTL({ user }) {
 
                     {/* CPL 4 дн. */}
                     <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative cpl-tooltip-container">
-                      {loadingCpl ? (
+                      {loadingLeadsData ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
                         <>
@@ -743,7 +723,7 @@ function OffersTL({ user }) {
 
                     {/* Лиды 4 дн. */}
                     <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative leads-tooltip-container">
-                      {loadingLeads ? (
+                      {loadingLeadsData ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
                         <>

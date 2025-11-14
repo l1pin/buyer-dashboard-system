@@ -1,15 +1,15 @@
 /**
  * Скрипт для получения данных о лидах за разные периоды из RedTrack API
- * – Загружает данные за 4, 7, 14, 30, 60 и 90 дней
+ * – Загружает данные за 90 дней одним запросом (оптимизация)
+ * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
  * – Использует пагинацию для получения всех данных
- * – Группирует по offer
- * – Суммирует convtype7 (лиды) и cost (расход) для каждого артикула
+ * – Группирует по offer и date для последующей агрегации
  */
 
 const REDTRACK_API_KEY = 'SY5wfZkzhZ0tu0YiKi9B';
 const REDTRACK_API_URL = 'https://api.redtrack.io/report';
 
-// Периоды для загрузки данных
+// Периоды для агрегации данных
 const PERIODS = [
   { days: 4, label: '4 дня' },
   { days: 7, label: '7 дней' },
@@ -20,7 +20,6 @@ const PERIODS = [
 ];
 
 // Настройки для обработки rate limiting
-const DELAY_BETWEEN_PERIODS = 2000; // 2 секунды между периодами
 const DELAY_BETWEEN_PAGES = 500; // 0.5 секунды между страницами
 const DELAY_ON_RATE_LIMIT = 5000; // 5 секунд при получении 429
 const MAX_RETRIES_ON_429 = 3; // Максимум 3 попытки при 429
@@ -33,31 +32,21 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Получает данные о лидах за все периоды для массива метрик
+ * Оптимизированная версия: один запрос на 90 дней + агрегация на клиенте
  *
  * @param {Array} metrics - Массив метрик офферов
  * @returns {Promise<Object>} - Объект с обновленными метриками
  */
 export const updateLeadsFromRedtrack = async (metrics) => {
   try {
-    console.log('🔄 Начинаем загрузку данных о лидах из RedTrack за разные периоды...');
+    console.log('🔄 Начинаем загрузку данных о лидах из RedTrack за 90 дней...');
 
-    // Загружаем данные для всех периодов с задержками
-    const periodData = {};
+    // Загружаем все данные за 90 дней одним запросом
+    const allData = await fetchRedtrackDataFor90Days();
+    console.log(`✅ Загружено ${allData.length} записей за 90 дней`);
 
-    for (let i = 0; i < PERIODS.length; i++) {
-      const period = PERIODS[i];
-      console.log(`📅 Загрузка данных за ${period.label}...`);
-
-      const data = await fetchRedtrackDataForPeriod(period.days);
-      periodData[period.days] = data;
-      console.log(`  ✅ Загружено ${data.length} записей за ${period.label}`);
-
-      // Задержка между периодами (кроме последнего)
-      if (i < PERIODS.length - 1) {
-        console.log(`  ⏳ Пауза ${DELAY_BETWEEN_PERIODS}мс перед следующим периодом...`);
-        await sleep(DELAY_BETWEEN_PERIODS);
-      }
-    }
+    // Группируем данные по offer и date для быстрой агрегации
+    const dataByOfferAndDate = groupDataByOfferAndDate(allData);
 
     // Обновляем метрики с данными о лидах
     let processedCount = 0;
@@ -69,26 +58,38 @@ export const updateLeadsFromRedtrack = async (metrics) => {
         return metric;
       }
 
-      // Рассчитываем данные для каждого периода
+      // Рассчитываем данные для каждого периода на клиенте
       const leadsData = {};
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       PERIODS.forEach(period => {
-        const results = periodData[period.days];
+        // Вычисляем дату начала периода
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - (period.days - 1));
 
-        // Ищем офферы, которые содержат этот артикул в названии
-        const matchingOffers = results.filter(offer => {
-          const offerName = offer.offer || '';
-          return offerName.includes(article);
+        // Фильтруем данные для текущего периода
+        let totalLeads = 0;
+        let totalCost = 0;
+
+        // Проходим по всем офферам и датам
+        Object.keys(dataByOfferAndDate).forEach(offerName => {
+          // Проверяем, содержит ли название оффера артикул
+          if (offerName.includes(article)) {
+            const offerData = dataByOfferAndDate[offerName];
+
+            // Суммируем данные за период
+            Object.keys(offerData).forEach(dateStr => {
+              const recordDate = new Date(dateStr);
+              recordDate.setHours(0, 0, 0, 0);
+
+              if (recordDate >= startDate && recordDate <= today) {
+                totalLeads += offerData[dateStr].leads;
+                totalCost += offerData[dateStr].cost;
+              }
+            });
+          }
         });
-
-        // Суммируем лиды и расход
-        const totalLeads = matchingOffers.reduce((sum, offer) => {
-          return sum + (offer.convtype7 || 0);
-        }, 0);
-
-        const totalCost = matchingOffers.reduce((sum, offer) => {
-          return sum + (offer.cost || 0);
-        }, 0);
 
         // Рассчитываем CPL (стоимость за лид)
         const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
@@ -124,20 +125,53 @@ export const updateLeadsFromRedtrack = async (metrics) => {
 };
 
 /**
- * Получает данные из RedTrack API за указанный период с пагинацией
+ * Группирует данные по offer и date для быстрой агрегации
+ * @param {Array} data - Массив записей с данными
+ * @returns {Object} - Объект вида { offerName: { date: { leads, cost } } }
+ */
+function groupDataByOfferAndDate(data) {
+  const grouped = {};
+
+  data.forEach(record => {
+    const offerName = record.offer || '';
+    const date = record.date || '';
+    const leads = record.convtype7 || 0;
+    const cost = record.cost || 0;
+
+    if (!offerName || !date) return;
+
+    if (!grouped[offerName]) {
+      grouped[offerName] = {};
+    }
+
+    if (!grouped[offerName][date]) {
+      grouped[offerName][date] = { leads: 0, cost: 0 };
+    }
+
+    grouped[offerName][date].leads += leads;
+    grouped[offerName][date].cost += cost;
+  });
+
+  return grouped;
+}
+
+/**
+ * Получает данные из RedTrack API за 90 дней с пагинацией
+ * Группирует по offer и date для последующей агрегации на клиенте
  * С обработкой rate limiting и задержками между запросами
  *
- * @param {number} daysCount - Количество дней для загрузки (включая сегодняшний)
  * @returns {Promise<Array>} - Массив результатов
  */
-async function fetchRedtrackDataForPeriod(daysCount) {
-  // Период выборки
+async function fetchRedtrackDataFor90Days() {
+  // Период выборки - 90 дней включая сегодня
   const today = new Date();
   const startDate = new Date();
-  startDate.setDate(today.getDate() - (daysCount - 1)); // N дней, включая сегодня
+  startDate.setDate(today.getDate() - 89); // 90 дней, включая сегодня
 
   const dateFrom = formatDate(startDate);
   const dateTo = formatDate(today);
+
+  console.log(`📅 Загрузка данных с ${dateFrom} по ${dateTo} (90 дней)...`);
 
   const pageSize = 1000;
   let page = 1;
@@ -145,7 +179,8 @@ async function fetchRedtrackDataForPeriod(daysCount) {
 
   // Цикл для получения всех данных с пагинацией
   while (true) {
-    const url = `${REDTRACK_API_URL}?api_key=${REDTRACK_API_KEY}&group=offer&date_from=${dateFrom}&date_to=${dateTo}&page=${page}&limit=${pageSize}`;
+    // Группируем по offer и date для детализации по дням
+    const url = `${REDTRACK_API_URL}?api_key=${REDTRACK_API_KEY}&group=offer,date&date_from=${dateFrom}&date_to=${dateTo}&page=${page}&limit=${pageSize}`;
 
     let retryCount = 0;
     let success = false;
@@ -166,17 +201,17 @@ async function fetchRedtrackDataForPeriod(daysCount) {
         if (code === 429) {
           retryCount++;
           if (retryCount <= MAX_RETRIES_ON_429) {
-            console.log(`    ⚠️ Rate limit (429), попытка ${retryCount}/${MAX_RETRIES_ON_429}, пауза ${DELAY_ON_RATE_LIMIT}мс...`);
+            console.log(`  ⚠️ Rate limit (429), попытка ${retryCount}/${MAX_RETRIES_ON_429}, пауза ${DELAY_ON_RATE_LIMIT}мс...`);
             await sleep(DELAY_ON_RATE_LIMIT);
             continue;
           } else {
-            console.log(`    ❌ Превышен лимит попыток при rate limiting. Пропускаем оставшиеся данные.`);
+            console.log(`  ❌ Превышен лимит попыток при rate limiting. Возвращаем частичные данные.`);
             return allResults;
           }
         }
 
         if (code !== 200) {
-          console.log(`    Запрос вернул код ${code}. Остановка.`);
+          console.log(`  Запрос вернул код ${code}. Остановка.`);
           return allResults;
         }
 
@@ -191,20 +226,22 @@ async function fetchRedtrackDataForPeriod(daysCount) {
         }
 
         if (results.length === 0) {
+          console.log(`  ✅ Загружено всего ${allResults.length} записей (${page - 1} страниц)`);
           return allResults;
         }
 
         allResults = allResults.concat(results);
+        console.log(`  📄 Страница ${page}: загружено ${results.length} записей (всего: ${allResults.length})`);
         page++;
         success = true;
 
-        // Задержка между страницами (кроме первой)
+        // Задержка между страницами
         if (page > 2) {
           await sleep(DELAY_BETWEEN_PAGES);
         }
 
       } catch (error) {
-        console.error(`    Ошибка при загрузке страницы ${page} за ${daysCount} дней:`, error);
+        console.error(`  ❌ Ошибка при загрузке страницы ${page}:`, error);
         return allResults;
       }
     }
