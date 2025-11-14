@@ -22,7 +22,9 @@ function OffersTL({ user }) {
   const [sortDirection, setSortDirection] = useState('asc');
   const [openTooltip, setOpenTooltip] = useState(null);
   const [openDateTooltip, setOpenDateTooltip] = useState(null);
+  const [openStockTooltip, setOpenStockTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
+  const [stockData, setStockData] = useState({});
 
   useEffect(() => {
     loadMetrics();
@@ -37,13 +39,16 @@ function OffersTL({ user }) {
       if (openDateTooltip !== null && !event.target.closest('.date-tooltip-container')) {
         setOpenDateTooltip(null);
       }
+      if (openStockTooltip !== null && !event.target.closest('.stock-tooltip-container')) {
+        setOpenStockTooltip(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openTooltip, openDateTooltip]);
+  }, [openTooltip, openDateTooltip, openStockTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -78,6 +83,7 @@ function OffersTL({ user }) {
       const result = await updateStocksFromYmlScript(metrics);
 
       setMetrics(result.metrics);
+      setStockData(result.skuData); // Сохраняем данные о модификациях
       setSuccess(`✅ Остатки успешно обновлены для ${result.totalArticles} артикулов`);
 
     } catch (error) {
@@ -267,6 +273,37 @@ function OffersTL({ user }) {
         </div>
         <div className="text-sm text-gray-900 font-mono">
           {formatFullDate(dateString)}
+        </div>
+      </div>
+    );
+  };
+
+  // Компонент тултипа с модификациями товара
+  const StockTooltip = ({ article, onClose }) => {
+    const baseArticle = article ? article.split("-")[0] : null;
+    const modifications = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
+
+    return (
+      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
+           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Модификации товара</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {modifications.length > 0 ? (
+            modifications.map((mod, index) => (
+              <div key={index} className="text-xs text-gray-700">
+                {mod}
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-gray-500 italic">Нет данных о модификациях</div>
+          )}
         </div>
       </div>
     );
@@ -667,7 +704,7 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Остаток */}
-                    <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                    <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative stock-tooltip-container">
                       {loadingStocks ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
@@ -675,12 +712,33 @@ function OffersTL({ user }) {
                           <span className={`font-mono ${metric.stock_quantity !== null && metric.stock_quantity !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
                             {metric.stock_quantity !== null && metric.stock_quantity !== undefined ? metric.stock_quantity : '—'}
                           </span>
-                          <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg
+                            className="text-gray-500 w-3 h-3 cursor-pointer hover:text-gray-700"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenStockTooltip(openStockTooltip === index ? null : index);
+                            }}
+                          >
                             <circle cx="12" cy="12" r="10" />
                             <line x1="12" y1="16" x2="12" y2="12" />
                             <line x1="12" y1="8" x2="12.01" y2="8" />
                           </svg>
                         </>
+                      )}
+                      {openStockTooltip === index && (
+                        <StockTooltip
+                          article={metric.article}
+                          onClose={() => setOpenStockTooltip(null)}
+                        />
                       )}
                     </div>
 

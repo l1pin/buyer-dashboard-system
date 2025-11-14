@@ -77,6 +77,7 @@ export const updateStocksFromYml = async (metrics) => {
         skuData[baseArticle] = {
           total: 0,
           modifications: [],
+          modificationsDisplay: [], // Для отображения в UI без цены
           categories: new Set(),
           categoryDetails: []
         };
@@ -87,6 +88,7 @@ export const updateStocksFromYml = async (metrics) => {
       // Не добавляем в комментарии если в названии есть "[" или "]"
       if (!name.includes("[") && !name.includes("]")) {
         skuData[baseArticle].modifications.push(`${name} ${quantity} шт - ${price.toFixed(2)} грн`);
+        skuData[baseArticle].modificationsDisplay.push(`${name} - ${quantity} шт.`);
       }
 
       // Добавляем категорию если она есть, не равна "52" и в названии нет "[" или "]"
