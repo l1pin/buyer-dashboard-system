@@ -134,39 +134,26 @@ async function fetchTrackerAll() {
 
   console.log(`Будет загружено периодов: ${periods.length}`);
 
-  // 3) Пакетная загрузка периодов (по 2 запроса одновременно для стабильности)
-  console.log('🚀 Запускаем пакетную загрузку периодов...');
+  // 3) Для каждого месяца — SQL и конкатенация (ПОСЛЕДОВАТЕЛЬНО, как в Google Apps Script)
+  let all = [];
 
-  const BATCH_SIZE = 2; // Количество параллельных запросов (уменьшено для стабильности)
-  const all = [];
+  for (const p of periods) {
+    const sql =
+      "SELECT offer_name, adv_date, valid, cost " +
+      "FROM ads_collection " +
+      `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'`;
 
-  for (let i = 0; i < periods.length; i += BATCH_SIZE) {
-    const batch = periods.slice(i, i + BATCH_SIZE);
+    console.log(`Запрос ${p.from}..${p.to}`);
 
-    console.log(`📦 Пакет ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(periods.length / BATCH_SIZE)}: загрузка ${batch.length} периодов`);
+    const chunk = await getDataBySql(sql);
+    console.log(`  строк: ${chunk.length}`);
 
-    const batchPromises = batch.map(async (p) => {
-      const sql =
-        "SELECT offer_name, adv_date, valid, cost " +
-        "FROM ads_collection " +
-        `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'`;
-
-      console.log(`  Запрос ${p.from}..${p.to}`);
-
-      const chunk = await getDataBySql(sql);
-      console.log(`  ✓ ${p.from}..${p.to}: ${chunk.length} строк`);
-
-      return chunk.map(it => ({
-        offer: it.offer_name || '',
-        date: new Date(it.adv_date),
-        leads: Number(it.valid) || 0,
-        cost: Number(it.cost) || 0
-      }));
-    });
-
-    // Ждем завершения текущего пакета
-    const batchResults = await Promise.all(batchPromises);
-    all.push(...batchResults.flat());
+    all = all.concat(chunk.map(it => ({
+      offer: it.offer_name || '',
+      date: new Date(it.adv_date),
+      leads: Number(it.valid) || 0,
+      cost: Number(it.cost) || 0
+    })));
   }
 
   console.log(`✅ Загружено ${all.length} записей за ${periods.length} периодов`);
