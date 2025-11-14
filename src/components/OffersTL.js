@@ -10,6 +10,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
+import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -24,6 +25,7 @@ function OffersTL({ user }) {
   const [openDateTooltip, setOpenDateTooltip] = useState(null);
   const [openStockTooltip, setOpenStockTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
+  const [loadingDays, setLoadingDays] = useState(false);
   const [stockData, setStockData] = useState({});
 
   useEffect(() => {
@@ -91,6 +93,26 @@ function OffersTL({ user }) {
       setError('Ошибка загрузки остатков: ' + error.message);
     } finally {
       setLoadingStocks(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const calculateDays = async () => {
+    try {
+      setLoadingDays(true);
+      setError('');
+
+      // Используем функцию из отдельного скрипта
+      const result = await calculateRemainingDaysScript(metrics);
+
+      setMetrics(result.metrics);
+      setSuccess(`✅ Дни продаж рассчитаны для ${result.processedCount} офферов`);
+
+    } catch (error) {
+      console.error('❌ Ошибка расчета дней продаж:', error);
+      setError('Ошибка расчета дней продаж: ' + error.message);
+    } finally {
+      setLoadingDays(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -456,8 +478,8 @@ function OffersTL({ user }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </div>
-                <div className="w-16 flex-shrink-0" title="Дней продаж">
-                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1" title="Дней продаж">
+                  <svg className="text-gray-700 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z"/>
                     <rect x="4" y="5" width="16" height="16" rx="2" />
                     <line x1="16" y1="3" x2="16" y2="7" />
@@ -466,6 +488,14 @@ function OffersTL({ user }) {
                     <line x1="10" y1="16" x2="14" y2="16" />
                     <line x1="12" y1="14" x2="12" y2="18" />
                   </svg>
+                  <button
+                    onClick={calculateDays}
+                    disabled={loadingDays}
+                    className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    title="Рассчитать дни продаж"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingDays ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1" title="Остаток">
                   <svg className="text-gray-700 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -694,13 +724,31 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Дней продаж */}
-                    <div className="w-16 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                      {loadingDays ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      ) : (
+                        <>
+                          <span className={`font-mono ${
+                            metric.days_remaining !== null && metric.days_remaining !== undefined
+                              ? typeof metric.days_remaining === 'number'
+                                ? 'text-gray-900'
+                                : 'text-orange-600 text-xs italic'
+                              : 'text-gray-600'
+                          }`}>
+                            {metric.days_remaining !== null && metric.days_remaining !== undefined
+                              ? typeof metric.days_remaining === 'number'
+                                ? metric.days_remaining
+                                : metric.days_remaining
+                              : '—'}
+                          </span>
+                          <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </>
+                      )}
                     </div>
 
                     {/* Остаток */}
