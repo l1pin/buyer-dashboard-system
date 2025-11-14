@@ -134,10 +134,10 @@ async function fetchTrackerAll() {
 
   console.log(`Будет загружено периодов: ${periods.length}`);
 
-  // 3) Пакетная загрузка периодов (по 3 запроса одновременно)
+  // 3) Пакетная загрузка периодов (по 2 запроса одновременно для стабильности)
   console.log('🚀 Запускаем пакетную загрузку периодов...');
 
-  const BATCH_SIZE = 3; // Количество параллельных запросов
+  const BATCH_SIZE = 2; // Количество параллельных запросов (уменьшено для стабильности)
   const all = [];
 
   for (let i = 0; i < periods.length; i += BATCH_SIZE) {
@@ -176,52 +176,75 @@ async function fetchTrackerAll() {
 
 /**
  * Универсальный fetch + преобразование [[headers], [row], …] → [{…},…]
+ * С retry логикой для обработки нестабильных ответов
  */
-async function getDataBySql(strSQL) {
-  const response = await fetch(CORE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ sql: strSQL })
-  });
+async function getDataBySql(strSQL, retryCount = 0) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000; // 2 секунды базовая задержка
 
-  const code = response.status;
-  const text = await response.text();
-
-  console.log(`HTTP ${code}, ответ длиной ${text.length}`);
-
-  if (code !== 200) {
-    throw new Error(`HTTP ${code}`);
-  }
-
-  let json;
   try {
-    json = JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Invalid JSON: ${e.message}`);
-  }
+    const response = await fetch(CORE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql: strSQL })
+    });
 
-  if (json.error) {
-    throw new Error(`API error: ${json.error}`);
-  }
+    const code = response.status;
+    const text = await response.text();
 
-  if (!Array.isArray(json)) {
-    throw new Error('Неподдерживаемый формат данных');
-  }
+    console.log(`HTTP ${code}, ответ длиной ${text.length}`);
 
-  // если заголовки в первой строке
-  if (Array.isArray(json[0])) {
-    const [headers, ...rows] = json;
-    return rows.map(row =>
-      headers.reduce((o, h, i) => {
-        o[h] = row[i];
-        return o;
-      }, {})
-    );
-  }
+    // Если 500 или 502 - пробуем повторить
+    if ((code === 500 || code === 502) && retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAY * Math.pow(2, retryCount); // Экспоненциальный backoff
+      console.log(`⚠️ Ошибка ${code}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return getDataBySql(strSQL, retryCount + 1);
+    }
 
-  return json;
+    if (code !== 200) {
+      throw new Error(`HTTP ${code}`);
+    }
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON: ${e.message}`);
+    }
+
+    if (json.error) {
+      throw new Error(`API error: ${json.error}`);
+    }
+
+    if (!Array.isArray(json)) {
+      throw new Error('Неподдерживаемый формат данных');
+    }
+
+    // если заголовки в первой строке
+    if (Array.isArray(json[0])) {
+      const [headers, ...rows] = json;
+      return rows.map(row =>
+        headers.reduce((o, h, i) => {
+          o[h] = row[i];
+          return o;
+        }, {})
+      );
+    }
+
+    return json;
+  } catch (error) {
+    // Если это сетевая ошибка и есть попытки - повторяем
+    if (retryCount < MAX_RETRIES && error.message.includes('fetch')) {
+      const delay = RETRY_DELAY * Math.pow(2, retryCount);
+      console.log(`⚠️ Сетевая ошибка, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return getDataBySql(strSQL, retryCount + 1);
+    }
+    throw error;
+  }
 }
 
 /**
