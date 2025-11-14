@@ -9,7 +9,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { updateStocksFromYml as updateStocksFromYmlScript } from '../../scripts/offers/Offers_stock';
+import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
