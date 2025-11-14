@@ -12,6 +12,7 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateCplFrom4Days as updateCplFrom4DaysScript } from '../scripts/offers/Redtrack_cpl';
+import { updateLeadsFromRedtrack as updateLeadsFromRedtrackScript } from '../scripts/offers/Redtrack_leads';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -25,9 +26,11 @@ function OffersTL({ user }) {
   const [openTooltip, setOpenTooltip] = useState(null);
   const [openDateTooltip, setOpenDateTooltip] = useState(null);
   const [openStockTooltip, setOpenStockTooltip] = useState(null);
+  const [openLeadsTooltip, setOpenLeadsTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
   const [loadingCpl, setLoadingCpl] = useState(false);
+  const [loadingLeads, setLoadingLeads] = useState(false);
   const [stockData, setStockData] = useState({});
 
   useEffect(() => {
@@ -46,13 +49,16 @@ function OffersTL({ user }) {
       if (openStockTooltip !== null && !event.target.closest('.stock-tooltip-container')) {
         setOpenStockTooltip(null);
       }
+      if (openLeadsTooltip !== null && !event.target.closest('.leads-tooltip-container')) {
+        setOpenLeadsTooltip(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openTooltip, openDateTooltip, openStockTooltip]);
+  }, [openTooltip, openDateTooltip, openStockTooltip, openLeadsTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -135,6 +141,26 @@ function OffersTL({ user }) {
       setError('Ошибка загрузки CPL: ' + error.message);
     } finally {
       setLoadingCpl(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const updateLeads = async () => {
+    try {
+      setLoadingLeads(true);
+      setError('');
+
+      // Используем функцию из отдельного скрипта
+      const result = await updateLeadsFromRedtrackScript(metrics);
+
+      setMetrics(result.metrics);
+      setSuccess(`✅ Данные о лидах обновлены для ${result.processedCount} офферов`);
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки данных о лидах:', error);
+      setError('Ошибка загрузки данных о лидах: ' + error.message);
+    } finally {
+      setLoadingLeads(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -476,7 +502,17 @@ function OffersTL({ user }) {
                     <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingCpl ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
-                <div className="w-20 flex-shrink-0">Лиды 4дн</div>
+                <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
+                  <span>Лиды 4дн</span>
+                  <button
+                    onClick={updateLeads}
+                    disabled={loadingLeads}
+                    className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    title="Обновить данные о лидах из RedTrack"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeads ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
                 <div className="w-12 flex-shrink-0" title="Продажи на 1 заявку">
                   <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -620,13 +656,67 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Лиды 4 дн. */}
-                    <div className="w-20 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative leads-tooltip-container">
+                      {loadingLeads ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      ) : (
+                        <>
+                          <span className={`font-mono ${metric.leads_4days !== null && metric.leads_4days !== undefined ? 'text-gray-900' : 'text-gray-600'}`}>
+                            {metric.leads_4days !== null && metric.leads_4days !== undefined ? metric.leads_4days : '—'}
+                          </span>
+                          {metric.leads_data && (
+                            <svg
+                              className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenLeadsTooltip(openLeadsTooltip === index ? null : index);
+                              }}
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          )}
+                          {openLeadsTooltip === index && metric.leads_data && (
+                            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-80">
+                              <div className="text-sm font-semibold mb-2 text-gray-800">Статистика лидов по периодам</div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
+                                    <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
+                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {[7, 14, 30, 60, 90].map(days => {
+                                    const data = metric.leads_data[days];
+                                    if (!data) return null;
+                                    return (
+                                      <tr key={days} className="border-b border-gray-100">
+                                        <td className="py-1 px-2 text-gray-900">{data.label}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
+                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     {/* Продажи на 1 заявку */}
