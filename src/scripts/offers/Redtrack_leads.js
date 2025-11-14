@@ -19,6 +19,18 @@ const PERIODS = [
   { days: 90, label: '90 дней' }
 ];
 
+// Настройки для обработки rate limiting
+const DELAY_BETWEEN_PERIODS = 2000; // 2 секунды между периодами
+const DELAY_BETWEEN_PAGES = 500; // 0.5 секунды между страницами
+const DELAY_ON_RATE_LIMIT = 5000; // 5 секунд при получении 429
+const MAX_RETRIES_ON_429 = 3; // Максимум 3 попытки при 429
+
+/**
+ * Задержка выполнения
+ * @param {number} ms - Время задержки в миллисекундах
+ */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Получает данные о лидах за все периоды для массива метрик
  *
@@ -29,14 +41,22 @@ export const updateLeadsFromRedtrack = async (metrics) => {
   try {
     console.log('🔄 Начинаем загрузку данных о лидах из RedTrack за разные периоды...');
 
-    // Загружаем данные для всех периодов
+    // Загружаем данные для всех периодов с задержками
     const periodData = {};
 
-    for (const period of PERIODS) {
+    for (let i = 0; i < PERIODS.length; i++) {
+      const period = PERIODS[i];
       console.log(`📅 Загрузка данных за ${period.label}...`);
+
       const data = await fetchRedtrackDataForPeriod(period.days);
       periodData[period.days] = data;
       console.log(`  ✅ Загружено ${data.length} записей за ${period.label}`);
+
+      // Задержка между периодами (кроме последнего)
+      if (i < PERIODS.length - 1) {
+        console.log(`  ⏳ Пауза ${DELAY_BETWEEN_PERIODS}мс перед следующим периодом...`);
+        await sleep(DELAY_BETWEEN_PERIODS);
+      }
     }
 
     // Обновляем метрики с данными о лидах
@@ -105,6 +125,7 @@ export const updateLeadsFromRedtrack = async (metrics) => {
 
 /**
  * Получает данные из RedTrack API за указанный период с пагинацией
+ * С обработкой rate limiting и задержками между запросами
  *
  * @param {number} daysCount - Количество дней для загрузки (включая сегодняшний)
  * @returns {Promise<Array>} - Массив результатов
@@ -126,45 +147,72 @@ async function fetchRedtrackDataForPeriod(daysCount) {
   while (true) {
     const url = `${REDTRACK_API_URL}?api_key=${REDTRACK_API_KEY}&group=offer&date_from=${dateFrom}&date_to=${dateTo}&page=${page}&limit=${pageSize}`;
 
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
+    let retryCount = 0;
+    let success = false;
+
+    // Retry логика для обработки 429
+    while (retryCount <= MAX_RETRIES_ON_429 && !success) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        const code = response.status;
+
+        // Обработка rate limiting
+        if (code === 429) {
+          retryCount++;
+          if (retryCount <= MAX_RETRIES_ON_429) {
+            console.log(`    ⚠️ Rate limit (429), попытка ${retryCount}/${MAX_RETRIES_ON_429}, пауза ${DELAY_ON_RATE_LIMIT}мс...`);
+            await sleep(DELAY_ON_RATE_LIMIT);
+            continue;
+          } else {
+            console.log(`    ❌ Превышен лимит попыток при rate limiting. Пропускаем оставшиеся данные.`);
+            return allResults;
+          }
         }
-      });
 
-      const code = response.status;
+        if (code !== 200) {
+          console.log(`    Запрос вернул код ${code}. Остановка.`);
+          return allResults;
+        }
 
-      if (code !== 200) {
-        console.log(`Запрос вернул код ${code}. Остановка.`);
-        break;
+        const data = await response.json();
+        let results = [];
+
+        // Обработка разных форматов ответа
+        if (Array.isArray(data)) {
+          results = data;
+        } else if (data && data.data && data.data.report) {
+          results = data.data.report;
+        }
+
+        if (results.length === 0) {
+          return allResults;
+        }
+
+        allResults = allResults.concat(results);
+        page++;
+        success = true;
+
+        // Задержка между страницами (кроме первой)
+        if (page > 2) {
+          await sleep(DELAY_BETWEEN_PAGES);
+        }
+
+      } catch (error) {
+        console.error(`    Ошибка при загрузке страницы ${page} за ${daysCount} дней:`, error);
+        return allResults;
       }
+    }
 
-      const data = await response.json();
-      let results = [];
-
-      // Обработка разных форматов ответа
-      if (Array.isArray(data)) {
-        results = data;
-      } else if (data && data.data && data.data.report) {
-        results = data.data.report;
-      }
-
-      if (results.length === 0) {
-        break;
-      }
-
-      allResults = allResults.concat(results);
-      page++;
-
-    } catch (error) {
-      console.error(`Ошибка при загрузке страницы ${page} за ${daysCount} дней:`, error);
-      break;
+    if (!success) {
+      return allResults;
     }
   }
-
-  return allResults;
 }
 
 /**
