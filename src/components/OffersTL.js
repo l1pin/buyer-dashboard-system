@@ -13,6 +13,7 @@ import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/off
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateCplFrom4Days as updateCplFrom4DaysScript } from '../scripts/offers/Redtrack_cpl';
 import { updateLeadsFromRedtrack as updateLeadsFromRedtrackScript } from '../scripts/offers/Redtrack_leads';
+import { updateLeadRatings as updateLeadRatingsScript } from '../scripts/offers/Redtrack_rating';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -31,6 +32,7 @@ function OffersTL({ user }) {
   const [loadingDays, setLoadingDays] = useState(false);
   const [loadingCpl, setLoadingCpl] = useState(false);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [loadingRating, setLoadingRating] = useState(false);
   const [stockData, setStockData] = useState({});
 
   useEffect(() => {
@@ -161,6 +163,26 @@ function OffersTL({ user }) {
       setError('Ошибка загрузки данных о лидах: ' + error.message);
     } finally {
       setLoadingLeads(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const updateRating = async () => {
+    try {
+      setLoadingRating(true);
+      setError('');
+
+      // Используем функцию из отдельного скрипта
+      const result = await updateLeadRatingsScript(metrics);
+
+      setMetrics(result.metrics);
+      setSuccess(`✅ Рейтинги обновлены для ${result.processedCount} офферов`);
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления рейтингов:', error);
+      setError('Ошибка обновления рейтингов: ' + error.message);
+    } finally {
+      setLoadingRating(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -518,11 +540,16 @@ function OffersTL({ user }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                   </svg>
                 </div>
-                <div className="w-12 flex-shrink-0" title="Рейтинг">
-                  <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z"/>
-                    <path d="M12 17.75l-6.172 3.245 1.179-6.873-4.993-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z" />
-                  </svg>
+                <div className="w-12 flex-shrink-0 flex items-center justify-center gap-1">
+                  <span title="Рейтинг">⭐</span>
+                  <button
+                    onClick={updateRating}
+                    disabled={loadingRating}
+                    className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    title="Обновить рейтинги из RedTrack"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingRating ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <div className="w-12 flex-shrink-0" title="Реклама">
                   <svg className="text-gray-700 w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -725,13 +752,23 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Рейтинг */}
-                    <div className="w-12 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-12 flex-shrink-0 text-xs flex items-center justify-center">
+                      {loadingRating ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      ) : (
+                        <span
+                          className={`font-semibold px-1.5 py-0.5 rounded ${
+                            metric.lead_rating === 'A' ? 'bg-green-100 text-green-800' :
+                            metric.lead_rating === 'B' ? 'bg-blue-100 text-blue-800' :
+                            metric.lead_rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                            metric.lead_rating === 'D' ? 'bg-red-100 text-red-800' :
+                            'text-gray-400'
+                          }`}
+                          title={metric.rating_cpl ? `CPL: ${metric.rating_cpl.toFixed(2)}` : 'Нет данных'}
+                        >
+                          {metric.lead_rating || 'N/A'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Реклама */}
