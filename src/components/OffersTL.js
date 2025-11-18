@@ -27,6 +27,7 @@ function OffersTL({ user }) {
   const [openStockTooltip, setOpenStockTooltip] = useState(null);
   const [openLeadsTooltip, setOpenLeadsTooltip] = useState(null);
   const [openCplTooltip, setOpenCplTooltip] = useState(null);
+  const [openRatingTooltip, setOpenRatingTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
   const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
@@ -54,13 +55,16 @@ function OffersTL({ user }) {
       if (openCplTooltip !== null && !event.target.closest('.cpl-tooltip-container')) {
         setOpenCplTooltip(null);
       }
+      if (openRatingTooltip !== null && !event.target.closest('.rating-tooltip-container')) {
+        setOpenRatingTooltip(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openTooltip, openDateTooltip, openStockTooltip, openLeadsTooltip, openCplTooltip]);
+  }, [openTooltip, openDateTooltip, openStockTooltip, openLeadsTooltip, openCplTooltip, openRatingTooltip]);
 
   const loadMetrics = async () => {
     try {
@@ -356,6 +360,49 @@ function OffersTL({ user }) {
             ))
           ) : (
             <div className="text-xs text-gray-500 italic">Нет данных о модификациях</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Компонент тултипа с историей рейтинга за 3 месяца
+  const RatingTooltip = ({ ratingHistory, onClose }) => {
+    const getRatingColor = (rating) => {
+      switch (rating) {
+        case 'A': return 'bg-green-100 text-green-800';
+        case 'B': return 'bg-blue-100 text-blue-800';
+        case 'C': return 'bg-yellow-100 text-yellow-800';
+        case 'D': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-400';
+      }
+    };
+
+    return (
+      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
+           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">История рейтинга</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          {ratingHistory && ratingHistory.length > 0 ? (
+            ratingHistory.map((item, index) => (
+              <div key={index} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-2 last:border-b-0">
+                <span className="text-gray-600 w-20">{item.month} {item.year}</span>
+                <span className={`font-semibold px-2 py-1 rounded ${getRatingColor(item.rating)}`}>
+                  {item.rating}
+                </span>
+                <span className="text-gray-700 font-mono">CPL: {item.cpl > 0 ? item.cpl.toFixed(2) : '—'}</span>
+                <span className="text-gray-700">Лиды: {item.leads}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-gray-500 italic">Нет данных за предыдущие месяцы</div>
           )}
         </div>
       </div>
@@ -769,22 +816,52 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Рейтинг */}
-                    <div className="w-12 flex-shrink-0 text-xs flex items-center justify-center">
+                    <div className="w-12 flex-shrink-0 text-xs flex items-center justify-center gap-1 relative rating-tooltip-container">
                       {loadingLeadsData ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
-                        <span
-                          className={`font-semibold px-1.5 py-0.5 rounded ${
-                            metric.lead_rating === 'A' ? 'bg-green-100 text-green-800' :
-                            metric.lead_rating === 'B' ? 'bg-blue-100 text-blue-800' :
-                            metric.lead_rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
-                            metric.lead_rating === 'D' ? 'bg-red-100 text-red-800' :
-                            'text-gray-400'
-                          }`}
-                          title={metric.rating_cpl ? `CPL: ${metric.rating_cpl.toFixed(2)}` : 'Нет данных'}
-                        >
-                          {metric.lead_rating || 'N/A'}
-                        </span>
+                        <>
+                          <span
+                            className={`font-semibold px-1.5 py-0.5 rounded ${
+                              metric.lead_rating === 'A' ? 'bg-green-100 text-green-800' :
+                              metric.lead_rating === 'B' ? 'bg-blue-100 text-blue-800' :
+                              metric.lead_rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                              metric.lead_rating === 'D' ? 'bg-red-100 text-red-800' :
+                              'text-gray-400'
+                            }`}
+                            title={metric.rating_cpl ? `CPL: ${metric.rating_cpl.toFixed(2)}` : 'Нет данных'}
+                          >
+                            {metric.lead_rating || 'N/A'}
+                          </span>
+                          {metric.rating_history && metric.rating_history.length > 0 && (
+                            <svg
+                              className="text-gray-500 w-3 h-3 flex-shrink-0 cursor-pointer hover:text-gray-700"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenRatingTooltip(openRatingTooltip === index ? null : index);
+                              }}
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          )}
+                          {openRatingTooltip === index && metric.rating_history && (
+                            <RatingTooltip
+                              ratingHistory={metric.rating_history}
+                              onClose={() => setOpenRatingTooltip(null)}
+                            />
+                          )}
+                        </>
                       )}
                     </div>
 
