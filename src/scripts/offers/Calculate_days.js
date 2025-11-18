@@ -80,7 +80,7 @@ export const calculateRemainingDays = async (metrics) => {
           }
           return {
             ...metric,
-            days_remaining: 'недостаточно дней для анализа',
+            days_remaining: 'Нет данных',
             days_remaining_value: null
           };
         }
@@ -99,8 +99,8 @@ export const calculateRemainingDays = async (metrics) => {
 
         return {
           ...metric,
-          days_remaining: Number(days.toFixed(2)),
-          days_remaining_value: Number(days.toFixed(2))
+          days_remaining: Math.round(days),
+          days_remaining_value: Math.round(days)
         };
       }
 
