@@ -1,9 +1,8 @@
 /**
  * Универсальный скрипт для получения данных о лидах и рейтинга из SQL базы данных
- * – Загружает данные за 90 дней для CPL и Лидов
- * – Загружает данные за последние 3 полных месяца для Рейтинга
+ * – Загружает данные за 90 дней для CPL, Лидов и Рейтинга
  * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
- * – Рассчитывает рейтинг (A/B/C/D) на основе CPL и "Цены лида в зоне" (red_zone_price)
+ * – Рассчитывает рейтинг (A/B/C/D) на основе CPL за 4 дня и "Цены лида в зоне" (red_zone_price)
  * – Если red_zone_price отсутствует, используется константа 3.5
  * – Извлекает артикул из offer_name (формат: "C01829 - Жіноча блуза")
  * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
@@ -41,19 +40,14 @@ export const updateLeadsFromSql = async (metrics) => {
   try {
     console.log('🔄 Начинаем загрузку данных из БД (CPL, Лиды, Рейтинг)...');
 
-    // 1. Загружаем данные за 90 дней для CPL и Лидов
+    // 1. Загружаем данные за 90 дней для CPL, Лидов и Рейтинга
     const data90Days = await fetchDataFor90Days();
     console.log(`✅ Загружено ${data90Days.length} записей за 90 дней`);
 
-    // 2. Загружаем данные за последние 3 полных месяца для Рейтинга
-    const monthlyData = await fetchLast3MonthsData();
-    console.log(`✅ Загружено ${monthlyData.length} записей за 3 месяца`);
-
-    // 3. Группируем данные
+    // 2. Группируем данные
     const dataByArticleAndDate = groupDataByArticleAndDate(data90Days);
-    const monthlyDataByArticle = groupMonthlyDataByArticle(monthlyData);
 
-    // 4. Обновляем метрики с данными о лидах, CPL и рейтингах
+    // 3. Обновляем метрики с данными о лидах, CPL и рейтингах
     let processedCount = 0;
 
     const updatedMetrics = metrics.map(metric => {
@@ -98,23 +92,19 @@ export const updateLeadsFromSql = async (metrics) => {
         };
       });
 
-      // === ЧАСТЬ 2: Рейтинг на основе последнего полного месяца ===
-      const monthKeys = getLast3FullMonths();
-      const lastMonth = monthKeys[2]; // Последний из 3 месяцев
+      // === ЧАСТЬ 2: Рейтинг на основе CPL за 4 дня ===
 
       // Получаем базовый порог из колонки "Цена лида в зоне" (красная зона)
       // Если нет значения, используем константу 3.5
       const baseThreshold = metric.red_zone_price || 3.5;
 
-      // Получаем CPL для последнего месяца
-      const monthlyCpl = (monthlyDataByArticle[article] && monthlyDataByArticle[article][lastMonth] !== undefined)
-        ? monthlyDataByArticle[article][lastMonth]
-        : null;
+      // Получаем CPL за 4 дня (уже рассчитан выше)
+      const cpl4days = leadsData[4].cpl;
 
       // Рассчитываем рейтинг
       let rating = 'N/A';
-      if (monthlyCpl !== null && monthlyCpl > 0) {
-        rating = calculateRating(monthlyCpl, baseThreshold);
+      if (cpl4days !== null && cpl4days > 0) {
+        rating = calculateRating(cpl4days, baseThreshold);
       }
 
       processedCount++;
@@ -124,7 +114,7 @@ export const updateLeadsFromSql = async (metrics) => {
         leads_4days: leadsData[4].leads,
         leads_data: leadsData,        // Все данные для тултипа
         lead_rating: rating,          // Рейтинг
-        rating_cpl: monthlyCpl        // CPL для рейтинга
+        rating_cpl: cpl4days          // CPL за 4 дня для рейтинга
       };
     });
 
@@ -173,55 +163,8 @@ function groupDataByArticleAndDate(data) {
 }
 
 /**
- * Группирует месячные данные по артикулу
- */
-function groupMonthlyDataByArticle(data) {
-  const grouped = {};
-
-  data.forEach(record => {
-    const article = record.article;
-    const month = record.month;
-    const cpl = record.cpl;
-
-    if (!article || !month) return;
-
-    if (!grouped[article]) {
-      grouped[article] = {};
-    }
-
-    // Берем среднее если несколько записей за месяц
-    if (!grouped[article][month]) {
-      grouped[article][month] = cpl;
-    } else {
-      grouped[article][month] = (grouped[article][month] + cpl) / 2;
-    }
-  });
-
-  return grouped;
-}
-
-/**
- * Получает последние 3 полных месяца в формате YYYY-MM
- */
-function getLast3FullMonths() {
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const months = [];
-
-  for (let i = 3; i >= 1; i--) {
-    const d = new Date(firstDay);
-    d.setMonth(d.getMonth() - i);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    months.push(`${year}-${month}`);
-  }
-
-  return months;
-}
-
-/**
  * Рассчитывает рейтинг на основе CPL и базового порога
- * @param {number} cpl - CPL за последний полный месяц
+ * @param {number} cpl - CPL за 4 дня
  * @param {number} base - Базовый порог (red_zone_price или 3.5)
  */
 function calculateRating(cpl, base) {
@@ -238,7 +181,7 @@ function calculateRating(cpl, base) {
 }
 
 /**
- * Получает данные из SQL БД за 90 дней для CPL и Лидов
+ * Получает данные из SQL БД за 90 дней для CPL, Лидов и Рейтинга
  */
 async function fetchDataFor90Days() {
   const end = new Date();
@@ -263,7 +206,7 @@ async function fetchDataFor90Days() {
     cur.setDate(1);
   }
 
-  console.log(`📅 Загрузка 90 дней (${periods.length} периодов) для CPL и Лидов...`);
+  console.log(`📅 Загрузка 90 дней (${periods.length} периодов) для CPL, Лидов и Рейтинга...`);
 
   let allData = [];
   let successCount = 0;
@@ -302,74 +245,6 @@ async function fetchDataFor90Days() {
   }
 
   console.log(`✅ 90 дней: ${allData.length} записей (${successCount}/${periods.length} периодов)`);
-
-  return allData;
-}
-
-/**
- * Получает данные за последние 3 полных месяца для рейтинга
- */
-async function fetchLast3MonthsData() {
-  const monthKeys = getLast3FullMonths();
-  console.log(`📅 Загрузка 3 месяцев для Рейтинга: ${monthKeys.join(', ')}`);
-
-  let allData = [];
-  let successCount = 0;
-
-  for (const month of monthKeys) {
-    const [year, monthNum] = month.split('-');
-    const lastDay = new Date(year, monthNum, 0).getDate();
-    const from = `${month}-01`;
-    const to = `${month}-${String(lastDay).padStart(2, '0')}`;
-
-    const sql =
-      `SELECT offer_name, adv_date, valid, cost ` +
-      `FROM ads_collection ` +
-      `WHERE adv_date BETWEEN '${from}' AND '${to}' ` +
-      `AND valid > 0`;
-
-    console.log(`  📆 ${month}`);
-
-    try {
-      const rawData = await getDataBySql(sql);
-      console.log(`    ✅ ${rawData.length} записей`);
-
-      // Группируем по артикулу и считаем CPL за месяц
-      const monthlyMap = {};
-      rawData.forEach(row => {
-        const article = extractArticle(row.offer_name || '');
-        const leads = Number(row.valid) || 0;
-        const cost = Number(row.cost) || 0;
-
-        if (!article || leads <= 0) return;
-
-        if (!monthlyMap[article]) {
-          monthlyMap[article] = { totalLeads: 0, totalCost: 0 };
-        }
-
-        monthlyMap[article].totalLeads += leads;
-        monthlyMap[article].totalCost += cost;
-      });
-
-      // Конвертируем в массив с CPL
-      Object.keys(monthlyMap).forEach(article => {
-        const { totalLeads, totalCost } = monthlyMap[article];
-        const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
-
-        allData.push({
-          article,
-          month,
-          cpl
-        });
-      });
-
-      successCount++;
-    } catch (error) {
-      console.warn(`    ⚠️ Пропуск ${month}: ${error.message}`);
-    }
-  }
-
-  console.log(`✅ 3 месяца: ${allData.length} записей (${successCount}/${monthKeys.length} месяцев)`);
 
   return allData;
 }
