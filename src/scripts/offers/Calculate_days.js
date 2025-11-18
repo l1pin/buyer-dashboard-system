@@ -52,13 +52,13 @@ export const calculateRemainingDays = async (metrics) => {
     console.log('📋 Примеры артикулов в forecastMap:', forecastArticles);
 
     const metricsArticles = metrics
-      .filter(m => m.article && m.status === 'Вкл')
+      .filter(m => m.article)
       .slice(0, 5)
       .map(m => m.article);
-    console.log('📋 Примеры артикулов в метриках (статус Вкл):', metricsArticles);
+    console.log('📋 Примеры артикулов в метриках:', metricsArticles);
 
-    // Подсчет метрик со статусом "Вкл" и наличием артикула
-    const activeMetrics = metrics.filter(m => m.status === 'Вкл' && m.article && m.stock_quantity != null);
+    // Подсчет метрик с наличием артикула и остатков
+    const activeMetrics = metrics.filter(m => m.article && m.stock_quantity != null);
     console.log(`📊 Активных метрик для обработки: ${activeMetrics.length}`);
 
     // Отладка: проверяем совпадения
@@ -68,10 +68,9 @@ export const calculateRemainingDays = async (metrics) => {
     // Обновляем метрики с рассчитанными днями
     const updatedMetrics = metrics.map(metric => {
       const article = metric.article;
-      const status = metric.status;
       const stock = metric.stock_quantity;
 
-      if (status === 'Вкл' && article && stock != null) {
+      if (article && stock != null) {
         const forecast = forecastMap[article];
 
         if (!forecast) {
