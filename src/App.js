@@ -42,6 +42,14 @@ function App() {
         console.log('Пользователь не найден в таблице, создаем...');
         await createUserProfile(userId);
       } else {
+        // Проверяем, не архивирован ли пользователь
+        if (data.archived === true) {
+          console.log('Пользователь архивирован, выход из системы');
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          return;
+        }
         setUser(data);
       }
     } catch (error) {
