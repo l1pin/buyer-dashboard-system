@@ -1284,7 +1284,7 @@ function UserManagement({ user }) {
 
                           <div className="grid grid-cols-2 gap-3">
                             {/* ID канала */}
-                            <div className="col-span-2">
+                            <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 ID канала трафика *
                               </label>
@@ -1357,7 +1357,7 @@ function UserManagement({ user }) {
                             </div>
 
                             {/* Доступ ограничен */}
-                            <div className="col-span-2">
+                            <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Доступ до (опционально)
                               </label>
@@ -1377,9 +1377,6 @@ function UserManagement({ user }) {
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                               />
-                              <p className="mt-1 text-xs text-gray-500">
-                                Оставьте пустым для неограниченного доступа
-                              </p>
                             </div>
                           </div>
                         </div>
@@ -1673,7 +1670,7 @@ function UserManagement({ user }) {
 
                           <div className="grid grid-cols-2 gap-3">
                             {/* ID канала */}
-                            <div className="col-span-2">
+                            <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 ID канала трафика *
                               </label>
@@ -1746,7 +1743,7 @@ function UserManagement({ user }) {
                             </div>
 
                             {/* Доступ ограничен */}
-                            <div className="col-span-2">
+                            <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Доступ до (опционально)
                               </label>
@@ -1766,9 +1763,6 @@ function UserManagement({ user }) {
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                               />
-                              <p className="mt-1 text-xs text-gray-500">
-                                Оставьте пустым для неограниченного доступа
-                              </p>
                             </div>
                           </div>
                         </div>
