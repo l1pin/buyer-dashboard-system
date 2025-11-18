@@ -12,7 +12,6 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromRedtrack as updateLeadsFromRedtrackScript } from '../scripts/offers/Redtrack_leads';
-import { updateLeadRatings as updateLeadRatingsScript } from '../scripts/offers/Redtrack_rating';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -30,8 +29,7 @@ function OffersTL({ user }) {
   const [openCplTooltip, setOpenCplTooltip] = useState(null);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
-  const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL и Лидов
-  const [loadingRating, setLoadingRating] = useState(false);
+  const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
   const [stockData, setStockData] = useState({});
 
   useEffect(() => {
@@ -129,43 +127,23 @@ function OffersTL({ user }) {
     }
   };
 
-  // Единая функция для обновления данных о лидах и CPL (используется обеими кнопками)
+  // Единая функция для обновления ТРЕХ колонок: CPL 4дн, Лиды 4дн, Рейтинг
   const updateLeadsData = async () => {
     try {
       setLoadingLeadsData(true);
       setError('');
 
-      // Используем единый скрипт для обеих колонок (оптимизированный с одним запросом на 90 дней)
+      // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
       const result = await updateLeadsFromRedtrackScript(metrics);
 
       setMetrics(result.metrics);
-      setSuccess(`✅ Данные о лидах и CPL обновлены для ${result.processedCount} офферов`);
+      setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
 
     } catch (error) {
-      console.error('❌ Ошибка загрузки данных о лидах и CPL:', error);
+      console.error('❌ Ошибка загрузки данных из БД:', error);
       setError('Ошибка загрузки данных: ' + error.message);
     } finally {
       setLoadingLeadsData(false);
-      setTimeout(() => setSuccess(''), 5000);
-    }
-  };
-
-  const updateRating = async () => {
-    try {
-      setLoadingRating(true);
-      setError('');
-
-      // Используем функцию из отдельного скрипта
-      const result = await updateLeadRatingsScript(metrics);
-
-      setMetrics(result.metrics);
-      setSuccess(`✅ Рейтинги обновлены для ${result.processedCount} офферов`);
-
-    } catch (error) {
-      console.error('❌ Ошибка обновления рейтингов:', error);
-      setError('Ошибка обновления рейтингов: ' + error.message);
-    } finally {
-      setLoadingRating(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -529,12 +507,12 @@ function OffersTL({ user }) {
                     <path d="M12 17.75l-6.172 3.245 1.179-6.873-4.993-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z" />
                   </svg>
                   <button
-                    onClick={updateRating}
-                    disabled={loadingRating}
+                    onClick={updateLeadsData}
+                    disabled={loadingLeadsData}
                     className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                    title="Обновить рейтинги из RedTrack"
+                    title="Обновить CPL, Лиды и Рейтинг из БД"
                   >
-                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingRating ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeadsData ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
                 <div className="w-12 flex-shrink-0" title="Реклама">
@@ -792,7 +770,7 @@ function OffersTL({ user }) {
 
                     {/* Рейтинг */}
                     <div className="w-12 flex-shrink-0 text-xs flex items-center justify-center">
-                      {loadingRating ? (
+                      {loadingLeadsData ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       ) : (
                         <span
