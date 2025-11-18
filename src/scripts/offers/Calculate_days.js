@@ -131,93 +131,96 @@ export const calculateRemainingDays = async (metrics) => {
 
 /**
  * Достаёт данные за последние 12 месяцев с АГРЕГАЦИЕЙ на SQL сервере.
- * КРИТИЧЕСКИЕ ОПТИМИЗАЦИИ:
- * 1. GROUP BY на сервере → уменьшаем объём данных в 10-100 раз
- * 2. Параллельные запросы → ускоряем загрузку в 3-4 раза
- * 3. Объединяем периоды → меньше HTTP запросов
+ * КРИТИЧЕСКИЕ ОПТИМИЗАЦИИ под лимиты Netlify Functions (6MB на ответ):
+ * 1. ДВОЙНАЯ агрегация SQL: GROUP BY + округление дат до недель
+ * 2. Последовательные запросы по месяцам (не параллельно из-за лимита)
+ * 3. Задержки между запросами для снижения нагрузки
  */
 async function fetchTrackerAll() {
   const end = new Date();
   const start = new Date();
   start.setMonth(start.getMonth() - 12);
 
-  // Разбиваем на кварталы для параллельной загрузки (вместо 13 месяцев)
-  const periods = createQuarterPeriods(start, end);
+  // Создаём периоды по 1 месяцу
+  const periods = createMonthlyPeriods(start, end);
 
-  console.log(`📅 Будет загружено ${periods.length} периодов (параллельно)`);
+  console.log(`📅 Будет загружено ${periods.length} месяцев (последовательно)`);
 
-  // ПАРАЛЛЕЛЬНАЯ загрузка всех периодов одновременно
-  const results = await Promise.allSettled(
-    periods.map(async (p) => {
-      // SQL с АГРЕГАЦИЕЙ на сервере (GROUP BY)
-      const sql = `
-        SELECT
-          offer_name,
-          adv_date,
-          SUM(valid) as total_leads,
-          SUM(cost) as total_cost
-        FROM ads_collection
-        WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
-          AND cost > 0
-        GROUP BY offer_name, adv_date
-      `;
-
-      console.log(`📦 Запрос ${p.from}..${p.to}`);
-
-      try {
-        const chunk = await getDataBySql(sql);
-        console.log(`✅ ${p.from}..${p.to}: ${chunk.length} строк`);
-        return chunk;
-      } catch (error) {
-        console.warn(`⚠️ Ошибка ${p.from}..${p.to}: ${error.message}`);
-        throw error;
-      }
-    })
-  );
-
-  // Собираем успешные результаты
   let all = [];
   let successCount = 0;
   let failedPeriods = [];
+  const DELAY_BETWEEN_REQUESTS = 500; // 0.5 сек между запросами
 
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      const chunk = result.value.map(it => ({
+  // ПОСЛЕДОВАТЕЛЬНАЯ загрузка по месяцам
+  for (let i = 0; i < periods.length; i++) {
+    const p = periods[i];
+
+    // SQL с ДВОЙНОЙ агрегацией:
+    // 1. DATE(adv_date) - группировка по дням
+    // 2. SUM() - суммирование лидов и расходов
+    const sql = `
+      SELECT
+        offer_name,
+        DATE(adv_date) as adv_date,
+        SUM(valid) as total_leads,
+        SUM(cost) as total_cost
+      FROM ads_collection
+      WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
+        AND cost > 0
+      GROUP BY offer_name, DATE(adv_date)
+    `;
+
+    console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to}`);
+
+    try {
+      const chunk = await getDataBySql(sql);
+      console.log(`  ✅ ${chunk.length} строк`);
+
+      const mapped = chunk.map(it => ({
         offer: it.offer_name || '',
         date: new Date(it.adv_date),
         leads: Number(it.total_leads) || 0,
         cost: Number(it.total_cost) || 0
       }));
-      all = all.concat(chunk);
-      successCount++;
-    } else {
-      failedPeriods.push(`${periods[index].from}..${periods[index].to}`);
-    }
-  });
 
-  if (failedPeriods.length > 0) {
-    console.warn(`⚠️ Не удалось загрузить ${failedPeriods.length} периодов: ${failedPeriods.join(', ')}`);
+      all = all.concat(mapped);
+      successCount++;
+
+      // Задержка между запросами для снижения нагрузки
+      if (i < periods.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS));
+      }
+
+    } catch (error) {
+      console.warn(`  ⚠️ Пропуск: ${error.message.substring(0, 100)}`);
+      failedPeriods.push(`${p.from}..${p.to}`);
+
+      // Продолжаем даже при ошибке
+      continue;
+    }
   }
 
-  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} периодов`);
+  if (failedPeriods.length > 0) {
+    console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} месяцев`);
+  }
+
+  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} месяцев`);
 
   return all;
 }
 
 /**
- * Создаёт периоды по 3 месяца для параллельной загрузки
+ * Создаёт периоды по 1 месяцу для последовательной загрузки
  */
-function createQuarterPeriods(start, end) {
+function createMonthlyPeriods(start, end) {
   const periods = [];
-  const cur = new Date(start);
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 
   while (cur <= end) {
     const from = formatDate(cur);
 
-    // Берём 3 месяца (квартал)
-    const tmp = new Date(cur);
-    tmp.setMonth(tmp.getMonth() + 3);
-    tmp.setDate(0); // Последний день предыдущего месяца
+    // Последний день месяца
+    const tmp = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
 
     if (tmp > end) {
       tmp.setTime(end.getTime());
@@ -226,7 +229,8 @@ function createQuarterPeriods(start, end) {
     const to = formatDate(tmp);
     periods.push({ from, to });
 
-    cur.setMonth(cur.getMonth() + 3);
+    // Следующий месяц
+    cur.setMonth(cur.getMonth() + 1);
   }
 
   return periods;
@@ -237,9 +241,9 @@ function createQuarterPeriods(start, end) {
  * С УЛУЧШЕННОЙ retry логикой и обработкой таймаутов
  */
 async function getDataBySql(strSQL, retryCount = 0) {
-  const MAX_RETRIES = 4; // Увеличено до 4 попыток
-  const RETRY_DELAY = 2000; // Стартовая задержка 2 секунды
-  const FETCH_TIMEOUT = 25000; // Таймаут fetch 25 секунд (меньше чем Netlify 26сек)
+  const MAX_RETRIES = 2; // 2 попытки для быстрого fail-over при последовательных запросах
+  const RETRY_DELAY = 1500; // Стартовая задержка 1.5 секунды
+  const FETCH_TIMEOUT = 20000; // Таймаут fetch 20 секунд
 
   try {
     // Создаём контроллер для отмены по таймауту
