@@ -1250,38 +1250,12 @@ function UserManagement({ user }) {
               {newUser.role === 'buyer' && (
                 <>
                   <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Настройки Media Buyer
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewUser({
-                            ...newUser,
-                            buyer_settings: {
-                              ...newUser.buyer_settings,
-                              traffic_channels: [
-                                ...newUser.buyer_settings.traffic_channels,
-                                {
-                                  channel_id: '',
-                                  currency: 'USD',
-                                  access_granted: '2020-01-01',
-                                  access_limited: null
-                                }
-                              ]
-                            }
-                          });
-                        }}
-                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Добавить канал
-                      </button>
-                    </div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">
+                      Настройки Media Buyer
+                    </h4>
 
                     {/* Каналы трафика */}
-                    <div className="space-y-4">
+                    <div className="space-y-4 mb-4">
                       {newUser.buyer_settings.traffic_channels.map((channel, index) => (
                         <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                           <div className="flex items-center justify-between mb-3">
@@ -1411,6 +1385,32 @@ function UserManagement({ user }) {
                         </div>
                       ))}
                     </div>
+
+                    {/* Кнопка добавления канала внизу */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewUser({
+                          ...newUser,
+                          buyer_settings: {
+                            ...newUser.buyer_settings,
+                            traffic_channels: [
+                              ...newUser.buyer_settings.traffic_channels,
+                              {
+                                channel_id: '',
+                                currency: 'USD',
+                                access_granted: '2020-01-01',
+                                access_limited: null
+                              }
+                            ]
+                          }
+                        });
+                      }}
+                      className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Добавить канал
+                    </button>
                   </div>
                 </>
               )}
@@ -1639,38 +1639,12 @@ function UserManagement({ user }) {
               {editUserData.role === 'buyer' && (
                 <>
                   <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Настройки Media Buyer
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditUserData({
-                            ...editUserData,
-                            buyer_settings: {
-                              ...editUserData.buyer_settings,
-                              traffic_channels: [
-                                ...editUserData.buyer_settings.traffic_channels,
-                                {
-                                  channel_id: '',
-                                  currency: 'USD',
-                                  access_granted: '2020-01-01',
-                                  access_limited: null
-                                }
-                              ]
-                            }
-                          });
-                        }}
-                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Добавить канал
-                      </button>
-                    </div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">
+                      Настройки Media Buyer
+                    </h4>
 
                     {/* Каналы трафика */}
-                    <div className="space-y-4">
+                    <div className="space-y-4 mb-4">
                       {editUserData.buyer_settings.traffic_channels.map((channel, index) => (
                         <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                           <div className="flex items-center justify-between mb-3">
@@ -1800,6 +1774,32 @@ function UserManagement({ user }) {
                         </div>
                       ))}
                     </div>
+
+                    {/* Кнопка добавления канала внизу */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditUserData({
+                          ...editUserData,
+                          buyer_settings: {
+                            ...editUserData.buyer_settings,
+                            traffic_channels: [
+                              ...editUserData.buyer_settings.traffic_channels,
+                              {
+                                channel_id: '',
+                                currency: 'USD',
+                                access_granted: '2020-01-01',
+                                access_limited: null
+                              }
+                            ]
+                          }
+                        });
+                      }}
+                      className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Добавить канал
+                    </button>
                   </div>
                 </>
               )}
