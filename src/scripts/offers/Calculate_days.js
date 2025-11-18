@@ -1,8 +1,10 @@
 /**
  * Скрипт для расчёта оставшихся дней продаж на основе всей истории из SQL-API
- * – Достаём сначала MIN(adv_date), затем по месяцам всё накопительно
- * – Экспоненциальное сглаживание прогноза
+ * – Достаём данные за последние 12 месяцев по частям
+ * – Экспоненциальное сглаживание прогноза (α = 0.3)
  * – Возвращает результаты для обновления метрик
+ *
+ * Портировано с Google Apps Script
  */
 
 // Используем Netlify Function для обхода CORS
@@ -18,20 +20,39 @@ export const calculateRemainingDays = async (metrics) => {
   try {
     console.log('🔄 Начинаем расчет оставшихся дней продаж...');
 
-    // Получаем всю историю по частям
+    if (!metrics || metrics.length === 0) {
+      console.log('⚠️ Нет метрик для обработки');
+      return {
+        metrics: [],
+        processedCount: 0,
+        totalArticles: 0
+      };
+    }
+
+    // 1. Получаем всю историю по частям (как в Google Script)
     const tracker = await fetchTrackerAll();
     console.log(`Всего строк истории: ${tracker.length}`);
 
-    // Группируем по артикулу
-    const index = buildTrackerIndex(tracker);
+    if (tracker.length === 0) {
+      console.warn('⚠️ История пуста, расчет невозможен');
+      return {
+        metrics: metrics,
+        processedCount: 0,
+        totalArticles: 0
+      };
+    }
 
-    // Экспоненциальное сглаживание (α = 0.3)
+    // 2. Группируем по артикулу (buildTrackerIndex)
+    const index = buildTrackerIndex(tracker);
+    console.log(`Уникальных артикулов в истории: ${Object.keys(index).length}`);
+
+    // 3. Экспоненциальное сглаживание (α = 0.3) - ТОЧНО КАК В GOOGLE SCRIPT
     const alpha = 0.3;
     const forecastMap = {};
 
     Object.keys(index).forEach(art => {
       const arr = index[art];
-      if (arr.length < 10) return; // Недостаточно данных
+      if (arr.length < 10) return; // Недостаточно данных для прогноза
 
       // Сортируем по дате
       arr.sort((a, b) => a.date - b.date);
@@ -47,37 +68,49 @@ export const calculateRemainingDays = async (metrics) => {
 
     console.log(`Ключей в forecastMap: ${Object.keys(forecastMap).length}`);
 
-    // Отладка: выводим примеры артикулов
-    const forecastArticles = Object.keys(forecastMap).slice(0, 5);
-    console.log('📋 Примеры артикулов в forecastMap:', forecastArticles);
+    // ОТЛАДКА: Примеры артикулов
+    const forecastSample = Object.keys(forecastMap).slice(0, 10);
+    console.log('📋 Примеры артикулов в forecastMap:', forecastSample);
 
-    const metricsArticles = metrics
-      .filter(m => m.article && m.status === 'Вкл')
-      .slice(0, 5)
-      .map(m => m.article);
-    console.log('📋 Примеры артикулов в метриках (статус Вкл):', metricsArticles);
+    const metricsWithArticles = metrics
+      .filter(m => m.article && m.article.trim())
+      .slice(0, 10)
+      .map(m => ({
+        article: m.article,
+        trimmed: m.article.trim(),
+        status: m.status,
+        stock: m.stock_quantity
+      }));
+    console.log('📋 Примеры метрик с артикулами:', metricsWithArticles);
 
-    // Подсчет метрик со статусом "Вкл" и наличием артикула
-    const activeMetrics = metrics.filter(m => m.status === 'Вкл' && m.article && m.stock_quantity != null);
-    console.log(`📊 Активных метрик для обработки: ${activeMetrics.length}`);
+    // Подсчет активных метрик
+    const activeCount = metrics.filter(m =>
+      m.status === 'Вкл' &&
+      m.article &&
+      m.article.trim() !== '' &&
+      m.stock_quantity != null
+    ).length;
+    console.log(`📊 Активных метрик (Вкл + артикул + остаток): ${activeCount}`);
 
-    // Отладка: проверяем совпадения
-    let matchedCount = 0;
+    // 4. Считаем дни и обновляем метрики - ТОЧНО КАК В GOOGLE SCRIPT
+    let processedCount = 0;
     let notFoundCount = 0;
 
-    // Обновляем метрики с рассчитанными днями
     const updatedMetrics = metrics.map(metric => {
-      const article = metric.article;
-      const status = metric.status;
+      // Берем артикул и trim() - ВАЖНО!
+      const art = metric.article ? metric.article.trim() : null;
+      const stat = metric.status;
       const stock = metric.stock_quantity;
 
-      if (status === 'Вкл' && article && stock != null) {
-        const forecast = forecastMap[article];
+      // Проверка условий (как в Google Script: stat === 'Вкл' && art && stock != null)
+      if (stat === 'Вкл' && art && stock != null) {
+        const f = forecastMap[art];
 
-        if (!forecast) {
+        if (!f) {
+          // Артикул не найден в прогнозе
           notFoundCount++;
-          if (notFoundCount <= 5) {
-            console.log(`⚠️ Не найден прогноз для артикула: "${article}"`);
+          if (notFoundCount <= 10) {
+            console.log(`⚠️ Артикул "${art}" не найден в forecastMap (статус: ${stat}, остаток: ${stock})`);
           }
           return {
             ...metric,
@@ -86,9 +119,9 @@ export const calculateRemainingDays = async (metrics) => {
           };
         }
 
-        matchedCount++;
-
-        const days = stock / forecast;
+        // Рассчитываем дни
+        const days = stock / f;
+        processedCount++;
 
         if (days < 0) {
           return {
@@ -98,6 +131,7 @@ export const calculateRemainingDays = async (metrics) => {
           };
         }
 
+        // Возвращаем число с 2 знаками после запятой
         return {
           ...metric,
           days_remaining: Number(days.toFixed(2)),
@@ -105,6 +139,7 @@ export const calculateRemainingDays = async (metrics) => {
         };
       }
 
+      // Если условия не выполнены - пустое значение
       return {
         ...metric,
         days_remaining: null,
@@ -112,9 +147,8 @@ export const calculateRemainingDays = async (metrics) => {
       };
     });
 
-    console.log(`📊 Статистика совпадений: найдено ${matchedCount}, не найдено ${notFoundCount}`);
-
-    const processedCount = updatedMetrics.filter(m => m.days_remaining_value !== null).length;
+    console.log(`📊 Найдено совпадений: ${processedCount}`);
+    console.log(`⚠️ Не найдено в forecastMap: ${notFoundCount}`);
     console.log(`✅ Обработано офферов: ${processedCount}`);
 
     return {
@@ -125,21 +159,23 @@ export const calculateRemainingDays = async (metrics) => {
 
   } catch (error) {
     console.error('❌ Ошибка расчета дней продаж:', error);
+    console.error('Stack trace:', error.stack);
     throw error;
   }
 };
 
 /**
- * Достаёт данные за последние 12 месяцев и собирает всё в один массив.
- * Оптимизировано для быстрой загрузки без таймаутов.
+ * Достаёт данные за последние 12 месяцев по частям
+ * Итерирует по месяцам и собирает всё в один массив
+ * Портировано с fetchTrackerAll() из Google Apps Script
  */
 async function fetchTrackerAll() {
-  // Загружаем только последние 12 месяцев для ускорения
+  // Берем последние 12 месяцев для ускорения
   const end = new Date(); // до сегодня
   const start = new Date();
   start.setMonth(start.getMonth() - 12); // 12 месяцев назад
 
-  // 2) Составляем список месячных интервалов
+  // Составляем список месячных интервалов
   const periods = [];
   const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 
@@ -160,7 +196,7 @@ async function fetchTrackerAll() {
 
   console.log(`Будет загружено периодов: ${periods.length}`);
 
-  // 3) Для каждого месяца — SQL и конкатенация (ПОСЛЕДОВАТЕЛЬНО, как в Google Apps Script)
+  // Для каждого месяца — SQL и конкатенация (ПОСЛЕДОВАТЕЛЬНО)
   let all = [];
   let successCount = 0;
   let failedPeriods = [];
@@ -177,6 +213,7 @@ async function fetchTrackerAll() {
       const chunk = await getDataBySql(sql);
       console.log(`  ✅ ${p.from}..${p.to}: ${chunk.length} строк`);
 
+      // Преобразуем как в Google Script
       all = all.concat(chunk.map(it => ({
         offer: it.offer_name || '',
         date: new Date(it.adv_date),
@@ -203,11 +240,12 @@ async function fetchTrackerAll() {
 
 /**
  * Универсальный fetch + преобразование [[headers], [row], …] → [{…},…]
- * С retry логикой для обработки нестабильных ответов
+ * Портировано с getDataBySql() из Google Apps Script
+ * + Добавлена retry логика для обработки нестабильных ответов
  */
 async function getDataBySql(strSQL, retryCount = 0) {
   const MAX_RETRIES = 3;
-  const RETRY_DELAY = 3000; // 3 секунды базовая задержка (увеличено для стабильности)
+  const RETRY_DELAY = 3000; // 3 секунды
 
   try {
     const response = await fetch(CORE_URL, {
@@ -250,7 +288,7 @@ async function getDataBySql(strSQL, retryCount = 0) {
       throw new Error('Неподдерживаемый формат данных');
     }
 
-    // если заголовки в первой строке
+    // Если заголовки в первой строке - преобразуем
     if (Array.isArray(json[0])) {
       const [headers, ...rows] = json;
       return rows.map(row =>
@@ -276,26 +314,28 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
 /**
  * Группирует записи по артикулу
+ * Портировано с buildTrackerIndex() из Google Apps Script
  */
 function buildTrackerIndex(tracker) {
   const map = {};
   let processedCount = 0;
-  let skippedNoCost = 0;
-  let skippedNoOffer = 0;
+  let skippedCount = 0;
 
   tracker.forEach(({ offer, date, leads, cost }) => {
-    if (!offer) {
-      skippedNoOffer++;
-      return;
-    }
-
-    if (cost <= 0) {
-      skippedNoCost++;
+    // Пропускаем если нет оффера или cost <= 0 (как в Google Script)
+    if (!offer || cost <= 0) {
+      skippedCount++;
       return;
     }
 
     const art = extractArticle(offer);
 
+    if (!art) {
+      skippedCount++;
+      return;
+    }
+
+    // Создаем массив если еще нет (как в Google Script: (map[art] = map[art] || []))
     if (!map[art]) {
       map[art] = [];
     }
@@ -304,17 +344,18 @@ function buildTrackerIndex(tracker) {
     processedCount++;
   });
 
-  console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без offer: ${skippedNoOffer}, пропущено без cost: ${skippedNoCost}`);
+  console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено ${skippedCount}`);
 
-  // Выводим примеры извлеченных артикулов
-  const sampleOffers = tracker
+  // ОТЛАДКА: Примеры извлечения
+  const samples = tracker
     .filter(t => t.offer && t.cost > 0)
-    .slice(0, 5);
+    .slice(0, 10);
 
-  if (sampleOffers.length > 0) {
-    console.log('📋 Примеры извлечения артикулов:');
-    sampleOffers.forEach(({ offer }) => {
-      console.log(`  "${offer}" -> "${extractArticle(offer)}"`);
+  if (samples.length > 0) {
+    console.log('📋 Примеры извлечения артикулов из offer_name:');
+    samples.forEach(({ offer }) => {
+      const extracted = extractArticle(offer);
+      console.log(`  "${offer}" -> "${extracted}"`);
     });
   }
 
@@ -323,12 +364,17 @@ function buildTrackerIndex(tracker) {
 
 /**
  * Извлекает артикул из названия оффера
- * Формат: "C01829 - Жіноча блуза" -> "C01829"
+ * ТОЧНО КАК В GOOGLE APPS SCRIPT!
+ *
+ * @param {string} offer - Название оффера (например: "C01829 - Жіноча блуза")
+ * @returns {string} - Артикул (например: "C01829")
  */
 function extractArticle(offer) {
   if (!offer) return '';
-  const match = offer.match(/^([A-Za-z0-9_-]+)(?:\s|$)/);
-  return match ? match[1] : offer.split(/[\s-]/)[0];
+
+  // ПРОСТОЙ паттерн как в Google Script: /^[A-Za-z0-9_-]+/
+  const m = offer.match(/^[A-Za-z0-9_-]+/);
+  return m ? m[0] : offer;
 }
 
 /**
