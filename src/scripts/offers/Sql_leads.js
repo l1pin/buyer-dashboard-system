@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @param {Array} metrics - Массив метрик офферов
  * @returns {Promise<Object>} - Объект с обновленными метриками
  */
-export const updateLeadsFromRedtrack = async (metrics) => {
+export const updateLeadsFromSql = async (metrics) => {
   try {
     console.log('🔄 Начинаем загрузку данных из БД (CPL, Лиды, Рейтинг)...');
 

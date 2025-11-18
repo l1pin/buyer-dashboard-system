@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
-import { updateLeadsFromRedtrack as updateLeadsFromRedtrackScript } from '../scripts/offers/Redtrack_leads';
+import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -134,7 +134,7 @@ function OffersTL({ user }) {
       setError('');
 
       // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
-      const result = await updateLeadsFromRedtrackScript(metrics);
+      const result = await updateLeadsFromSqlScript(metrics);
 
       setMetrics(result.metrics);
       setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
@@ -480,7 +480,7 @@ function OffersTL({ user }) {
                     onClick={updateLeadsData}
                     disabled={loadingLeadsData}
                     className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                    title="Обновить CPL и лиды из RedTrack"
+                    title="Обновить CPL и лиды из БД"
                   >
                     <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeadsData ? 'animate-spin' : ''}`} />
                   </button>
@@ -491,7 +491,7 @@ function OffersTL({ user }) {
                     onClick={updateLeadsData}
                     disabled={loadingLeadsData}
                     className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-                    title="Обновить CPL и лиды из RedTrack"
+                    title="Обновить CPL и лиды из БД"
                   >
                     <RefreshCw className={`h-4 w-4 text-gray-700 ${loadingLeadsData ? 'animate-spin' : ''}`} />
                   </button>
