@@ -372,40 +372,77 @@ export const userService = {
   },
 
   // Удалить пользователя
+  // Архивировать пользователя (мягкое удаление)
   async deleteUser(userId) {
     try {
-      console.log('🗑️ Удаление пользователя:', userId);
+      console.log('📦 Архивирование пользователя:', userId);
 
-      // Удаляем связанные данные
-      await supabase.from('tables').delete().eq('user_id', userId);
-      await supabase.from('creatives').delete().eq('user_id', userId);
-
-      // Удаляем профиль
-      const { error: profileError } = await supabase
+      // Проверяем, не защищен ли пользователь
+      const { data: currentUser, error: checkError } = await supabase
         .from('users')
-        .delete()
+        .select('is_protected, name')
+        .eq('id', userId)
+        .single();
+
+      if (checkError) {
+        throw new Error(`Ошибка проверки пользователя: ${checkError.message}`);
+      }
+
+      if (currentUser.is_protected) {
+        throw new Error('Данный пользователь защищен от удаления');
+      }
+
+      // ВАЖНО: НЕ удаляем связанные данные (таблицы, креативы, лендинги)!
+      // Они должны остаться в системе даже после архивирования пользователя
+
+      // Архивируем пользователя вместо удаления
+      const { error: archiveError } = await supabase
+        .from('users')
+        .update({
+          archived: true,
+          archived_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', userId);
 
-      if (profileError) {
-        console.error('❌ Ошибка удаления профиля:', profileError);
+      if (archiveError) {
+        console.error('❌ Ошибка архивирования профиля:', archiveError);
+        throw archiveError;
       }
 
-      // Попытка удалить auth пользователя через админ API
-      if (adminClient) {
-        try {
-          const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
-          if (authError) {
-            console.error('⚠️ Ошибка удаления auth записи:', authError);
-          }
-        } catch (authDeleteError) {
-          console.error('⚠️ Не удалось удалить auth запись:', authDeleteError);
-        }
-      }
+      // НЕ удаляем auth пользователя - оставляем для возможного восстановления
 
-      console.log('✅ Пользователь удален');
+      console.log(`✅ Пользователь "${currentUser.name}" архивирован`);
 
     } catch (error) {
-      console.error('❌ Ошибка удаления пользователя:', error);
+      console.error('❌ Ошибка архивирования пользователя:', error);
+      throw error;
+    }
+  },
+
+  // Восстановить пользователя из архива
+  async restoreUser(userId) {
+    try {
+      console.log('♻️ Восстановление пользователя из архива:', userId);
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          archived: false,
+          archived_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('❌ Ошибка восстановления пользователя:', error);
+        throw error;
+      }
+
+      console.log('✅ Пользователь восстановлен из архива');
+
+    } catch (error) {
+      console.error('❌ Ошибка восстановления пользователя:', error);
       throw error;
     }
   },
@@ -601,14 +638,22 @@ export const userService = {
   },
 
   // Получить всех пользователей
-  async getAllUsers() {
+  // Получить всех пользователей (по умолчанию без архивированных)
+  async getAllUsers(includeArchived = false) {
     try {
       console.log('📡 Запрос к таблице users...');
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // По умолчанию исключаем архивированных пользователей
+      if (!includeArchived) {
+        query = query.eq('archived', false);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('❌ Ошибка в getAllUsers:', error);
@@ -621,7 +666,7 @@ export const userService = {
       }
 
       const result = data || [];
-      console.log('✅ getAllUsers завершен успешно, получено пользователей:', result.length);
+      console.log(`✅ getAllUsers завершен успешно, получено пользователей: ${result.length}${!includeArchived ? ' (без архивированных)' : ''}`);
 
       // Показываем сколько монтажеров найдено
       const editors = result.filter(u => u.role === 'editor');
@@ -631,6 +676,33 @@ export const userService = {
 
     } catch (error) {
       console.error('💥 Критическая ошибка в getAllUsers:', error);
+      return [];
+    }
+  },
+
+  // Получить только архивированных пользователей
+  async getArchivedUsers() {
+    try {
+      console.log('📦 Запрос архивированных пользователей...');
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('archived', true)
+        .order('archived_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Ошибка в getArchivedUsers:', error);
+        throw error;
+      }
+
+      const result = data || [];
+      console.log('✅ Найдено архивированных пользователей:', result.length);
+
+      return result;
+
+    } catch (error) {
+      console.error('💥 Ошибка в getArchivedUsers:', error);
       return [];
     }
   }
