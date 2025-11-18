@@ -613,24 +613,26 @@ export const userService = {
     return data;
   },
 
-  // Получить пользователей по роли
+  // Получить пользователей по роли (только активные, без архивированных)
   async getUsersByRole(role) {
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('role', role)
+      .eq('archived', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;
   },
 
-  // Получить всех пользователей определенных ролей
+  // Получить всех пользователей определенных ролей (только активные, без архивированных)
   async getUsersByRoles(roles) {
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .in('role', roles)
+      .eq('archived', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
