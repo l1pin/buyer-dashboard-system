@@ -20,7 +20,11 @@ import {
   Code2,
   Package,
   Pencil,
-  Image
+  Image,
+  Calendar,
+  DollarSign,
+  Euro,
+  Minus
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -62,7 +66,13 @@ function UserManagement({ user }) {
     name: '',
     email: '',
     password: '',
-    role: 'buyer'
+    role: 'buyer',
+    buyer_settings: {
+      traffic_channel_ids: [''],
+      currency: 'USD',
+      access_granted: '2020-01-01',
+      access_limited: null
+    }
   });
 
   const [editUserData, setEditUserData] = useState({
@@ -71,7 +81,13 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
-    is_protected: false
+    is_protected: false,
+    buyer_settings: {
+      traffic_channel_ids: [''],
+      currency: 'USD',
+      access_granted: '2020-01-01',
+      access_limited: null
+    }
   });
 
   useEffect(() => {
@@ -156,14 +172,30 @@ function UserManagement({ user }) {
         role: newUser.role
       });
 
-      const result = await userService.createUser({
+      // Подготавливаем данные для создания пользователя
+      const userData = {
         name: newUser.name.trim(),
         email: newUser.email.trim(),
         password: newUser.password,
         role: newUser.role,
         created_by_id: user.id,
         created_by_name: user.name || user.email
-      });
+      };
+
+      // Добавляем buyer_settings только для Media Buyer
+      if (newUser.role === 'buyer') {
+        // Фильтруем пустые ID каналов
+        const channelIds = newUser.buyer_settings.traffic_channel_ids.filter(id => id.trim());
+
+        userData.buyer_settings = {
+          traffic_channel_ids: channelIds,
+          currency: newUser.buyer_settings.currency,
+          access_granted: newUser.buyer_settings.access_granted || '2020-01-01',
+          access_limited: newUser.buyer_settings.access_limited || null
+        };
+      }
+
+      const result = await userService.createUser(userData);
 
       console.log('✅ Результат создания пользователя:', result);
 
@@ -173,7 +205,13 @@ function UserManagement({ user }) {
         name: '',
         email: '',
         password: '',
-        role: 'buyer'
+        role: 'buyer',
+        buyer_settings: {
+          traffic_channel_ids: [''],
+          currency: 'USD',
+          access_granted: '2020-01-01',
+          access_limited: null
+        }
       });
       setShowCreateModal(false);
 
@@ -212,7 +250,13 @@ function UserManagement({ user }) {
               name: '',
               email: '',
               password: '',
-              role: 'buyer'
+              role: 'buyer',
+              buyer_settings: {
+                traffic_channel_ids: [''],
+                currency: 'USD',
+                access_granted: '2020-01-01',
+                access_limited: null
+              }
             });
             setShowCreateModal(false);
             setError(''); // Очищаем ошибку
@@ -253,15 +297,34 @@ function UserManagement({ user }) {
       setError('Редактирование защищенного пользователя запрещено');
       return;
     }
-    
+
     setEditingUser(userToEdit);
+
+    // Загружаем buyer_settings если пользователь - Media Buyer
+    const buyerSettings = userToEdit.role === 'buyer' && userToEdit.buyer_settings
+      ? {
+          traffic_channel_ids: userToEdit.buyer_settings.traffic_channel_ids?.length > 0
+            ? userToEdit.buyer_settings.traffic_channel_ids
+            : [''],
+          currency: userToEdit.buyer_settings.currency || 'USD',
+          access_granted: userToEdit.buyer_settings.access_granted || '2020-01-01',
+          access_limited: userToEdit.buyer_settings.access_limited || null
+        }
+      : {
+          traffic_channel_ids: [''],
+          currency: 'USD',
+          access_granted: '2020-01-01',
+          access_limited: null
+        };
+
     setEditUserData({
       id: userToEdit.id,
       name: userToEdit.name || '',
       email: userToEdit.email || '',
       password: '', // Пароль всегда пустой для безопасности
       role: userToEdit.role || 'buyer',
-      is_protected: userToEdit.is_protected || false
+      is_protected: userToEdit.is_protected || false,
+      buyer_settings: buyerSettings
     });
     setShowEditModal(true);
     setShowPassword(false); // Скрываем пароль при открытии
@@ -286,14 +349,30 @@ function UserManagement({ user }) {
         hasPassword: !!editUserData.password
       });
 
-      const result = await userService.updateUser({
+      // Подготавливаем данные для обновления
+      const updateData = {
         id: editUserData.id,
         name: editUserData.name.trim(),
         email: editUserData.email.trim(),
         password: editUserData.password || undefined, // Только если пароль указан
         role: editUserData.role,
         is_protected: editUserData.is_protected
-      });
+      };
+
+      // Добавляем buyer_settings только для Media Buyer
+      if (editUserData.role === 'buyer') {
+        // Фильтруем пустые ID каналов
+        const channelIds = editUserData.buyer_settings.traffic_channel_ids.filter(id => id.trim());
+
+        updateData.buyer_settings = {
+          traffic_channel_ids: channelIds,
+          currency: editUserData.buyer_settings.currency,
+          access_granted: editUserData.buyer_settings.access_granted || '2020-01-01',
+          access_limited: editUserData.buyer_settings.access_limited || null
+        };
+      }
+
+      const result = await userService.updateUser(updateData);
 
       console.log('✅ Результат обновления пользователя:', result);
 
@@ -304,7 +383,13 @@ function UserManagement({ user }) {
         name: '',
         email: '',
         password: '',
-        role: 'buyer'
+        role: 'buyer',
+        buyer_settings: {
+          traffic_channel_ids: [''],
+          currency: 'USD',
+          access_granted: '2020-01-01',
+          access_limited: null
+        }
       });
       setEditingUser(null);
       setShowEditModal(false);
@@ -908,7 +993,13 @@ function UserManagement({ user }) {
                     name: '',
                     email: '',
                     password: '',
-                    role: 'buyer'
+                    role: 'buyer',
+                    buyer_settings: {
+                      traffic_channel_ids: [''],
+                      currency: 'USD',
+                      access_granted: '2020-01-01',
+                      access_limited: null
+                    }
                   });
                   clearMessages();
                 }}
@@ -1038,6 +1129,153 @@ function UserManagement({ user }) {
                   {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
                 </p>
               </div>
+
+              {/* Дополнительные поля для Media Buyer */}
+              {newUser.role === 'buyer' && (
+                <>
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">
+                      Настройки Media Buyer
+                    </h4>
+
+                    {/* ID каналов трафика */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ID каналов трафика
+                      </label>
+                      {newUser.buyer_settings.traffic_channel_ids.map((channelId, index) => (
+                        <div key={index} className="flex items-center space-x-2 mb-2">
+                          <input
+                            type="text"
+                            value={channelId}
+                            onChange={(e) => {
+                              const newChannelIds = [...newUser.buyer_settings.traffic_channel_ids];
+                              newChannelIds[index] = e.target.value;
+                              setNewUser({
+                                ...newUser,
+                                buyer_settings: {
+                                  ...newUser.buyer_settings,
+                                  traffic_channel_ids: newChannelIds
+                                }
+                              });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введите ID канала"
+                          />
+                          {newUser.buyer_settings.traffic_channel_ids.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newChannelIds = newUser.buyer_settings.traffic_channel_ids.filter((_, i) => i !== index);
+                                setNewUser({
+                                  ...newUser,
+                                  buyer_settings: {
+                                    ...newUser.buyer_settings,
+                                    traffic_channel_ids: newChannelIds
+                                  }
+                                });
+                              }}
+                              className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewUser({
+                            ...newUser,
+                            buyer_settings: {
+                              ...newUser.buyer_settings,
+                              traffic_channel_ids: [...newUser.buyer_settings.traffic_channel_ids, '']
+                            }
+                          });
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Добавить ID канала
+                      </button>
+                    </div>
+
+                    {/* Валюта */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Валюта
+                      </label>
+                      <select
+                        value={newUser.buyer_settings.currency}
+                        onChange={(e) => {
+                          setNewUser({
+                            ...newUser,
+                            buyer_settings: {
+                              ...newUser.buyer_settings,
+                              currency: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="USD">$ (USD - Доллар США)</option>
+                        <option value="EUR">€ (EUR - Евро)</option>
+                        <option value="UAH">₴ (UAH - Гривна)</option>
+                      </select>
+                    </div>
+
+                    {/* Доступ предоставлен */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Calendar className="h-4 w-4 inline mr-1" />
+                        Доступ предоставлен
+                      </label>
+                      <input
+                        type="date"
+                        value={newUser.buyer_settings.access_granted}
+                        onChange={(e) => {
+                          setNewUser({
+                            ...newUser,
+                            buyer_settings: {
+                              ...newUser.buyer_settings,
+                              access_granted: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        По умолчанию: 01.01.2020
+                      </p>
+                    </div>
+
+                    {/* Доступ ограничен */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Calendar className="h-4 w-4 inline mr-1" />
+                        Доступ ограничен
+                      </label>
+                      <input
+                        type="date"
+                        value={newUser.buyer_settings.access_limited || ''}
+                        onChange={(e) => {
+                          setNewUser({
+                            ...newUser,
+                            buyer_settings: {
+                              ...newUser.buyer_settings,
+                              access_limited: e.target.value || null
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Оставьте пустым для неограниченного доступа
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
@@ -1048,7 +1286,13 @@ function UserManagement({ user }) {
                     name: '',
                     email: '',
                     password: '',
-                    role: 'buyer'
+                    role: 'buyer',
+                    buyer_settings: {
+                      traffic_channel_ids: [''],
+                      currency: 'USD',
+                      access_granted: '2020-01-01',
+                      access_limited: null
+                    }
                   });
                   clearMessages();
                 }}
@@ -1096,7 +1340,13 @@ function UserManagement({ user }) {
                     name: '',
                     email: '',
                     password: '',
-                    role: 'buyer'
+                    role: 'buyer',
+                    buyer_settings: {
+                      traffic_channel_ids: [''],
+                      currency: 'USD',
+                      access_granted: '2020-01-01',
+                      access_limited: null
+                    }
                   });
                   clearMessages();
                 }}
@@ -1247,6 +1497,153 @@ function UserManagement({ user }) {
                 </p>
               </div>
 
+              {/* Дополнительные поля для Media Buyer */}
+              {editUserData.role === 'buyer' && (
+                <>
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">
+                      Настройки Media Buyer
+                    </h4>
+
+                    {/* ID каналов трафика */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ID каналов трафика
+                      </label>
+                      {editUserData.buyer_settings.traffic_channel_ids.map((channelId, index) => (
+                        <div key={index} className="flex items-center space-x-2 mb-2">
+                          <input
+                            type="text"
+                            value={channelId}
+                            onChange={(e) => {
+                              const newChannelIds = [...editUserData.buyer_settings.traffic_channel_ids];
+                              newChannelIds[index] = e.target.value;
+                              setEditUserData({
+                                ...editUserData,
+                                buyer_settings: {
+                                  ...editUserData.buyer_settings,
+                                  traffic_channel_ids: newChannelIds
+                                }
+                              });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введите ID канала"
+                          />
+                          {editUserData.buyer_settings.traffic_channel_ids.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newChannelIds = editUserData.buyer_settings.traffic_channel_ids.filter((_, i) => i !== index);
+                                setEditUserData({
+                                  ...editUserData,
+                                  buyer_settings: {
+                                    ...editUserData.buyer_settings,
+                                    traffic_channel_ids: newChannelIds
+                                  }
+                                });
+                              }}
+                              className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditUserData({
+                            ...editUserData,
+                            buyer_settings: {
+                              ...editUserData.buyer_settings,
+                              traffic_channel_ids: [...editUserData.buyer_settings.traffic_channel_ids, '']
+                            }
+                          });
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Добавить ID канала
+                      </button>
+                    </div>
+
+                    {/* Валюта */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Валюта
+                      </label>
+                      <select
+                        value={editUserData.buyer_settings.currency}
+                        onChange={(e) => {
+                          setEditUserData({
+                            ...editUserData,
+                            buyer_settings: {
+                              ...editUserData.buyer_settings,
+                              currency: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="USD">$ (USD - Доллар США)</option>
+                        <option value="EUR">€ (EUR - Евро)</option>
+                        <option value="UAH">₴ (UAH - Гривна)</option>
+                      </select>
+                    </div>
+
+                    {/* Доступ предоставлен */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Calendar className="h-4 w-4 inline mr-1" />
+                        Доступ предоставлен
+                      </label>
+                      <input
+                        type="date"
+                        value={editUserData.buyer_settings.access_granted}
+                        onChange={(e) => {
+                          setEditUserData({
+                            ...editUserData,
+                            buyer_settings: {
+                              ...editUserData.buyer_settings,
+                              access_granted: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        По умолчанию: 01.01.2020
+                      </p>
+                    </div>
+
+                    {/* Доступ ограничен */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Calendar className="h-4 w-4 inline mr-1" />
+                        Доступ ограничен
+                      </label>
+                      <input
+                        type="date"
+                        value={editUserData.buyer_settings.access_limited || ''}
+                        onChange={(e) => {
+                          setEditUserData({
+                            ...editUserData,
+                            buyer_settings: {
+                              ...editUserData.buyer_settings,
+                              access_limited: e.target.value || null
+                            }
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Оставьте пустым для неограниченного доступа
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="bg-blue-50 p-3 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -1276,7 +1673,13 @@ function UserManagement({ user }) {
                     name: '',
                     email: '',
                     password: '',
-                    role: 'buyer'
+                    role: 'buyer',
+                    buyer_settings: {
+                      traffic_channel_ids: [''],
+                      currency: 'USD',
+                      access_granted: '2020-01-01',
+                      access_limited: null
+                    }
                   });
                   clearMessages();
                 }}

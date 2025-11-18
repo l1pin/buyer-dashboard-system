@@ -2880,17 +2880,26 @@ export const landingMetricsService = {
 };
 
 // Сервис для работы с источниками байеров
+// ОБНОВЛЕНО: теперь работает с users.buyer_settings вместо buyer_source
 export const buyerSourceService = {
   // Получить источники для всех байеров
   async getAllBuyerSources() {
     try {
       const { data, error } = await supabase
-        .from('buyer_source')
-        .select('*')
-        .order('buyer_name', { ascending: true });
+        .from('users')
+        .select('id, name, buyer_settings')
+        .eq('role', 'buyer')
+        .order('name', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+
+      // Преобразуем в старый формат для обратной совместимости
+      return (data || []).map(user => ({
+        buyer_id: user.id,
+        buyer_name: user.name,
+        source_ids: user.buyer_settings?.traffic_channel_ids || [],
+        updated_at: new Date().toISOString()
+      }));
     } catch (error) {
       console.error('❌ Ошибка получения источников байеров:', error);
       return [];
@@ -2901,13 +2910,23 @@ export const buyerSourceService = {
   async getBuyerSources(buyerId) {
     try {
       const { data, error } = await supabase
-        .from('buyer_source')
-        .select('*')
-        .eq('buyer_id', buyerId)
+        .from('users')
+        .select('id, name, buyer_settings')
+        .eq('id', buyerId)
+        .eq('role', 'buyer')
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      return data;
+
+      if (!data) return null;
+
+      // Возвращаем в старом формате для обратной совместимости
+      return {
+        buyer_id: data.id,
+        buyer_name: data.name,
+        source_ids: data.buyer_settings?.traffic_channel_ids || [],
+        updated_at: new Date().toISOString()
+      };
     } catch (error) {
       console.error('❌ Ошибка получения источников байера:', error);
       return null;
@@ -2917,23 +2936,42 @@ export const buyerSourceService = {
   // Сохранить/обновить источники для байера
   async saveBuyerSources(buyerId, buyerName, sourceIds) {
     try {
+      // Получаем текущие настройки байера
+      const { data: currentUser, error: fetchError } = await supabase
+        .from('users')
+        .select('buyer_settings')
+        .eq('id', buyerId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentSettings = currentUser?.buyer_settings || {};
+
+      // Обновляем только traffic_channel_ids, сохраняя остальные настройки
+      const updatedSettings = {
+        ...currentSettings,
+        traffic_channel_ids: sourceIds || []
+      };
+
       const { data, error } = await supabase
-        .from('buyer_source')
-        .upsert([
-          {
-            buyer_id: buyerId,
-            buyer_name: buyerName,
-            source_ids: sourceIds || [],
-            updated_at: new Date().toISOString()
-          }
-        ], {
-          onConflict: 'buyer_id'
+        .from('users')
+        .update({
+          buyer_settings: updatedSettings,
+          updated_at: new Date().toISOString()
         })
-        .select()
+        .eq('id', buyerId)
+        .select('id, name, buyer_settings')
         .single();
 
       if (error) throw error;
-      return data;
+
+      // Возвращаем в старом формате
+      return {
+        buyer_id: data.id,
+        buyer_name: data.name,
+        source_ids: data.buyer_settings?.traffic_channel_ids || [],
+        updated_at: new Date().toISOString()
+      };
     } catch (error) {
       console.error('❌ Ошибка сохранения источников байера:', error);
       throw error;
@@ -2943,10 +2981,27 @@ export const buyerSourceService = {
   // Удалить источники байера
   async deleteBuyerSources(buyerId) {
     try {
+      // Получаем текущие настройки
+      const { data: currentUser, error: fetchError } = await supabase
+        .from('users')
+        .select('buyer_settings')
+        .eq('id', buyerId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentSettings = currentUser?.buyer_settings || {};
+
+      // Очищаем только traffic_channel_ids
+      const updatedSettings = {
+        ...currentSettings,
+        traffic_channel_ids: []
+      };
+
       const { error } = await supabase
-        .from('buyer_source')
-        .delete()
-        .eq('buyer_id', buyerId);
+        .from('users')
+        .update({ buyer_settings: updatedSettings })
+        .eq('id', buyerId);
 
       if (error) throw error;
       return { success: true };
