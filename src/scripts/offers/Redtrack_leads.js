@@ -154,47 +154,79 @@ function groupDataByArticleAndDate(data) {
 
 /**
  * Получает данные из SQL БД за 90 дней
- * Использует одну оптимизированную SQL-команду
+ * Разбивает запрос на месячные периоды для избежания таймаутов
  *
  * @returns {Promise<Array>} - Массив результатов
  */
 async function fetchDataFor90Days() {
   // Период выборки - 90 дней включая сегодня
-  const today = new Date();
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - 89); // 90 дней, включая сегодня
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 89); // 90 дней, включая сегодня
 
-  const dateFrom = formatDate(startDate);
-  const dateTo = formatDate(today);
+  // Составляем список месячных интервалов
+  const periods = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 
-  console.log(`📅 Загрузка данных из БД с ${dateFrom} по ${dateTo} (90 дней)...`);
+  while (cur <= end) {
+    const from = formatDate(cur);
+    const tmp = new Date(cur);
+    tmp.setMonth(tmp.getMonth() + 1);
+    tmp.setDate(tmp.getDate() - 1);
 
-  // Один оптимизированный SQL запрос на 90 дней
-  const sql =
-    `SELECT offer_name, adv_date, valid, cost ` +
-    `FROM ads_collection ` +
-    `WHERE adv_date BETWEEN '${dateFrom}' AND '${dateTo}' ` +
-    `AND valid > 0`; // Фильтруем только записи с лидами
+    if (tmp > end) tmp.setTime(end.getTime());
 
-  try {
-    const rawData = await getDataBySql(sql);
-    console.log(`✅ Получено ${rawData.length} записей из БД`);
+    const to = formatDate(tmp);
+    periods.push({ from, to });
 
-    // Преобразуем данные в нужный формат и извлекаем артикулы
-    const processedData = rawData.map(row => ({
-      article: extractArticle(row.offer_name || ''),
-      date: new Date(row.adv_date),
-      leads: Number(row.valid) || 0,
-      cost: Number(row.cost) || 0
-    })).filter(item => item.article && item.leads > 0);
-
-    console.log(`✅ Обработано ${processedData.length} записей с валидными артикулами`);
-
-    return processedData;
-  } catch (error) {
-    console.error('❌ Ошибка при загрузке данных из БД:', error);
-    throw error;
+    cur.setMonth(cur.getMonth() + 1);
+    cur.setDate(1);
   }
+
+  console.log(`📅 Загрузка данных из БД за 90 дней (${periods.length} периодов)...`);
+
+  // Загружаем данные по месяцам последовательно
+  let allData = [];
+  let successCount = 0;
+  let failedPeriods = [];
+
+  for (const p of periods) {
+    const sql =
+      `SELECT offer_name, adv_date, valid, cost ` +
+      `FROM ads_collection ` +
+      `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}' ` +
+      `AND valid > 0`; // Фильтруем только записи с лидами
+
+    console.log(`  📆 Загрузка ${p.from}..${p.to}`);
+
+    try {
+      const rawData = await getDataBySql(sql);
+      console.log(`    ✅ ${rawData.length} записей`);
+
+      // Преобразуем данные в нужный формат
+      const processedChunk = rawData.map(row => ({
+        article: extractArticle(row.offer_name || ''),
+        date: new Date(row.adv_date),
+        leads: Number(row.valid) || 0,
+        cost: Number(row.cost) || 0
+      })).filter(item => item.article && item.leads > 0);
+
+      allData = allData.concat(processedChunk);
+      successCount++;
+    } catch (error) {
+      // Пропускаем проблемный период и продолжаем
+      console.warn(`    ⚠️ Пропускаем период ${p.from}..${p.to}: ${error.message}`);
+      failedPeriods.push(`${p.from}..${p.to}`);
+    }
+  }
+
+  if (failedPeriods.length > 0) {
+    console.warn(`⚠️ Не удалось загрузить ${failedPeriods.length} периодов: ${failedPeriods.join(', ')}`);
+  }
+
+  console.log(`✅ Загружено ${allData.length} записей за ${successCount}/${periods.length} периодов`);
+
+  return allData;
 }
 
 /**
