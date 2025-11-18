@@ -107,6 +107,9 @@ export const updateLeadsFromSql = async (metrics) => {
         rating = calculateRating(cpl4days, baseThreshold);
       }
 
+      // === ЧАСТЬ 3: Рейтинг за три предыдущих месяца ===
+      const ratingHistory = calculateMonthlyRatings(article, dataByArticleAndDate, baseThreshold, today);
+
       processedCount++;
 
       return {
@@ -114,7 +117,8 @@ export const updateLeadsFromSql = async (metrics) => {
         leads_4days: leadsData[4].leads,
         leads_data: leadsData,        // Все данные для тултипа
         lead_rating: rating,          // Рейтинг
-        rating_cpl: cpl4days          // CPL за 4 дня для рейтинга
+        rating_cpl: cpl4days,         // CPL за 4 дня для рейтинга
+        rating_history: ratingHistory // История рейтинга за 3 месяца
       };
     });
 
@@ -178,6 +182,65 @@ function calculateRating(cpl, base) {
   if (pct <= 65) return 'B';
   if (pct <= 90) return 'C';
   return 'D';
+}
+
+/**
+ * Рассчитывает рейтинг за три предыдущих месяца
+ * @param {string} article - Артикул оффера
+ * @param {Object} dataByArticleAndDate - Данные сгруппированные по артикулу и дате
+ * @param {number} baseThreshold - Базовый порог для расчета рейтинга
+ * @param {Date} today - Текущая дата
+ * @returns {Array} - Массив с рейтингами за 3 месяца
+ */
+function calculateMonthlyRatings(article, dataByArticleAndDate, baseThreshold, today) {
+  const monthlyRatings = [];
+  const articleData = dataByArticleAndDate[article];
+
+  // Функция для получения названия месяца на русском
+  const getMonthName = (monthIndex) => {
+    const months = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    return months[monthIndex];
+  };
+
+  // Рассчитываем данные для каждого из 3 предыдущих месяцев
+  for (let i = 1; i <= 3; i++) {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+
+    let totalLeads = 0;
+    let totalCost = 0;
+
+    // Суммируем лиды и расходы за месяц
+    if (articleData) {
+      Object.keys(articleData).forEach(dateStr => {
+        const recordDate = new Date(dateStr);
+        recordDate.setHours(0, 0, 0, 0);
+
+        if (recordDate >= monthStart && recordDate <= monthEnd) {
+          totalLeads += articleData[dateStr].leads;
+          totalCost += articleData[dateStr].cost;
+        }
+      });
+    }
+
+    const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+    const rating = cpl > 0 ? calculateRating(cpl, baseThreshold) : 'N/A';
+
+    monthlyRatings.push({
+      month: getMonthName(monthDate.getMonth()),
+      year: monthDate.getFullYear(),
+      rating: rating,
+      cpl: cpl,
+      leads: totalLeads,
+      cost: totalCost
+    });
+  }
+
+  return monthlyRatings;
 }
 
 /**
