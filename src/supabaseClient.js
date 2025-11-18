@@ -2880,7 +2880,7 @@ export const landingMetricsService = {
 };
 
 // Сервис для работы с источниками байеров
-// ОБНОВЛЕНО: теперь работает с users.buyer_settings вместо buyer_source
+// ОБНОВЛЕНО: теперь работает с users.buyer_settings.traffic_channels
 export const buyerSourceService = {
   // Получить источники для всех байеров
   async getAllBuyerSources() {
@@ -2894,12 +2894,17 @@ export const buyerSourceService = {
       if (error) throw error;
 
       // Преобразуем в старый формат для обратной совместимости
-      return (data || []).map(user => ({
-        buyer_id: user.id,
-        buyer_name: user.name,
-        source_ids: user.buyer_settings?.traffic_channel_ids || [],
-        updated_at: new Date().toISOString()
-      }));
+      return (data || []).map(user => {
+        const channels = user.buyer_settings?.traffic_channels || [];
+        const channelIds = channels.map(ch => ch.channel_id).filter(id => id);
+
+        return {
+          buyer_id: user.id,
+          buyer_name: user.name,
+          source_ids: channelIds,
+          updated_at: new Date().toISOString()
+        };
+      });
     } catch (error) {
       console.error('❌ Ошибка получения источников байеров:', error);
       return [];
@@ -2920,11 +2925,14 @@ export const buyerSourceService = {
 
       if (!data) return null;
 
-      // Возвращаем в старом формате для обратной совместимости
+      // Преобразуем в старый формат для обратной совместимости
+      const channels = data.buyer_settings?.traffic_channels || [];
+      const channelIds = channels.map(ch => ch.channel_id).filter(id => id);
+
       return {
         buyer_id: data.id,
         buyer_name: data.name,
-        source_ids: data.buyer_settings?.traffic_channel_ids || [],
+        source_ids: channelIds,
         updated_at: new Date().toISOString()
       };
     } catch (error) {
@@ -2946,11 +2954,22 @@ export const buyerSourceService = {
       if (fetchError) throw fetchError;
 
       const currentSettings = currentUser?.buyer_settings || {};
+      const currentChannels = currentSettings.traffic_channels || [];
 
-      // Обновляем только traffic_channel_ids, сохраняя остальные настройки
+      // Преобразуем массив ID в массив каналов, сохраняя существующие настройки
+      const updatedChannels = (sourceIds || []).map((id, index) => {
+        const existing = currentChannels.find(ch => ch.channel_id === id);
+        return existing || {
+          channel_id: id,
+          currency: 'USD',
+          access_granted: '2020-01-01',
+          access_limited: null
+        };
+      });
+
       const updatedSettings = {
         ...currentSettings,
-        traffic_channel_ids: sourceIds || []
+        traffic_channels: updatedChannels
       };
 
       const { data, error } = await supabase
@@ -2966,10 +2985,13 @@ export const buyerSourceService = {
       if (error) throw error;
 
       // Возвращаем в старом формате
+      const channels = data.buyer_settings?.traffic_channels || [];
+      const channelIds = channels.map(ch => ch.channel_id).filter(id => id);
+
       return {
         buyer_id: data.id,
         buyer_name: data.name,
-        source_ids: data.buyer_settings?.traffic_channel_ids || [],
+        source_ids: channelIds,
         updated_at: new Date().toISOString()
       };
     } catch (error) {
@@ -2992,10 +3014,10 @@ export const buyerSourceService = {
 
       const currentSettings = currentUser?.buyer_settings || {};
 
-      // Очищаем только traffic_channel_ids
+      // Очищаем traffic_channels
       const updatedSettings = {
         ...currentSettings,
-        traffic_channel_ids: []
+        traffic_channels: []
       };
 
       const { error } = await supabase
