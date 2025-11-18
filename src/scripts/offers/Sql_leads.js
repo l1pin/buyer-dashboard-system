@@ -3,7 +3,8 @@
  * – Загружает данные за 90 дней для CPL и Лидов
  * – Загружает данные за последние 3 полных месяца для Рейтинга
  * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
- * – Рассчитывает рейтинг (A/B/C/D) на основе CPL и порогов
+ * – Рассчитывает рейтинг (A/B/C/D) на основе CPL и "Цены лида в зоне" (red_zone_price)
+ * – Если red_zone_price отсутствует, используется константа 3.5
  * – Извлекает артикул из offer_name (формат: "C01829 - Жіноча блуза")
  * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
  */
@@ -101,10 +102,9 @@ export const updateLeadsFromSql = async (metrics) => {
       const monthKeys = getLast3FullMonths();
       const lastMonth = monthKeys[2]; // Последний из 3 месяцев
 
-      // Получаем пороги
-      const valV = metric.ac_threshold; // AC
-      const valU = metric.ab_threshold; // AB
-      const valX = metric.af_threshold; // AF
+      // Получаем базовый порог из колонки "Цена лида в зоне" (красная зона)
+      // Если нет значения, используем константу 3.5
+      const baseThreshold = metric.red_zone_price || 3.5;
 
       // Получаем CPL для последнего месяца
       const monthlyCpl = (monthlyDataByArticle[article] && monthlyDataByArticle[article][lastMonth] !== undefined)
@@ -114,7 +114,7 @@ export const updateLeadsFromSql = async (metrics) => {
       // Рассчитываем рейтинг
       let rating = 'N/A';
       if (monthlyCpl !== null && monthlyCpl > 0) {
-        rating = calculateRating(monthlyCpl, valV, valU, valX);
+        rating = calculateRating(monthlyCpl, baseThreshold);
       }
 
       processedCount++;
@@ -220,16 +220,13 @@ function getLast3FullMonths() {
 }
 
 /**
- * Рассчитывает рейтинг на основе CPL и порогов
+ * Рассчитывает рейтинг на основе CPL и базового порога
+ * @param {number} cpl - CPL за последний полный месяц
+ * @param {number} base - Базовый порог (red_zone_price или 3.5)
  */
-function calculateRating(cpl, valV, valU, valX) {
-  if (isNaN(cpl) || cpl === 0) {
+function calculateRating(cpl, base) {
+  if (isNaN(cpl) || cpl === 0 || isNaN(base) || base === 0) {
     return 'N/A';
-  }
-
-  let base = valV || valU || valX || 3.5;
-  if (valV !== null && valU !== null && valX !== null) {
-    base = valV > valX ? valV : valU;
   }
 
   const pct = (cpl / base) * 100;
