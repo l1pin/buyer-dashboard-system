@@ -24,7 +24,9 @@ import {
   Calendar,
   DollarSign,
   Euro,
-  Minus
+  Minus,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 
 // Кастомная иконка Ad для Media Buyer
@@ -61,6 +63,8 @@ function UserManagement({ user }) {
   const [deleting, setDeleting] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [showArchived, setShowArchived] = useState(false); // Показывать архивированных
+  const [restoring, setRestoring] = useState(null); // ID восстанавливаемого пользователя
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -100,12 +104,14 @@ function UserManagement({ user }) {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [showArchived]); // Перезагружаем при переключении архива
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const usersData = await userService.getAllUsers();
+      const usersData = showArchived
+        ? await userService.getArchivedUsers()
+        : await userService.getAllUsers();
       // Показываем всех пользователей, включая тимлидов
       setUsers(usersData);
     } catch (error) {
@@ -461,8 +467,8 @@ function UserManagement({ user }) {
       setError('Удаление защищенного пользователя запрещено');
       return;
     }
-    
-    if (!window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}"?\n\nЭто действие нельзя отменить. Все данные пользователя (таблицы, креативы) будут удалены.`)) {
+
+    if (!window.confirm(`Вы уверены, что хотите архивировать пользователя "${userName}"?\n\nПользователь будет скрыт из списка, но его данные (лендинги, креативы) останутся в системе. Вы сможете восстановить пользователя из архива.`)) {
       return;
     }
 
@@ -471,11 +477,29 @@ function UserManagement({ user }) {
       setError('');
       await userService.deleteUser(userId);
       await loadUsers();
-      setSuccess(`Пользователь "${userName}" успешно удален`);
+      setSuccess(`Пользователь "${userName}" успешно архивирован`);
     } catch (error) {
-      setError('Ошибка удаления пользователя: ' + error.message);
+      setError('Ошибка архивирования пользователя: ' + error.message);
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleRestoreUser = async (userId, userName) => {
+    if (!window.confirm(`Вы уверены, что хотите восстановить пользователя "${userName}"?`)) {
+      return;
+    }
+
+    try {
+      setRestoring(userId);
+      setError('');
+      await userService.restoreUser(userId);
+      await loadUsers();
+      setSuccess(`Пользователь "${userName}" успешно восстановлен`);
+    } catch (error) {
+      setError('Ошибка восстановления пользователя: ' + error.message);
+    } finally {
+      setRestoring(null);
     }
   };
 
@@ -613,14 +637,47 @@ function UserManagement({ user }) {
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold text-gray-900 flex items-center">
               Управление пользователями
+              {showArchived && (
+                <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                  <Archive className="h-4 w-4 mr-1" />
+                  Архив
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Создание и удаление аккаунтов байеров и монтажеров
+              {showArchived
+                ? 'Архивированные пользователи - восстановите при необходимости'
+                : 'Создание и управление аккаунтами байеров и монтажеров'
+              }
             </p>
           </div>
           <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setShowArchived(!showArchived);
+                clearMessages();
+              }}
+              className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                showArchived
+                  ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+              }`}
+            >
+              {showArchived ? (
+                <>
+                  <User className="h-4 w-4 mr-2" />
+                  Активные
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Архив
+                </>
+              )}
+            </button>
+
             <button
               onClick={loadUsers}
               disabled={loading}
@@ -629,17 +686,19 @@ function UserManagement({ user }) {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Обновить
             </button>
-            
-            <button
-              onClick={() => {
-                setShowCreateModal(true);
-                clearMessages();
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить пользователя
-            </button>
+
+            {!showArchived && (
+              <button
+                onClick={() => {
+                  setShowCreateModal(true);
+                  clearMessages();
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить пользователя
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -971,32 +1030,57 @@ function UserManagement({ user }) {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end space-x-2">
-                              <button
-                                onClick={() => handleEditUser(currentUser)}
-                                disabled={currentUser.is_protected}
-                                className={`p-2 ${currentUser.is_protected
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-blue-600 hover:text-blue-900'
-                                }`}
-                                title={currentUser.is_protected ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
-                                disabled={deleting === currentUser.id || currentUser.is_protected}
-                                className={`p-2 ${currentUser.is_protected
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-red-600 hover:text-red-900'
-                                } disabled:opacity-50`}
-                                title={currentUser.is_protected ? "Пользователь защищен от удаления" : "Удалить пользователя"}
-                              >
-                                {deleting === currentUser.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
+                              {showArchived ? (
+                                // Кнопка восстановления для архивированных пользователей
+                                <button
+                                  onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
+                                  disabled={restoring === currentUser.id}
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                                  title="Восстановить пользователя"
+                                >
+                                  {restoring === currentUser.id ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      Восстановление...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="h-4 w-4 mr-1" />
+                                      Восстановить
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                // Кнопки редактирования и удаления для активных пользователей
+                                <>
+                                  <button
+                                    onClick={() => handleEditUser(currentUser)}
+                                    disabled={currentUser.is_protected}
+                                    className={`p-2 ${currentUser.is_protected
+                                      ? 'text-gray-400 cursor-not-allowed'
+                                      : 'text-blue-600 hover:text-blue-900'
+                                    }`}
+                                    title={currentUser.is_protected ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
+                                    disabled={deleting === currentUser.id || currentUser.is_protected}
+                                    className={`p-2 ${currentUser.is_protected
+                                      ? 'text-gray-400 cursor-not-allowed'
+                                      : 'text-red-600 hover:text-red-900'
+                                    } disabled:opacity-50`}
+                                    title={currentUser.is_protected ? "Пользователь защищен от удаления" : "Архивировать пользователя"}
+                                  >
+                                    {deleting === currentUser.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                    ) : (
+                                      <Archive className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
