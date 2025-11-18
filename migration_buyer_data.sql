@@ -14,7 +14,7 @@ ADD COLUMN IF NOT EXISTS buyer_settings JSONB DEFAULT '{
 -- Для каждого байера из buyer_source находим соответствующую запись в users и обновляем buyer_settings
 UPDATE users u
 SET buyer_settings = jsonb_build_object(
-  'traffic_channel_ids', COALESCE(bs.source_ids, ARRAY[]::text[]),
+  'traffic_channel_ids', COALESCE(bs.source_ids, '[]'::jsonb),
   'currency', 'USD',
   'access_granted', '2020-01-01',
   'access_limited', NULL
