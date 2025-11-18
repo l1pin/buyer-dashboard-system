@@ -33,6 +33,25 @@ function Login() {
 
       if (error) throw error;
 
+      // Проверяем, не архивирован ли пользователь
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('archived')
+        .eq('email', formData.email)
+        .single();
+
+      if (userError) {
+        console.error('Ошибка получения данных пользователя:', userError);
+        await supabase.auth.signOut();
+        throw new Error('Ошибка доступа к системе');
+      }
+
+      if (userData && userData.archived === true) {
+        // Если пользователь архивирован, выходим из системы и показываем ошибку
+        await supabase.auth.signOut();
+        throw new Error('Доступ запрещён. Ваш аккаунт архивирован. Обратитесь к администратору.');
+      }
+
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
       } else {
