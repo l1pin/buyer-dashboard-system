@@ -47,6 +47,24 @@ export const calculateRemainingDays = async (metrics) => {
 
     console.log(`Ключей в forecastMap: ${Object.keys(forecastMap).length}`);
 
+    // Отладка: выводим примеры артикулов
+    const forecastArticles = Object.keys(forecastMap).slice(0, 5);
+    console.log('📋 Примеры артикулов в forecastMap:', forecastArticles);
+
+    const metricsArticles = metrics
+      .filter(m => m.article && m.status === 'Вкл')
+      .slice(0, 5)
+      .map(m => m.article);
+    console.log('📋 Примеры артикулов в метриках (статус Вкл):', metricsArticles);
+
+    // Подсчет метрик со статусом "Вкл" и наличием артикула
+    const activeMetrics = metrics.filter(m => m.status === 'Вкл' && m.article && m.stock_quantity != null);
+    console.log(`📊 Активных метрик для обработки: ${activeMetrics.length}`);
+
+    // Отладка: проверяем совпадения
+    let matchedCount = 0;
+    let notFoundCount = 0;
+
     // Обновляем метрики с рассчитанными днями
     const updatedMetrics = metrics.map(metric => {
       const article = metric.article;
@@ -57,12 +75,18 @@ export const calculateRemainingDays = async (metrics) => {
         const forecast = forecastMap[article];
 
         if (!forecast) {
+          notFoundCount++;
+          if (notFoundCount <= 5) {
+            console.log(`⚠️ Не найден прогноз для артикула: "${article}"`);
+          }
           return {
             ...metric,
             days_remaining: 'недостаточно дней для анализа',
             days_remaining_value: null
           };
         }
+
+        matchedCount++;
 
         const days = stock / forecast;
 
@@ -87,6 +111,8 @@ export const calculateRemainingDays = async (metrics) => {
         days_remaining_value: null
       };
     });
+
+    console.log(`📊 Статистика совпадений: найдено ${matchedCount}, не найдено ${notFoundCount}`);
 
     const processedCount = updatedMetrics.filter(m => m.days_remaining_value !== null).length;
     console.log(`✅ Обработано офферов: ${processedCount}`);
@@ -253,9 +279,20 @@ async function getDataBySql(strSQL, retryCount = 0) {
  */
 function buildTrackerIndex(tracker) {
   const map = {};
+  let processedCount = 0;
+  let skippedNoCost = 0;
+  let skippedNoOffer = 0;
 
   tracker.forEach(({ offer, date, leads, cost }) => {
-    if (!offer || cost <= 0) return;
+    if (!offer) {
+      skippedNoOffer++;
+      return;
+    }
+
+    if (cost <= 0) {
+      skippedNoCost++;
+      return;
+    }
 
     const art = extractArticle(offer);
 
@@ -264,17 +301,34 @@ function buildTrackerIndex(tracker) {
     }
 
     map[art].push({ date, leads });
+    processedCount++;
   });
+
+  console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без offer: ${skippedNoOffer}, пропущено без cost: ${skippedNoCost}`);
+
+  // Выводим примеры извлеченных артикулов
+  const sampleOffers = tracker
+    .filter(t => t.offer && t.cost > 0)
+    .slice(0, 5);
+
+  if (sampleOffers.length > 0) {
+    console.log('📋 Примеры извлечения артикулов:');
+    sampleOffers.forEach(({ offer }) => {
+      console.log(`  "${offer}" -> "${extractArticle(offer)}"`);
+    });
+  }
 
   return map;
 }
 
 /**
  * Извлекает артикул из названия оффера
+ * Формат: "C01829 - Жіноча блуза" -> "C01829"
  */
 function extractArticle(offer) {
-  const m = offer.match(/^[A-Za-z0-9_-]+/);
-  return m ? m[0] : offer;
+  if (!offer) return '';
+  const match = offer.match(/^([A-Za-z0-9_-]+)(?:\s|$)/);
+  return match ? match[1] : offer.split(/[\s-]/)[0];
 }
 
 /**
