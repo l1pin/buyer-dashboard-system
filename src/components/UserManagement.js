@@ -28,6 +28,7 @@ import {
   Archive,
   RotateCcw
 } from 'lucide-react';
+import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 
 // Кастомная иконка Ad для Media Buyer
 const AdIcon = ({ className }) => (
@@ -74,6 +75,7 @@ function UserManagement({ user }) {
     buyer_settings: {
       traffic_channels: [
         {
+          source: 'Facebook',
           channel_id: '',
           currency: 'USD',
           access_granted: '2020-01-01',
@@ -93,6 +95,7 @@ function UserManagement({ user }) {
     buyer_settings: {
       traffic_channels: [
         {
+          source: 'Facebook',
           channel_id: '',
           currency: 'USD',
           access_granted: '2020-01-01',
@@ -326,9 +329,16 @@ function UserManagement({ user }) {
     const buyerSettings = userToEdit.role === 'buyer' && userToEdit.buyer_settings
       ? {
           traffic_channels: userToEdit.buyer_settings.traffic_channels?.length > 0
-            ? userToEdit.buyer_settings.traffic_channels
+            ? userToEdit.buyer_settings.traffic_channels.map(channel => ({
+                source: channel.source || 'Facebook',
+                channel_id: channel.channel_id || '',
+                currency: channel.currency || 'USD',
+                access_granted: channel.access_granted || '2020-01-01',
+                access_limited: channel.access_limited || null
+              }))
             : [
                 {
+                  source: 'Facebook',
                   channel_id: '',
                   currency: 'USD',
                   access_granted: '2020-01-01',
@@ -339,6 +349,7 @@ function UserManagement({ user }) {
       : {
           traffic_channels: [
             {
+              source: 'Facebook',
               channel_id: '',
               currency: 'USD',
               access_granted: '2020-01-01',
@@ -1282,41 +1293,17 @@ function UserManagement({ user }) {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* ID канала */}
+                          <div className="space-y-3">
+                            {/* Источник */}
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
-                                ID канала трафика *
-                              </label>
-                              <input
-                                type="text"
-                                value={channel.channel_id}
-                                onChange={(e) => {
-                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].channel_id = e.target.value;
-                                  setNewUser({
-                                    ...newUser,
-                                    buyer_settings: {
-                                      ...newUser.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                placeholder="Введите ID канала"
-                              />
-                            </div>
-
-                            {/* Валюта */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Валюта
+                                Источник трафика *
                               </label>
                               <select
-                                value={channel.currency}
+                                value={channel.source}
                                 onChange={(e) => {
                                   const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].currency = e.target.value;
+                                  newChannels[index].source = e.target.value;
                                   setNewUser({
                                     ...newUser,
                                     buyer_settings: {
@@ -1327,56 +1314,110 @@ function UserManagement({ user }) {
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                               >
-                                <option value="USD">$ USD</option>
-                                <option value="EUR">€ EUR</option>
-                                <option value="UAH">₴ UAH</option>
+                                <option value="Facebook">🔵 Facebook</option>
+                                <option value="Google">🟡 Google</option>
+                                <option value="TikTok">⚫ TikTok</option>
                               </select>
                             </div>
 
-                            {/* Доступ предоставлен */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Доступ с
-                              </label>
-                              <input
-                                type="date"
-                                value={channel.access_granted}
-                                onChange={(e) => {
-                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].access_granted = e.target.value;
-                                  setNewUser({
-                                    ...newUser,
-                                    buyer_settings: {
-                                      ...newUser.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* ID канала */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  ID канала трафика *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={channel.channel_id}
+                                  onChange={(e) => {
+                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                    newChannels[index].channel_id = e.target.value;
+                                    setNewUser({
+                                      ...newUser,
+                                      buyer_settings: {
+                                        ...newUser.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                  placeholder="Введите ID канала"
+                                />
+                              </div>
+
+                              {/* Валюта */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Валюта
+                                </label>
+                                <select
+                                  value={channel.currency}
+                                  onChange={(e) => {
+                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                    newChannels[index].currency = e.target.value;
+                                    setNewUser({
+                                      ...newUser,
+                                      buyer_settings: {
+                                        ...newUser.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                >
+                                  <option value="USD">$ USD</option>
+                                  <option value="EUR">€ EUR</option>
+                                  <option value="UAH">₴ UAH</option>
+                                </select>
+                              </div>
                             </div>
 
-                            {/* Доступ ограничен */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Доступ до (опционально)
-                              </label>
-                              <input
-                                type="date"
-                                value={channel.access_limited || ''}
-                                onChange={(e) => {
-                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].access_limited = e.target.value || null;
-                                  setNewUser({
-                                    ...newUser,
-                                    buyer_settings: {
-                                      ...newUser.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Доступ предоставлен */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Доступ с
+                                </label>
+                                <input
+                                  type="date"
+                                  value={channel.access_granted}
+                                  onChange={(e) => {
+                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                    newChannels[index].access_granted = e.target.value;
+                                    setNewUser({
+                                      ...newUser,
+                                      buyer_settings: {
+                                        ...newUser.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                              </div>
+
+                              {/* Доступ ограничен */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Доступ до (опционально)
+                                </label>
+                                <input
+                                  type="date"
+                                  value={channel.access_limited || ''}
+                                  onChange={(e) => {
+                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                    newChannels[index].access_limited = e.target.value || null;
+                                    setNewUser({
+                                      ...newUser,
+                                      buyer_settings: {
+                                        ...newUser.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1394,6 +1435,7 @@ function UserManagement({ user }) {
                             traffic_channels: [
                               ...newUser.buyer_settings.traffic_channels,
                               {
+                                source: 'Facebook',
                                 channel_id: '',
                                 currency: 'USD',
                                 access_granted: '2020-01-01',
@@ -1668,41 +1710,17 @@ function UserManagement({ user }) {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* ID канала */}
+                          <div className="space-y-3">
+                            {/* Источник */}
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">
-                                ID канала трафика *
-                              </label>
-                              <input
-                                type="text"
-                                value={channel.channel_id}
-                                onChange={(e) => {
-                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].channel_id = e.target.value;
-                                  setEditUserData({
-                                    ...editUserData,
-                                    buyer_settings: {
-                                      ...editUserData.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                placeholder="Введите ID канала"
-                              />
-                            </div>
-
-                            {/* Валюта */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Валюта
+                                Источник трафика *
                               </label>
                               <select
-                                value={channel.currency}
+                                value={channel.source || 'Facebook'}
                                 onChange={(e) => {
                                   const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].currency = e.target.value;
+                                  newChannels[index].source = e.target.value;
                                   setEditUserData({
                                     ...editUserData,
                                     buyer_settings: {
@@ -1713,56 +1731,110 @@ function UserManagement({ user }) {
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                               >
-                                <option value="USD">$ USD</option>
-                                <option value="EUR">€ EUR</option>
-                                <option value="UAH">₴ UAH</option>
+                                <option value="Facebook">🔵 Facebook</option>
+                                <option value="Google">🟡 Google</option>
+                                <option value="TikTok">⚫ TikTok</option>
                               </select>
                             </div>
 
-                            {/* Доступ предоставлен */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Доступ с
-                              </label>
-                              <input
-                                type="date"
-                                value={channel.access_granted}
-                                onChange={(e) => {
-                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].access_granted = e.target.value;
-                                  setEditUserData({
-                                    ...editUserData,
-                                    buyer_settings: {
-                                      ...editUserData.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* ID канала */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  ID канала трафика *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={channel.channel_id}
+                                  onChange={(e) => {
+                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                    newChannels[index].channel_id = e.target.value;
+                                    setEditUserData({
+                                      ...editUserData,
+                                      buyer_settings: {
+                                        ...editUserData.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                  placeholder="Введите ID канала"
+                                />
+                              </div>
+
+                              {/* Валюта */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Валюта
+                                </label>
+                                <select
+                                  value={channel.currency}
+                                  onChange={(e) => {
+                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                    newChannels[index].currency = e.target.value;
+                                    setEditUserData({
+                                      ...editUserData,
+                                      buyer_settings: {
+                                        ...editUserData.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                >
+                                  <option value="USD">$ USD</option>
+                                  <option value="EUR">€ EUR</option>
+                                  <option value="UAH">₴ UAH</option>
+                                </select>
+                              </div>
                             </div>
 
-                            {/* Доступ ограничен */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Доступ до (опционально)
-                              </label>
-                              <input
-                                type="date"
-                                value={channel.access_limited || ''}
-                                onChange={(e) => {
-                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].access_limited = e.target.value || null;
-                                  setEditUserData({
-                                    ...editUserData,
-                                    buyer_settings: {
-                                      ...editUserData.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Доступ предоставлен */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Доступ с
+                                </label>
+                                <input
+                                  type="date"
+                                  value={channel.access_granted}
+                                  onChange={(e) => {
+                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                    newChannels[index].access_granted = e.target.value;
+                                    setEditUserData({
+                                      ...editUserData,
+                                      buyer_settings: {
+                                        ...editUserData.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                              </div>
+
+                              {/* Доступ ограничен */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Доступ до (опционально)
+                                </label>
+                                <input
+                                  type="date"
+                                  value={channel.access_limited || ''}
+                                  onChange={(e) => {
+                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                    newChannels[index].access_limited = e.target.value || null;
+                                    setEditUserData({
+                                      ...editUserData,
+                                      buyer_settings: {
+                                        ...editUserData.buyer_settings,
+                                        traffic_channels: newChannels
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1780,6 +1852,7 @@ function UserManagement({ user }) {
                             traffic_channels: [
                               ...editUserData.buyer_settings.traffic_channels,
                               {
+                                source: 'Facebook',
                                 channel_id: '',
                                 currency: 'USD',
                                 access_granted: '2020-01-01',
