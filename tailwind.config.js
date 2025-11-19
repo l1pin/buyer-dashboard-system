@@ -60,11 +60,6 @@ module.exports = {
         'slide-down': 'slideDown 0.3s ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
       },
-      animationDelay: {
-        '75': '75ms',
-        '150': '150ms',
-        '300': '300ms',
-      },
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0' },
