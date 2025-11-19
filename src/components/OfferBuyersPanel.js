@@ -83,54 +83,65 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
           </button>
         </div>
 
-        {/* Список привязанных байеров - вертикальное представление */}
-        <div className="space-y-2">
+        {/* Список привязанных байеров - горизонтальный ряд со скроллом */}
+        <div
+          className="overflow-x-auto pb-2 -mx-1 px-1"
+          style={{
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           {buyers.length === 0 ? (
             <div className="text-xs text-gray-400 text-center py-6">
               Нет байеров
             </div>
           ) : (
-            buyers.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 hover:bg-gray-50 transition-all group"
-              >
-                <div className="flex flex-col items-center text-center space-y-2">
-                  {/* Аватар */}
-                  <div className="relative">
-                    {assignment.buyer.avatar_url ? (
-                      <img
-                        src={assignment.buyer.avatar_url}
-                        alt={assignment.buyer.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                        <span className="text-gray-600 text-base font-medium">
-                          {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                        </span>
+            <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
+              {buyers.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="flex-shrink-0 w-20 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
+                >
+                  <div className="flex flex-col items-center text-center space-y-1.5">
+                    {/* Аватар */}
+                    <div className="relative">
+                      {assignment.buyer.avatar_url ? (
+                        <img
+                          src={assignment.buyer.avatar_url}
+                          alt={assignment.buyer.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                          <span className="text-gray-600 text-base font-medium">
+                            {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Кнопка удаления */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveBuyer(assignment.id);
+                        }}
+                        className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
+                        title="Удалить привязку"
+                      >
+                        <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
+                      </button>
+                    </div>
+
+                    {/* Имя */}
+                    <div className="w-full px-0.5">
+                      <div className="text-xs font-medium text-gray-900 truncate leading-tight">
+                        {assignment.buyer.name}
                       </div>
-                    )}
-
-                    {/* Кнопка удаления */}
-                    <button
-                      onClick={() => handleRemoveBuyer(assignment.id)}
-                      className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-1 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
-                      title="Удалить привязку"
-                    >
-                      <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
-                    </button>
-                  </div>
-
-                  {/* Имя */}
-                  <div className="w-full">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {assignment.buyer.name}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       </div>
