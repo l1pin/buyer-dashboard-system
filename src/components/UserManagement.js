@@ -233,6 +233,23 @@ function UserManagement({ user }) {
       return false;
     }
 
+    // Проверка для Media Buyer - должен быть хотя бы один канал с заполненным ID
+    if (userData.role === 'buyer') {
+      if (!userData.buyer_settings?.traffic_channels || userData.buyer_settings.traffic_channels.length === 0) {
+        setError('Для Media Buyer необходимо добавить хотя бы один канал трафика');
+        return false;
+      }
+
+      const hasValidChannel = userData.buyer_settings.traffic_channels.some(
+        channel => channel.channel_id?.trim()
+      );
+
+      if (!hasValidChannel) {
+        setError('Необходимо заполнить ID канала трафика хотя бы для одного канала');
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -278,6 +295,8 @@ function UserManagement({ user }) {
         userData.buyer_settings = {
           traffic_channels: validChannels
         };
+
+        console.log('📊 Сохраняемые buyer_settings:', JSON.stringify(userData.buyer_settings, null, 2));
       }
 
       const result = await userService.createUser(userData);
@@ -481,6 +500,8 @@ function UserManagement({ user }) {
         updateData.buyer_settings = {
           traffic_channels: validChannels
         };
+
+        console.log('📊 Обновляемые buyer_settings:', JSON.stringify(updateData.buyer_settings, null, 2));
       }
 
       const result = await userService.updateUser(updateData);
