@@ -268,6 +268,7 @@ function UserManagement({ user }) {
         const validChannels = newUser.buyer_settings.traffic_channels
           .filter(channel => channel.channel_id.trim())
           .map(channel => ({
+            source: channel.source || 'Facebook',
             channel_id: channel.channel_id.trim(),
             currency: channel.currency,
             access_granted: channel.access_granted || '2020-01-01',
@@ -293,6 +294,7 @@ function UserManagement({ user }) {
         buyer_settings: {
           traffic_channels: [
             {
+              source: 'Facebook',
               channel_id: '',
               currency: 'USD',
               access_granted: '2020-01-01',
@@ -469,6 +471,7 @@ function UserManagement({ user }) {
         const validChannels = editUserData.buyer_settings.traffic_channels
           .filter(channel => channel.channel_id.trim())
           .map(channel => ({
+            source: channel.source || 'Facebook',
             channel_id: channel.channel_id.trim(),
             currency: channel.currency,
             access_granted: channel.access_granted || '2020-01-01',
@@ -495,6 +498,7 @@ function UserManagement({ user }) {
         buyer_settings: {
           traffic_channels: [
             {
+              source: 'Facebook',
               channel_id: '',
               currency: 'USD',
               access_granted: '2020-01-01',
