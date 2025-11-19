@@ -30,6 +30,69 @@ import {
 } from 'lucide-react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 
+// Кастомный селектор источника трафика с иконками
+const SourceSelector = ({ value, onChange, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const sources = [
+    { value: 'Facebook', label: 'Facebook', icon: FacebookIcon },
+    { value: 'Google', label: 'Google', icon: GoogleIcon },
+    { value: 'TikTok', label: 'TikTok', icon: TiktokIcon }
+  ];
+
+  const selectedSource = sources.find(s => s.value === value) || sources[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <selectedSource.icon className="w-5 h-5" />
+            <span>{selectedSource.label}</span>
+          </div>
+          <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop для закрытия при клике вне */}
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Меню опций */}
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {sources.map((source) => (
+              <button
+                key={source.value}
+                type="button"
+                onClick={() => {
+                  onChange(source.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 ${
+                  value === source.value ? 'bg-blue-50' : ''
+                }`}
+              >
+                <source.icon className="w-5 h-5" />
+                <span>{source.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // Кастомная иконка Ad для Media Buyer
 const AdIcon = ({ className }) => (
   <svg 
@@ -1299,11 +1362,11 @@ function UserManagement({ user }) {
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Источник трафика *
                               </label>
-                              <select
+                              <SourceSelector
                                 value={channel.source}
-                                onChange={(e) => {
+                                onChange={(newSource) => {
                                   const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].source = e.target.value;
+                                  newChannels[index].source = newSource;
                                   setNewUser({
                                     ...newUser,
                                     buyer_settings: {
@@ -1312,12 +1375,8 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              >
-                                <option value="Facebook">🔵 Facebook</option>
-                                <option value="Google">🟡 Google</option>
-                                <option value="TikTok">⚫ TikTok</option>
-                              </select>
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left"
+                              />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -1716,11 +1775,11 @@ function UserManagement({ user }) {
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Источник трафика *
                               </label>
-                              <select
+                              <SourceSelector
                                 value={channel.source || 'Facebook'}
-                                onChange={(e) => {
+                                onChange={(newSource) => {
                                   const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].source = e.target.value;
+                                  newChannels[index].source = newSource;
                                   setEditUserData({
                                     ...editUserData,
                                     buyer_settings: {
@@ -1729,12 +1788,8 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              >
-                                <option value="Facebook">🔵 Facebook</option>
-                                <option value="Google">🟡 Google</option>
-                                <option value="TikTok">⚫ TikTok</option>
-                              </select>
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left"
+                              />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
