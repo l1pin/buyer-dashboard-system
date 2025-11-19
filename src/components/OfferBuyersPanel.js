@@ -100,7 +100,7 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
               {buyers.map((assignment) => (
                 <div
                   key={assignment.id}
-                  className="flex-shrink-0 w-20 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
+                  className="flex-shrink-0 w-24 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
                 >
                   <div className="flex flex-col items-center text-center space-y-1.5">
                     {/* Аватар */}
@@ -132,9 +132,9 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
                       </button>
                     </div>
 
-                    {/* Имя */}
+                    {/* Имя - полное отображение в две строки */}
                     <div className="w-full px-0.5">
-                      <div className="text-xs font-medium text-gray-900 truncate leading-tight">
+                      <div className="text-xs font-medium text-gray-900 leading-tight break-words">
                         {assignment.buyer.name}
                       </div>
                     </div>
