@@ -12,6 +12,7 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
+import OfferBuyersPanel from './OfferBuyersPanel';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -1151,6 +1152,9 @@ function OffersTL({ user }) {
                       </svg>
                     </div>
                   </div>
+
+                  {/* Панель привязки байеров */}
+                  <OfferBuyersPanel offer={metric} />
                 </div>
               ))}
               </div>
