@@ -1,35 +1,14 @@
 // src/components/OfferBuyersPanel.js
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { userService } from '../supabaseClient';
 import { Plus, X } from 'lucide-react';
 
-function OfferBuyersPanel({ offer }) {
+function OfferBuyersPanel({ offer, allBuyers = [] }) {
   const [assignedBuyers, setAssignedBuyers] = useState([]);
-  const [allBuyers, setAllBuyers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
-
-  // Загрузка всех байеров при монтировании
-  useEffect(() => {
-    loadBuyers();
-  }, []);
-
-  const loadBuyers = async () => {
-    try {
-      setLoading(true);
-      const data = await userService.getUsersByRole('buyer');
-      setAllBuyers(data);
-    } catch (error) {
-      console.error('Ошибка загрузки байеров:', error);
-      setAllBuyers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddBuyer = async (source) => {
     setSelectedSource(source);
@@ -157,17 +136,6 @@ function OfferBuyersPanel({ offer }) {
       </div>
     );
   };
-
-  if (loading) {
-    return (
-      <div className="mt-2 bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-          <span className="ml-2 text-sm text-gray-500">Загрузка...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

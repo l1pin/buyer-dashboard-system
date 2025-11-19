@@ -1,6 +1,6 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo } from 'react';
-import { metricsAnalyticsService } from '../supabaseClient';
+import { metricsAnalyticsService, userService } from '../supabaseClient';
 import {
   RefreshCw,
   AlertCircle,
@@ -33,9 +33,11 @@ function OffersTL({ user }) {
   const [loadingDays, setLoadingDays] = useState(false);
   const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
   const [stockData, setStockData] = useState({});
+  const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
 
   useEffect(() => {
     loadMetrics();
+    loadBuyers(); // Загружаем байеров один раз
   }, []);
 
   // Close tooltip when clicking outside
@@ -88,6 +90,16 @@ function OffersTL({ user }) {
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
+  const loadBuyers = async () => {
+    try {
+      const data = await userService.getUsersByRole('buyer');
+      setAllBuyers(data);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки байеров:', error);
+      setAllBuyers([]);
     }
   };
 
@@ -1154,7 +1166,7 @@ function OffersTL({ user }) {
                   </div>
 
                   {/* Панель привязки байеров */}
-                  <OfferBuyersPanel offer={metric} />
+                  <OfferBuyersPanel offer={metric} allBuyers={allBuyers} />
                 </div>
               ))}
               </div>
