@@ -4027,3 +4027,142 @@ export const metricsAnalyticsService = {
     }
   }
 };
+
+// Сервис для управления привязками байеров к офферам
+export const offerBuyersService = {
+  // Получить все привязки для конкретного оффера
+  async getOfferBuyers(offerId) {
+    try {
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .select(`
+          *,
+          buyer:buyer_id (
+            id,
+            name,
+            email,
+            avatar_url,
+            buyer_settings
+          )
+        `)
+        .eq('offer_id', offerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Ошибка получения привязок байеров:', error);
+      throw error;
+    }
+  },
+
+  // Получить всех байеров для списка офферов (массовая загрузка)
+  async getBuyersForOffers(offerIds) {
+    try {
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .select(`
+          *,
+          buyer:buyer_id (
+            id,
+            name,
+            email,
+            avatar_url,
+            buyer_settings
+          )
+        `)
+        .in('offer_id', offerIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Группируем по offer_id для удобства
+      const grouped = {};
+      (data || []).forEach(item => {
+        if (!grouped[item.offer_id]) {
+          grouped[item.offer_id] = [];
+        }
+        grouped[item.offer_id].push(item);
+      });
+
+      return grouped;
+    } catch (error) {
+      console.error('Ошибка получения привязок байеров для офферов:', error);
+      throw error;
+    }
+  },
+
+  // Добавить байера к офферу
+  async addBuyerToOffer(offerId, buyerId, source) {
+    try {
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .insert({
+          offer_id: offerId,
+          buyer_id: buyerId,
+          source: source
+        })
+        .select(`
+          *,
+          buyer:buyer_id (
+            id,
+            name,
+            email,
+            avatar_url,
+            buyer_settings
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Ошибка добавления байера к офферу:', error);
+      throw error;
+    }
+  },
+
+  // Удалить привязку байера к офферу
+  async removeBuyerFromOffer(id) {
+    try {
+      const { error } = await supabase
+        .from('offer_buyers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Ошибка удаления привязки байера:', error);
+      throw error;
+    }
+  },
+
+  // Получить байеров с определенным источником трафика
+  async getBuyersBySource(source) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'buyer')
+        .eq('archived', false);
+
+      if (error) throw error;
+
+      // Фильтруем байеров, у которых есть канал с нужным источником
+      const filtered = (data || []).filter(buyer => {
+        if (!buyer.buyer_settings || !buyer.buyer_settings.traffic_channels) {
+          return false;
+        }
+        return buyer.buyer_settings.traffic_channels.some(
+          channel => channel.source === source
+        );
+      });
+
+      return filtered;
+    } catch (error) {
+      console.error('Ошибка получения байеров по источнику:', error);
+      throw error;
+    }
+  }
+};
