@@ -1,29 +1,31 @@
 // src/components/OfferBuyersPanel.js
 import React, { useState, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { offerBuyersService } from '../supabaseClient';
+import { userService } from '../supabaseClient';
 import { Plus, X } from 'lucide-react';
 
 function OfferBuyersPanel({ offer }) {
-  const [buyers, setBuyers] = useState([]);
+  const [assignedBuyers, setAssignedBuyers] = useState([]);
+  const [allBuyers, setAllBuyers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
 
-  // Загрузка привязанных байеров при монтировании
+  // Загрузка всех байеров при монтировании
   useEffect(() => {
-    loadOfferBuyers();
-  }, [offer.id]);
+    loadBuyers();
+  }, []);
 
-  const loadOfferBuyers = async () => {
+  const loadBuyers = async () => {
     try {
       setLoading(true);
-      const data = await offerBuyersService.getOfferBuyers(offer.id);
-      setBuyers(data);
+      const data = await userService.getUsersByRole('buyer');
+      setAllBuyers(data);
     } catch (error) {
       console.error('Ошибка загрузки байеров:', error);
+      setAllBuyers([]);
     } finally {
       setLoading(false);
     }
@@ -35,54 +37,54 @@ function OfferBuyersPanel({ offer }) {
     setLoadingBuyers(true);
 
     try {
-      const data = await offerBuyersService.getBuyersBySource(source);
-      // Фильтруем уже добавленных байеров для этого источника
-      const alreadyAdded = buyers
+      // Фильтруем байеров по источнику
+      const filtered = allBuyers.filter(buyer => {
+        if (!buyer.buyer_settings || !buyer.buyer_settings.traffic_channels) {
+          return false;
+        }
+        return buyer.buyer_settings.traffic_channels.some(
+          channel => channel.source === source
+        );
+      });
+
+      // Исключаем уже привязанных байеров для этого источника
+      const alreadyAdded = assignedBuyers
         .filter(b => b.source === source)
-        .map(b => b.buyer_id);
-      const filtered = data.filter(buyer => !alreadyAdded.includes(buyer.id));
-      setAvailableBuyers(filtered);
+        .map(b => b.buyer.id);
+
+      const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
+      setAvailableBuyers(available);
     } catch (error) {
-      console.error('Ошибка загрузки доступных байеров:', error);
+      console.error('Ошибка фильтрации байеров:', error);
       setAvailableBuyers([]);
     } finally {
       setLoadingBuyers(false);
     }
   };
 
-  const handleSelectBuyer = async (buyerId) => {
-    try {
-      const newBuyer = await offerBuyersService.addBuyerToOffer(
-        offer.id,
-        buyerId,
-        selectedSource
-      );
-      setBuyers([...buyers, newBuyer]);
-      setShowModal(false);
-      setSelectedSource(null);
-    } catch (error) {
-      console.error('Ошибка добавления байера:', error);
-      alert('Ошибка добавления байера. Возможно, он уже привязан к этому офферу.');
-    }
+  const handleSelectBuyer = (buyer) => {
+    const newAssignment = {
+      id: Date.now(), // Временный ID
+      source: selectedSource,
+      buyer: buyer,
+      offer_id: offer.id
+    };
+
+    setAssignedBuyers([...assignedBuyers, newAssignment]);
+    setShowModal(false);
+    setSelectedSource(null);
   };
 
-  const handleRemoveBuyer = async (buyerLinkId) => {
+  const handleRemoveBuyer = (assignmentId) => {
     if (!window.confirm('Удалить привязку байера к офферу?')) return;
-
-    try {
-      await offerBuyersService.removeBuyerFromOffer(buyerLinkId);
-      setBuyers(buyers.filter(b => b.id !== buyerLinkId));
-    } catch (error) {
-      console.error('Ошибка удаления привязки:', error);
-      alert('Ошибка удаления привязки байера');
-    }
+    setAssignedBuyers(assignedBuyers.filter(b => b.id !== assignmentId));
   };
 
   // Группируем байеров по источникам
   const buyersBySource = {
-    Facebook: buyers.filter(b => b.source === 'Facebook'),
-    Google: buyers.filter(b => b.source === 'Google'),
-    TikTok: buyers.filter(b => b.source === 'TikTok')
+    Facebook: assignedBuyers.filter(b => b.source === 'Facebook'),
+    Google: assignedBuyers.filter(b => b.source === 'Google'),
+    TikTok: assignedBuyers.filter(b => b.source === 'TikTok')
   };
 
   const SourceColumn = ({ source, icon: Icon, buyers }) => {
@@ -109,24 +111,24 @@ function OfferBuyersPanel({ offer }) {
               Нет байеров
             </div>
           ) : (
-            buyers.map(({ id, buyer }) => (
+            buyers.map((assignment) => (
               <div
-                key={id}
+                key={assignment.id}
                 className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm hover:shadow-md transition-shadow group"
               >
                 <div className="flex items-center space-x-2">
                   {/* Аватар */}
                   <div className="flex-shrink-0">
-                    {buyer.avatar_url ? (
+                    {assignment.buyer.avatar_url ? (
                       <img
-                        src={buyer.avatar_url}
-                        alt={buyer.name}
+                        src={assignment.buyer.avatar_url}
+                        alt={assignment.buyer.name}
                         className="w-8 h-8 rounded-full object-cover"
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
                         <span className="text-white text-xs font-semibold">
-                          {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+                          {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
                         </span>
                       </div>
                     )}
@@ -135,13 +137,13 @@ function OfferBuyersPanel({ offer }) {
                   {/* Имя */}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-900 truncate">
-                      {buyer.name}
+                      {assignment.buyer.name}
                     </div>
                   </div>
 
                   {/* Кнопка удаления */}
                   <button
-                    onClick={() => handleRemoveBuyer(id)}
+                    onClick={() => handleRemoveBuyer(assignment.id)}
                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded-full transition-all"
                     title="Удалить привязку"
                   >
@@ -223,7 +225,9 @@ function OfferBuyersPanel({ offer }) {
                     Нет доступных байеров с источником {selectedSource}
                   </p>
                   <p className="text-xs text-gray-400 mt-2">
-                    Все подходящие байеры уже привязаны к этому офферу
+                    {assignedBuyers.filter(b => b.source === selectedSource).length > 0
+                      ? 'Все подходящие байеры уже привязаны к этому офферу'
+                      : 'У байеров нет настроенных каналов с этим источником'}
                   </p>
                 </div>
               ) : (
@@ -231,7 +235,7 @@ function OfferBuyersPanel({ offer }) {
                   {availableBuyers.map(buyer => (
                     <button
                       key={buyer.id}
-                      onClick={() => handleSelectBuyer(buyer.id)}
+                      onClick={() => handleSelectBuyer(buyer)}
                       className="w-full bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg p-3 transition-all text-left"
                     >
                       <div className="flex items-center space-x-3">
