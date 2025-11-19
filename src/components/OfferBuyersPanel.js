@@ -66,68 +66,68 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
     TikTok: assignedBuyers.filter(b => b.source === 'TikTok')
   };
 
-  const SourceColumn = ({ source, icon: Icon, buyers }) => {
+  const SourceColumn = ({ source, icon: Icon, buyers, isLast }) => {
     return (
-      <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200">
-        <div className="flex items-center justify-between mb-3">
+      <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Icon className="w-5 h-5" />
-            <span className="text-sm font-semibold text-gray-700">{source}</span>
+            <span className="text-sm font-medium text-gray-900">{source}</span>
           </div>
           <button
             onClick={() => handleAddBuyer(source)}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
             title={`Добавить байера для ${source}`}
           >
             <Plus className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 
-        {/* Список привязанных байеров */}
+        {/* Список привязанных байеров - вертикальное представление */}
         <div className="space-y-2">
           {buyers.length === 0 ? (
-            <div className="text-xs text-gray-400 italic text-center py-2">
+            <div className="text-xs text-gray-400 text-center py-6">
               Нет байеров
             </div>
           ) : (
             buyers.map((assignment) => (
               <div
                 key={assignment.id}
-                className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm hover:shadow-md transition-shadow group"
+                className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 hover:bg-gray-50 transition-all group"
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col items-center text-center space-y-2">
                   {/* Аватар */}
-                  <div className="flex-shrink-0">
+                  <div className="relative">
                     {assignment.buyer.avatar_url ? (
                       <img
                         src={assignment.buyer.avatar_url}
                         alt={assignment.buyer.name}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                        <span className="text-white text-xs font-semibold">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                        <span className="text-gray-600 text-base font-medium">
                           {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
                         </span>
                       </div>
                     )}
+
+                    {/* Кнопка удаления */}
+                    <button
+                      onClick={() => handleRemoveBuyer(assignment.id)}
+                      className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-1 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
+                      title="Удалить привязку"
+                    >
+                      <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
+                    </button>
                   </div>
 
                   {/* Имя */}
-                  <div className="flex-1 min-w-0">
+                  <div className="w-full">
                     <div className="text-sm font-medium text-gray-900 truncate">
                       {assignment.buyer.name}
                     </div>
                   </div>
-
-                  {/* Кнопка удаления */}
-                  <button
-                    onClick={() => handleRemoveBuyer(assignment.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded-full transition-all"
-                    title="Удалить привязку"
-                  >
-                    <X className="w-3 h-3 text-red-500" />
-                  </button>
                 </div>
               </div>
             ))
@@ -139,22 +139,25 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
 
   return (
     <>
-      <div className="mt-2 bg-white rounded-lg border border-gray-200 p-3">
-        <div className="grid grid-cols-3 gap-3">
+      <div className="mt-2 bg-white rounded-lg border border-gray-200">
+        <div className="grid grid-cols-3">
           <SourceColumn
             source="Facebook"
             icon={FacebookIcon}
             buyers={buyersBySource.Facebook}
+            isLast={false}
           />
           <SourceColumn
             source="Google"
             icon={GoogleIcon}
             buyers={buyersBySource.Google}
+            isLast={false}
           />
           <SourceColumn
             source="TikTok"
             icon={TiktokIcon}
             buyers={buyersBySource.TikTok}
+            isLast={true}
           />
         </div>
       </div>
@@ -204,7 +207,7 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
                     <button
                       key={buyer.id}
                       onClick={() => handleSelectBuyer(buyer)}
-                      className="w-full bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg p-3 transition-all text-left"
+                      className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left"
                     >
                       <div className="flex items-center space-x-3">
                         {/* Аватар */}
@@ -215,8 +218,8 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                            <span className="text-white font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-gray-600 font-medium">
                               {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
                             </span>
                           </div>
