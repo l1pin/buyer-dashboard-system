@@ -1,6 +1,7 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { metricsAnalyticsService, userService, offerStatusService } from '../supabaseClient';
+import { metricsAnalyticsService, userService } from '../supabaseClient';
+import { offerStatusService } from '../services/OffersSupabase';
 import {
   RefreshCw,
   AlertCircle,
@@ -15,7 +16,6 @@ import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offer
 import OfferBuyersPanel from './OfferBuyersPanel';
 import DraggableTooltip from './DraggableTooltip';
 import OfferStatusBadge from './OfferStatusBadge';
-import OfferStatusHistoryModal from './OfferStatusHistoryModal';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -32,9 +32,7 @@ function OffersTL({ user }) {
   const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
   const [stockData, setStockData] = useState({});
   const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
-  const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов
-  const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [selectedOfferForHistory, setSelectedOfferForHistory] = useState(null);
+  const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов (с днями)
 
   useEffect(() => {
     loadMetrics();
@@ -131,10 +129,22 @@ function OffersTL({ user }) {
       const offerIds = metrics.map(m => m.id);
       const statusesData = await offerStatusService.getOfferStatuses(offerIds);
 
-      // Преобразуем массив в объект для быстрого доступа
+      // Преобразуем массив в объект для быстрого доступа и рассчитываем дни
       const statusesMap = {};
       statusesData.forEach(status => {
-        statusesMap[status.offer_id] = status;
+        // Рассчитываем дни в текущем статусе
+        let daysInStatus = 0;
+        if (status.status_history && status.status_history.length > 0) {
+          const currentStatusEntry = status.status_history[0];
+          const changedAt = new Date(currentStatusEntry.changed_at);
+          const now = new Date();
+          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+        }
+
+        statusesMap[status.offer_id] = {
+          ...status,
+          days_in_status: daysInStatus
+        };
       });
 
       setOfferStatuses(statusesMap);
@@ -143,28 +153,9 @@ function OffersTL({ user }) {
     }
   };
 
-  const handleStatusChange = (offerId, newStatus) => {
-    setOfferStatuses(prev => ({
-      ...prev,
-      [offerId]: {
-        ...prev[offerId],
-        current_status: newStatus
-      }
-    }));
-  };
-
-  const handleOpenHistory = (metric) => {
-    setSelectedOfferForHistory({
-      offerId: metric.id,
-      article: metric.article,
-      offerName: metric.offer
-    });
-    setHistoryModalOpen(true);
-  };
-
-  const handleCloseHistory = () => {
-    setHistoryModalOpen(false);
-    setSelectedOfferForHistory(null);
+  const handleStatusChange = async (offerId, newStatus) => {
+    // Перезагружаем статусы для обновления дней
+    await loadOfferStatuses();
   };
 
   const updateStocksFromYml = async () => {
@@ -601,6 +592,81 @@ function OffersTL({ user }) {
             )}
           </div>
         );
+      case 'status_history':
+        const statusHistory = tooltip.data.statusHistory || [];
+        return (
+          <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+            {statusHistory.length > 0 ? (
+              statusHistory.map((entry, index) => {
+                const statusConfig = offerStatusService.getStatusColor(entry.status);
+                const isCurrentStatus = index === 0;
+
+                // Форматируем даты
+                const formatDateTime = (dateString) => {
+                  if (!dateString) return '—';
+                  try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    });
+                  } catch (error) {
+                    return '—';
+                  }
+                };
+
+                return (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg border-2 ${isCurrentStatus ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'}`}
+                  >
+                    {/* Статус и badge */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`w-3 h-3 rounded-full ${statusConfig.color}`}></span>
+                      <span className="text-sm font-semibold text-gray-900">{entry.status}</span>
+                      {isCurrentStatus && (
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                          Текущий
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Даты "с" и "до" */}
+                    <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">С:</span>
+                        <span className="font-mono">{formatDateTime(entry.from_date)}</span>
+                      </div>
+                      <span>→</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">До:</span>
+                        <span className="font-mono">{formatDateTime(entry.to_date)}</span>
+                      </div>
+                    </div>
+
+                    {/* Длительность */}
+                    <div className="text-xs text-gray-600">
+                      <span className="font-medium">Длительность:</span>{' '}
+                      <span className="font-semibold">{entry.days_in_status} дн.</span>
+                    </div>
+
+                    {/* Комментарий */}
+                    {entry.comment && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <p className="text-xs text-gray-700 italic">"{entry.comment}"</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-xs text-gray-500 italic text-center py-4">
+                История статусов пуста
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Неизвестный тип tooltip</div>;
     }
@@ -623,6 +689,8 @@ function OffersTL({ user }) {
         return `Дата прихода ${article}: ${tooltip.data.offerName || ''}`;
       case 'zone':
         return `Цена лида в зоне ${article}: ${tooltip.data.offerName || ''}`;
+      case 'status_history':
+        return `История статусов ${article}: ${tooltip.data.offerName || ''}`;
       default:
         return 'Информация';
     }
@@ -898,13 +966,27 @@ function OffersTL({ user }) {
                         article={metric.article}
                         offerName={metric.offer}
                         currentStatus={offerStatuses[metric.id]?.current_status}
+                        daysInStatus={offerStatuses[metric.id]?.days_in_status}
                         onStatusChange={handleStatusChange}
                         userName={user?.full_name || user?.email || 'User'}
                       />
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          handleOpenHistory(metric);
+
+                          // Загружаем историю статусов
+                          try {
+                            const statusHistory = await offerStatusService.getOfferStatusHistory(metric.id);
+
+                            // Открываем tooltip с историей
+                            openTooltip('status_history', index, {
+                              statusHistory: statusHistory,
+                              offerName: metric.offer,
+                              article: metric.article
+                            }, e);
+                          } catch (error) {
+                            console.error('Ошибка загрузки истории статусов:', error);
+                          }
                         }}
                         className="text-gray-500 hover:text-blue-600 transition-colors"
                         title="Показать историю статусов"
@@ -1358,17 +1440,6 @@ function OffersTL({ user }) {
           {renderTooltipContent(tooltip)}
         </DraggableTooltip>
       ))}
-
-      {/* Модальное окно истории статусов */}
-      {selectedOfferForHistory && (
-        <OfferStatusHistoryModal
-          offerId={selectedOfferForHistory.offerId}
-          article={selectedOfferForHistory.article}
-          offerName={selectedOfferForHistory.offerName}
-          isOpen={historyModalOpen}
-          onClose={handleCloseHistory}
-        />
-      )}
     </div>
   );
 }
