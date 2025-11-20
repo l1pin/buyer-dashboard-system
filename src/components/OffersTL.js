@@ -1052,7 +1052,10 @@ function OffersTL({ user }) {
                               strokeLinejoin="round"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenTooltip(openTooltip === index ? null : index);
+                                openTooltip('zone', index, {
+                                  metric: metric,
+                                  offerName: metric.offer_name
+                                });
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
