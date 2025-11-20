@@ -1,5 +1,6 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import {
   RefreshCw,
@@ -36,48 +37,52 @@ function OffersTL({ user }) {
     loadBuyers(); // Загружаем байеров один раз
   }, []);
 
-  // Функция для открытия нового tooltip
+  // Функция для открытия нового tooltip - МГНОВЕННАЯ с flushSync
   const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
-    // Вычисляем позицию СРАЗУ, до setState, чтобы event.currentTarget был доступен
+    // Вычисляем позицию СРАЗУ, до setState
     let position = { x: 100, y: 100 };
 
     if (event && event.currentTarget) {
       const rect = event.currentTarget.getBoundingClientRect();
       position = {
-        x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
+        x: rect.left + rect.width + 10,
         y: rect.top
       };
     }
 
-    setOpenTooltips(prev => {
-      // Проверяем, не открыт ли уже такой tooltip
-      if (prev.find(t => t.id === tooltipId)) {
-        return prev; // Уже открыт, ничего не делаем
-      }
+    // flushSync для синхронного обновления - МГНОВЕННО
+    flushSync(() => {
+      setOpenTooltips(prev => {
+        // Быстрая проверка существования
+        const exists = prev.some(t => t.id === tooltipId);
+        if (exists) return prev;
 
-      // Смещаем позицию для каждого нового tooltip, если не было event
-      const finalPosition = event && event.currentTarget ? position : {
-        x: position.x + prev.length * 30,
-        y: position.y + prev.length * 30
-      };
+        // Смещаем позицию для каждого нового tooltip, если не было event
+        const finalPosition = event && event.currentTarget ? position : {
+          x: position.x + prev.length * 30,
+          y: position.y + prev.length * 30
+        };
 
-      // Добавляем новый tooltip в массив
-      return [...prev, {
-        id: tooltipId,
-        type,
-        index,
-        data,
-        position: finalPosition,
-        zIndex: 1000 + prev.length
-      }];
+        // Добавляем новый tooltip
+        return [...prev, {
+          id: tooltipId,
+          type,
+          index,
+          data,
+          position: finalPosition,
+          zIndex: 1000 + prev.length
+        }];
+      });
     });
   }, []);
 
-  // Функция для закрытия tooltip
+  // Функция для закрытия tooltip - МГНОВЕННАЯ с flushSync
   const closeTooltip = useCallback((tooltipId) => {
-    setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
+    flushSync(() => {
+      setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
+    });
   }, []);
 
   const loadMetrics = async () => {
@@ -1278,17 +1283,22 @@ function OffersTL({ user }) {
       </div>
 
       {/* Рендер всех открытых tooltip'ов поверх всей страницы */}
-      {openTooltips.map(tooltip => (
-        <DraggableTooltip
-          key={tooltip.id}
-          title={getTooltipTitle(tooltip)}
-          onClose={() => closeTooltip(tooltip.id)}
-          initialPosition={tooltip.position}
-          zIndex={tooltip.zIndex}
-        >
-          {renderTooltipContent(tooltip)}
-        </DraggableTooltip>
-      ))}
+      {openTooltips.map(tooltip => {
+        // Мемоизированный callback для каждого tooltip
+        const handleClose = () => closeTooltip(tooltip.id);
+
+        return (
+          <DraggableTooltip
+            key={tooltip.id}
+            title={getTooltipTitle(tooltip)}
+            onClose={handleClose}
+            initialPosition={tooltip.position}
+            zIndex={tooltip.zIndex}
+          >
+            {renderTooltipContent(tooltip)}
+          </DraggableTooltip>
+        );
+      })}
     </div>
   );
 }
