@@ -674,23 +674,65 @@ function OffersTL({ user }) {
 
   // Функция для получения заголовка tooltip
   const getTooltipTitle = useCallback((tooltip) => {
-    const article = tooltip.data.article ? `[${tooltip.data.article}]` : '';
+    const article = tooltip.data.article;
+
+    // Стилизованный артикул в виде голубой плашки (как в Trello)
+    const articleBadge = article ? (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+        {article}
+      </span>
+    ) : null;
 
     switch (tooltip.type) {
       case 'rating':
-        return `История рейтинга ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>История рейтинга</span>
+            {articleBadge}
+          </div>
+        );
       case 'cpl':
-        return `Статистика CPL ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>Статистика CPL</span>
+            {articleBadge}
+          </div>
+        );
       case 'leads':
-        return `Статистика лидов ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>Статистика лидов</span>
+            {articleBadge}
+          </div>
+        );
       case 'stock':
-        return `Модификации товара ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>Модификации товара</span>
+            {articleBadge}
+          </div>
+        );
       case 'date':
-        return `Дата прихода ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>Дата прихода</span>
+            {articleBadge}
+          </div>
+        );
       case 'zone':
-        return `Цена лида в зоне ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>Цена лида в зоне</span>
+            {articleBadge}
+          </div>
+        );
       case 'status_history':
-        return `История статусов ${article}: ${tooltip.data.offerName || ''}`;
+        return (
+          <div className="flex items-center gap-2">
+            <span>История статусов</span>
+            {articleBadge}
+          </div>
+        );
       default:
         return 'Информация';
     }
