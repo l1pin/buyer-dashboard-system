@@ -1016,16 +1016,25 @@ function OffersTL({ user }) {
                         onClick={async (e) => {
                           e.stopPropagation();
 
+                          // Сохраняем currentTarget ДО асинхронной операции
+                          const buttonElement = e.currentTarget;
+                          const rect = buttonElement.getBoundingClientRect();
+                          const savedEvent = {
+                            currentTarget: buttonElement,
+                            clientX: rect.left + rect.width + 10,
+                            clientY: rect.top
+                          };
+
                           // Загружаем историю статусов
                           try {
                             const statusHistory = await offerStatusService.getOfferStatusHistory(metric.id);
 
-                            // Открываем tooltip с историей
+                            // Открываем tooltip с историей, используя сохраненное событие
                             openTooltip('status_history', index, {
                               statusHistory: statusHistory,
                               offerName: metric.offer,
                               article: metric.article
-                            }, e);
+                            }, savedEvent);
                           } catch (error) {
                             console.error('Ошибка загрузки истории статусов:', error);
                           }
