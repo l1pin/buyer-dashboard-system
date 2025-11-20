@@ -407,6 +407,128 @@ function OffersTL({ user }) {
             )}
           </div>
         );
+      case 'cpl':
+        return (
+          <div className="w-full">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[7, 14, 30, 60, 90].map(days => {
+                  const data = tooltip.data.leadsData?.[days];
+                  if (!data) return null;
+                  return (
+                    <tr key={days} className="border-b border-gray-100">
+                      <td className="py-1 px-2 text-gray-900">{data.label}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'leads':
+        return (
+          <div className="w-full">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
+                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[7, 14, 30, 60, 90].map(days => {
+                  const data = tooltip.data.leadsData?.[days];
+                  if (!data) return null;
+                  return (
+                    <tr key={days} className="border-b border-gray-100">
+                      <td className="py-1 px-2 text-gray-900">{data.label}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
+                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'stock':
+        const baseArticle = tooltip.data.article ? tooltip.data.article.split("-")[0] : null;
+        const modifications = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
+        return (
+          <div className="flex flex-col gap-1.5">
+            {modifications.length > 0 ? (
+              modifications.map((mod, index) => (
+                <div key={index} className="text-xs text-gray-700">
+                  {mod}
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-gray-500 italic">Нет данных о модификациях</div>
+            )}
+          </div>
+        );
+      case 'date':
+        return (
+          <div className="text-sm text-gray-900 font-mono">
+            {tooltip.data.date ? formatFullDate(tooltip.data.date) : 'Нет данных'}
+          </div>
+        );
+      case 'zone':
+        const metric = tooltip.data.metric;
+        return (
+          <div className="flex flex-col gap-2">
+            {/* Красная зона */}
+            {metric.red_zone_price !== null && metric.red_zone_price !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 w-20">Красная:</span>
+                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('red').bg} ${getZoneColorsByType('red').text} ${getZoneColorsByType('red').border}`}>
+                  ${Number(metric.red_zone_price).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {/* Розовая зона */}
+            {metric.pink_zone_price !== null && metric.pink_zone_price !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 w-20">Розовая:</span>
+                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('pink').bg} ${getZoneColorsByType('pink').text} ${getZoneColorsByType('pink').border}`}>
+                  ${Number(metric.pink_zone_price).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {/* Золотая зона */}
+            {metric.gold_zone_price !== null && metric.gold_zone_price !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 w-20">Золотая:</span>
+                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('gold').bg} ${getZoneColorsByType('gold').text} ${getZoneColorsByType('gold').border}`}>
+                  ${Number(metric.gold_zone_price).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {/* Зеленая зона */}
+            {metric.green_zone_price !== null && metric.green_zone_price !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 w-20">Зеленая:</span>
+                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('green').bg} ${getZoneColorsByType('green').text} ${getZoneColorsByType('green').border}`}>
+                  ${Number(metric.green_zone_price).toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Неизвестный тип tooltip</div>;
     }
@@ -417,6 +539,16 @@ function OffersTL({ user }) {
     switch (tooltip.type) {
       case 'rating':
         return `История рейтинга: ${tooltip.data.offerName || ''}`;
+      case 'cpl':
+        return `Статистика CPL: ${tooltip.data.offerName || ''}`;
+      case 'leads':
+        return `Статистика лидов: ${tooltip.data.offerName || ''}`;
+      case 'stock':
+        return `Модификации товара: ${tooltip.data.offerName || ''}`;
+      case 'date':
+        return `Дата прихода: ${tooltip.data.offerName || ''}`;
+      case 'zone':
+        return `Цена лида в зоне: ${tooltip.data.offerName || ''}`;
       default:
         return 'Информация';
     }
@@ -718,42 +850,16 @@ function OffersTL({ user }) {
                               strokeLinejoin="round"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenCplTooltip(openCplTooltip === index ? null : index);
+                                openTooltip('cpl', index, {
+                                  leadsData: metric.leads_data,
+                                  offerName: metric.offer_name
+                                });
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
                               <line x1="12" y1="16" x2="12" y2="12" />
                               <line x1="12" y1="8" x2="12.01" y2="8" />
                             </svg>
-                          )}
-                          {openCplTooltip === index && metric.leads_data && (
-                            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-80">
-                              <div className="text-sm font-semibold mb-2 text-gray-800">Статистика CPL по периодам</div>
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="border-b border-gray-200">
-                                    <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {[7, 14, 30, 60, 90].map(days => {
-                                    const data = metric.leads_data[days];
-                                    if (!data) return null;
-                                    return (
-                                      <tr key={days} className="border-b border-gray-100">
-                                        <td className="py-1 px-2 text-gray-900">{data.label}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
                           )}
                         </>
                       )}
@@ -782,42 +888,16 @@ function OffersTL({ user }) {
                               strokeLinejoin="round"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenLeadsTooltip(openLeadsTooltip === index ? null : index);
+                                openTooltip('leads', index, {
+                                  leadsData: metric.leads_data,
+                                  offerName: metric.offer_name
+                                });
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
                               <line x1="12" y1="16" x2="12" y2="12" />
                               <line x1="12" y1="8" x2="12.01" y2="8" />
                             </svg>
-                          )}
-                          {openLeadsTooltip === index && metric.leads_data && (
-                            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-80">
-                              <div className="text-sm font-semibold mb-2 text-gray-800">Статистика лидов по периодам</div>
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="border-b border-gray-200">
-                                    <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
-                                    <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {[7, 14, 30, 60, 90].map(days => {
-                                    const data = metric.leads_data[days];
-                                    if (!data) return null;
-                                    return (
-                                      <tr key={days} className="border-b border-gray-100">
-                                        <td className="py-1 px-2 text-gray-900">{data.label}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
-                                        <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
                           )}
                         </>
                       )}
@@ -940,7 +1020,10 @@ function OffersTL({ user }) {
                                 strokeLinejoin="round"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setOpenTooltip(openTooltip === index ? null : index);
+                                  openTooltip('zone', index, {
+                                    metric: metric,
+                                    offerName: metric.offer_name
+                                  });
                                 }}
                               >
                                 <circle cx="12" cy="12" r="10" />
@@ -979,12 +1062,6 @@ function OffersTL({ user }) {
                           </>
                         );
                       })()}
-                      {openTooltip === index && (
-                        <ZonesTooltip
-                          metric={metric}
-                          onClose={() => setOpenTooltip(null)}
-                        />
-                      )}
                     </div>
 
                     {/* Дней продаж */}
@@ -1037,7 +1114,10 @@ function OffersTL({ user }) {
                             strokeLinejoin="round"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenStockTooltip(openStockTooltip === index ? null : index);
+                              openTooltip('stock', index, {
+                                article: metric.article,
+                                offerName: metric.offer_name
+                              });
                             }}
                           >
                             <circle cx="12" cy="12" r="10" />
@@ -1045,12 +1125,6 @@ function OffersTL({ user }) {
                             <line x1="12" y1="8" x2="12.01" y2="8" />
                           </svg>
                         </>
-                      )}
-                      {openStockTooltip === index && (
-                        <StockTooltip
-                          article={metric.article}
-                          onClose={() => setOpenStockTooltip(null)}
-                        />
                       )}
                     </div>
 
@@ -1075,7 +1149,10 @@ function OffersTL({ user }) {
                                 strokeLinejoin="round"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setOpenDateTooltip(openDateTooltip === index ? null : index);
+                                  openTooltip('date', index, {
+                                    date: metric.date_arrival,
+                                    offerName: metric.offer_name
+                                  });
                                 }}
                               >
                                 <circle cx="12" cy="12" r="10" />
@@ -1103,7 +1180,10 @@ function OffersTL({ user }) {
                               strokeLinejoin="round"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenDateTooltip(openDateTooltip === index ? null : index);
+                                openTooltip('date', index, {
+                                  date: metric.date_arrival,
+                                  offerName: metric.offer_name
+                                });
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
@@ -1113,12 +1193,6 @@ function OffersTL({ user }) {
                           </>
                         );
                       })()}
-                      {openDateTooltip === index && (
-                        <DateTooltip
-                          dateString={metric.next_calculated_arrival}
-                          onClose={() => setOpenDateTooltip(null)}
-                        />
-                      )}
                     </div>
 
                     {/* % отказа от продаж */}
