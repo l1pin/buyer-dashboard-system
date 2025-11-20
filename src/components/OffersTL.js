@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import {
   RefreshCw,
@@ -37,43 +37,45 @@ function OffersTL({ user }) {
   }, []);
 
   // Функция для открытия нового tooltip
-  const openTooltip = (type, index, data, event) => {
+  const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
-    // Проверяем, не открыт ли уже такой tooltip
-    if (openTooltips.find(t => t.id === tooltipId)) {
-      return; // Уже открыт, ничего не делаем
-    }
+    setOpenTooltips(prev => {
+      // Проверяем, не открыт ли уже такой tooltip
+      if (prev.find(t => t.id === tooltipId)) {
+        return prev; // Уже открыт, ничего не делаем
+      }
 
-    // Получаем координаты кнопки, если event передан
-    let position = {
-      x: 100 + openTooltips.length * 30,
-      y: 100 + openTooltips.length * 30
-    };
-
-    if (event && event.currentTarget) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      position = {
-        x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
-        y: rect.top
+      // Получаем координаты кнопки, если event передан
+      let position = {
+        x: 100 + prev.length * 30,
+        y: 100 + prev.length * 30
       };
-    }
 
-    // Добавляем новый tooltip в массив
-    setOpenTooltips(prev => [...prev, {
-      id: tooltipId,
-      type,
-      index,
-      data,
-      position,
-      zIndex: 1000 + openTooltips.length
-    }]);
-  };
+      if (event && event.currentTarget) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        position = {
+          x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
+          y: rect.top
+        };
+      }
+
+      // Добавляем новый tooltip в массив
+      return [...prev, {
+        id: tooltipId,
+        type,
+        index,
+        data,
+        position,
+        zIndex: 1000 + prev.length
+      }];
+    });
+  }, []);
 
   // Функция для закрытия tooltip
-  const closeTooltip = (tooltipId) => {
+  const closeTooltip = useCallback((tooltipId) => {
     setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
-  };
+  }, []);
 
   const loadMetrics = async () => {
     try {
@@ -247,14 +249,17 @@ function OffersTL({ user }) {
     });
   }, [metrics, searchTerm, sortField, sortDirection]);
 
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
+  const handleSort = useCallback((field) => {
+    setSortField(prevField => {
+      if (prevField === field) {
+        setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        return prevField;
+      } else {
+        setSortDirection('asc');
+        return field;
+      }
+    });
+  }, []);
 
   // Функция для получения цветов зон
   const getZoneColors = (zoneName) => {

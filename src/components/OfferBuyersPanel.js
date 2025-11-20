@@ -1,16 +1,16 @@
 // src/components/OfferBuyersPanel.js
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X } from 'lucide-react';
 
-function OfferBuyersPanel({ offer, allBuyers = [] }) {
+const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers = [] }) {
   const [assignedBuyers, setAssignedBuyers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
 
-  const handleAddBuyer = async (source) => {
+  const handleAddBuyer = useCallback(async (source) => {
     setSelectedSource(source);
     setShowModal(true);
     setLoadingBuyers(true);
@@ -26,22 +26,25 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
         );
       });
 
-      // Исключаем уже привязанных байеров для этого источника
-      const alreadyAdded = assignedBuyers
-        .filter(b => b.source === source)
-        .map(b => b.buyer.id);
+      setAssignedBuyers(currentBuyers => {
+        // Исключаем уже привязанных байеров для этого источника
+        const alreadyAdded = currentBuyers
+          .filter(b => b.source === source)
+          .map(b => b.buyer.id);
 
-      const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
-      setAvailableBuyers(available);
+        const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
+        setAvailableBuyers(available);
+        return currentBuyers;
+      });
     } catch (error) {
       console.error('Ошибка фильтрации байеров:', error);
       setAvailableBuyers([]);
     } finally {
       setLoadingBuyers(false);
     }
-  };
+  }, [allBuyers]);
 
-  const handleSelectBuyer = (buyer) => {
+  const handleSelectBuyer = useCallback((buyer) => {
     const newAssignment = {
       id: Date.now(), // Временный ID
       source: selectedSource,
@@ -49,24 +52,24 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
       offer_id: offer.id
     };
 
-    setAssignedBuyers([...assignedBuyers, newAssignment]);
+    setAssignedBuyers(prev => [...prev, newAssignment]);
     setShowModal(false);
     setSelectedSource(null);
-  };
+  }, [selectedSource, offer.id]);
 
-  const handleRemoveBuyer = (assignmentId) => {
+  const handleRemoveBuyer = useCallback((assignmentId) => {
     if (!window.confirm('Удалить привязку байера к офферу?')) return;
-    setAssignedBuyers(assignedBuyers.filter(b => b.id !== assignmentId));
-  };
+    setAssignedBuyers(prev => prev.filter(b => b.id !== assignmentId));
+  }, []);
 
   // Группируем байеров по источникам
-  const buyersBySource = {
+  const buyersBySource = useMemo(() => ({
     Facebook: assignedBuyers.filter(b => b.source === 'Facebook'),
     Google: assignedBuyers.filter(b => b.source === 'Google'),
     TikTok: assignedBuyers.filter(b => b.source === 'TikTok')
-  };
+  }), [assignedBuyers]);
 
-  const SourceColumn = ({ source, icon: Icon, buyers, isLast }) => {
+  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer }) => {
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -75,7 +78,7 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
             <span className="text-sm font-medium text-gray-900">{source}</span>
           </div>
           <button
-            onClick={() => handleAddBuyer(source)}
+            onClick={() => onAddBuyer(source)}
             className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
             title={`Добавить байера для ${source}`}
           >
@@ -123,7 +126,7 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRemoveBuyer(assignment.id);
+                          onRemoveBuyer(assignment.id);
                         }}
                         className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
                         title="Удалить привязку"
@@ -146,7 +149,7 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
         </div>
       </div>
     );
-  };
+  });
 
   return (
     <>
@@ -157,18 +160,24 @@ function OfferBuyersPanel({ offer, allBuyers = [] }) {
             icon={FacebookIcon}
             buyers={buyersBySource.Facebook}
             isLast={false}
+            onAddBuyer={handleAddBuyer}
+            onRemoveBuyer={handleRemoveBuyer}
           />
           <SourceColumn
             source="Google"
             icon={GoogleIcon}
             buyers={buyersBySource.Google}
             isLast={false}
+            onAddBuyer={handleAddBuyer}
+            onRemoveBuyer={handleRemoveBuyer}
           />
           <SourceColumn
             source="TikTok"
             icon={TiktokIcon}
             buyers={buyersBySource.TikTok}
             isLast={true}
+            onAddBuyer={handleAddBuyer}
+            onRemoveBuyer={handleRemoveBuyer}
           />
         </div>
       </div>

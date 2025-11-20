@@ -9,7 +9,7 @@ import { X } from 'lucide-react';
  * - Закрывается только при клике на крестик
  * - Можно открывать несколько окон одновременно
  */
-function DraggableTooltip({ title, children, onClose, initialPosition = { x: 100, y: 100 }, zIndex = 1000 }) {
+const DraggableTooltip = React.memo(function DraggableTooltip({ title, children, onClose, initialPosition = { x: 100, y: 100 }, zIndex = 1000 }) {
   const [position, setPosition] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -101,6 +101,6 @@ function DraggableTooltip({ title, children, onClose, initialPosition = { x: 100
       </div>
     </div>
   );
-}
+});
 
 export default DraggableTooltip;
