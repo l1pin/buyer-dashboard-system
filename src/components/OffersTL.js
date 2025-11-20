@@ -37,12 +37,26 @@ function OffersTL({ user }) {
   }, []);
 
   // Функция для открытия нового tooltip
-  const openTooltip = (type, index, data) => {
+  const openTooltip = (type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
     // Проверяем, не открыт ли уже такой tooltip
     if (openTooltips.find(t => t.id === tooltipId)) {
       return; // Уже открыт, ничего не делаем
+    }
+
+    // Получаем координаты кнопки, если event передан
+    let position = {
+      x: 100 + openTooltips.length * 30,
+      y: 100 + openTooltips.length * 30
+    };
+
+    if (event && event.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      position = {
+        x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
+        y: rect.top
+      };
     }
 
     // Добавляем новый tooltip в массив
@@ -51,10 +65,7 @@ function OffersTL({ user }) {
       type,
       index,
       data,
-      position: {
-        x: 100 + openTooltips.length * 30, // Смещение для каждого нового tooltip
-        y: 100 + openTooltips.length * 30
-      },
+      position,
       zIndex: 1000 + openTooltips.length
     }]);
   };
@@ -536,19 +547,21 @@ function OffersTL({ user }) {
 
   // Функция для получения заголовка tooltip
   const getTooltipTitle = (tooltip) => {
+    const article = tooltip.data.article ? `[${tooltip.data.article}]` : '';
+
     switch (tooltip.type) {
       case 'rating':
-        return `История рейтинга: ${tooltip.data.offerName || ''}`;
+        return `История рейтинга ${article}: ${tooltip.data.offerName || ''}`;
       case 'cpl':
-        return `Статистика CPL: ${tooltip.data.offerName || ''}`;
+        return `Статистика CPL ${article}: ${tooltip.data.offerName || ''}`;
       case 'leads':
-        return `Статистика лидов: ${tooltip.data.offerName || ''}`;
+        return `Статистика лидов ${article}: ${tooltip.data.offerName || ''}`;
       case 'stock':
-        return `Модификации товара: ${tooltip.data.offerName || ''}`;
+        return `Модификации товара ${article}: ${tooltip.data.offerName || ''}`;
       case 'date':
-        return `Дата прихода: ${tooltip.data.offerName || ''}`;
+        return `Дата прихода ${article}: ${tooltip.data.offerName || ''}`;
       case 'zone':
-        return `Цена лида в зоне: ${tooltip.data.offerName || ''}`;
+        return `Цена лида в зоне ${article}: ${tooltip.data.offerName || ''}`;
       default:
         return 'Информация';
     }
@@ -852,8 +865,9 @@ function OffersTL({ user }) {
                                 e.stopPropagation();
                                 openTooltip('cpl', index, {
                                   leadsData: metric.leads_data,
-                                  offerName: metric.offer_name
-                                });
+                                  offerName: metric.offer_name,
+                                  article: metric.article
+                                }, e);
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
@@ -890,8 +904,9 @@ function OffersTL({ user }) {
                                 e.stopPropagation();
                                 openTooltip('leads', index, {
                                   leadsData: metric.leads_data,
-                                  offerName: metric.offer_name
-                                });
+                                  offerName: metric.offer_name,
+                                  article: metric.article
+                                }, e);
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
@@ -942,8 +957,9 @@ function OffersTL({ user }) {
                                 e.stopPropagation();
                                 openTooltip('rating', index, {
                                   ratingHistory: metric.rating_history,
-                                  offerName: metric.offer_name
-                                });
+                                  offerName: metric.offer_name,
+                                  article: metric.article
+                                }, e);
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
@@ -1022,8 +1038,9 @@ function OffersTL({ user }) {
                                   e.stopPropagation();
                                   openTooltip('zone', index, {
                                     metric: metric,
-                                    offerName: metric.offer_name
-                                  });
+                                    offerName: metric.offer_name,
+                                    article: metric.article
+                                  }, e);
                                 }}
                               >
                                 <circle cx="12" cy="12" r="10" />
@@ -1054,8 +1071,9 @@ function OffersTL({ user }) {
                                 e.stopPropagation();
                                 openTooltip('zone', index, {
                                   metric: metric,
-                                  offerName: metric.offer_name
-                                });
+                                  offerName: metric.offer_name,
+                                  article: metric.article
+                                }, e);
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
@@ -1120,7 +1138,7 @@ function OffersTL({ user }) {
                               openTooltip('stock', index, {
                                 article: metric.article,
                                 offerName: metric.offer_name
-                              });
+                              }, e);
                             }}
                           >
                             <circle cx="12" cy="12" r="10" />
@@ -1154,8 +1172,9 @@ function OffersTL({ user }) {
                                   e.stopPropagation();
                                   openTooltip('date', index, {
                                     date: metric.date_arrival,
-                                    offerName: metric.offer_name
-                                  });
+                                    offerName: metric.offer_name,
+                                    article: metric.article
+                                  }, e);
                                 }}
                               >
                                 <circle cx="12" cy="12" r="10" />
@@ -1185,8 +1204,9 @@ function OffersTL({ user }) {
                                 e.stopPropagation();
                                 openTooltip('date', index, {
                                   date: metric.date_arrival,
-                                  offerName: metric.offer_name
-                                });
+                                  offerName: metric.offer_name,
+                                  article: metric.article
+                                }, e);
                               }}
                             >
                               <circle cx="12" cy="12" r="10" />
