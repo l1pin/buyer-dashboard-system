@@ -203,7 +203,7 @@ function OffersTL({ user }) {
     }
   };
 
-  const formatFullDate = (dateString) => {
+  const formatFullDate = useCallback((dateString) => {
     if (!dateString) return '—';
     try {
       const date = new Date(dateString);
@@ -215,7 +215,7 @@ function OffersTL({ user }) {
     } catch (error) {
       return '—';
     }
-  };
+  }, []);
 
   const calculateDaysUntilArrival = (dateString) => {
     if (!dateString) return null;
@@ -277,7 +277,7 @@ function OffersTL({ user }) {
   };
 
   // Функция для получения цветов зон по типу
-  const getZoneColorsByType = (zoneType) => {
+  const getZoneColorsByType = useCallback((zoneType) => {
     switch (zoneType) {
       case 'red': return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
       case 'pink': return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
@@ -285,7 +285,7 @@ function OffersTL({ user }) {
       case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
       default: return null;
     }
-  };
+  }, []);
 
   // Компонент тултипа с информацией о зонах
   const ZonesTooltip = ({ metric, onClose }) => {
@@ -394,7 +394,7 @@ function OffersTL({ user }) {
   };
 
   // Функция для получения цвета рейтинга
-  const getRatingColor = (rating) => {
+  const getRatingColor = useCallback((rating) => {
     switch (rating) {
       case 'A': return 'bg-green-100 text-green-800';
       case 'B': return 'bg-blue-100 text-blue-800';
@@ -402,10 +402,10 @@ function OffersTL({ user }) {
       case 'D': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-400';
     }
-  };
+  }, []);
 
   // Функция для рендера содержимого tooltip в зависимости от типа
-  const renderTooltipContent = (tooltip) => {
+  const renderTooltipContent = useCallback((tooltip) => {
     switch (tooltip.type) {
       case 'rating':
         return (
@@ -551,10 +551,10 @@ function OffersTL({ user }) {
       default:
         return <div>Неизвестный тип tooltip</div>;
     }
-  };
+  }, [stockData, getRatingColor, formatFullDate, getZoneColorsByType]);
 
   // Функция для получения заголовка tooltip
-  const getTooltipTitle = (tooltip) => {
+  const getTooltipTitle = useCallback((tooltip) => {
     const article = tooltip.data.article ? `[${tooltip.data.article}]` : '';
 
     switch (tooltip.type) {
@@ -573,7 +573,7 @@ function OffersTL({ user }) {
       default:
         return 'Информация';
     }
-  };
+  }, []);
 
 
   if (loading) {
