@@ -1,6 +1,6 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { metricsAnalyticsService, userService } from '../supabaseClient';
+import { metricsAnalyticsService, userService, offerStatusService } from '../supabaseClient';
 import {
   RefreshCw,
   AlertCircle,
@@ -14,6 +14,8 @@ import { calculateRemainingDays as calculateRemainingDaysScript } from '../scrip
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
 import OfferBuyersPanel from './OfferBuyersPanel';
 import DraggableTooltip from './DraggableTooltip';
+import OfferStatusBadge from './OfferStatusBadge';
+import OfferStatusHistoryModal from './OfferStatusHistoryModal';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -30,11 +32,21 @@ function OffersTL({ user }) {
   const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
   const [stockData, setStockData] = useState({});
   const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
+  const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedOfferForHistory, setSelectedOfferForHistory] = useState(null);
 
   useEffect(() => {
     loadMetrics();
     loadBuyers(); // Загружаем байеров один раз
   }, []);
+
+  // Загружаем статусы при изменении метрик
+  useEffect(() => {
+    if (metrics.length > 0) {
+      loadOfferStatuses();
+    }
+  }, [metrics]);
 
   // Функция для открытия нового tooltip
   const openTooltip = useCallback((type, index, data, event) => {
@@ -112,6 +124,47 @@ function OffersTL({ user }) {
       console.error('❌ Ошибка загрузки байеров:', error);
       setAllBuyers([]);
     }
+  };
+
+  const loadOfferStatuses = async () => {
+    try {
+      const offerIds = metrics.map(m => m.id);
+      const statusesData = await offerStatusService.getOfferStatuses(offerIds);
+
+      // Преобразуем массив в объект для быстрого доступа
+      const statusesMap = {};
+      statusesData.forEach(status => {
+        statusesMap[status.offer_id] = status;
+      });
+
+      setOfferStatuses(statusesMap);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки статусов офферов:', error);
+    }
+  };
+
+  const handleStatusChange = (offerId, newStatus) => {
+    setOfferStatuses(prev => ({
+      ...prev,
+      [offerId]: {
+        ...prev[offerId],
+        current_status: newStatus
+      }
+    }));
+  };
+
+  const handleOpenHistory = (metric) => {
+    setSelectedOfferForHistory({
+      offerId: metric.id,
+      article: metric.article,
+      offerName: metric.offer
+    });
+    setHistoryModalOpen(true);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryModalOpen(false);
+    setSelectedOfferForHistory(null);
   };
 
   const updateStocksFromYml = async () => {
@@ -686,7 +739,7 @@ function OffersTL({ user }) {
                 <div className="w-12 flex-shrink-0">№</div>
                 <div className="w-24 flex-shrink-0">Артикул</div>
                 <div className="w-48 flex-shrink-0 text-left">Название</div>
-                <div className="w-20 flex-shrink-0">Статус</div>
+                <div className="w-32 flex-shrink-0">Статус</div>
                 <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
                   <span>CPL 4дн</span>
                   <button
@@ -839,13 +892,29 @@ function OffersTL({ user }) {
                     </div>
 
                     {/* Статус */}
-                    <div className="w-20 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-                      <span>—</span>
-                      <svg className="text-gray-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                    <div className="w-32 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+                      <OfferStatusBadge
+                        offerId={metric.id}
+                        article={metric.article}
+                        offerName={metric.offer}
+                        currentStatus={offerStatuses[metric.id]?.current_status}
+                        onStatusChange={handleStatusChange}
+                        userName={user?.full_name || user?.email || 'User'}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenHistory(metric);
+                        }}
+                        className="text-gray-500 hover:text-blue-600 transition-colors"
+                        title="Показать историю статусов"
+                      >
+                        <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </button>
                     </div>
 
                     {/* CPL 4 дн. */}
@@ -1289,6 +1358,17 @@ function OffersTL({ user }) {
           {renderTooltipContent(tooltip)}
         </DraggableTooltip>
       ))}
+
+      {/* Модальное окно истории статусов */}
+      {selectedOfferForHistory && (
+        <OfferStatusHistoryModal
+          offerId={selectedOfferForHistory.offerId}
+          article={selectedOfferForHistory.article}
+          offerName={selectedOfferForHistory.offerName}
+          isOpen={historyModalOpen}
+          onClose={handleCloseHistory}
+        />
+      )}
     </div>
   );
 }
