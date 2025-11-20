@@ -93,10 +93,8 @@ const DraggableTooltip = React.memo(function DraggableTooltip({ title, children,
         maxWidth: '600px',
         userSelect: isDragging ? 'none' : 'auto',
         willChange: isDragging ? 'left, top' : 'auto',
-        transform: 'translate3d(0, 0, 0)', // GPU acceleration (3d лучше чем translateZ)
+        transform: 'translateZ(0)', // GPU acceleration
         backfaceVisibility: 'hidden', // Smoother rendering
-        contain: 'layout style paint', // CSS containment для изоляции рендеринга
-        pointerEvents: 'auto', // Мгновенная реакция на события
       }}
     >
       {/* Заголовок с возможностью перетаскивания */}
@@ -112,35 +110,18 @@ const DraggableTooltip = React.memo(function DraggableTooltip({ title, children,
         {/* Кнопка закрытия */}
         <button
           onClick={handleClose}
-          className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded p-1"
+          className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded p-1 transition-colors"
           title="Закрыть"
-          style={{ transition: 'none' }}
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Содержимое */}
-      <div
-        className="p-4 max-h-96 overflow-y-auto"
-        style={{
-          contain: 'strict', // Строгая изоляция для производительности
-          overscrollBehavior: 'contain', // Предотвращает прокрутку родителя
-        }}
-      >
+      <div className="p-4 max-h-96 overflow-y-auto">
         {children}
       </div>
     </div>
-  );
-}, (prevProps, nextProps) => {
-  // Кастомное сравнение для React.memo - возвращаем true если НЕ нужно ре-рендерить
-  return (
-    prevProps.title === nextProps.title &&
-    prevProps.zIndex === nextProps.zIndex &&
-    prevProps.initialPosition.x === nextProps.initialPosition.x &&
-    prevProps.initialPosition.y === nextProps.initialPosition.y &&
-    prevProps.onClose === nextProps.onClose
-    // children не сравниваем, так как они меняются редко
   );
 });
 
