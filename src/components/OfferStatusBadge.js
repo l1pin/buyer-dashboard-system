@@ -1,12 +1,12 @@
 // src/components/OfferStatusBadge.js
 import React, { useState, useRef, useEffect } from 'react';
-import { offerStatusService } from '../supabaseClient';
+import { offerStatusService } from '../services/OffersSupabase';
 
 /**
  * Компонент для отображения и изменения статуса оффера
- * Показывает цветной кружок с текстом статуса и dropdown меню для изменения
+ * Показывает только цветной кружок и количество дней в этом статусе
  */
-function OfferStatusBadge({ offerId, article, offerName, currentStatus, onStatusChange, userName = 'User' }) {
+function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User' }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const dropdownRef = useRef(null);
@@ -72,35 +72,29 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, onStatus
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>
-      {/* Кнопка-кружок со статусом */}
+      {/* Кружок со статусом + дни */}
       <button
         onClick={handleStatusClick}
         disabled={isUpdating}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:opacity-80 disabled:opacity-50 ${statusConfig.color} ${statusConfig.textColor}`}
-        title={`Статус: ${currentStatus || 'Активный'}. Нажмите для изменения`}
+        className="inline-flex items-center gap-2 transition-all duration-200 hover:opacity-80 disabled:opacity-50"
+        title={`Статус: ${currentStatus || 'Активный'}. ${daysInStatus || 0} дней. Нажмите для изменения`}
       >
         {/* Цветной кружок */}
-        <span className={`w-2 h-2 rounded-full ${statusConfig.textColor === 'text-white' ? 'bg-white' : 'bg-gray-800'}`}></span>
-
-        {/* Текст статуса */}
-        <span>{currentStatus || 'Активный'}</span>
-
-        {/* Стрелка вниз */}
-        {!isUpdating && (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+        {!isUpdating ? (
+          <span className={`w-4 h-4 rounded-full ${statusConfig.color} shadow-sm border border-white`}></span>
+        ) : (
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
         )}
 
-        {/* Лоадер при обновлении */}
-        {isUpdating && (
-          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-        )}
+        {/* Количество дней */}
+        <span className="text-xs font-medium text-gray-700">
+          {daysInStatus !== null && daysInStatus !== undefined ? `${daysInStatus}д` : '—'}
+        </span>
       </button>
 
       {/* Dropdown меню */}
       {isDropdownOpen && (
-        <div className="absolute z-50 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1">
+        <div className="absolute z-50 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 left-0">
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200">
             Изменить статус
           </div>
