@@ -40,25 +40,28 @@ function OffersTL({ user }) {
   const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
+    // Вычисляем позицию СРАЗУ, до setState, чтобы event.currentTarget был доступен
+    let position = { x: 100, y: 100 };
+
+    if (event && event.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      position = {
+        x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
+        y: rect.top
+      };
+    }
+
     setOpenTooltips(prev => {
       // Проверяем, не открыт ли уже такой tooltip
       if (prev.find(t => t.id === tooltipId)) {
         return prev; // Уже открыт, ничего не делаем
       }
 
-      // Получаем координаты кнопки, если event передан
-      let position = {
-        x: 100 + prev.length * 30,
-        y: 100 + prev.length * 30
+      // Смещаем позицию для каждого нового tooltip, если не было event
+      const finalPosition = event && event.currentTarget ? position : {
+        x: position.x + prev.length * 30,
+        y: position.y + prev.length * 30
       };
-
-      if (event && event.currentTarget) {
-        const rect = event.currentTarget.getBoundingClientRect();
-        position = {
-          x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
-          y: rect.top
-        };
-      }
 
       // Добавляем новый tooltip в массив
       return [...prev, {
@@ -66,7 +69,7 @@ function OffersTL({ user }) {
         type,
         index,
         data,
-        position,
+        position: finalPosition,
         zIndex: 1000 + prev.length
       }];
     });
