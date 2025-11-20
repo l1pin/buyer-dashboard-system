@@ -274,6 +274,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
       )}
     </>
   );
-}
+});
 
 export default OfferBuyersPanel;
