@@ -3,7 +3,7 @@ import { supabase, creativeService, userService, creativeHistoryService, metrics
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
-import { 
+import {
   BarChart3,
   Users,
   Calendar,
@@ -35,7 +35,8 @@ import {
   Layers,
   Trophy,
   Award,
-  Search
+  Search,
+  Pencil
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
@@ -95,7 +96,16 @@ function CreativeAnalytics({ user }) {
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [creativesWithHistory, setCreativesWithHistory] = useState(new Set());
-  
+
+  // Состояния для редактирования даты креатива (только для teamlead)
+  const [showDateEditModal, setShowDateEditModal] = useState(false);
+  const [editingCreative, setEditingCreative] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
+  const [dateEditError, setDateEditError] = useState('');
+  const [dateEditCalendarMonth, setDateEditCalendarMonth] = useState(new Date());
+
   // Месячная фильтрация ОТКЛЮЧЕНА
   // const [selectedMonth, setSelectedMonth] = useState(null);
   // const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -864,7 +874,7 @@ function CreativeAnalytics({ user }) {
     setLoadingHistory(true);
     setShowHistoryModal(true);
     setSelectedHistory(creative);
-    
+
     try {
       const history = await creativeHistoryService.getCreativeHistory(creative.id);
       setHistoryData(history);
@@ -873,6 +883,86 @@ function CreativeAnalytics({ user }) {
       setError('Ошибка загрузки истории: ' + error.message);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  // Функции для редактирования даты креатива (только для teamlead)
+  const openDateEditModal = (creative) => {
+    const dateObj = new Date(creative.created_at);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+    setEditingCreative(creative);
+    setEditDate(`${year}-${month}-${day}`);
+    setEditTime(`${hours}:${minutes}`);
+    setDateEditCalendarMonth(dateObj);
+    setDateEditError('');
+    setShowDateEditModal(true);
+  };
+
+  const closeDateEditModal = () => {
+    setShowDateEditModal(false);
+    setEditingCreative(null);
+    setEditDate('');
+    setEditTime('');
+    setDateEditError('');
+    setSavingDate(false);
+  };
+
+  const handleDateEditCalendarClick = (day, month, year) => {
+    const formattedMonth = String(month + 1).padStart(2, '0');
+    const formattedDay = String(day).padStart(2, '0');
+    setEditDate(`${year}-${formattedMonth}-${formattedDay}`);
+  };
+
+  const getDaysInMonthForEdit = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Понедельник = 0
+
+    return { daysInMonth, startingDayOfWeek, year, month };
+  };
+
+  const saveCreativeDate = async () => {
+    if (!editingCreative || !editDate || !editTime) {
+      setDateEditError('Выберите дату и время');
+      return;
+    }
+
+    setSavingDate(true);
+    setDateEditError('');
+
+    try {
+      // Формируем дату в формате ISO для Supabase
+      const newDateTime = `${editDate}T${editTime}:00`;
+
+      console.log('📅 Сохранение новой даты:', newDateTime, 'для креатива:', editingCreative.id);
+
+      await creativeService.updateCreativeDate(editingCreative.id, newDateTime);
+
+      // Обновляем локальное состояние
+      setAnalytics(prevAnalytics => ({
+        ...prevAnalytics,
+        creatives: prevAnalytics.creatives.map(c =>
+          c.id === editingCreative.id
+            ? { ...c, created_at: newDateTime }
+            : c
+        )
+      }));
+
+      console.log('✅ Дата креатива успешно обновлена');
+      closeDateEditModal();
+    } catch (error) {
+      console.error('❌ Ошибка обновления даты:', error);
+      setDateEditError('Ошибка сохранения: ' + error.message);
+    } finally {
+      setSavingDate(false);
     }
   };
 
@@ -2961,9 +3051,23 @@ function CreativeAnalytics({ user }) {
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              <div className="cursor-text select-text">
-                                <div className="font-medium">{formattedDateTime.date}</div>
-                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                              <div className="flex items-center justify-center gap-1">
+                                <div className="cursor-text select-text">
+                                  <div className="font-medium">{formattedDateTime.date}</div>
+                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                </div>
+                                {user?.role === 'teamlead' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDateEditModal(creative);
+                                    }}
+                                    className="ml-1 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                                    title="Редактировать дату"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             
@@ -3913,6 +4017,168 @@ function CreativeAnalytics({ user }) {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Edit Modal */}
+      {showDateEditModal && editingCreative && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                Редактировать дату
+              </h3>
+              <button
+                onClick={closeDateEditModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Креатив: <span className="font-medium text-gray-900">{editingCreative.article}</span>
+              </p>
+            </div>
+
+            {dateEditError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{dateEditError}</p>
+              </div>
+            )}
+
+            {/* Calendar */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={() => {
+                    const newMonth = new Date(dateEditCalendarMonth);
+                    newMonth.setMonth(newMonth.getMonth() - 1);
+                    setDateEditCalendarMonth(newMonth);
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronUp className="h-5 w-5 text-gray-600 rotate-[-90deg]" />
+                </button>
+                <span className="font-medium text-gray-900">
+                  {dateEditCalendarMonth.toLocaleString('uk-UA', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={() => {
+                    const newMonth = new Date(dateEditCalendarMonth);
+                    newMonth.setMonth(newMonth.getMonth() + 1);
+                    setDateEditCalendarMonth(newMonth);
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronDown className="h-5 w-5 text-gray-600 rotate-[-90deg]" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                <div>Пн</div>
+                <div>Вт</div>
+                <div>Ср</div>
+                <div>Чт</div>
+                <div>Пт</div>
+                <div>Сб</div>
+                <div>Нд</div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {(() => {
+                  const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonthForEdit(dateEditCalendarMonth);
+                  const days = [];
+
+                  // Empty cells for days before the first day of the month
+                  for (let i = 0; i < startingDayOfWeek; i++) {
+                    days.push(<div key={`empty-${i}`} className="p-2"></div>);
+                  }
+
+                  // Days of the month
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isSelected = editDate === dateStr;
+                    const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+
+                    days.push(
+                      <button
+                        key={day}
+                        onClick={() => handleDateEditCalendarClick(day, month, year)}
+                        className={`p-2 text-sm rounded-lg transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 text-white'
+                            : isToday
+                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  }
+
+                  return days;
+                })()}
+              </div>
+            </div>
+
+            {/* Time Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Clock className="h-4 w-4 inline mr-1" />
+                Время
+              </label>
+              <input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Selected Date/Time Preview */}
+            <div className="mb-6 p-3 bg-gray-50 rounded-md">
+              <p className="text-sm text-gray-600">
+                Новая дата и время:{' '}
+                <span className="font-medium text-gray-900">
+                  {editDate && editTime
+                    ? `${editDate.split('-').reverse().join('.')} ${editTime}`
+                    : 'Не выбрано'}
+                </span>
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={closeDateEditModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveCreativeDate}
+                disabled={savingDate || !editDate || !editTime}
+                className={`px-4 py-2 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  savingDate || !editDate || !editTime
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {savingDate ? (
+                  <span className="flex items-center">
+                    <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                    Сохранение...
+                  </span>
+                ) : (
+                  'Сохранить'
+                )}
               </button>
             </div>
           </div>
