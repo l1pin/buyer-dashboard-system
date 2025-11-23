@@ -2143,6 +2143,19 @@ export const creativeService = {
     });
   },
 
+  async updateCreativeDate(creativeId, newDate) {
+    console.log('📅 Обновление даты креатива:', creativeId, newDate);
+
+    // Проверяем формат даты
+    if (!newDate || typeof newDate !== 'string') {
+      throw new Error('Неверный формат даты');
+    }
+
+    return this.updateCreative(creativeId, {
+      created_at: newDate
+    });
+  },
+
   async deleteCreative(creativeId) {
     try {
       console.log('🗑️ Начинаем удаление креатива:', creativeId);
