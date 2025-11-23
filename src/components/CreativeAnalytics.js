@@ -939,10 +939,24 @@ function CreativeAnalytics({ user }) {
     setDateEditError('');
 
     try {
-      // Формируем дату в формате ISO для Supabase
-      const newDateTime = `${editDate}T${editTime}:00`;
+      // Определяем киевский offset для выбранной даты
+      // Создаём дату и проверяем, какой offset действует в Киеве для этой даты
+      const [year, month, day] = editDate.split('-').map(Number);
+      const [hours, minutes] = editTime.split(':').map(Number);
 
-      console.log('📅 Сохранение новой даты:', newDateTime, 'для креатива:', editingCreative.id);
+      // Создаём дату для проверки offset
+      const testDate = new Date(year, month - 1, day, hours, minutes);
+      const utcDate = new Date(testDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const kyivDate = new Date(testDate.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      const diffHours = Math.round((kyivDate - utcDate) / (1000 * 60 * 60));
+      const kyivOffset = diffHours === 3 ? '+03:00' : '+02:00';
+
+      // Формируем дату в формате ISO с киевским offset
+      const formattedDate = editDate;
+      const formattedTime = `${editTime}:00`;
+      const newDateTime = `${formattedDate}T${formattedTime}${kyivOffset}`;
+
+      console.log('📅 Сохранение новой даты (Киев):', newDateTime, 'для креатива:', editingCreative.id);
 
       await creativeService.updateCreativeDate(editingCreative.id, newDateTime);
 
