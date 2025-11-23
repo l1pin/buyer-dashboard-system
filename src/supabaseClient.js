@@ -2151,9 +2151,26 @@ export const creativeService = {
       throw new Error('Неверный формат даты');
     }
 
-    return this.updateCreative(creativeId, {
-      created_at: newDate
-    });
+    // Используем adminClient для обхода RLS политик
+    const client = adminClient || supabase;
+
+    const { data, error } = await client
+      .from('creatives')
+      .update({ created_at: newDate })
+      .eq('id', creativeId)
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка обновления даты креатива:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('Креатив не найден или не обновлен');
+    }
+
+    console.log('✅ Дата креатива обновлена:', data[0]);
+    return data[0];
   },
 
   async deleteCreative(creativeId) {
