@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService } from '../services/OffersSupabase';
 import {
@@ -130,7 +130,7 @@ function OffersTL({ user }) {
     }));
   };
 
-  // Функция для открытия нового tooltip
+  // Функция для открытия нового tooltip (низкоприоритетное обновление)
   const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
@@ -143,28 +143,32 @@ function OffersTL({ user }) {
       };
     }
 
-    setOpenTooltips(prev => {
-      if (prev.find(t => t.id === tooltipId)) {
-        return prev;
-      }
-      const finalPosition = event && event.currentTarget ? position : {
-        x: position.x + prev.length * 30,
-        y: position.y + prev.length * 30
-      };
-      return [...prev, {
-        id: tooltipId,
-        type,
-        index,
-        data,
-        position: finalPosition,
-        zIndex: 1000 + prev.length
-      }];
+    startTransition(() => {
+      setOpenTooltips(prev => {
+        if (prev.find(t => t.id === tooltipId)) {
+          return prev;
+        }
+        const finalPosition = event && event.currentTarget ? position : {
+          x: position.x + prev.length * 30,
+          y: position.y + prev.length * 30
+        };
+        return [...prev, {
+          id: tooltipId,
+          type,
+          index,
+          data,
+          position: finalPosition,
+          zIndex: 1000 + prev.length
+        }];
+      });
     });
   }, []);
 
-  // Функция для закрытия tooltip
+  // Функция для закрытия tooltip (низкоприоритетное обновление)
   const closeTooltip = useCallback((tooltipId) => {
-    setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
+    startTransition(() => {
+      setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
+    });
   }, []);
 
   const updateStocksFromYml = async () => {
@@ -945,27 +949,29 @@ function OffersTL({ user }) {
               </div>
             </div>
 
-            {/* Cards */}
-            <div className="px-4 py-2 space-y-1">
-              {filteredMetrics.map((metric, index) => (
-                <OfferRow
-                  key={metric.id}
-                  metric={metric}
-                  index={index}
-                  offerStatus={offerStatuses[metric.id]}
-                  loadingLeadsData={loadingLeadsData}
-                  loadingDays={loadingDays}
-                  loadingStocks={loadingStocks}
-                  onOpenTooltip={openTooltip}
-                  onStatusChange={handleStatusChange}
-                  userName={user?.full_name || user?.email || 'User'}
-                  allBuyers={allBuyers}
-                  initialAssignments={allAssignments[metric.id] || []}
-                  onAssignmentsChange={handleAssignmentsChange}
-                  buyerMetricsData={buyerMetricsData}
-                />
-              ))}
-            </div>
+            {/* Cards - мемоизированный список */}
+            {useMemo(() => (
+              <div className="px-4 py-2 space-y-1">
+                {filteredMetrics.map((metric, index) => (
+                  <OfferRow
+                    key={metric.id}
+                    metric={metric}
+                    index={index}
+                    offerStatus={offerStatuses[metric.id]}
+                    loadingLeadsData={loadingLeadsData}
+                    loadingDays={loadingDays}
+                    loadingStocks={loadingStocks}
+                    onOpenTooltip={openTooltip}
+                    onStatusChange={handleStatusChange}
+                    userName={user?.full_name || user?.email || 'User'}
+                    allBuyers={allBuyers}
+                    initialAssignments={allAssignments[metric.id] || []}
+                    onAssignmentsChange={handleAssignmentsChange}
+                    buyerMetricsData={buyerMetricsData}
+                  />
+                ))}
+              </div>
+            ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData])}
           </>
         )}
       </div>
@@ -975,7 +981,7 @@ function OffersTL({ user }) {
         <DraggableTooltip
           key={tooltip.id}
           title={getTooltipTitle(tooltip)}
-          onClose={() => closeTooltip(tooltip.id)}
+          onClose={closeTooltip.bind(null, tooltip.id)}
           initialPosition={tooltip.position}
           zIndex={tooltip.zIndex}
         >
