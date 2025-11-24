@@ -29,7 +29,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           avatar_url: null
         },
         offer_id: assignment.offer_id,
-        source_ids: assignment.source_ids || [] // Массив source_id
+        source_ids: assignment.source_ids || [], // Массив source_id
+        created_at: assignment.created_at // Дата привязки
       };
     });
   }, [initialAssignments, allBuyers]);
@@ -129,6 +130,24 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     TikTok: assignedBuyers.filter(b => b.source === 'TikTok')
   }), [assignedBuyers]);
 
+  // Функция для форматирования даты и расчета дней
+  const formatAssignmentDate = useCallback((createdAt) => {
+    if (!createdAt) return { date: '—', days: 0 };
+
+    const date = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    const formattedDate = date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    return { date: formattedDate, days: diffDays };
+  }, []);
+
   const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer }) => {
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
@@ -161,59 +180,79 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             </div>
           ) : (
             <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
-              {buyers.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="flex-shrink-0 w-24 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
-                >
-                  <div className="flex flex-col items-center text-center space-y-1.5">
-                    {/* Аватар */}
-                    <div className="relative">
-                      {assignment.buyer.avatar_url ? (
-                        <img
-                          src={assignment.buyer.avatar_url}
-                          alt={assignment.buyer.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                          <span className="text-gray-600 text-base font-medium">
-                            {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                          </span>
-                        </div>
-                      )}
+              {buyers.map((assignment) => {
+                const { date, days } = formatAssignmentDate(assignment.created_at);
+                return (
+                  <div
+                    key={assignment.id}
+                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
+                  >
+                    <div className="flex flex-col items-center text-center space-y-1">
+                      {/* Аватар */}
+                      <div className="relative">
+                        {assignment.buyer.avatar_url ? (
+                          <img
+                            src={assignment.buyer.avatar_url}
+                            alt={assignment.buyer.name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-gray-600 text-sm font-medium">
+                              {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+                            </span>
+                          </div>
+                        )}
 
-                      {/* Кнопка удаления */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveBuyer(assignment.id);
-                        }}
-                        className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
-                        title="Удалить привязку"
-                      >
-                        <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
-                      </button>
-                    </div>
-
-                    {/* Имя - полное отображение в две строки */}
-                    <div className="w-full px-0.5">
-                      <div className="text-xs font-medium text-gray-900 leading-tight break-words">
-                        {assignment.buyer.name}
-                      </div>
-                      {/* Количество Source IDs */}
-                      {assignment.source_ids && assignment.source_ids.length > 0 && (
-                        <div
-                          className="text-[10px] text-gray-400 mt-0.5 cursor-help"
-                          title={assignment.source_ids.join('\n')}
+                        {/* Кнопка удаления */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveBuyer(assignment.id);
+                          }}
+                          className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
+                          title="Удалить привязку"
                         >
-                          {assignment.source_ids.length} ID{assignment.source_ids.length > 1 ? 's' : ''}
+                          <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
+                        </button>
+                      </div>
+
+                      {/* Имя */}
+                      <div className="w-full px-0.5">
+                        <div className="text-[11px] font-medium text-gray-900 leading-tight truncate" title={assignment.buyer.name}>
+                          {assignment.buyer.name}
                         </div>
-                      )}
+                      </div>
+
+                      {/* Дата привязки и дни */}
+                      <div className="text-[9px] text-gray-500">
+                        {date} | {days} д
+                      </div>
+
+                      {/* Метрики CPL/Lead/Cost */}
+                      <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+                        <div className="flex justify-between px-1">
+                          <span>CPL:</span>
+                          <span className="text-gray-400">—</span>
+                        </div>
+                        <div className="flex justify-between px-1">
+                          <span>Lead:</span>
+                          <span className="text-gray-400">—</span>
+                        </div>
+                        <div className="flex justify-between px-1">
+                          <span>Cost:</span>
+                          <span className="text-gray-400">—</span>
+                        </div>
+                      </div>
+
+                      {/* Бейдж "Активный" */}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-800">
+                        Активный
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
