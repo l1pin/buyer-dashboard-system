@@ -277,13 +277,13 @@ const OfferRow = memo(({
         <div className="w-[4%] min-w-[36px] text-xs text-slate-400 text-center">—</div>
 
         {/* Зона эффективности */}
-        <div className="w-[5%] min-w-[44px] flex items-center justify-center gap-1">
+        <div className="w-[5%] min-w-[44px] flex items-center justify-center">
           {zoneColors && metric.actual_roi_percent ? (
             <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
-              {Number(metric.actual_roi_percent).toFixed(0)}%
+              {Number(metric.actual_roi_percent).toFixed(2)}%
             </span>
           ) : (
-            <span className="font-mono text-xs text-slate-800">{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(0)}%` : '—'}</span>
+            <span className="font-mono text-xs text-slate-800">{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(2)}%` : '—'}</span>
           )}
         </div>
 
@@ -292,7 +292,7 @@ const OfferRow = memo(({
           {metric.red_zone_price != null ? (
             <>
               <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${redZoneColors.bg} ${redZoneColors.text} ${redZoneColors.border}`}>
-                ${Number(metric.red_zone_price).toFixed(0)}
+                ${Number(metric.red_zone_price).toFixed(2)}
               </span>
               <InfoIcon onClick={handleZoneClick} />
             </>
@@ -347,12 +347,12 @@ const OfferRow = memo(({
 
         {/* % отказа от продаж */}
         <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
-          {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(0)}%` : '—'}
+          {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(2)}%` : '—'}
         </div>
 
         {/* % невыкупа */}
         <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
-          {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(0)}%` : '—'}
+          {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(2)}%` : '—'}
         </div>
 
         {/* Сезон */}
