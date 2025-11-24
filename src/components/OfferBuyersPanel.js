@@ -4,52 +4,35 @@ import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 
-const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers = [] }) {
-  const [assignedBuyers, setAssignedBuyers] = useState([]);
+const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
+  offer,
+  allBuyers = [],
+  initialAssignments = [],
+  onAssignmentsChange
+}) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
-  const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [savingAssignment, setSavingAssignment] = useState(false);
 
-  // Загружаем привязки из БД при монтировании
-  useEffect(() => {
-    const loadAssignments = async () => {
-      try {
-        setLoadingAssignments(true);
-        const assignments = await offerBuyersService.getOfferAssignments(offer.id);
-
-        // Преобразуем данные из БД в формат компонента
-        const formattedAssignments = assignments.map(assignment => {
-          // Находим полные данные байера из списка
-          const buyerData = allBuyers.find(b => b.id === assignment.buyer_id);
-
-          return {
-            id: assignment.id, // Используем ID из БД
-            source: assignment.source,
-            buyer: buyerData || {
-              id: assignment.buyer_id,
-              name: assignment.buyer_name,
-              avatar_url: null
-            },
-            offer_id: assignment.offer_id,
-            source_id: assignment.source_id
-          };
-        });
-
-        setAssignedBuyers(formattedAssignments);
-      } catch (error) {
-        console.error('Ошибка загрузки привязок:', error);
-      } finally {
-        setLoadingAssignments(false);
-      }
-    };
-
-    if (offer?.id) {
-      loadAssignments();
-    }
-  }, [offer?.id, allBuyers]);
+  // Преобразуем привязки из БД в формат компонента
+  const assignedBuyers = useMemo(() => {
+    return initialAssignments.map(assignment => {
+      const buyerData = allBuyers.find(b => b.id === assignment.buyer_id);
+      return {
+        id: assignment.id,
+        source: assignment.source,
+        buyer: buyerData || {
+          id: assignment.buyer_id,
+          name: assignment.buyer_name,
+          avatar_url: null
+        },
+        offer_id: assignment.offer_id,
+        source_id: assignment.source_id
+      };
+    });
+  }, [initialAssignments, allBuyers]);
 
   const handleAddBuyer = useCallback(async (source) => {
     setSelectedSource(source);
@@ -101,16 +84,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
         sourceId
       );
 
-      // Добавляем в локальное состояние
-      const newAssignment = {
-        id: savedAssignment.id, // ID из БД
-        source: selectedSource,
-        buyer: buyer,
-        offer_id: offer.id,
-        source_id: sourceId
-      };
+      // Уведомляем родительский компонент о новой привязке
+      if (onAssignmentsChange) {
+        onAssignmentsChange(offer.id, [...initialAssignments, savedAssignment]);
+      }
 
-      setAssignedBuyers(prev => [...prev, newAssignment]);
       setShowModal(false);
       setSelectedSource(null);
     } catch (error) {
@@ -119,7 +97,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
     } finally {
       setSavingAssignment(false);
     }
-  }, [selectedSource, offer.id]);
+  }, [selectedSource, offer.id, initialAssignments, onAssignmentsChange]);
 
   const handleRemoveBuyer = useCallback(async (assignmentId) => {
     if (!window.confirm('Удалить привязку байера к офферу?')) return;
@@ -128,13 +106,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
       // Удаляем из БД
       await offerBuyersService.removeAssignment(assignmentId);
 
-      // Удаляем из локального состояния
-      setAssignedBuyers(prev => prev.filter(b => b.id !== assignmentId));
+      // Уведомляем родительский компонент об удалении
+      if (onAssignmentsChange) {
+        onAssignmentsChange(offer.id, initialAssignments.filter(a => a.id !== assignmentId));
+      }
     } catch (error) {
       console.error('Ошибка удаления привязки:', error);
       alert('Ошибка удаления привязки');
     }
-  }, []);
+  }, [offer.id, initialAssignments, onAssignmentsChange]);
 
   // Группируем байеров по источникам
   const buyersBySource = useMemo(() => ({
@@ -231,15 +211,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
       </div>
     );
   });
-
-  if (loadingAssignments) {
-    return (
-      <div className="mt-2 bg-white rounded-lg border border-gray-200 p-8 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-        <span className="ml-2 text-sm text-gray-500">Загрузка привязок...</span>
-      </div>
-    );
-  }
 
   return (
     <>

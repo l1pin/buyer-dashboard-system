@@ -1,7 +1,7 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
-import { offerStatusService } from '../services/OffersSupabase';
+import { offerStatusService, offerBuyersService } from '../services/OffersSupabase';
 import {
   RefreshCw,
   AlertCircle,
@@ -33,10 +33,12 @@ function OffersTL({ user }) {
   const [stockData, setStockData] = useState({});
   const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
   const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов (с днями)
+  const [allAssignments, setAllAssignments] = useState({}); // Все привязки байеров к офферам (по offer_id)
 
   useEffect(() => {
     loadMetrics();
     loadBuyers(); // Загружаем байеров один раз
+    loadAllAssignments(); // Загружаем все привязки один раз
   }, []);
 
   // Загружаем статусы при изменении метрик
@@ -123,6 +125,33 @@ function OffersTL({ user }) {
       setAllBuyers([]);
     }
   };
+
+  // Загружаем все привязки байеров к офферам одним запросом
+  const loadAllAssignments = async () => {
+    try {
+      const assignments = await offerBuyersService.getAllAssignments();
+      // Группируем по offer_id для быстрого доступа
+      const grouped = {};
+      assignments.forEach(a => {
+        if (!grouped[a.offer_id]) {
+          grouped[a.offer_id] = [];
+        }
+        grouped[a.offer_id].push(a);
+      });
+      setAllAssignments(grouped);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки привязок:', error);
+      setAllAssignments({});
+    }
+  };
+
+  // Callback для обновления привязок после изменения
+  const handleAssignmentsChange = useCallback((offerId, newAssignments) => {
+    setAllAssignments(prev => ({
+      ...prev,
+      [offerId]: newAssignments
+    }));
+  }, []);
 
   const loadOfferStatuses = async () => {
     try {
@@ -1470,7 +1499,12 @@ function OffersTL({ user }) {
                   </div>
 
                   {/* Панель привязки байеров */}
-                  <OfferBuyersPanel offer={metric} allBuyers={allBuyers} />
+                  <OfferBuyersPanel
+                    offer={metric}
+                    allBuyers={allBuyers}
+                    initialAssignments={allAssignments[metric.id] || []}
+                    onAssignmentsChange={handleAssignmentsChange}
+                  />
                 </div>
               ))}
               </div>
