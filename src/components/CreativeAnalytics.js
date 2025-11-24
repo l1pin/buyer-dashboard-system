@@ -1554,17 +1554,36 @@ function CreativeAnalytics({ user }) {
 
   const formatKyivTime = (dateString) => {
     try {
-      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
-      
-      if (!match) {
-        throw new Error('Invalid date format');
+      // Создаём Date объект из строки (браузер корректно распарсит UTC)
+      const date = new Date(dateString);
+
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
       }
-      
-      const [_, year, month, day, hours, minutes] = match;
-      
+
+      // Используем Intl.DateTimeFormat для конвертации в киевское время
+      const formatter = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Kyiv',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      const parts = formatter.formatToParts(date);
+      const getValue = (type) => parts.find(p => p.type === type)?.value;
+
+      const day = getValue('day');
+      const month = getValue('month');
+      const year = getValue('year');
+      const hour = getValue('hour');
+      const minute = getValue('minute');
+
       const dateStr = `${day}.${month}.${year}`;
-      const timeStr = `${hours}:${minutes}`;
-      
+      const timeStr = `${hour}:${minute}`;
+
       return { date: dateStr, time: timeStr };
     } catch (error) {
       console.error('Error formatting date:', error);
