@@ -51,6 +51,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: user?.role === 'teamlead'
     },
     {
+      id: 'offers-buyer',
+      label: 'Мои офферы',
+      icon: Package,
+      show: user?.role === 'buyer'
+    },
+    {
       id: 'landing-teamlead',
       label: 'Лендинги',
       icon: Globe,

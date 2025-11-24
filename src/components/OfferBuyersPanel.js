@@ -1,7 +1,8 @@
 // src/components/OfferBuyersPanel.js
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Loader2 } from 'lucide-react';
+import { offerBuyersService } from '../services/OffersSupabase';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers = [] }) {
   const [assignedBuyers, setAssignedBuyers] = useState([]);
@@ -9,6 +10,46 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
+  const [savingAssignment, setSavingAssignment] = useState(false);
+
+  // Загружаем привязки из БД при монтировании
+  useEffect(() => {
+    const loadAssignments = async () => {
+      try {
+        setLoadingAssignments(true);
+        const assignments = await offerBuyersService.getOfferAssignments(offer.id);
+
+        // Преобразуем данные из БД в формат компонента
+        const formattedAssignments = assignments.map(assignment => {
+          // Находим полные данные байера из списка
+          const buyerData = allBuyers.find(b => b.id === assignment.buyer_id);
+
+          return {
+            id: assignment.id, // Используем ID из БД
+            source: assignment.source,
+            buyer: buyerData || {
+              id: assignment.buyer_id,
+              name: assignment.buyer_name,
+              avatar_url: null
+            },
+            offer_id: assignment.offer_id,
+            source_id: assignment.source_id
+          };
+        });
+
+        setAssignedBuyers(formattedAssignments);
+      } catch (error) {
+        console.error('Ошибка загрузки привязок:', error);
+      } finally {
+        setLoadingAssignments(false);
+      }
+    };
+
+    if (offer?.id) {
+      loadAssignments();
+    }
+  }, [offer?.id, allBuyers]);
 
   const handleAddBuyer = useCallback(async (source) => {
     setSelectedSource(source);
@@ -26,40 +67,73 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
         );
       });
 
-      setAssignedBuyers(currentBuyers => {
-        // Исключаем уже привязанных байеров для этого источника
-        const alreadyAdded = currentBuyers
-          .filter(b => b.source === source)
-          .map(b => b.buyer.id);
+      // Исключаем уже привязанных байеров для этого источника
+      const alreadyAdded = assignedBuyers
+        .filter(b => b.source === source)
+        .map(b => b.buyer.id);
 
-        const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
-        setAvailableBuyers(available);
-        return currentBuyers;
-      });
+      const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
+      setAvailableBuyers(available);
     } catch (error) {
       console.error('Ошибка фильтрации байеров:', error);
       setAvailableBuyers([]);
     } finally {
       setLoadingBuyers(false);
     }
-  }, [allBuyers]);
+  }, [allBuyers, assignedBuyers]);
 
-  const handleSelectBuyer = useCallback((buyer) => {
-    const newAssignment = {
-      id: Date.now(), // Временный ID
-      source: selectedSource,
-      buyer: buyer,
-      offer_id: offer.id
-    };
+  const handleSelectBuyer = useCallback(async (buyer) => {
+    setSavingAssignment(true);
 
-    setAssignedBuyers(prev => [...prev, newAssignment]);
-    setShowModal(false);
-    setSelectedSource(null);
+    try {
+      // Получаем source_id из настроек байера
+      const channel = buyer.buyer_settings?.traffic_channels?.find(
+        ch => ch.source === selectedSource
+      );
+      const sourceId = channel?.channel_id || null;
+
+      // Сохраняем в БД
+      const savedAssignment = await offerBuyersService.addAssignment(
+        offer.id,
+        buyer.id,
+        buyer.name,
+        selectedSource,
+        sourceId
+      );
+
+      // Добавляем в локальное состояние
+      const newAssignment = {
+        id: savedAssignment.id, // ID из БД
+        source: selectedSource,
+        buyer: buyer,
+        offer_id: offer.id,
+        source_id: sourceId
+      };
+
+      setAssignedBuyers(prev => [...prev, newAssignment]);
+      setShowModal(false);
+      setSelectedSource(null);
+    } catch (error) {
+      console.error('Ошибка сохранения привязки:', error);
+      alert('Ошибка сохранения привязки байера');
+    } finally {
+      setSavingAssignment(false);
+    }
   }, [selectedSource, offer.id]);
 
-  const handleRemoveBuyer = useCallback((assignmentId) => {
+  const handleRemoveBuyer = useCallback(async (assignmentId) => {
     if (!window.confirm('Удалить привязку байера к офферу?')) return;
-    setAssignedBuyers(prev => prev.filter(b => b.id !== assignmentId));
+
+    try {
+      // Удаляем из БД
+      await offerBuyersService.removeAssignment(assignmentId);
+
+      // Удаляем из локального состояния
+      setAssignedBuyers(prev => prev.filter(b => b.id !== assignmentId));
+    } catch (error) {
+      console.error('Ошибка удаления привязки:', error);
+      alert('Ошибка удаления привязки');
+    }
   }, []);
 
   // Группируем байеров по источникам
@@ -76,6 +150,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
           <div className="flex items-center space-x-2">
             <Icon className="w-5 h-5" />
             <span className="text-sm font-medium text-gray-900">{source}</span>
+            <span className="text-xs text-gray-400">({buyers.length})</span>
           </div>
           <button
             onClick={() => onAddBuyer(source)}
@@ -140,6 +215,12 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
                       <div className="text-xs font-medium text-gray-900 leading-tight break-words">
                         {assignment.buyer.name}
                       </div>
+                      {/* Source ID если есть */}
+                      {assignment.source_id && (
+                        <div className="text-[10px] text-gray-400 truncate mt-0.5" title={assignment.source_id}>
+                          ID: {assignment.source_id.slice(0, 8)}...
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -150,6 +231,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
       </div>
     );
   });
+
+  if (loadingAssignments) {
+    return (
+      <div className="mt-2 bg-white rounded-lg border border-gray-200 p-8 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <span className="ml-2 text-sm text-gray-500">Загрузка привязок...</span>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -198,6 +288,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
                     setSelectedSource(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
+                  disabled={savingAssignment}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -223,36 +314,53 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {availableBuyers.map(buyer => (
-                    <button
-                      key={buyer.id}
-                      onClick={() => handleSelectBuyer(buyer)}
-                      className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {/* Аватар */}
-                        {buyer.avatar_url ? (
-                          <img
-                            src={buyer.avatar_url}
-                            alt={buyer.name}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-600 font-medium">
-                              {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                            </span>
-                          </div>
-                        )}
+                  {availableBuyers.map(buyer => {
+                    // Получаем channel_id для отображения
+                    const channel = buyer.buyer_settings?.traffic_channels?.find(
+                      ch => ch.source === selectedSource
+                    );
 
-                        {/* Информация */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900">{buyer.name}</div>
-                          <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
+                    return (
+                      <button
+                        key={buyer.id}
+                        onClick={() => handleSelectBuyer(buyer)}
+                        disabled={savingAssignment}
+                        className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center space-x-3">
+                          {/* Аватар */}
+                          {buyer.avatar_url ? (
+                            <img
+                              src={buyer.avatar_url}
+                              alt={buyer.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                              <span className="text-gray-600 font-medium">
+                                {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Информация */}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900">{buyer.name}</div>
+                            <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
+                            {channel?.channel_id && (
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                Source ID: {channel.channel_id}
+                              </div>
+                            )}
+                          </div>
+
+                          {savingAssignment && (
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          )}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -264,7 +372,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({ offer, allBuyers
                   setShowModal(false);
                   setSelectedSource(null);
                 }}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={savingAssignment}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 Отмена
               </button>
