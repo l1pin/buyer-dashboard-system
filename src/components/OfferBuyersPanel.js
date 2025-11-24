@@ -254,7 +254,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         <div className="flex justify-between px-1">
                           <span>Cost:</span>
                           <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                            {hasData ? `$${metrics.cost.toFixed(0)}` : '—'}
+                            {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
                           </span>
                         </div>
                       </div>
