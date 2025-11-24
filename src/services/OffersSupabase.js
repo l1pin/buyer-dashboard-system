@@ -368,12 +368,13 @@ export const offerBuyersService = {
    * @param {string} buyerId - UUID байера
    * @param {string} buyerName - Имя байера
    * @param {string} source - Источник трафика (Facebook, Google, TikTok)
-   * @param {string} sourceId - ID канала источника
+   * @param {Array<string>} sourceIds - Массив всех source_id байера для данного источника
    * @returns {Promise<Object>} Созданная привязка
    */
-  async addAssignment(offerId, buyerId, buyerName, source, sourceId = null) {
+  async addAssignment(offerId, buyerId, buyerName, source, sourceIds = []) {
     try {
       console.log(`📝 Привязываем байера ${buyerName} к офферу ${offerId} (${source})...`);
+      console.log(`   Source IDs: ${JSON.stringify(sourceIds)}`);
 
       const { data, error } = await supabase
         .from('offer_buyers')
@@ -382,14 +383,14 @@ export const offerBuyersService = {
           buyer_id: buyerId,
           buyer_name: buyerName,
           source: source,
-          source_id: sourceId
+          source_ids: sourceIds
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      console.log(`✅ Байер ${buyerName} привязан к офферу ${offerId}`);
+      console.log(`✅ Байер ${buyerName} привязан к офферу ${offerId} с ${sourceIds.length} source_id`);
       return data;
 
     } catch (error) {

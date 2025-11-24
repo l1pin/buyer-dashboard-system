@@ -1,6 +1,9 @@
 -- Миграция для создания таблицы offer_buyers
 -- Хранит привязки байеров к офферам с информацией об источнике трафика
 
+-- Удаляем старую таблицу если существует (для чистой миграции)
+-- DROP TABLE IF EXISTS offer_buyers CASCADE;
+
 -- Создание таблицы offer_buyers
 CREATE TABLE IF NOT EXISTS offer_buyers (
   id SERIAL PRIMARY KEY,
@@ -8,7 +11,7 @@ CREATE TABLE IF NOT EXISTS offer_buyers (
   buyer_id UUID NOT NULL REFERENCES users(id),  -- ID байера (ссылка на таблицу users)
   buyer_name VARCHAR(255) NOT NULL,             -- Имя байера
   source VARCHAR(50) NOT NULL,                  -- Источник трафика: 'Facebook', 'Google', 'TikTok'
-  source_id VARCHAR(255),                       -- ID источника (channel_id из buyer_settings)
+  source_ids JSONB DEFAULT '[]'::jsonb,         -- МАССИВ всех source_id байера для данного источника
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
@@ -41,6 +44,7 @@ CREATE TRIGGER trigger_update_offer_buyers_updated_at
 ALTER TABLE offer_buyers ENABLE ROW LEVEL SECURITY;
 
 -- Политика: все авторизованные пользователи могут читать
+DROP POLICY IF EXISTS "Allow authenticated users to read offer_buyers" ON offer_buyers;
 CREATE POLICY "Allow authenticated users to read offer_buyers"
   ON offer_buyers
   FOR SELECT
@@ -48,6 +52,7 @@ CREATE POLICY "Allow authenticated users to read offer_buyers"
   USING (true);
 
 -- Политика: все авторизованные пользователи могут вставлять
+DROP POLICY IF EXISTS "Allow authenticated users to insert offer_buyers" ON offer_buyers;
 CREATE POLICY "Allow authenticated users to insert offer_buyers"
   ON offer_buyers
   FOR INSERT
@@ -55,6 +60,7 @@ CREATE POLICY "Allow authenticated users to insert offer_buyers"
   WITH CHECK (true);
 
 -- Политика: все авторизованные пользователи могут обновлять
+DROP POLICY IF EXISTS "Allow authenticated users to update offer_buyers" ON offer_buyers;
 CREATE POLICY "Allow authenticated users to update offer_buyers"
   ON offer_buyers
   FOR UPDATE
@@ -63,6 +69,7 @@ CREATE POLICY "Allow authenticated users to update offer_buyers"
   WITH CHECK (true);
 
 -- Политика: все авторизованные пользователи могут удалять
+DROP POLICY IF EXISTS "Allow authenticated users to delete offer_buyers" ON offer_buyers;
 CREATE POLICY "Allow authenticated users to delete offer_buyers"
   ON offer_buyers
   FOR DELETE
@@ -75,4 +82,14 @@ COMMENT ON COLUMN offer_buyers.offer_id IS 'ID оффера из системы 
 COMMENT ON COLUMN offer_buyers.buyer_id IS 'UUID байера из таблицы users';
 COMMENT ON COLUMN offer_buyers.buyer_name IS 'Имя байера для быстрого отображения';
 COMMENT ON COLUMN offer_buyers.source IS 'Источник трафика: Facebook, Google или TikTok';
-COMMENT ON COLUMN offer_buyers.source_id IS 'ID канала источника из buyer_settings.traffic_channels';
+COMMENT ON COLUMN offer_buyers.source_ids IS 'Массив всех channel_id байера для данного источника (JSONB array)';
+
+-- ============================================
+-- МИГРАЦИЯ ДЛЯ СУЩЕСТВУЮЩЕЙ ТАБЛИЦЫ
+-- Если таблица уже существует с полем source_id,
+-- выполните эти команды для миграции:
+-- ============================================
+
+-- ALTER TABLE offer_buyers ADD COLUMN IF NOT EXISTS source_ids JSONB DEFAULT '[]'::jsonb;
+-- UPDATE offer_buyers SET source_ids = jsonb_build_array(source_id) WHERE source_id IS NOT NULL AND source_ids = '[]'::jsonb;
+-- ALTER TABLE offer_buyers DROP COLUMN IF EXISTS source_id;
