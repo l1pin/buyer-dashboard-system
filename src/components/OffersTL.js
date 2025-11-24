@@ -653,6 +653,46 @@ function OffersTL({ user }) {
             )}
           </div>
         );
+      case 'season':
+        const category = tooltip.data.category;
+        const categoryDetails = tooltip.data.categoryDetails || [];
+        const specialSeasonStart = tooltip.data.specialSeasonStart;
+        const specialSeasonEnd = tooltip.data.specialSeasonEnd;
+        return (
+          <div className="flex flex-col gap-3">
+            {/* Категория */}
+            <div>
+              <div className="text-xs font-medium text-gray-600 mb-1">Категория:</div>
+              <div className="text-sm text-gray-900">{category || '—'}</div>
+            </div>
+
+            {/* Детали категорий */}
+            {categoryDetails.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-600 mb-1">Категории товаров:</div>
+                <div className="flex flex-col gap-0.5 max-h-32 overflow-y-auto">
+                  {categoryDetails.map((detail, idx) => (
+                    <div key={idx} className="text-xs text-gray-700">
+                      {detail || <span className="text-gray-300">—</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Спецсезон */}
+            <div>
+              <div className="text-xs font-medium text-gray-600 mb-1">Спецсезон:</div>
+              {specialSeasonStart || specialSeasonEnd ? (
+                <div className="text-sm text-gray-900 font-mono">
+                  {specialSeasonStart || '—'} — {specialSeasonEnd || '—'}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">Не задан</div>
+              )}
+            </div>
+          </div>
+        );
       default:
         return <div>Неизвестный тип tooltip</div>;
     }
@@ -716,6 +756,13 @@ function OffersTL({ user }) {
         return (
           <div className="flex items-center gap-2">
             <span>История статусов</span>
+            {articleBadge}
+          </div>
+        );
+      case 'season':
+        return (
+          <div className="flex items-center gap-2">
+            <span>Сезон и категория</span>
             {articleBadge}
           </div>
         );
