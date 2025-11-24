@@ -1,34 +1,97 @@
 // src/components/DraggableTooltip.js
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
- * Перетаскиваемое всплывающее окно (tooltip)
- * - Располагается поверх всей страницы
- * - Можно перетаскивать за заголовок
- * - Закрывается только при клике на крестик
- * - Можно открывать несколько окон одновременно
+ * Высокопроизводительное перетаскиваемое окно
+ * - Использует transform вместо left/top для GPU-ускорения
+ * - Рендерится в портал для изоляции от родительских ре-рендеров
+ * - Позиция хранится в ref, не в state - нет ре-рендеров при перемещении
  */
-const DraggableTooltip = React.memo(function DraggableTooltip({ title, children, onClose, initialPosition = { x: 100, y: 100 }, zIndex = 1000 }) {
-  const [position, setPosition] = useState(initialPosition);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
+const DraggableTooltip = React.memo(function DraggableTooltip({
+  title,
+  children,
+  onClose,
+  initialPosition = { x: 100, y: 100 },
+  zIndex = 1000
+}) {
   const tooltipRef = useRef(null);
-  const rafId = useRef(null);
+  const positionRef = useRef({ x: initialPosition.x, y: initialPosition.y });
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  // Применяем позицию через transform (без setState - нет ре-рендеров!)
+  const applyPosition = useCallback(() => {
+    if (tooltipRef.current) {
+      tooltipRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0)`;
+    }
+  }, []);
+
+  // Устанавливаем начальную позицию
+  useEffect(() => {
+    applyPosition();
+  }, [applyPosition]);
 
   // Обработчик начала перетаскивания
   const handleMouseDown = useCallback((e) => {
-    // Проверяем, что клик был по заголовку, а не по кнопке закрытия
-    if (e.target.closest('.close-button')) {
-      return;
+    if (e.target.closest('.close-button')) return;
+
+    isDraggingRef.current = true;
+    dragOffsetRef.current = {
+      x: e.clientX - positionRef.current.x,
+      y: e.clientY - positionRef.current.y
+    };
+
+    if (tooltipRef.current) {
+      tooltipRef.current.style.cursor = 'grabbing';
+      tooltipRef.current.style.userSelect = 'none';
     }
 
-    setIsDragging(true);
-    dragOffset.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
+    e.preventDefault();
+  }, []);
+
+  // Глобальные обработчики мыши
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingRef.current) return;
+
+      const newX = e.clientX - dragOffsetRef.current.x;
+      const newY = e.clientY - dragOffsetRef.current.y;
+
+      // Ограничиваем границами окна
+      const maxX = window.innerWidth - (tooltipRef.current?.offsetWidth || 300);
+      const maxY = window.innerHeight - (tooltipRef.current?.offsetHeight || 200);
+
+      positionRef.current = {
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      };
+
+      // Прямое обновление DOM без React - максимальная производительность
+      if (tooltipRef.current) {
+        tooltipRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0)`;
+      }
     };
-  }, [position.x, position.y]);
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        if (tooltipRef.current) {
+          tooltipRef.current.style.cursor = '';
+          tooltipRef.current.style.userSelect = '';
+        }
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Мемоизированный обработчик закрытия
   const handleClose = useCallback((e) => {
@@ -36,78 +99,28 @@ const DraggableTooltip = React.memo(function DraggableTooltip({ title, children,
     onClose();
   }, [onClose]);
 
-  // Обработчик перемещения с requestAnimationFrame для плавности
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e) => {
-      // Отменяем предыдущий кадр, если он еще не отрисован
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-      }
-
-      // Используем requestAnimationFrame для плавного обновления
-      rafId.current = requestAnimationFrame(() => {
-        const newX = e.clientX - dragOffset.current.x;
-        const newY = e.clientY - dragOffset.current.y;
-
-        // Ограничиваем перемещение границами окна браузера
-        const maxX = window.innerWidth - (tooltipRef.current?.offsetWidth || 300);
-        const maxY = window.innerHeight - (tooltipRef.current?.offsetHeight || 200);
-
-        setPosition({
-          x: Math.max(0, Math.min(newX, maxX)),
-          y: Math.max(0, Math.min(newY, maxY))
-        });
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-      }
-    };
-  }, [isDragging]);
-
-  return (
+  // Рендерим в портал для изоляции от родительского дерева
+  const content = (
     <div
       ref={tooltipRef}
       className="fixed bg-white border-2 border-gray-300 rounded-lg shadow-2xl overflow-hidden"
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        top: 0,
+        left: 0,
         zIndex: zIndex,
         minWidth: '300px',
         maxWidth: '600px',
-        userSelect: isDragging ? 'none' : 'auto',
-        willChange: isDragging ? 'left, top' : 'auto',
-        transform: 'translateZ(0)', // GPU acceleration
-        backfaceVisibility: 'hidden', // Smoother rendering
+        willChange: 'transform',
+        backfaceVisibility: 'hidden',
+        perspective: 1000,
       }}
     >
-      {/* Заголовок с возможностью перетаскивания */}
+      {/* Заголовок */}
       <div
-        className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between cursor-move select-none"
+        className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between cursor-grab select-none"
         onMouseDown={handleMouseDown}
-        style={{
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
       >
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-
-        {/* Кнопка закрытия */}
+        <h3 className="text-sm font-semibold text-gray-900 pointer-events-none">{title}</h3>
         <button
           onClick={handleClose}
           className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded p-1 transition-colors"
@@ -123,6 +136,9 @@ const DraggableTooltip = React.memo(function DraggableTooltip({ title, children,
       </div>
     </div>
   );
+
+  // Портал - рендерим вне основного дерева React
+  return ReactDOM.createPortal(content, document.body);
 });
 
 export default DraggableTooltip;
