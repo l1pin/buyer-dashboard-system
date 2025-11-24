@@ -3,12 +3,14 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
+import { aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   offer,
   allBuyers = [],
   initialAssignments = [],
-  onAssignmentsChange
+  onAssignmentsChange,
+  buyerMetricsData = {}
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
@@ -182,6 +184,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
               {buyers.map((assignment) => {
                 const { date, days } = formatAssignmentDate(assignment.created_at);
+                // Агрегируем метрики по source_ids байера за 14 дней
+                const sourceIds = assignment.source_ids || [];
+                const metrics = aggregateMetricsBySourceIds(sourceIds, buyerMetricsData, 14);
+                const hasData = metrics.leads > 0 || metrics.cost > 0;
+
                 return (
                   <div
                     key={assignment.id}
@@ -229,19 +236,25 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         {date} | {days} д
                       </div>
 
-                      {/* Метрики CPL/Lead/Cost */}
+                      {/* Метрики CPL/Lead/Cost за 14 дней */}
                       <div className="w-full text-[9px] text-gray-500 space-y-0.5">
                         <div className="flex justify-between px-1">
                           <span>CPL:</span>
-                          <span className="text-gray-400">—</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
+                          </span>
                         </div>
                         <div className="flex justify-between px-1">
                           <span>Lead:</span>
-                          <span className="text-gray-400">—</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? metrics.leads : '—'}
+                          </span>
                         </div>
                         <div className="flex justify-between px-1">
                           <span>Cost:</span>
-                          <span className="text-gray-400">—</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? `$${metrics.cost.toFixed(0)}` : '—'}
+                          </span>
                         </div>
                       </div>
 
