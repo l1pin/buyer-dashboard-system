@@ -2411,10 +2411,13 @@ const loadCreatives = async () => {
             </div>
           </div>
 
-          
+
         </div>
-        
+
       </div>
+
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto">
 
       {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {filteredCreatives.length > 0 && (
@@ -3653,6 +3656,8 @@ const loadCreatives = async () => {
             </div>
           </div>
         )}
+      </div>
+
       </div>
 
       {/* Create Modal - DISABLED FOR BUYER */}
