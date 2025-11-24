@@ -301,6 +301,30 @@ function OffersTL({ user }) {
     });
   }, [metrics, searchTerm, sortField, sortDirection]);
 
+  // Мемоизированный список офферов (вынесен на верхний уровень для соблюдения правил хуков)
+  const renderedOffersList = useMemo(() => (
+    <div className="px-4 py-2 space-y-1">
+      {filteredMetrics.map((metric, index) => (
+        <OfferRow
+          key={metric.id}
+          metric={metric}
+          index={index}
+          offerStatus={offerStatuses[metric.id]}
+          loadingLeadsData={loadingLeadsData}
+          loadingDays={loadingDays}
+          loadingStocks={loadingStocks}
+          onOpenTooltip={openTooltip}
+          onStatusChange={handleStatusChange}
+          userName={user?.full_name || user?.email || 'User'}
+          allBuyers={allBuyers}
+          initialAssignments={allAssignments[metric.id] || []}
+          onAssignmentsChange={handleAssignmentsChange}
+          buyerMetricsData={buyerMetricsData}
+        />
+      ))}
+    </div>
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData]);
+
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
       if (prevField === field) {
@@ -950,28 +974,7 @@ function OffersTL({ user }) {
             </div>
 
             {/* Cards - мемоизированный список */}
-            {useMemo(() => (
-              <div className="px-4 py-2 space-y-1">
-                {filteredMetrics.map((metric, index) => (
-                  <OfferRow
-                    key={metric.id}
-                    metric={metric}
-                    index={index}
-                    offerStatus={offerStatuses[metric.id]}
-                    loadingLeadsData={loadingLeadsData}
-                    loadingDays={loadingDays}
-                    loadingStocks={loadingStocks}
-                    onOpenTooltip={openTooltip}
-                    onStatusChange={handleStatusChange}
-                    userName={user?.full_name || user?.email || 'User'}
-                    allBuyers={allBuyers}
-                    initialAssignments={allAssignments[metric.id] || []}
-                    onAssignmentsChange={handleAssignmentsChange}
-                    buyerMetricsData={buyerMetricsData}
-                  />
-                ))}
-              </div>
-            ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData])}
+            {renderedOffersList}
           </>
         )}
       </div>
