@@ -178,23 +178,23 @@ const OfferRow = memo(({
   const redZoneColors = getZoneColorsByType('red');
 
   return (
-    <div className="bg-white hover:bg-slate-50 transition-colors duration-150 p-3">
-      <div className="flex items-center gap-2 text-sm text-center min-w-max">
+    <div className="bg-white hover:bg-slate-50 p-2 border-b border-slate-100">
+      <div className="flex items-center gap-2 text-sm text-center">
         {/* № */}
-        <div className="w-12 flex-shrink-0 text-slate-700 font-medium">{metric.id}</div>
+        <div className="w-10 flex-shrink-0 text-slate-700 font-medium text-xs">{metric.id}</div>
 
         {/* Артикул */}
-        <div className="w-24 flex-shrink-0 font-mono text-xs text-slate-800">{metric.article || '—'}</div>
+        <div className="w-20 flex-shrink-0 font-mono text-xs text-slate-800">{metric.article || '—'}</div>
 
         {/* Название */}
-        <div className="w-48 flex-shrink-0 text-left">
-          <span className="text-sm text-slate-800 truncate block" title={metric.offer}>
+        <div className="w-44 flex-shrink-0 text-left">
+          <span className="text-xs text-slate-800 truncate block" title={metric.offer}>
             {metric.offer || '—'}
           </span>
         </div>
 
         {/* Статус */}
-        <div className="w-32 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        <div className="w-28 flex-shrink-0 text-xs flex items-center justify-center gap-1">
           <OfferStatusBadge
             offerId={metric.id}
             article={metric.article}
@@ -206,10 +206,10 @@ const OfferRow = memo(({
           />
           <button
             onClick={handleStatusHistoryClick}
-            className="text-gray-500 hover:text-blue-600 transition-colors"
-            title="Показать историю статусов"
+            className="text-gray-500 hover:text-blue-600"
+            title="История статусов"
           >
-            <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -217,13 +217,13 @@ const OfferRow = memo(({
           </button>
         </div>
 
-        {/* CPL 4 дн. */}
-        <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        {/* CPL */}
+        <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
           ) : (
             <>
-              <span className={`font-mono ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-500'}`}>
+              <span className={`font-mono ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
                 {metric.leads_data?.[4]?.cpl != null ? metric.leads_data[4].cpl.toFixed(2) : '—'}
               </span>
               {metric.leads_data && <InfoIcon onClick={handleCplClick} />}
@@ -231,13 +231,13 @@ const OfferRow = memo(({
           )}
         </div>
 
-        {/* Лиды 4 дн. */}
-        <div className="w-20 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        {/* Лиды */}
+        <div className="w-14 flex-shrink-0 text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
           ) : (
             <>
-              <span className={`font-mono ${metric.leads_4days != null ? 'text-slate-800' : 'text-slate-500'}`}>
+              <span className={`font-mono ${metric.leads_4days != null ? 'text-slate-800' : 'text-slate-400'}`}>
                 {metric.leads_4days != null ? metric.leads_4days : '—'}
               </span>
               {metric.leads_data && <InfoIcon onClick={handleLeadsClick} />}
@@ -246,27 +246,27 @@ const OfferRow = memo(({
         </div>
 
         {/* Продажи на 1 заявку */}
-        <div className="w-12 flex-shrink-0 text-xs text-slate-800 text-center">
+        <div className="w-10 flex-shrink-0 text-xs text-slate-800 text-center">
           {metric.k_lead != null ? Number(metric.k_lead).toFixed(2) : '—'}
         </div>
 
         {/* Рейтинг */}
-        <div className="w-12 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        <div className="w-10 flex-shrink-0 text-xs flex items-center justify-center gap-0.5">
           {loadingLeadsData ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
           ) : (
             <>
               <span
-                className={`font-semibold px-1.5 py-0.5 rounded ${
+                className={`font-semibold px-1 py-0.5 rounded text-[10px] ${
                   metric.lead_rating === 'A' ? 'bg-green-100 text-green-800' :
                   metric.lead_rating === 'B' ? 'bg-blue-100 text-blue-800' :
                   metric.lead_rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
                   metric.lead_rating === 'D' ? 'bg-red-100 text-red-800' :
                   'text-gray-400'
                 }`}
-                title={metric.rating_cpl ? `CPL: ${metric.rating_cpl.toFixed(2)}` : 'Нет данных'}
+                title={metric.rating_cpl ? `CPL: ${metric.rating_cpl.toFixed(2)}` : ''}
               >
-                {metric.lead_rating || 'N/A'}
+                {metric.lead_rating || '—'}
               </span>
               {metric.rating_history?.length > 0 && <InfoIcon onClick={handleRatingClick} />}
             </>
@@ -274,13 +274,11 @@ const OfferRow = memo(({
         </div>
 
         {/* Реклама */}
-        <div className="w-12 flex-shrink-0 text-xs text-slate-500 flex items-center justify-center gap-1">
-          <span>—</span>
-          <StaticInfoIcon />
+        <div className="w-10 flex-shrink-0 text-xs text-slate-400 text-center">—
         </div>
 
         {/* Зона эффективности */}
-        <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 flex items-center justify-center gap-1">
           {zoneColors && metric.actual_roi_percent ? (
             <>
               <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
@@ -297,7 +295,7 @@ const OfferRow = memo(({
         </div>
 
         {/* Цена лида в зоне */}
-        <div className="w-20 flex-shrink-0 flex items-center justify-center gap-1">
+        <div className="w-16 flex-shrink-0 flex items-center justify-center gap-1">
           {metric.red_zone_price != null ? (
             <>
               <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${redZoneColors.bg} ${redZoneColors.text} ${redZoneColors.border}`}>
@@ -314,7 +312,7 @@ const OfferRow = memo(({
         </div>
 
         {/* Дней продаж */}
-        <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 text-xs flex items-center justify-center gap-1">
           {loadingDays ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
           ) : (
@@ -332,7 +330,7 @@ const OfferRow = memo(({
         </div>
 
         {/* Остаток */}
-        <div className="w-16 flex-shrink-0 text-xs flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 text-xs flex items-center justify-center gap-1">
           {loadingStocks ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
           ) : (
@@ -346,7 +344,7 @@ const OfferRow = memo(({
         </div>
 
         {/* Дней до прихода */}
-        <div className="w-20 flex-shrink-0 font-mono text-xs flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 font-mono text-xs flex items-center justify-center gap-1">
           {daysUntil === null ? (
             <>
               <span className="text-slate-800">—</span>
@@ -361,25 +359,25 @@ const OfferRow = memo(({
         </div>
 
         {/* % отказа от продаж */}
-        <div className="w-16 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
+        <div className="w-12 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
           <span>{metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(1)}%` : '—'}</span>
           <StaticInfoIcon />
         </div>
 
         {/* % невыкупа */}
-        <div className="w-16 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
+        <div className="w-12 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
           <span>{metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(1)}%` : '—'}</span>
           <StaticInfoIcon />
         </div>
 
         {/* Сезон */}
-        <div className="w-16 flex-shrink-0 text-xs text-slate-500 flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 text-xs text-slate-500 flex items-center justify-center gap-1">
           <span>{metric.season || '—'}</span>
           <InfoIcon onClick={handleSeasonClick} />
         </div>
 
         {/* Цена */}
-        <div className="w-20 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
+        <div className="w-14 flex-shrink-0 font-mono text-xs text-slate-800 flex items-center justify-center gap-1">
           <span>{metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}</span>
           <StaticInfoIcon />
         </div>
