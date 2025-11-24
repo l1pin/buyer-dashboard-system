@@ -35,47 +35,119 @@ function OffersTL({ user }) {
   const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов (с днями)
   const [allAssignments, setAllAssignments] = useState({}); // Все привязки байеров к офферам (по offer_id)
 
+  // Загружаем ВСЁ параллельно при монтировании
   useEffect(() => {
-    loadMetrics();
-    loadBuyers(); // Загружаем байеров один раз
-    loadAllAssignments(); // Загружаем все привязки один раз
+    loadAllData();
   }, []);
 
-  // Загружаем статусы при изменении метрик
-  useEffect(() => {
-    if (metrics.length > 0) {
-      loadOfferStatuses();
+  // Главная функция загрузки - всё параллельно
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      console.log('🔄 Загружаем все данные параллельно...');
+
+      // Запускаем ВСЕ запросы параллельно
+      const [metricsResult, buyersResult, statusesResult, assignmentsResult] = await Promise.all([
+        metricsAnalyticsService.getAllMetricsLarge().catch(e => ({ metrics: [], error: e })),
+        userService.getUsersByRole('buyer').catch(e => []),
+        offerStatusService.getAllStatuses().catch(e => []),
+        offerBuyersService.getAllAssignments().catch(e => [])
+      ]);
+
+      // Устанавливаем метрики
+      const metricsData = metricsResult.metrics || [];
+      setMetrics(metricsData);
+      setLastUpdated(metricsResult.lastUpdated);
+
+      // Устанавливаем байеров
+      setAllBuyers(buyersResult || []);
+
+      // Обрабатываем статусы
+      const statusesMap = {};
+      (statusesResult || []).forEach(status => {
+        let daysInStatus = 0;
+        if (status.status_history && status.status_history.length > 0) {
+          const currentStatusEntry = status.status_history[0];
+          const changedAt = new Date(currentStatusEntry.changed_at);
+          const now = new Date();
+          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+        }
+        statusesMap[status.offer_id] = {
+          ...status,
+          days_in_status: daysInStatus
+        };
+      });
+      setOfferStatuses(statusesMap);
+
+      // Группируем привязки по offer_id
+      const grouped = {};
+      (assignmentsResult || []).forEach(a => {
+        if (!grouped[a.offer_id]) {
+          grouped[a.offer_id] = [];
+        }
+        grouped[a.offer_id].push(a);
+      });
+      setAllAssignments(grouped);
+
+      if (metricsData.length > 0) {
+        setSuccess(`✅ Загружено ${metricsData.length} офферов`);
+      }
+
+      console.log('✅ Все данные загружены');
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки:', error);
+      setError('Ошибка загрузки: ' + error.message);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(''), 3000);
     }
-  }, [metrics]);
+  };
+
+  // Callback для обновления привязок после изменения
+  const handleAssignmentsChange = useCallback((offerId, newAssignments) => {
+    setAllAssignments(prev => ({
+      ...prev,
+      [offerId]: newAssignments
+    }));
+  }, []);
+
+  // Обновление статусов после изменения
+  const handleStatusChange = async (offerId, newStatus) => {
+    // Обновляем локально без перезагрузки
+    setOfferStatuses(prev => ({
+      ...prev,
+      [offerId]: {
+        ...prev[offerId],
+        current_status: newStatus,
+        days_in_status: 0
+      }
+    }));
+  };
 
   // Функция для открытия нового tooltip
   const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
-    // Вычисляем позицию СРАЗУ, до setState, чтобы event.currentTarget был доступен
     let position = { x: 100, y: 100 };
-
     if (event && event.currentTarget) {
       const rect = event.currentTarget.getBoundingClientRect();
       position = {
-        x: rect.left + rect.width + 10, // Справа от кнопки с отступом 10px
+        x: rect.left + rect.width + 10,
         y: rect.top
       };
     }
 
     setOpenTooltips(prev => {
-      // Проверяем, не открыт ли уже такой tooltip
       if (prev.find(t => t.id === tooltipId)) {
-        return prev; // Уже открыт, ничего не делаем
+        return prev;
       }
-
-      // Смещаем позицию для каждого нового tooltip, если не было event
       const finalPosition = event && event.currentTarget ? position : {
         x: position.x + prev.length * 30,
         y: position.y + prev.length * 30
       };
-
-      // Добавляем новый tooltip в массив
       return [...prev, {
         id: tooltipId,
         type,
@@ -91,101 +163,6 @@ function OffersTL({ user }) {
   const closeTooltip = useCallback((tooltipId) => {
     setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
   }, []);
-
-  const loadMetrics = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      console.log('🔄 Начинаем загрузку метрик для офферов...');
-
-      const data = await metricsAnalyticsService.getAllMetricsLarge();
-      setMetrics(data.metrics || []);
-      setLastUpdated(data.lastUpdated);
-
-      if (data.actualCount > 0) {
-        setSuccess(`✅ Успешно загружено ${data.actualCount.toLocaleString('ru-RU')} офферов`);
-      }
-
-    } catch (error) {
-      console.error('❌ Ошибка загрузки метрик:', error);
-      setError('Ошибка загрузки метрик: ' + error.message);
-    } finally {
-      setLoading(false);
-      setTimeout(() => setSuccess(''), 5000);
-    }
-  };
-
-  const loadBuyers = async () => {
-    try {
-      const data = await userService.getUsersByRole('buyer');
-      setAllBuyers(data);
-    } catch (error) {
-      console.error('❌ Ошибка загрузки байеров:', error);
-      setAllBuyers([]);
-    }
-  };
-
-  // Загружаем все привязки байеров к офферам одним запросом
-  const loadAllAssignments = async () => {
-    try {
-      const assignments = await offerBuyersService.getAllAssignments();
-      // Группируем по offer_id для быстрого доступа
-      const grouped = {};
-      assignments.forEach(a => {
-        if (!grouped[a.offer_id]) {
-          grouped[a.offer_id] = [];
-        }
-        grouped[a.offer_id].push(a);
-      });
-      setAllAssignments(grouped);
-    } catch (error) {
-      console.error('❌ Ошибка загрузки привязок:', error);
-      setAllAssignments({});
-    }
-  };
-
-  // Callback для обновления привязок после изменения
-  const handleAssignmentsChange = useCallback((offerId, newAssignments) => {
-    setAllAssignments(prev => ({
-      ...prev,
-      [offerId]: newAssignments
-    }));
-  }, []);
-
-  const loadOfferStatuses = async () => {
-    try {
-      const offerIds = metrics.map(m => m.id);
-      const statusesData = await offerStatusService.getOfferStatuses(offerIds);
-
-      // Преобразуем массив в объект для быстрого доступа и рассчитываем дни
-      const statusesMap = {};
-      statusesData.forEach(status => {
-        // Рассчитываем дни в текущем статусе
-        let daysInStatus = 0;
-        if (status.status_history && status.status_history.length > 0) {
-          const currentStatusEntry = status.status_history[0];
-          const changedAt = new Date(currentStatusEntry.changed_at);
-          const now = new Date();
-          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
-        }
-
-        statusesMap[status.offer_id] = {
-          ...status,
-          days_in_status: daysInStatus
-        };
-      });
-
-      setOfferStatuses(statusesMap);
-    } catch (error) {
-      console.error('❌ Ошибка загрузки статусов офферов:', error);
-    }
-  };
-
-  const handleStatusChange = async (offerId, newStatus) => {
-    // Перезагружаем статусы для обновления дней
-    await loadOfferStatuses();
-  };
 
   const updateStocksFromYml = async () => {
     try {
@@ -792,7 +769,7 @@ function OffersTL({ user }) {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={loadMetrics}
+              onClick={loadAllData}
               disabled={loading}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
