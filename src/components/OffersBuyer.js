@@ -188,7 +188,7 @@ function OffersBuyer({ user }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="h-full overflow-auto flex items-center justify-center bg-gray-50">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
         <span className="ml-3 text-gray-600">Загрузка офферов...</span>
       </div>
@@ -196,7 +196,7 @@ function OffersBuyer({ user }) {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 h-full overflow-auto">
       {/* Заголовок */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
