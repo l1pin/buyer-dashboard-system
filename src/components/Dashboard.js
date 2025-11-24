@@ -11,6 +11,7 @@ import CreativeSearch from './CreativeSearch';
 import CreativeAnalytics from './CreativeAnalytics';
 import MetricsAnalytics from './MetricsAnalytics';
 import OffersTL from './OffersTL';
+import OffersBuyer from './OffersBuyer';
 import LandingPanel from './LandingPanel';
 import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
@@ -31,6 +32,7 @@ function Dashboard({ user, session, updateUser }) {
     '/workspace/landings': 'landings',
     '/workspace/landing-editor': 'landing-editor',
     '/workspace/landing-teamlead': 'landing-teamlead',
+    '/workspace/offers': 'offers-buyer',
     '/analytics/creatives': 'analytics',
     '/analytics/metrics': 'metrics-analytics',
     '/analytics/landings': 'landing-analytics',
@@ -46,6 +48,7 @@ function Dashboard({ user, session, updateUser }) {
     'landings': '/workspace/landings',
     'landing-editor': '/workspace/landing-editor',
     'landing-teamlead': '/workspace/landing-teamlead',
+    'offers-buyer': '/workspace/offers',
     'analytics': '/analytics/creatives',
     'metrics-analytics': '/analytics/metrics',
     'landing-analytics': '/analytics/landings',
@@ -90,6 +93,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'teamlead';
       case 'offers-tl':
         return role === 'teamlead';
+      case 'offers-buyer':
+        return role === 'buyer';
       case 'settings':
         return true; // Настройки доступны всем
       default:
@@ -193,6 +198,8 @@ function Dashboard({ user, session, updateUser }) {
         return user?.role === 'teamlead' ? <MetricsAnalytics user={user} /> : null;
       case 'offers-tl':
         return user?.role === 'teamlead' ? <OffersTL user={user} /> : null;
+      case 'offers-buyer':
+        return user?.role === 'buyer' ? <OffersBuyer user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:

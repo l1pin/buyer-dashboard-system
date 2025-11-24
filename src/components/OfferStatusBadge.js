@@ -5,8 +5,9 @@ import { offerStatusService } from '../services/OffersSupabase';
 /**
  * Компонент для отображения и изменения статуса оффера
  * Показывает только цветной кружок и количество дней в этом статусе
+ * @param {boolean} readOnly - если true, статус нельзя изменить (только просмотр)
  */
-function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User' }) {
+function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User', readOnly = false }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const dropdownRef = useRef(null);
@@ -33,6 +34,7 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
 
   const handleStatusClick = (e) => {
     e.stopPropagation();
+    if (readOnly) return; // Не открываем dropdown в режиме только чтения
     setIsDropdownOpen(!isDropdownOpen);
   };
 
@@ -75,9 +77,12 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
       {/* Кружок со статусом + дни */}
       <button
         onClick={handleStatusClick}
-        disabled={isUpdating}
-        className="inline-flex items-center gap-2 transition-all duration-200 hover:opacity-80 disabled:opacity-50"
-        title={`Статус: ${currentStatus || 'Активный'}. ${daysInStatus || 0} дней. Нажмите для изменения`}
+        disabled={isUpdating || readOnly}
+        className={`inline-flex items-center gap-2 transition-all duration-200 disabled:opacity-50 ${readOnly ? 'cursor-default' : 'hover:opacity-80 cursor-pointer'}`}
+        title={readOnly
+          ? `Статус: ${currentStatus || 'Активный'}. ${daysInStatus || 0} дней`
+          : `Статус: ${currentStatus || 'Активный'}. ${daysInStatus || 0} дней. Нажмите для изменения`
+        }
       >
         {/* Цветной кружок */}
         {!isUpdating ? (
@@ -92,8 +97,8 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
         </span>
       </button>
 
-      {/* Dropdown меню */}
-      {isDropdownOpen && (
+      {/* Dropdown меню (не показываем в readOnly режиме) */}
+      {isDropdownOpen && !readOnly && (
         <div className="absolute z-50 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 left-0">
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200">
             Изменить статус

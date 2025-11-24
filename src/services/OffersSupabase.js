@@ -283,3 +283,189 @@ export const offerStatusService = {
     }
   }
 };
+
+/**
+ * Сервис для работы с привязками байеров к офферам
+ * Таблица offer_buyers
+ */
+export const offerBuyersService = {
+  /**
+   * Получить все привязки байеров к офферам
+   * @returns {Promise<Array>} Массив привязок
+   */
+  async getAllAssignments() {
+    try {
+      console.log('📊 Загружаем все привязки байеров к офферам...');
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log(`✅ Загружено ${data?.length || 0} привязок`);
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки привязок:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить привязки для конкретного оффера
+   * @param {number} offerId - ID оффера
+   * @returns {Promise<Array>} Массив привязок для оффера
+   */
+  async getOfferAssignments(offerId) {
+    try {
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .select('*')
+        .eq('offer_id', offerId)
+        .order('source', { ascending: true });
+
+      if (error) throw error;
+
+      return data || [];
+
+    } catch (error) {
+      console.error(`❌ Ошибка загрузки привязок для оффера ${offerId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить офферы привязанные к байеру
+   * @param {string} buyerId - UUID байера
+   * @returns {Promise<Array>} Массив привязок (с offer_id)
+   */
+  async getBuyerOffers(buyerId) {
+    try {
+      console.log(`📊 Загружаем офферы для байера ${buyerId}...`);
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log(`✅ Загружено ${data?.length || 0} привязок для байера`);
+      return data || [];
+
+    } catch (error) {
+      console.error(`❌ Ошибка загрузки офферов для байера ${buyerId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Добавить привязку байера к офферу
+   * @param {number} offerId - ID оффера
+   * @param {string} buyerId - UUID байера
+   * @param {string} buyerName - Имя байера
+   * @param {string} source - Источник трафика (Facebook, Google, TikTok)
+   * @param {string} sourceId - ID канала источника
+   * @returns {Promise<Object>} Созданная привязка
+   */
+  async addAssignment(offerId, buyerId, buyerName, source, sourceId = null) {
+    try {
+      console.log(`📝 Привязываем байера ${buyerName} к офферу ${offerId} (${source})...`);
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .insert({
+          offer_id: offerId,
+          buyer_id: buyerId,
+          buyer_name: buyerName,
+          source: source,
+          source_id: sourceId
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Байер ${buyerName} привязан к офферу ${offerId}`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка привязки байера к офферу:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Удалить привязку байера к офферу
+   * @param {number} assignmentId - ID привязки
+   * @returns {Promise<Object>} Результат операции
+   */
+  async removeAssignment(assignmentId) {
+    try {
+      console.log(`🗑️ Удаляем привязку ${assignmentId}...`);
+
+      const { error } = await supabase
+        .from('offer_buyers')
+        .delete()
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      console.log(`✅ Привязка ${assignmentId} удалена`);
+      return { success: true };
+
+    } catch (error) {
+      console.error(`❌ Ошибка удаления привязки ${assignmentId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Удалить привязку по параметрам
+   * @param {number} offerId - ID оффера
+   * @param {string} buyerId - UUID байера
+   * @param {string} source - Источник трафика
+   * @returns {Promise<Object>} Результат операции
+   */
+  async removeAssignmentByParams(offerId, buyerId, source) {
+    try {
+      console.log(`🗑️ Удаляем привязку байера ${buyerId} от оффера ${offerId} (${source})...`);
+
+      const { error } = await supabase
+        .from('offer_buyers')
+        .delete()
+        .eq('offer_id', offerId)
+        .eq('buyer_id', buyerId)
+        .eq('source', source);
+
+      if (error) throw error;
+
+      console.log(`✅ Привязка удалена`);
+      return { success: true };
+
+    } catch (error) {
+      console.error(`❌ Ошибка удаления привязки:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить уникальные offer_id для байера
+   * @param {string} buyerId - UUID байера
+   * @returns {Promise<Array<number>>} Массив offer_id
+   */
+  async getBuyerOfferIds(buyerId) {
+    try {
+      const assignments = await this.getBuyerOffers(buyerId);
+      const offerIds = [...new Set(assignments.map(a => a.offer_id))];
+      return offerIds;
+
+    } catch (error) {
+      console.error(`❌ Ошибка получения offer_id для байера:`, error);
+      throw error;
+    }
+  }
+};
