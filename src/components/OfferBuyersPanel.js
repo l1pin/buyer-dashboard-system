@@ -184,9 +184,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
               {buyers.map((assignment) => {
                 const { date, days } = formatAssignmentDate(assignment.created_at);
-                // Агрегируем метрики по source_ids байера за 14 дней
+                // Агрегируем метрики по артикулу оффера + source_ids байера за 14 дней
                 const sourceIds = assignment.source_ids || [];
-                const metrics = aggregateMetricsBySourceIds(sourceIds, buyerMetricsData, 14);
+                const offerArticle = offer?.article || '';
+                const metrics = aggregateMetricsBySourceIds(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
 
                 return (
