@@ -6,6 +6,7 @@
  * – Если red_zone_price отсутствует, используется константа 3.5
  * – Извлекает артикул из offer_name (формат: "C01829 - Жіноча блуза")
  * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
+ * – Также агрегирует данные по source_id_tracker для метрик байеров
  */
 
 // Используем Netlify Function для обхода CORS
@@ -44,8 +45,12 @@ export const updateLeadsFromSql = async (metrics) => {
     const data90Days = await fetchDataFor90Days();
     console.log(`✅ Загружено ${data90Days.length} записей за 90 дней`);
 
-    // 2. Группируем данные
+    // 2. Группируем данные по артикулу
     const dataByArticleAndDate = groupDataByArticleAndDate(data90Days);
+
+    // 3. Группируем данные по source_id для метрик байеров
+    const dataBySourceIdAndDate = groupDataBySourceIdAndDate(data90Days);
+    console.log(`📊 Уникальных source_id: ${Object.keys(dataBySourceIdAndDate).length}`);
 
     // 3. Обновляем метрики с данными о лидах, CPL и рейтингах
     let processedCount = 0;
@@ -126,7 +131,8 @@ export const updateLeadsFromSql = async (metrics) => {
 
     return {
       metrics: updatedMetrics,
-      processedCount: processedCount
+      processedCount: processedCount,
+      dataBySourceIdAndDate: dataBySourceIdAndDate // Для метрик байеров
     };
 
   } catch (error) {
@@ -164,6 +170,80 @@ function groupDataByArticleAndDate(data) {
   });
 
   return grouped;
+}
+
+/**
+ * Группирует данные по source_id_tracker и дате для метрик байеров
+ * @param {Array} data - Массив записей с source_id
+ * @returns {Object} - { source_id: { date: { leads, cost } } }
+ */
+function groupDataBySourceIdAndDate(data) {
+  const grouped = {};
+
+  data.forEach(record => {
+    const sourceId = record.source_id;
+    const date = record.date;
+    const leads = record.leads;
+    const cost = record.cost;
+
+    if (!sourceId || sourceId === 'unknown' || !date) return;
+
+    if (!grouped[sourceId]) {
+      grouped[sourceId] = {};
+    }
+
+    const dateStr = formatDate(date);
+
+    if (!grouped[sourceId][dateStr]) {
+      grouped[sourceId][dateStr] = { leads: 0, cost: 0 };
+    }
+
+    grouped[sourceId][dateStr].leads += leads;
+    grouped[sourceId][dateStr].cost += cost;
+  });
+
+  return grouped;
+}
+
+/**
+ * Агрегирует метрики по массиву source_ids за указанный период
+ * @param {Array} sourceIds - Массив source_id
+ * @param {Object} dataBySourceIdAndDate - Сгруппированные данные
+ * @param {number} periodDays - Количество дней для агрегации
+ * @returns {Object} - { leads, cost, cpl }
+ */
+export function aggregateMetricsBySourceIds(sourceIds, dataBySourceIdAndDate, periodDays = 14) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - (periodDays - 1));
+
+  let totalLeads = 0;
+  let totalCost = 0;
+
+  sourceIds.forEach(sourceId => {
+    const sourceData = dataBySourceIdAndDate[sourceId];
+    if (!sourceData) return;
+
+    Object.keys(sourceData).forEach(dateStr => {
+      const recordDate = new Date(dateStr);
+      recordDate.setHours(0, 0, 0, 0);
+
+      if (recordDate >= startDate && recordDate <= today) {
+        totalLeads += sourceData[dateStr].leads;
+        totalCost += sourceData[dateStr].cost;
+      }
+    });
+  });
+
+  const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+  return {
+    leads: totalLeads,
+    cost: totalCost,
+    cpl: cpl
+  };
 }
 
 /**
@@ -277,7 +357,7 @@ async function fetchDataFor90Days() {
 
   for (const p of periods) {
     const sql =
-      `SELECT offer_name, adv_date, valid, cost ` +
+      `SELECT offer_name, adv_date, valid, cost, source_id_tracker ` +
       `FROM ads_collection ` +
       `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}' ` +
       `AND valid > 0`;
@@ -292,7 +372,8 @@ async function fetchDataFor90Days() {
         article: extractArticle(row.offer_name || ''),
         date: new Date(row.adv_date),
         leads: Number(row.valid) || 0,
-        cost: Number(row.cost) || 0
+        cost: Number(row.cost) || 0,
+        source_id: row.source_id_tracker || 'unknown'
       })).filter(item => item.article && item.leads > 0);
 
       allData = allData.concat(processedChunk);

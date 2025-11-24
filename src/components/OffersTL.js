@@ -33,6 +33,7 @@ function OffersTL({ user }) {
   const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
   const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов (с днями)
   const [allAssignments, setAllAssignments] = useState({}); // Все привязки байеров к офферам (по offer_id)
+  const [buyerMetricsData, setBuyerMetricsData] = useState({}); // Данные для метрик байеров (по source_id)
 
   // Загружаем ВСЁ параллельно при монтировании
   useEffect(() => {
@@ -214,6 +215,13 @@ function OffersTL({ user }) {
       const result = await updateLeadsFromSqlScript(metrics);
 
       setMetrics(result.metrics);
+
+      // Сохраняем данные по source_id для метрик байеров
+      if (result.dataBySourceIdAndDate) {
+        setBuyerMetricsData(result.dataBySourceIdAndDate);
+        console.log(`📊 Сохранены метрики по ${Object.keys(result.dataBySourceIdAndDate).length} source_id`);
+      }
+
       setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
 
     } catch (error) {
@@ -975,6 +983,7 @@ function OffersTL({ user }) {
                     allBuyers={allBuyers}
                     initialAssignments={allAssignments[metric.id] || []}
                     onAssignmentsChange={handleAssignmentsChange}
+                    buyerMetricsData={buyerMetricsData}
                   />
                 ))}
               </div>

@@ -83,7 +83,8 @@ const OfferRow = memo(({
   userName,
   allBuyers,
   initialAssignments,
-  onAssignmentsChange
+  onAssignmentsChange,
+  buyerMetricsData
 }) => {
   // Мемоизированные обработчики для этой строки
   const handleStatusHistoryClick = useCallback(async (e) => {
@@ -378,6 +379,7 @@ const OfferRow = memo(({
         allBuyers={allBuyers}
         initialAssignments={initialAssignments}
         onAssignmentsChange={onAssignmentsChange}
+        buyerMetricsData={buyerMetricsData}
       />
     </div>
   );
@@ -393,7 +395,8 @@ const OfferRow = memo(({
     prevProps.loadingStocks === nextProps.loadingStocks &&
     prevProps.userName === nextProps.userName &&
     prevProps.allBuyers === nextProps.allBuyers &&
-    prevProps.initialAssignments === nextProps.initialAssignments
+    prevProps.initialAssignments === nextProps.initialAssignments &&
+    prevProps.buyerMetricsData === nextProps.buyerMetricsData
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });
