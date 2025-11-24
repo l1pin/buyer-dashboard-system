@@ -138,6 +138,7 @@ function App() {
         <Route path="/workspace/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/landing-editor" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/landing-teamlead" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/workspace/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
