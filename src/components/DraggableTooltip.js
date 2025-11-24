@@ -123,7 +123,7 @@ const DraggableTooltip = React.memo(function DraggableTooltip({
         <h3 className="text-sm font-semibold text-gray-900 pointer-events-none">{title}</h3>
         <button
           onClick={handleClose}
-          className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded p-1 transition-colors"
+          className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded p-1"
           title="Закрыть"
         >
           <X className="w-4 h-4" />
