@@ -2444,7 +2444,7 @@ function CreativePanel({ user }) {
 
       {/* НОВЫЕ КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {filteredCreatives.length > 0 && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 sm:gap-3 md:gap-4 mb-4">
             {/* Креативов */}
