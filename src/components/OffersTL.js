@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService } from '../services/OffersSupabase';
 import {
@@ -16,7 +16,7 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
-import DraggableTooltip from './DraggableTooltip';
+import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 
 function OffersTL({ user }) {
@@ -28,15 +28,17 @@ function OffersTL({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [openTooltips, setOpenTooltips] = useState([]); // Массив открытых tooltip'ов
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [loadingDays, setLoadingDays] = useState(false);
-  const [loadingLeadsData, setLoadingLeadsData] = useState(false); // Единое состояние для CPL, Лидов и Рейтинга
+  const [loadingLeadsData, setLoadingLeadsData] = useState(false);
   const [stockData, setStockData] = useState({});
-  const [allBuyers, setAllBuyers] = useState([]); // Все байеры для офферов
-  const [offerStatuses, setOfferStatuses] = useState({}); // Статусы офферов (с днями)
-  const [allAssignments, setAllAssignments] = useState({}); // Все привязки байеров к офферам (по offer_id)
-  const [buyerMetricsData, setBuyerMetricsData] = useState({}); // Данные для метрик байеров (по source_id)
+  const [allBuyers, setAllBuyers] = useState([]);
+  const [offerStatuses, setOfferStatuses] = useState({});
+  const [allAssignments, setAllAssignments] = useState({});
+  const [buyerMetricsData, setBuyerMetricsData] = useState({});
+
+  // Ref для изолированного менеджера tooltip'ов
+  const tooltipManagerRef = useRef(null);
 
   // Загружаем ВСЁ параллельно при монтировании
   useEffect(() => {
@@ -130,41 +132,22 @@ function OffersTL({ user }) {
     }));
   };
 
-  // Функция для открытия нового tooltip
+  // Функция для открытия tooltip через изолированный менеджер (без setState в OffersTL!)
   const openTooltip = useCallback((type, index, data, event) => {
-    const tooltipId = `${type}-${index}`;
+    if (!tooltipManagerRef.current) return;
 
+    const tooltipId = `${type}-${index}`;
     let position = { x: 100, y: 100 };
     if (event && event.currentTarget) {
       const rect = event.currentTarget.getBoundingClientRect();
-      position = {
-        x: rect.left + rect.width + 10,
-        y: rect.top
-      };
+      position = { x: rect.left + rect.width + 10, y: rect.top };
     }
 
-    setOpenTooltips(prev => {
-      if (prev.find(t => t.id === tooltipId)) {
-        return prev;
-      }
-      const finalPosition = event && event.currentTarget ? position : {
-        x: position.x + prev.length * 30,
-        y: position.y + prev.length * 30
-      };
-      return [...prev, {
-        id: tooltipId,
-        type,
-        index,
-        data,
-        position: finalPosition,
-        zIndex: 1000 + prev.length
-      }];
-    });
-  }, []);
+    // Генерируем title и content синхронно
+    const title = getTooltipTitleSync(type, data.article);
+    const content = renderTooltipContentSync(type, data);
 
-  // Функция для закрытия tooltip
-  const closeTooltip = useCallback((tooltipId) => {
-    setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
+    tooltipManagerRef.current.open(tooltipId, title, content, position);
   }, []);
 
   const updateStocksFromYml = async () => {
@@ -277,6 +260,141 @@ function OffersTL({ user }) {
     }
   }, []);
 
+  // Синхронная функция для генерации заголовка tooltip
+  const getTooltipTitleSync = (type, article) => {
+    const articleBadge = article ? (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+        {article}
+      </span>
+    ) : null;
+    const titles = {
+      rating: 'История рейтинга',
+      cpl: 'Статистика CPL',
+      leads: 'Статистика лидов',
+      stock: 'Модификации товара',
+      date: 'Дата прихода',
+      zone: 'Цена лида в зоне',
+      status_history: 'История статусов',
+      season: 'Сезон и категория'
+    };
+    return <div className="flex items-center gap-2"><span>{titles[type] || 'Информация'}</span>{articleBadge}</div>;
+  };
+
+  // Синхронная функция для генерации контента tooltip
+  const renderTooltipContentSync = (type, data) => {
+    const getRatingColorLocal = (rating) => {
+      switch (rating) {
+        case 'A': return 'bg-green-100 text-green-800';
+        case 'B': return 'bg-blue-100 text-blue-800';
+        case 'C': return 'bg-yellow-100 text-yellow-800';
+        case 'D': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-400';
+      }
+    };
+    const getZoneColorsLocal = (zoneType) => {
+      switch (zoneType) {
+        case 'red': return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
+        case 'pink': return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
+        case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+        case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+        default: return null;
+      }
+    };
+    const formatDateLocal = (dateString) => {
+      if (!dateString) return '—';
+      try { return new Date(dateString).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+      catch { return '—'; }
+    };
+
+    switch (type) {
+      case 'rating':
+        return (
+          <div className="flex flex-col gap-2">
+            {data.ratingHistory?.length > 0 ? data.ratingHistory.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-2 last:border-b-0">
+                <span className="text-gray-600 w-20">{item.month} {item.year}</span>
+                <span className={`font-semibold px-2 py-1 rounded ${getRatingColorLocal(item.rating)}`}>{item.rating}</span>
+                <span className="text-gray-700 font-mono">CPL: {item.cpl > 0 ? item.cpl.toFixed(2) : '—'}</span>
+                <span className="text-gray-700">Лиды: {item.leads}</span>
+              </div>
+            )) : <div className="text-xs text-gray-500 italic">Нет данных</div>}
+          </div>
+        );
+      case 'cpl':
+      case 'leads':
+        return (
+          <table className="w-full text-xs">
+            <thead><tr className="border-b border-gray-200">
+              <th className="text-left py-1 px-2">Период</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'CPL' : 'Лидов'}</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'Расход' : 'CPL'}</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'Лидов' : 'Расход'}</th>
+            </tr></thead>
+            <tbody>
+              {[7, 14, 30, 60, 90].map(days => {
+                const d = data.leadsData?.[days];
+                if (!d) return null;
+                return <tr key={days} className="border-b border-gray-100">
+                  <td className="py-1 px-2">{d.label}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cpl.toFixed(2) : d.leads}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cost.toFixed(2) : d.cpl.toFixed(2)}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.leads : d.cost.toFixed(2)}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        );
+      case 'stock':
+        const baseArticle = data.article?.split("-")[0];
+        const mods = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
+        return <div className="flex flex-col gap-1.5">
+          {mods.length > 0 ? mods.map((m, i) => <div key={i} className="text-xs text-gray-700">{m}</div>) : <div className="text-xs text-gray-500 italic">Нет данных</div>}
+        </div>;
+      case 'date':
+        return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
+      case 'zone':
+        const m = data.metric;
+        return <div className="flex flex-col gap-2">
+          {['red', 'pink', 'gold', 'green'].map(z => {
+            const price = m[`${z}_zone_price`];
+            if (price == null) return null;
+            const c = getZoneColorsLocal(z);
+            return <div key={z} className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20 capitalize">{z === 'red' ? 'Красная' : z === 'pink' ? 'Розовая' : z === 'gold' ? 'Золотая' : 'Зеленая'}:</span>
+              <span className={`font-mono px-2 py-1 rounded-full text-xs border ${c.bg} ${c.text} ${c.border}`}>${Number(price).toFixed(2)}</span>
+            </div>;
+          })}
+        </div>;
+      case 'status_history':
+        return <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          {(data.statusHistory || []).map((entry, i) => {
+            const cfg = offerStatusService.getStatusColor(entry.status);
+            return <div key={i} className={`p-3 rounded-lg border-2 ${i === 0 ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-3 h-3 rounded-full ${cfg.color}`}></span>
+                <span className="text-sm font-semibold">{entry.status}</span>
+                {i === 0 && <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Текущий</span>}
+              </div>
+              <div className="text-xs text-gray-600">С: {formatDateLocal(entry.from_date)} → До: {formatDateLocal(entry.to_date)}</div>
+              <div className="text-xs">Длительность: <b>{entry.days_in_status} дн.</b></div>
+            </div>;
+          })}
+        </div>;
+      case 'season':
+        return <div className="flex flex-col gap-3">
+          <div><div className="text-xs font-medium text-gray-600 mb-1">Категория:</div><div className="text-sm">{data.category || '—'}</div></div>
+          {data.categoryDetails?.length > 0 && <div><div className="text-xs font-medium text-gray-600 mb-1">Категории товаров:</div>
+            {data.categoryDetails.map((d, i) => <div key={i} className="text-xs text-gray-700">{d}</div>)}
+          </div>}
+          <div><div className="text-xs font-medium text-gray-600 mb-1">Спецсезон:</div>
+            {data.specialSeasonStart || data.specialSeasonEnd ? <div className="text-sm font-mono">{data.specialSeasonStart || '—'} — {data.specialSeasonEnd || '—'}</div> : <div className="text-sm text-gray-500 italic">Не задан</div>}
+          </div>
+        </div>;
+      default:
+        return <div>Неизвестный тип</div>;
+    }
+  };
+
   // Фильтрация и сортировка
   const filteredMetrics = useMemo(() => {
     return metrics.filter(metric => {
@@ -332,472 +450,6 @@ function OffersTL({ user }) {
       }
     });
   }, []);
-
-  // Функция для получения цветов зон по типу
-  const getZoneColorsByType = useCallback((zoneType) => {
-    switch (zoneType) {
-      case 'red': return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
-      case 'pink': return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
-      case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
-      case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
-      default: return null;
-    }
-  }, []);
-
-  // Компонент тултипа с информацией о зонах
-  const ZonesTooltip = ({ metric, onClose }) => {
-    return (
-      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
-           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Цена лида в зоне</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="flex flex-col gap-2">
-          {/* Красная зона */}
-          {metric.red_zone_price !== null && metric.red_zone_price !== undefined && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 w-20">Красная:</span>
-              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('red').bg} ${getZoneColorsByType('red').text} ${getZoneColorsByType('red').border}`}>
-                ${Number(metric.red_zone_price).toFixed(2)}
-              </span>
-            </div>
-          )}
-          {/* Розовая зона */}
-          {metric.pink_zone_price !== null && metric.pink_zone_price !== undefined && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 w-20">Розовая:</span>
-              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('pink').bg} ${getZoneColorsByType('pink').text} ${getZoneColorsByType('pink').border}`}>
-                ${Number(metric.pink_zone_price).toFixed(2)}
-              </span>
-            </div>
-          )}
-          {/* Золотая зона */}
-          {metric.gold_zone_price !== null && metric.gold_zone_price !== undefined && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 w-20">Золотая:</span>
-              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('gold').bg} ${getZoneColorsByType('gold').text} ${getZoneColorsByType('gold').border}`}>
-                ${Number(metric.gold_zone_price).toFixed(2)}
-              </span>
-            </div>
-          )}
-          {/* Зеленая зона */}
-          {metric.green_zone_price !== null && metric.green_zone_price !== undefined && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 w-20">Зеленая:</span>
-              <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('green').bg} ${getZoneColorsByType('green').text} ${getZoneColorsByType('green').border}`}>
-                ${Number(metric.green_zone_price).toFixed(2)}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Компонент тултипа с датой прихода
-  const DateTooltip = ({ dateString, onClose }) => {
-    return (
-      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
-           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">Дата прихода</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="text-sm text-gray-900 font-mono">
-          {formatFullDate(dateString)}
-        </div>
-      </div>
-    );
-  };
-
-  // Компонент тултипа с модификациями товара
-  const StockTooltip = ({ article, onClose }) => {
-    const baseArticle = article ? article.split("-")[0] : null;
-    const modifications = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
-
-    return (
-      <div className="absolute z-50 bg-white border-2 border-gray-300 rounded-lg shadow-xl p-4 min-w-max"
-           style={{ left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: '8px' }}>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Модификации товара</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {modifications.length > 0 ? (
-            modifications.map((mod, index) => (
-              <div key={index} className="text-xs text-gray-700">
-                {mod}
-              </div>
-            ))
-          ) : (
-            <div className="text-xs text-gray-500 italic">Нет данных о модификациях</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Функция для получения цвета рейтинга
-  const getRatingColor = useCallback((rating) => {
-    switch (rating) {
-      case 'A': return 'bg-green-100 text-green-800';
-      case 'B': return 'bg-blue-100 text-blue-800';
-      case 'C': return 'bg-yellow-100 text-yellow-800';
-      case 'D': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-400';
-    }
-  }, []);
-
-  // Функция для рендера содержимого tooltip в зависимости от типа
-  const renderTooltipContent = useCallback((tooltip) => {
-    switch (tooltip.type) {
-      case 'rating':
-        return (
-          <div className="flex flex-col gap-2">
-            {tooltip.data.ratingHistory && tooltip.data.ratingHistory.length > 0 ? (
-              tooltip.data.ratingHistory.map((item, index) => (
-                <div key={index} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-2 last:border-b-0">
-                  <span className="text-gray-600 w-20">{item.month} {item.year}</span>
-                  <span className={`font-semibold px-2 py-1 rounded ${getRatingColor(item.rating)}`}>
-                    {item.rating}
-                  </span>
-                  <span className="text-gray-700 font-mono">CPL: {item.cpl > 0 ? item.cpl.toFixed(2) : '—'}</span>
-                  <span className="text-gray-700">Лиды: {item.leads}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-xs text-gray-500 italic">Нет данных за предыдущие месяцы</div>
-            )}
-          </div>
-        );
-      case 'cpl':
-        return (
-          <div className="w-full">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[7, 14, 30, 60, 90].map(days => {
-                  const data = tooltip.data.leadsData?.[days];
-                  if (!data) return null;
-                  return (
-                    <tr key={days} className="border-b border-gray-100">
-                      <td className="py-1 px-2 text-gray-900">{data.label}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      case 'leads':
-        return (
-          <div className="w-full">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-1 px-2 font-semibold text-gray-700">Период</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Лидов</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">CPL</th>
-                  <th className="text-right py-1 px-2 font-semibold text-gray-700">Расход</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[7, 14, 30, 60, 90].map(days => {
-                  const data = tooltip.data.leadsData?.[days];
-                  if (!data) return null;
-                  return (
-                    <tr key={days} className="border-b border-gray-100">
-                      <td className="py-1 px-2 text-gray-900">{data.label}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.leads}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cpl.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right font-mono text-gray-900">{data.cost.toFixed(2)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      case 'stock':
-        const baseArticle = tooltip.data.article ? tooltip.data.article.split("-")[0] : null;
-        const modifications = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
-        return (
-          <div className="flex flex-col gap-1.5">
-            {modifications.length > 0 ? (
-              modifications.map((mod, index) => (
-                <div key={index} className="text-xs text-gray-700">
-                  {mod}
-                </div>
-              ))
-            ) : (
-              <div className="text-xs text-gray-500 italic">Нет данных о модификациях</div>
-            )}
-          </div>
-        );
-      case 'date':
-        return (
-          <div className="text-sm text-gray-900 font-mono">
-            {tooltip.data.date ? formatFullDate(tooltip.data.date) : 'Нет данных'}
-          </div>
-        );
-      case 'zone':
-        const metric = tooltip.data.metric;
-        return (
-          <div className="flex flex-col gap-2">
-            {/* Красная зона */}
-            {metric.red_zone_price !== null && metric.red_zone_price !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 w-20">Красная:</span>
-                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('red').bg} ${getZoneColorsByType('red').text} ${getZoneColorsByType('red').border}`}>
-                  ${Number(metric.red_zone_price).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {/* Розовая зона */}
-            {metric.pink_zone_price !== null && metric.pink_zone_price !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 w-20">Розовая:</span>
-                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('pink').bg} ${getZoneColorsByType('pink').text} ${getZoneColorsByType('pink').border}`}>
-                  ${Number(metric.pink_zone_price).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {/* Золотая зона */}
-            {metric.gold_zone_price !== null && metric.gold_zone_price !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 w-20">Золотая:</span>
-                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('gold').bg} ${getZoneColorsByType('gold').text} ${getZoneColorsByType('gold').border}`}>
-                  ${Number(metric.gold_zone_price).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {/* Зеленая зона */}
-            {metric.green_zone_price !== null && metric.green_zone_price !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 w-20">Зеленая:</span>
-                <span className={`font-mono inline-flex items-center px-2 py-1 rounded-full text-xs border ${getZoneColorsByType('green').bg} ${getZoneColorsByType('green').text} ${getZoneColorsByType('green').border}`}>
-                  ${Number(metric.green_zone_price).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        );
-      case 'status_history':
-        const statusHistory = tooltip.data.statusHistory || [];
-        return (
-          <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
-            {statusHistory.length > 0 ? (
-              statusHistory.map((entry, index) => {
-                const statusConfig = offerStatusService.getStatusColor(entry.status);
-                const isCurrentStatus = index === 0;
-
-                // Форматируем даты
-                const formatDateTime = (dateString) => {
-                  if (!dateString) return '—';
-                  try {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('ru-RU', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    });
-                  } catch (error) {
-                    return '—';
-                  }
-                };
-
-                return (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border-2 ${isCurrentStatus ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'}`}
-                  >
-                    {/* Статус и badge */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`w-3 h-3 rounded-full ${statusConfig.color}`}></span>
-                      <span className="text-sm font-semibold text-gray-900">{entry.status}</span>
-                      {isCurrentStatus && (
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                          Текущий
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Даты "с" и "до" */}
-                    <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium">С:</span>
-                        <span className="font-mono">{formatDateTime(entry.from_date)}</span>
-                      </div>
-                      <span>→</span>
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium">До:</span>
-                        <span className="font-mono">{formatDateTime(entry.to_date)}</span>
-                      </div>
-                    </div>
-
-                    {/* Длительность */}
-                    <div className="text-xs text-gray-600">
-                      <span className="font-medium">Длительность:</span>{' '}
-                      <span className="font-semibold">{entry.days_in_status} дн.</span>
-                    </div>
-
-                    {/* Комментарий */}
-                    {entry.comment && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <p className="text-xs text-gray-700 italic">"{entry.comment}"</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-xs text-gray-500 italic text-center py-4">
-                История статусов пуста
-              </div>
-            )}
-          </div>
-        );
-      case 'season':
-        const category = tooltip.data.category;
-        const categoryDetails = tooltip.data.categoryDetails || [];
-        const specialSeasonStart = tooltip.data.specialSeasonStart;
-        const specialSeasonEnd = tooltip.data.specialSeasonEnd;
-        return (
-          <div className="flex flex-col gap-3">
-            {/* Категория */}
-            <div>
-              <div className="text-xs font-medium text-gray-600 mb-1">Категория:</div>
-              <div className="text-sm text-gray-900">{category || '—'}</div>
-            </div>
-
-            {/* Детали категорий */}
-            {categoryDetails.length > 0 && (
-              <div>
-                <div className="text-xs font-medium text-gray-600 mb-1">Категории товаров:</div>
-                <div className="flex flex-col gap-0.5 max-h-32 overflow-y-auto">
-                  {categoryDetails.map((detail, idx) => (
-                    <div key={idx} className="text-xs text-gray-700">
-                      {detail || <span className="text-gray-300">—</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Спецсезон */}
-            <div>
-              <div className="text-xs font-medium text-gray-600 mb-1">Спецсезон:</div>
-              {specialSeasonStart || specialSeasonEnd ? (
-                <div className="text-sm text-gray-900 font-mono">
-                  {specialSeasonStart || '—'} — {specialSeasonEnd || '—'}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">Не задан</div>
-              )}
-            </div>
-          </div>
-        );
-      default:
-        return <div>Неизвестный тип tooltip</div>;
-    }
-  }, [stockData, getRatingColor, formatFullDate, getZoneColorsByType]);
-
-  // Функция для получения заголовка tooltip
-  const getTooltipTitle = useCallback((tooltip) => {
-    const article = tooltip.data.article;
-
-    // Стилизованный артикул в виде голубой плашки (как в Trello)
-    const articleBadge = article ? (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-        {article}
-      </span>
-    ) : null;
-
-    switch (tooltip.type) {
-      case 'rating':
-        return (
-          <div className="flex items-center gap-2">
-            <span>История рейтинга</span>
-            {articleBadge}
-          </div>
-        );
-      case 'cpl':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Статистика CPL</span>
-            {articleBadge}
-          </div>
-        );
-      case 'leads':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Статистика лидов</span>
-            {articleBadge}
-          </div>
-        );
-      case 'stock':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Модификации товара</span>
-            {articleBadge}
-          </div>
-        );
-      case 'date':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Дата прихода</span>
-            {articleBadge}
-          </div>
-        );
-      case 'zone':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Цена лида в зоне</span>
-            {articleBadge}
-          </div>
-        );
-      case 'status_history':
-        return (
-          <div className="flex items-center gap-2">
-            <span>История статусов</span>
-            {articleBadge}
-          </div>
-        );
-      case 'season':
-        return (
-          <div className="flex items-center gap-2">
-            <span>Сезон и категория</span>
-            {articleBadge}
-          </div>
-        );
-      default:
-        return 'Информация';
-    }
-  }, []);
-
 
   if (loading) {
     return (
@@ -975,18 +627,8 @@ function OffersTL({ user }) {
         )}
       </div>
 
-      {/* Рендер всех открытых tooltip'ов поверх всей страницы */}
-      {openTooltips.map(tooltip => (
-        <DraggableTooltip
-          key={tooltip.id}
-          title={getTooltipTitle(tooltip)}
-          onClose={closeTooltip.bind(null, tooltip.id)}
-          initialPosition={tooltip.position}
-          zIndex={tooltip.zIndex}
-        >
-          {renderTooltipContent(tooltip)}
-        </DraggableTooltip>
-      ))}
+      {/* Изолированный менеджер tooltip'ов - не вызывает ре-рендер OffersTL */}
+      <TooltipManager ref={tooltipManagerRef} />
     </div>
   );
 }
