@@ -2345,6 +2345,9 @@ data-rt-sub16="${selectedLandingUuid}"
 
       </div>
 
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto">
+
       {/* КАРТОЧКИ СТАТИСТИКИ В ДВА РЯДА */}
       {filteredLandings.length > 0 && (
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
@@ -3348,6 +3351,8 @@ data-rt-sub16="${selectedLandingUuid}"
             </div>
           </div>
         )}
+      </div>
+
       </div>
 
       {/* Comment Modal */}
