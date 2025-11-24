@@ -174,45 +174,52 @@ function groupDataByArticleAndDate(data) {
 
 /**
  * Группирует данные по source_id_tracker и дате для метрик байеров
+ * Теперь группирует по артикулу -> source_id -> дате
  * @param {Array} data - Массив записей с source_id
- * @returns {Object} - { source_id: { date: { leads, cost } } }
+ * @returns {Object} - { article: { source_id: { date: { leads, cost } } } }
  */
 function groupDataBySourceIdAndDate(data) {
   const grouped = {};
 
   data.forEach(record => {
+    const article = record.article;
     const sourceId = record.source_id;
     const date = record.date;
     const leads = record.leads;
     const cost = record.cost;
 
-    if (!sourceId || sourceId === 'unknown' || !date) return;
+    if (!article || !sourceId || sourceId === 'unknown' || !date) return;
 
-    if (!grouped[sourceId]) {
-      grouped[sourceId] = {};
+    if (!grouped[article]) {
+      grouped[article] = {};
+    }
+
+    if (!grouped[article][sourceId]) {
+      grouped[article][sourceId] = {};
     }
 
     const dateStr = formatDate(date);
 
-    if (!grouped[sourceId][dateStr]) {
-      grouped[sourceId][dateStr] = { leads: 0, cost: 0 };
+    if (!grouped[article][sourceId][dateStr]) {
+      grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
     }
 
-    grouped[sourceId][dateStr].leads += leads;
-    grouped[sourceId][dateStr].cost += cost;
+    grouped[article][sourceId][dateStr].leads += leads;
+    grouped[article][sourceId][dateStr].cost += cost;
   });
 
   return grouped;
 }
 
 /**
- * Агрегирует метрики по массиву source_ids за указанный период
- * @param {Array} sourceIds - Массив source_id
- * @param {Object} dataBySourceIdAndDate - Сгруппированные данные
+ * Агрегирует метрики по артикулу оффера и массиву source_ids за указанный период
+ * @param {string} article - Артикул оффера
+ * @param {Array} sourceIds - Массив source_id байера
+ * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
  * @param {number} periodDays - Количество дней для агрегации
  * @returns {Object} - { leads, cost, cpl }
  */
-export function aggregateMetricsBySourceIds(sourceIds, dataBySourceIdAndDate, periodDays = 14) {
+export function aggregateMetricsBySourceIds(article, sourceIds, dataBySourceIdAndDate, periodDays = 14) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -222,8 +229,14 @@ export function aggregateMetricsBySourceIds(sourceIds, dataBySourceIdAndDate, pe
   let totalLeads = 0;
   let totalCost = 0;
 
+  // Получаем данные для конкретного артикула
+  const articleData = dataBySourceIdAndDate[article];
+  if (!articleData) {
+    return { leads: 0, cost: 0, cpl: 0 };
+  }
+
   sourceIds.forEach(sourceId => {
-    const sourceData = dataBySourceIdAndDate[sourceId];
+    const sourceData = articleData[sourceId];
     if (!sourceData) return;
 
     Object.keys(sourceData).forEach(dateStr => {
