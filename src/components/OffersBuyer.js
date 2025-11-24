@@ -30,7 +30,10 @@ function OffersBuyer({ user }) {
   }, [user?.id]);
 
   const loadBuyerOffers = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -38,8 +41,14 @@ function OffersBuyer({ user }) {
 
       console.log('🔄 Загружаем офферы для байера:', user.name);
 
-      // 1. Получаем привязки байера
-      const assignments = await offerBuyersService.getBuyerOffers(user.id);
+      // 1. Получаем привязки байера (если таблица не существует - вернется пустой массив)
+      let assignments = [];
+      try {
+        assignments = await offerBuyersService.getBuyerOffers(user.id);
+      } catch (e) {
+        console.warn('Таблица offer_buyers не найдена или ошибка:', e.message);
+        assignments = [];
+      }
       setBuyerAssignments(assignments);
 
       if (assignments.length === 0) {
@@ -51,33 +60,34 @@ function OffersBuyer({ user }) {
       // 2. Получаем уникальные offer_id
       const offerIds = [...new Set(assignments.map(a => a.offer_id))];
 
-      // 3. Загружаем все метрики
-      const data = await metricsAnalyticsService.getAllMetricsLarge();
-      setLastUpdated(data.lastUpdated);
+      // 3. Загружаем все метрики и статусы параллельно
+      const [metricsResult, statusesResult] = await Promise.all([
+        metricsAnalyticsService.getAllMetricsLarge().catch(e => ({ metrics: [] })),
+        offerStatusService.getOfferStatuses(offerIds).catch(e => [])
+      ]);
+
+      setLastUpdated(metricsResult.lastUpdated);
 
       // 4. Фильтруем только привязанные офферы
-      const filteredMetrics = (data.metrics || []).filter(m => offerIds.includes(m.id));
+      const filteredMetrics = (metricsResult.metrics || []).filter(m => offerIds.includes(m.id));
       setMetrics(filteredMetrics);
 
-      // 5. Загружаем статусы
-      if (filteredMetrics.length > 0) {
-        const statusesData = await offerStatusService.getOfferStatuses(offerIds);
-        const statusesMap = {};
-        statusesData.forEach(status => {
-          let daysInStatus = 0;
-          if (status.status_history && status.status_history.length > 0) {
-            const currentStatusEntry = status.status_history[0];
-            const changedAt = new Date(currentStatusEntry.changed_at);
-            const now = new Date();
-            daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
-          }
-          statusesMap[status.offer_id] = {
-            ...status,
-            days_in_status: daysInStatus
-          };
-        });
-        setOfferStatuses(statusesMap);
-      }
+      // 5. Обрабатываем статусы
+      const statusesMap = {};
+      (statusesResult || []).forEach(status => {
+        let daysInStatus = 0;
+        if (status.status_history && status.status_history.length > 0) {
+          const currentStatusEntry = status.status_history[0];
+          const changedAt = new Date(currentStatusEntry.changed_at);
+          const now = new Date();
+          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+        }
+        statusesMap[status.offer_id] = {
+          ...status,
+          days_in_status: daysInStatus
+        };
+      });
+      setOfferStatuses(statusesMap);
 
       console.log(`✅ Загружено ${filteredMetrics.length} офферов для байера`);
 
