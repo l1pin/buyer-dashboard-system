@@ -161,6 +161,18 @@ const OfferRow = memo(({
     }, e);
   }, [metric.date_arrival, metric.offer_name, metric.article, index, onOpenTooltip]);
 
+  const handleSeasonClick = useCallback((e) => {
+    e.stopPropagation();
+    onOpenTooltip('season', index, {
+      category: metric.category,
+      categoryDetails: metric.categoryDetails,
+      specialSeasonStart: metric.special_season_start,
+      specialSeasonEnd: metric.special_season_end,
+      offerName: metric.offer_name,
+      article: metric.article
+    }, e);
+  }, [metric.category, metric.categoryDetails, metric.special_season_start, metric.special_season_end, metric.offer_name, metric.article, index, onOpenTooltip]);
+
   const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
   const zoneColors = getZoneColors(metric.offer_zone);
   const redZoneColors = getZoneColorsByType('red');
@@ -362,8 +374,8 @@ const OfferRow = memo(({
 
         {/* Сезон */}
         <div className="w-16 flex-shrink-0 text-xs text-gray-600 flex items-center justify-center gap-1">
-          <span>—</span>
-          <StaticInfoIcon />
+          <span>{metric.season || '—'}</span>
+          <InfoIcon onClick={handleSeasonClick} />
         </div>
 
         {/* Цена */}

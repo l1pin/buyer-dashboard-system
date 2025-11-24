@@ -99,12 +99,31 @@ export const updateStocksFromYml = async (metrics) => {
       }
     });
 
-    // Обновляем метрики с остатками
+    // Обновляем метрики с остатками и категориями
     const updatedMetrics = metrics.map(metric => {
       if (skuData.hasOwnProperty(metric.article)) {
+        const articleData = skuData[metric.article];
+        const categories = Array.from(articleData.categories);
+
+        // Выбираем главную категорию: приоритет - не 52, не 55, не 16
+        let mainCategory = "";
+        const priorityCategory = categories.find(cat => cat !== "52" && cat !== "55" && cat !== "16");
+        if (priorityCategory) {
+          mainCategory = categoriesMap[priorityCategory] || "";
+        } else {
+          // Если нет приоритетной, приоритет: сначала 55, потом 16
+          if (categories.includes("55")) {
+            mainCategory = categoriesMap["55"] || "";
+          } else if (categories.includes("16")) {
+            mainCategory = categoriesMap["16"] || "";
+          }
+        }
+
         return {
           ...metric,
-          stock_quantity: skuData[metric.article].total
+          stock_quantity: articleData.total,
+          category: mainCategory,
+          categoryDetails: articleData.categoryDetails
         };
       }
       return metric;
