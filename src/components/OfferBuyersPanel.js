@@ -29,7 +29,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           avatar_url: null
         },
         offer_id: assignment.offer_id,
-        source_id: assignment.source_id
+        source_ids: assignment.source_ids || [] // Массив source_id
       };
     });
   }, [initialAssignments, allBuyers]);
@@ -69,19 +69,25 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setSavingAssignment(true);
 
     try {
-      // Получаем source_id из настроек байера
-      const channel = buyer.buyer_settings?.traffic_channels?.find(
+      // Получаем ВСЕ source_ids для выбранного источника (не только первый!)
+      const channels = buyer.buyer_settings?.traffic_channels?.filter(
         ch => ch.source === selectedSource
-      );
-      const sourceId = channel?.channel_id || null;
+      ) || [];
 
-      // Сохраняем в БД
+      // Собираем все channel_id в массив
+      const sourceIds = channels
+        .map(ch => ch.channel_id)
+        .filter(id => id); // Убираем null/undefined
+
+      console.log(`📦 Привязываем байера ${buyer.name} с ${sourceIds.length} source_ids для ${selectedSource}:`, sourceIds);
+
+      // Сохраняем в БД с массивом source_ids
       const savedAssignment = await offerBuyersService.addAssignment(
         offer.id,
         buyer.id,
         buyer.name,
         selectedSource,
-        sourceId
+        sourceIds
       );
 
       // Уведомляем родительский компонент о новой привязке
@@ -195,10 +201,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       <div className="text-xs font-medium text-gray-900 leading-tight break-words">
                         {assignment.buyer.name}
                       </div>
-                      {/* Source ID если есть */}
-                      {assignment.source_id && (
-                        <div className="text-[10px] text-gray-400 truncate mt-0.5" title={assignment.source_id}>
-                          ID: {assignment.source_id.slice(0, 8)}...
+                      {/* Количество Source IDs */}
+                      {assignment.source_ids && assignment.source_ids.length > 0 && (
+                        <div
+                          className="text-[10px] text-gray-400 mt-0.5 cursor-help"
+                          title={assignment.source_ids.join('\n')}
+                        >
+                          {assignment.source_ids.length} ID{assignment.source_ids.length > 1 ? 's' : ''}
                         </div>
                       )}
                     </div>
@@ -286,10 +295,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
               ) : (
                 <div className="space-y-2">
                   {availableBuyers.map(buyer => {
-                    // Получаем channel_id для отображения
-                    const channel = buyer.buyer_settings?.traffic_channels?.find(
+                    // Получаем ВСЕ channel_ids для выбранного источника
+                    const channels = buyer.buyer_settings?.traffic_channels?.filter(
                       ch => ch.source === selectedSource
-                    );
+                    ) || [];
+                    const sourceIds = channels.map(ch => ch.channel_id).filter(id => id);
 
                     return (
                       <button
@@ -318,9 +328,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-gray-900">{buyer.name}</div>
                             <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
-                            {channel?.channel_id && (
+                            {sourceIds.length > 0 && (
                               <div className="text-xs text-gray-400 mt-0.5">
-                                Source ID: {channel.channel_id}
+                                {sourceIds.length} Source ID{sourceIds.length > 1 ? 's' : ''}:
+                                <span className="ml-1 font-mono">
+                                  {sourceIds.length <= 2
+                                    ? sourceIds.join(', ')
+                                    : `${sourceIds[0]}, +${sourceIds.length - 1}`
+                                  }
+                                </span>
                               </div>
                             )}
                           </div>
