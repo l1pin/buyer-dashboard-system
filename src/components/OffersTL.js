@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService } from '../services/OffersSupabase';
 import {
@@ -130,7 +130,7 @@ function OffersTL({ user }) {
     }));
   };
 
-  // Функция для открытия нового tooltip (низкоприоритетное обновление)
+  // Функция для открытия нового tooltip
   const openTooltip = useCallback((type, index, data, event) => {
     const tooltipId = `${type}-${index}`;
 
@@ -143,32 +143,28 @@ function OffersTL({ user }) {
       };
     }
 
-    startTransition(() => {
-      setOpenTooltips(prev => {
-        if (prev.find(t => t.id === tooltipId)) {
-          return prev;
-        }
-        const finalPosition = event && event.currentTarget ? position : {
-          x: position.x + prev.length * 30,
-          y: position.y + prev.length * 30
-        };
-        return [...prev, {
-          id: tooltipId,
-          type,
-          index,
-          data,
-          position: finalPosition,
-          zIndex: 1000 + prev.length
-        }];
-      });
+    setOpenTooltips(prev => {
+      if (prev.find(t => t.id === tooltipId)) {
+        return prev;
+      }
+      const finalPosition = event && event.currentTarget ? position : {
+        x: position.x + prev.length * 30,
+        y: position.y + prev.length * 30
+      };
+      return [...prev, {
+        id: tooltipId,
+        type,
+        index,
+        data,
+        position: finalPosition,
+        zIndex: 1000 + prev.length
+      }];
     });
   }, []);
 
-  // Функция для закрытия tooltip (низкоприоритетное обновление)
+  // Функция для закрытия tooltip
   const closeTooltip = useCallback((tooltipId) => {
-    startTransition(() => {
-      setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
-    });
+    setOpenTooltips(prev => prev.filter(t => t.id !== tooltipId));
   }, []);
 
   const updateStocksFromYml = async () => {

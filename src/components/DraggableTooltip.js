@@ -21,18 +21,6 @@ const DraggableTooltip = React.memo(function DraggableTooltip({
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
 
-  // Применяем позицию через transform (без setState - нет ре-рендеров!)
-  const applyPosition = useCallback(() => {
-    if (tooltipRef.current) {
-      tooltipRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0)`;
-    }
-  }, []);
-
-  // Устанавливаем начальную позицию
-  useEffect(() => {
-    applyPosition();
-  }, [applyPosition]);
-
   // Обработчик начала перетаскивания
   const handleMouseDown = useCallback((e) => {
     if (e.target.closest('.close-button')) return;
@@ -110,9 +98,8 @@ const DraggableTooltip = React.memo(function DraggableTooltip({
         zIndex: zIndex,
         minWidth: '300px',
         maxWidth: '600px',
+        transform: `translate3d(${initialPosition.x}px, ${initialPosition.y}px, 0)`,
         willChange: 'transform',
-        backfaceVisibility: 'hidden',
-        perspective: 1000,
       }}
     >
       {/* Заголовок */}
