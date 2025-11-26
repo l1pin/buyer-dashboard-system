@@ -470,6 +470,11 @@ function OffersBuyer({ user }) {
                       <span className="font-medium">Длительность:</span>{' '}
                       <span className="font-semibold">{entry.days_in_status} дн.</span>
                     </div>
+                    {entry.changed_by && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        Изменил: <b className="text-blue-600">{entry.changed_by}</b>
+                      </div>
+                    )}
                     {entry.comment && (
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <p className="text-xs text-gray-700 italic">"{entry.comment}"</p>
