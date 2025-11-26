@@ -1,22 +1,11 @@
 /**
  * Скрипт для обновления остатков товаров из YML файла
  *
- * ОПТИМИЗАЦИИ v2.0:
- * - 🚀 Кэширование в localStorage с TTL 60 минут
- * - 🚀 Retry логика с exponential backoff (до 3 попыток)
- * - 🚀 Таймаут запроса 30 секунд
- *
  * Этот модуль содержит функцию для загрузки и парсинга YML файла с остатками товаров,
  * группировки остатков по базовым артикулам и обновления метрик.
  */
 
 const YML_URL = "https://senik.salesdrive.me/export/yml/export.yml?publicKey=wlOjIqfmiP78HuTVF_8fc1r4s-9vK6pxPt9m6x7dAt4z43lCe8O4erQlcPv7vQx_PRX4KTareAu";
-
-// Настройки кэширования
-const YML_CACHE_KEY = 'yml_stock_cache';
-const YML_CACHE_TTL = 60 * 60 * 1000; // 60 минут
-const FETCH_TIMEOUT = 30000; // 30 секунд
-const MAX_RETRIES = 3;
 
 /**
  * Обновляет остатки товаров из YML файла
@@ -27,23 +16,15 @@ const MAX_RETRIES = 3;
  */
 export const updateStocksFromYml = async (metrics) => {
   try {
-    const startTime = performance.now();
     console.log('🔄 Начинаем загрузку остатков из YML...');
 
-    // 🎯 ОПТИМИЗАЦИЯ: Проверяем кэш
-    const cached = getYmlCache();
-    let xmlString;
-
-    if (cached && cached.xmlString && (Date.now() - cached.timestamp) < YML_CACHE_TTL) {
-      const cacheAge = Math.round((Date.now() - cached.timestamp) / 60000);
-      console.log(`📦 Используем кэшированный YML (возраст: ${cacheAge} мин)`);
-      xmlString = cached.xmlString;
-    } else {
-      // Загружаем YML файл с retry логикой
-      xmlString = await fetchYmlWithRetry();
-      // Сохраняем в кэш
-      saveYmlCache(xmlString);
+    // Загружаем YML файл
+    const response = await fetch(YML_URL);
+    if (!response.ok) {
+      throw new Error(`Ошибка загрузки YML-файла. Код ответа: ${response.status}`);
     }
+
+    const xmlString = await response.text();
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
@@ -148,8 +129,7 @@ export const updateStocksFromYml = async (metrics) => {
       return metric;
     });
 
-    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-    console.log(`✅ Остатки обновлены для ${Object.keys(skuData).length} артикулов за ${elapsed}с`);
+    console.log(`✅ Остатки обновлены для ${Object.keys(skuData).length} артикулов`);
 
     return {
       metrics: updatedMetrics,
@@ -162,79 +142,6 @@ export const updateStocksFromYml = async (metrics) => {
     throw error;
   }
 };
-
-/**
- * 🚀 Загрузка YML с retry логикой и таймаутом
- */
-async function fetchYmlWithRetry(retryCount = 0) {
-  const RETRY_DELAY = 2000; // 2 секунды
-
-  try {
-    // Создаём контроллер для отмены по таймауту
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
-    const startTime = performance.now();
-    console.log(`📡 Загрузка YML файла (попытка ${retryCount + 1}/${MAX_RETRIES})...`);
-
-    const response = await fetch(YML_URL, {
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const text = await response.text();
-    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-    console.log(`✅ YML загружен: ${(text.length / 1024).toFixed(0)}KB за ${elapsed}с`);
-
-    return text;
-  } catch (error) {
-    // Retry логика
-    if (retryCount < MAX_RETRIES - 1) {
-      const isTimeout = error.name === 'AbortError';
-      const delay = RETRY_DELAY * Math.pow(2, retryCount);
-
-      console.log(`⚠️ ${isTimeout ? 'Таймаут' : error.message}, повтор через ${delay / 1000}с...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchYmlWithRetry(retryCount + 1);
-    }
-
-    throw new Error(`Ошибка загрузки YML после ${MAX_RETRIES} попыток: ${error.message}`);
-  }
-}
-
-/**
- * Получает кэш YML из localStorage
- */
-function getYmlCache() {
-  try {
-    const cached = localStorage.getItem(YML_CACHE_KEY);
-    if (!cached) return null;
-    return JSON.parse(cached);
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Сохраняет YML в кэш localStorage
- */
-function saveYmlCache(xmlString) {
-  try {
-    const cacheData = {
-      timestamp: Date.now(),
-      xmlString: xmlString
-    };
-    localStorage.setItem(YML_CACHE_KEY, JSON.stringify(cacheData));
-    console.log(`💾 YML кэш сохранён`);
-  } catch (error) {
-    console.warn('⚠️ Не удалось сохранить YML кэш:', error.message);
-  }
-}
 
 /**
  * Получает информацию о модификациях товара по артикулу

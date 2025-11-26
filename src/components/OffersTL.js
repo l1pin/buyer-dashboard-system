@@ -44,63 +44,10 @@ function OffersTL({ user }) {
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
 
-  // 🚀 Ref для предзагруженных данных (YML + SQL)
-  const prefetchedDataRef = useRef({
-    stocks: null,
-    sqlData: null,
-    timestamp: null
-  });
-
   // Загружаем ВСЁ параллельно при монтировании
   useEffect(() => {
     loadAllData();
   }, []);
-
-  // 🚀 ОПТИМИЗАЦИЯ: Предзагрузка данных в фоне при монтировании
-  useEffect(() => {
-    // Запускаем предзагрузку после начальной загрузки
-    const prefetchTimeout = setTimeout(() => {
-      prefetchMetricsData();
-    }, 2000); // Через 2 секунды после монтирования
-
-    return () => clearTimeout(prefetchTimeout);
-  }, [articleOfferMap]);
-
-  // Предзагрузка данных в фоне
-  const prefetchMetricsData = async () => {
-    // Не запускаем если нет маппинга или уже есть свежие данные
-    if (Object.keys(articleOfferMap).length === 0) return;
-
-    const now = Date.now();
-    const cached = prefetchedDataRef.current;
-
-    // Если данные свежие (менее 5 минут), не перезагружаем
-    if (cached.timestamp && (now - cached.timestamp) < 5 * 60 * 1000) {
-      console.log('📦 Предзагруженные данные актуальны');
-      return;
-    }
-
-    console.log('🔄 Предзагрузка метрик в фоне...');
-
-    try {
-      // Запускаем предзагрузку YML и SQL параллельно (без обновления UI)
-      const [stocksResult, daysResult] = await Promise.all([
-        updateStocksFromYmlScript(metrics).catch(err => null),
-        calculateRemainingDaysScript(metrics, articleOfferMap).catch(err => null)
-      ]);
-
-      // Сохраняем в ref (без ре-рендера)
-      prefetchedDataRef.current = {
-        stocks: stocksResult,
-        sqlData: daysResult?.rawData || null,
-        timestamp: Date.now()
-      };
-
-      console.log('✅ Предзагрузка завершена (в фоне)');
-    } catch (error) {
-      console.warn('⚠️ Ошибка предзагрузки:', error.message);
-    }
-  };
 
   // Главная функция загрузки - всё параллельно
   const loadAllData = async () => {
@@ -245,74 +192,35 @@ function OffersTL({ user }) {
     tooltipManagerRef.current.open(tooltipId, title, content, position);
   }, []);
 
-  // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик (ОПТИМИЗИРОВАННАЯ ВЕРСИЯ)
+  // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
   const updateAllMetrics = async () => {
-    const startTime = performance.now();
-
     try {
       setError('');
-      setSuccess('🚀 Загрузка метрик...');
+      setSuccess('Обновление метрик...');
 
-      console.log('🚀 Начинаем ОПТИМИЗИРОВАННОЕ обновление метрик...');
+      console.log('🚀 Начинаем обновление ВСЕХ метрик...');
 
+      // ШАГ 1: Сначала обновляем остатки (нужны для расчета дней)
+      console.log('📦 Шаг 1/3: Обновление остатков из YML...');
       setLoadingStocks(true);
-      setLoadingDays(true);
-      setLoadingLeadsData(true);
-
-      let stocksResult, daysResult;
-
-      // 🎯 ОПТИМИЗАЦИЯ: Проверяем предзагруженные данные
-      const prefetched = prefetchedDataRef.current;
-      const prefetchAge = prefetched.timestamp ? Date.now() - prefetched.timestamp : Infinity;
-      const usePrefetched = prefetched.stocks && prefetched.sqlData && prefetchAge < 2 * 60 * 1000; // 2 минуты
-
-      if (usePrefetched) {
-        console.log(`⚡ Используем предзагруженные данные (возраст: ${Math.round(prefetchAge / 1000)}с)`);
-
-        stocksResult = prefetched.stocks;
-        daysResult = {
-          metrics: metrics,
-          rawData: prefetched.sqlData,
-          processedCount: 0
-        };
-
-        // Очищаем предзагрузку
-        prefetchedDataRef.current = { stocks: null, sqlData: null, timestamp: null };
-      } else {
-        // 🎯 ОПТИМИЗАЦИЯ 1: Запускаем YML и SQL загрузку ПАРАЛЛЕЛЬНО
-        console.log('⚡ Параллельная загрузка: YML остатков + SQL данных за 12 месяцев...');
-
-        // Запускаем оба запроса одновременно
-        [stocksResult, daysResult] = await Promise.all([
-          updateStocksFromYmlScript(metrics).catch(err => {
-            console.error('❌ Ошибка загрузки YML:', err);
-            return { metrics, skuData: {}, totalArticles: 0, error: err.message };
-          }),
-          calculateRemainingDaysScript(metrics, articleOfferMap).catch(err => {
-            console.error('❌ Ошибка загрузки SQL:', err);
-            return { metrics, rawData: [], processedCount: 0, error: err.message };
-          })
-        ]);
-      }
-
-      // 🎯 ПРОГРЕССИВНАЯ ЗАГРУЗКА: Показываем остатки сразу
-      setLoadingStocks(false);
-      if (stocksResult.skuData) {
-        setStockData(stocksResult.skuData);
-      }
-
+      const stocksResult = await updateStocksFromYmlScript(metrics);
       let updatedMetrics = stocksResult.metrics;
-      console.log(`✅ Остатки: ${stocksResult.totalArticles} артикулов`);
-      console.log(`✅ SQL данные: ${daysResult.rawData?.length || 0} записей`);
+      setStockData(stocksResult.skuData);
+      setLoadingStocks(false);
+      console.log(`✅ Остатки обновлены для ${stocksResult.totalArticles} артикулов`);
 
-      // Обновляем метрики с остатками сразу (прогрессивная загрузка)
-      setMetrics(updatedMetrics);
-      setSuccess(`📦 Остатки загружены (${stocksResult.totalArticles})... Расчёт CPL...`);
+      // ШАГ 2: 🎯 ОПТИМИЗАЦИЯ - сначала загружаем данные за 12 месяцев (с source_id)
+      console.log('⚡ Шаг 2/3: Загрузка данных за 12 месяцев и расчет Дней продаж...');
+      setLoadingDays(true);
+
+      const daysResult = await calculateRemainingDaysScript(updatedMetrics, articleOfferMap);
 
       setLoadingDays(false);
+      console.log(`✅ Дни продаж рассчитаны, получено ${daysResult.rawData?.length || 0} агрегированных записей`);
 
-      // ШАГ 2: Расчёт CPL/Лидов/Рейтинга из загруженных данных
-      console.log('⚡ Расчет CPL/Лидов/Рейтинга из загруженных данных...');
+      // ШАГ 3: 🚀 Используем те же данные для CPL/Лидов/Рейтинга (экономим 6 SQL запросов!)
+      console.log('⚡ Шаг 3/3: Расчет CPL/Лидов/Рейтинга из тех же данных...');
+      setLoadingLeadsData(true);
 
       const leadsResult = await updateLeadsFromSqlScript(
         updatedMetrics,
@@ -322,7 +230,7 @@ function OffersTL({ user }) {
 
       setLoadingLeadsData(false);
 
-      // Объединяем ВСЕ результаты
+      // Объединяем результаты
       updatedMetrics = updatedMetrics.map(metric => {
         const leadsMetric = leadsResult.metrics.find(m => m.id === metric.id);
         const daysMetric = daysResult.metrics.find(m => m.id === metric.id);
@@ -340,11 +248,9 @@ function OffersTL({ user }) {
       }
 
       setMetrics(updatedMetrics);
+      setSuccess(`✅ Все метрики обновлены! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
 
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      setSuccess(`✅ Готово за ${elapsed}с! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
-
-      console.log(`🎉 Все метрики обновлены за ${elapsed} секунд!`);
+      console.log('🎉 Все метрики успешно обновлены!');
 
     } catch (error) {
       console.error('❌ Ошибка обновления метрик:', error);
