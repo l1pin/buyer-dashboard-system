@@ -11,7 +11,8 @@ import {
   ChevronUp,
   Package,
   Star,
-  Tv
+  Tv,
+  X
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
@@ -595,6 +596,17 @@ function OffersTL({ user }) {
             </h1>
           </div>
           <div className="flex items-center space-x-3">
+            <button
+              onClick={() => {
+                if (tooltipManagerRef.current) {
+                  tooltipManagerRef.current.closeAll();
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Закрыть все окна
+            </button>
             <button
               onClick={() => setShowMigrationModal(true)}
               className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"

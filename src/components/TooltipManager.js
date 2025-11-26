@@ -86,8 +86,12 @@ const TooltipManager = forwardRef((props, ref) => {
     setTooltips(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const closeAll = useCallback(() => {
+    setTooltips([]);
+  }, []);
+
   // Экспортируем методы через ref
-  useImperativeHandle(ref, () => ({ open, close }), [open, close]);
+  useImperativeHandle(ref, () => ({ open, close, closeAll }), [open, close, closeAll]);
 
   if (tooltips.length === 0) return null;
 
