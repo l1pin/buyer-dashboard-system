@@ -469,6 +469,11 @@ function OffersTL({ user }) {
               </div>
               <div className="text-xs text-gray-600">С: {formatDateLocal(entry.from_date)} → До: {formatDateLocal(entry.to_date)}</div>
               <div className="text-xs">Длительность: <b>{entry.days_in_status} дн.</b></div>
+              {entry.changed_by && (
+                <div className="text-xs text-gray-600 mt-1">
+                  Изменил: <b className="text-blue-600">{entry.changed_by}</b>
+                </div>
+              )}
             </div>;
           })}
         </div>;
