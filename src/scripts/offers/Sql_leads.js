@@ -377,55 +377,28 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
   // Создаем SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 СУПЕР-ОПТИМИЗАЦИЯ: Если офферов <= 5000, делаем ОДИН запрос за все 90 дней
-  // Лимит 6 МБ позволяет загружать гораздо больше данных одним запросом
-  if (offerIds.length <= 5000) {
-    const startDate = formatDate(start);
-    const endDate = formatDate(end);
+  // 🚀 ОПТИМИЗАЦИЯ: Разбиваем 90 дней на 6 периодов по 15 дней
+  // Это предотвращает HTTP 502 из-за превышения размера ответа
+  console.log(`📅 Разбиваем 90 дней на 6 периодов (по 15 дней) для параллельной загрузки...`);
 
-    console.log(`⚡ Загрузка ОДНИМ запросом за весь период ${startDate}..${endDate} (${offerIds.length} офферов)`);
+  const periods = [];
+  for (let i = 0; i < 6; i++) {
+    const periodStart = new Date(start);
+    periodStart.setDate(start.getDate() + (i * 15));
 
-    const sql =
-      `SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker ` +
-      `FROM ads_collection ` +
-      `WHERE adv_date BETWEEN '${startDate}' AND '${endDate}' ` +
-      `AND offer_id_tracker IN (${offerIdsList}) ` +
-      `AND valid > 0`;
+    const periodEnd = new Date(start);
+    periodEnd.setDate(start.getDate() + ((i + 1) * 15) - 1);
 
-    try {
-      const rawData = await getDataBySql(sql);
-      console.log(`✅ Загружено ${rawData.length} записей ОДНИМ запросом 🚀`);
-
-      const processedData = rawData.map(row => {
-        const offerId = row.offer_id_tracker || '';
-        const article = offerIdArticleMap[offerId] || '';
-
-        return {
-          article: article,
-          date: new Date(row.adv_date),
-          leads: Number(row.valid) || 0,
-          cost: Number(row.cost) || 0,
-          source_id: row.source_id_tracker || 'unknown'
-        };
-      }).filter(item => item.article && item.leads > 0);
-
-      return processedData;
-    } catch (error) {
-      console.error(`❌ Ошибка загрузки данных одним запросом: ${error.message}`);
-      throw error;
+    // Последний период может быть короче
+    if (periodEnd > end) {
+      periodEnd.setTime(end.getTime());
     }
+
+    periods.push({
+      from: formatDate(periodStart),
+      to: formatDate(periodEnd)
+    });
   }
-
-  // Для большого количества офферов (>5000) разбиваем на 2 периода по 45 дней
-  console.log(`📅 Разбиваем 90 дней на 2 периода (по 45 дней) для параллельной загрузки...`);
-
-  const midDate = new Date(start);
-  midDate.setDate(start.getDate() + 44); // 45 дней
-
-  const periods = [
-    { from: formatDate(start), to: formatDate(midDate) },
-    { from: formatDate(new Date(midDate.getTime() + 24*60*60*1000)), to: formatDate(end) }
-  ];
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p) => {
