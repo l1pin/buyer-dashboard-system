@@ -1,10 +1,17 @@
 /**
- * Универсальный скрипт для получения данных о лидах и рейтинга из SQL базы данных
+ * ОПТИМИЗИРОВАННЫЙ скрипт для получения данных о лидах и рейтинга из SQL базы данных
+ *
+ * ПРОИЗВОДИТЕЛЬНОСТЬ:
+ * – 🚀 Фильтрует по offer_id_tracker сразу в SQL (WHERE IN) - индекс работает эффективно
+ * – 🚀 Выполняет запросы параллельно (Promise.all) вместо последовательно
+ * – 🚀 Загружает только нужные offer_id, а не всю таблицу
+ *
+ * ФУНКЦИОНАЛ:
  * – Загружает данные за 90 дней для CPL, Лидов и Рейтинга
  * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
  * – Рассчитывает рейтинг (A/B/C/D) на основе CPL за 4 дня и "Цены лида в зоне" (red_zone_price)
  * – Если red_zone_price отсутствует, используется константа 3.5
- * – Использует offer_id_tracker из БД API и маппинг для получения артикула
+ * – Использует offer_id_tracker из БД API и маппинг article_offer_mapping
  * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
  * – Также агрегирует данные по source_id_tracker для метрик байеров
  */
@@ -347,6 +354,9 @@ function calculateMonthlyRatings(article, dataByArticleAndDate, baseThreshold, t
 
 /**
  * Получает данные из SQL БД за 90 дней для CPL, Лидов и Рейтинга
+ * ОПТИМИЗИРОВАННАЯ ВЕРСИЯ:
+ * - Фильтрует по offer_id_tracker сразу в SQL (WHERE IN)
+ * - Выполняет запросы параллельно (Promise.all)
  * @param {Object} offerIdArticleMap - Обратный маппинг offer_id -> article
  */
 async function fetchDataFor90Days(offerIdArticleMap = {}) {
@@ -354,6 +364,59 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
   const start = new Date();
   start.setDate(end.getDate() - 89);
 
+  // Получаем список всех offer_id из маппинга
+  const offerIds = Object.keys(offerIdArticleMap);
+
+  if (offerIds.length === 0) {
+    console.warn('⚠️ Маппинг пуст! Невозможно загрузить данные без Offer ID');
+    return [];
+  }
+
+  console.log(`📊 Будем фильтровать по ${offerIds.length} Offer ID`);
+
+  // Создаем SQL список для IN clause
+  const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
+  // 🚀 СУПЕР-ОПТИМИЗАЦИЯ: Если офферов немного (<= 150), делаем ОДИН запрос за все 90 дней
+  // Это быстрее, чем несколько параллельных запросов (меньше HTTP overhead)
+  if (offerIds.length <= 150) {
+    const startDate = formatDate(start);
+    const endDate = formatDate(end);
+
+    console.log(`⚡ Загрузка одним запросом за весь период ${startDate}..${endDate}`);
+
+    const sql =
+      `SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker ` +
+      `FROM ads_collection ` +
+      `WHERE adv_date BETWEEN '${startDate}' AND '${endDate}' ` +
+      `AND offer_id_tracker IN (${offerIdsList}) ` +
+      `AND valid > 0`;
+
+    try {
+      const rawData = await getDataBySql(sql);
+      console.log(`✅ Загружено ${rawData.length} записей ОДНИМ запросом 🚀`);
+
+      const processedData = rawData.map(row => {
+        const offerId = row.offer_id_tracker || '';
+        const article = offerIdArticleMap[offerId] || '';
+
+        return {
+          article: article,
+          date: new Date(row.adv_date),
+          leads: Number(row.valid) || 0,
+          cost: Number(row.cost) || 0,
+          source_id: row.source_id_tracker || 'unknown'
+        };
+      }).filter(item => item.article && item.leads > 0);
+
+      return processedData;
+    } catch (error) {
+      console.error(`❌ Ошибка загрузки данных одним запросом: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Для большого количества офферов (>150) разбиваем на периоды для параллельной загрузки
   const periods = [];
   const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 
@@ -372,20 +435,19 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
     cur.setDate(1);
   }
 
-  console.log(`📅 Загрузка 90 дней (${periods.length} периодов) для CPL, Лидов и Рейтинга...`);
+  console.log(`📅 Загрузка 90 дней (${periods.length} периодов) ПАРАЛЛЕЛЬНО...`);
 
-  let allData = [];
-  let successCount = 0;
-  let failedPeriods = [];
-
-  for (const p of periods) {
+  // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
+  const promises = periods.map(async (p) => {
+    // 🔥 ФИЛЬТРАЦИЯ НА SQL УРОВНЕ - индекс работает эффективно!
     const sql =
       `SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker ` +
       `FROM ads_collection ` +
       `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}' ` +
+      `AND offer_id_tracker IN (${offerIdsList}) ` +
       `AND valid > 0`;
 
-    console.log(`  📆 ${p.from}..${p.to}`);
+    console.log(`  📆 ${p.from}..${p.to} (параллельно)`);
 
     try {
       const rawData = await getDataBySql(sql);
@@ -393,7 +455,6 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
 
       const processedChunk = rawData.map(row => {
         const offerId = row.offer_id_tracker || '';
-        // Используем маппинг для получения артикула по offer_id
         const article = offerIdArticleMap[offerId] || '';
 
         return {
@@ -405,19 +466,35 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
         };
       }).filter(item => item.article && item.leads > 0);
 
-      allData = allData.concat(processedChunk);
-      successCount++;
+      return { success: true, data: processedChunk, period: `${p.from}..${p.to}` };
     } catch (error) {
       console.warn(`    ⚠️ Пропуск ${p.from}..${p.to}: ${error.message}`);
-      failedPeriods.push(`${p.from}..${p.to}`);
+      return { success: false, data: [], period: `${p.from}..${p.to}`, error: error.message };
     }
-  }
+  });
+
+  // Ждем завершения всех запросов параллельно
+  const results = await Promise.all(promises);
+
+  // Собираем данные и статистику
+  let allData = [];
+  let successCount = 0;
+  let failedPeriods = [];
+
+  results.forEach(result => {
+    if (result.success) {
+      allData = allData.concat(result.data);
+      successCount++;
+    } else {
+      failedPeriods.push(result.period);
+    }
+  });
 
   if (failedPeriods.length > 0) {
-    console.warn(`⚠️ Пропущено ${failedPeriods.length} периодов`);
+    console.warn(`⚠️ Пропущено ${failedPeriods.length} периодов: ${failedPeriods.join(', ')}`);
   }
 
-  console.log(`✅ 90 дней: ${allData.length} записей (${successCount}/${periods.length} периодов)`);
+  console.log(`✅ 90 дней: ${allData.length} записей (${successCount}/${periods.length} периодов) - загружено ПАРАЛЛЕЛЬНО 🚀`);
 
   return allData;
 }
