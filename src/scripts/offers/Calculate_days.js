@@ -171,11 +171,11 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
   // Создаём SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: Создаём периоды по 4 месяца (вместо 1) для уменьшения количества запросов
-  // 12 месяцев = 3 запроса вместо 12
-  const periods = createQuarterlyPeriods(start, end);
+  // 🚀 ОПТИМИЗАЦИЯ: Создаём периоды по 2 месяца для предотвращения HTTP 502
+  // 12 месяцев = 6 запросов (баланс между скоростью и размером ответа)
+  const periods = createBiMonthlyPeriods(start, end);
 
-  console.log(`📅 Загрузка ${periods.length} периодов (по 4 месяца) ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по 2 месяца) ПАРАЛЛЕЛЬНО...`);
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
@@ -237,28 +237,28 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
   });
 
   if (failedPeriods.length > 0) {
-    console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} месяцев: ${failedPeriods.join(', ')}`);
+    console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} периодов: ${failedPeriods.join(', ')}`);
   }
 
-  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} месяцев - ПАРАЛЛЕЛЬНО 🚀`);
+  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} периодов - ПАРАЛЛЕЛЬНО 🚀`);
 
   return all;
 }
 
 /**
- * Создаёт периоды по 4 месяца для параллельной загрузки
- * 12 месяцев = 3 запроса (вместо 12)
- * ОПТИМИЗИРОВАНО под лимит 6 МБ
+ * Создаёт периоды по 2 месяца для параллельной загрузки
+ * 12 месяцев = 6 запросов (баланс между скоростью и размером ответа)
+ * Предотвращает HTTP 502 из-за превышения размера ответа
  */
-function createQuarterlyPeriods(start, end) {
+function createBiMonthlyPeriods(start, end) {
   const periods = [];
   const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 
   while (cur <= end) {
     const from = formatDate(cur);
 
-    // Добавляем 4 месяца
-    const tmp = new Date(cur.getFullYear(), cur.getMonth() + 4, 0);
+    // Добавляем 2 месяца
+    const tmp = new Date(cur.getFullYear(), cur.getMonth() + 2, 0);
 
     if (tmp > end) {
       tmp.setTime(end.getTime());
@@ -267,8 +267,8 @@ function createQuarterlyPeriods(start, end) {
     const to = formatDate(tmp);
     periods.push({ from, to });
 
-    // Следующий период (+4 месяца)
-    cur.setMonth(cur.getMonth() + 4);
+    // Следующий период (+2 месяца)
+    cur.setMonth(cur.getMonth() + 2);
   }
 
   return periods;

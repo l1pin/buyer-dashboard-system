@@ -172,7 +172,6 @@ function OffersTL({ user }) {
   // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
   const updateAllMetrics = async () => {
     try {
-      setLoading(true);
       setError('');
       setSuccess('Обновление метрик...');
 
@@ -226,7 +225,6 @@ function OffersTL({ user }) {
       console.error('❌ Ошибка обновления метрик:', error);
       setError('Ошибка обновления метрик: ' + error.message);
     } finally {
-      setLoading(false);
       setLoadingStocks(false);
       setLoadingLeadsData(false);
       setLoadingDays(false);
@@ -569,19 +567,11 @@ function OffersTL({ user }) {
             </button>
             <button
               onClick={updateAllMetrics}
-              disabled={loading || loadingStocks || loadingLeadsData || loadingDays}
-              className="inline-flex items-center px-4 py-2 border border-green-400 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-500 disabled:opacity-50 transition-all duration-200 shadow-sm"
+              disabled={loadingStocks || loadingLeadsData || loadingDays}
+              className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || loadingStocks || loadingLeadsData || loadingDays) ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loadingStocks || loadingLeadsData || loadingDays) ? 'animate-spin' : ''}`} />
               Обновить метрики
-            </button>
-            <button
-              onClick={loadAllData}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all duration-200"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Обновить список
             </button>
           </div>
         </div>
