@@ -526,7 +526,7 @@ function OffersTL({ user }) {
           loadingStocks={loadingStocks}
           onOpenTooltip={openTooltip}
           onStatusChange={handleStatusChange}
-          userName={user?.full_name || 'Неизвестно'}
+          userName={user?.name || 'Неизвестно'}
           userId={user?.id}
           allBuyers={allBuyers}
           initialAssignments={allAssignments[metric.id] || []}

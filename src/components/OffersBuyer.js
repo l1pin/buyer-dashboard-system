@@ -764,7 +764,7 @@ function OffersBuyer({ user }) {
                           currentStatus={offerStatuses[metric.id]?.current_status}
                           daysInStatus={offerStatuses[metric.id]?.days_in_status}
                           onStatusChange={() => {}}
-                          userName={user?.full_name || 'Неизвестно'}
+                          userName={user?.name || 'Неизвестно'}
                           userId={user?.id}
                           readOnly={true}
                         />
