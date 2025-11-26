@@ -130,8 +130,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
+    console.log('📊 Article:', offer.article);
+    console.log('📊 Source IDs:', assignment.source_ids);
     setSelectedBuyerForCalendar({
-      offerId: offer.id,
       sourceIds: assignment.source_ids || [],
       article: offer.article,
       buyerName: assignment.buyer.name,
@@ -450,7 +451,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       {/* Модальное окно календаря метрик */}
       {showCalendar && selectedBuyerForCalendar && (
         <BuyerMetricsCalendar
-          offerId={selectedBuyerForCalendar.offerId}
           sourceIds={selectedBuyerForCalendar.sourceIds}
           article={selectedBuyerForCalendar.article}
           buyerName={selectedBuyerForCalendar.buyerName}

@@ -11,7 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, Calendar, TrendingUp, DollarSign, Users } from 'lucide-react';
 import { getBuyerMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 
-function BuyerMetricsCalendar({ offerId, sourceIds, article, buyerName, source, onClose }) {
+function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -22,13 +22,13 @@ function BuyerMetricsCalendar({ offerId, sourceIds, article, buyerName, source, 
 
   useEffect(() => {
     loadData();
-  }, [offerId, sourceIds]);
+  }, [sourceIds, article]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError('');
-      const result = await getBuyerMetricsCalendar(offerId, sourceIds, article);
+      const result = await getBuyerMetricsCalendar(sourceIds, article);
       setData(result);
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
