@@ -33,7 +33,7 @@ COMMENT ON COLUMN offer_statuses.offer_id IS 'ID оффера из metrics_analy
 COMMENT ON COLUMN offer_statuses.article IS 'Артикул оффера для удобства';
 COMMENT ON COLUMN offer_statuses.offer_name IS 'Название оффера для удобства';
 COMMENT ON COLUMN offer_statuses.current_status IS 'Текущий статус: Активный, Пауза, Закончился, Отлежка, Передел, КЦ';
-COMMENT ON COLUMN offer_statuses.status_history IS 'История изменений статусов в формате JSONB [{status: string, changed_at: timestamp, changed_by: string, comment: string}]';
+COMMENT ON COLUMN offer_statuses.status_history IS 'История изменений статусов в формате JSONB [{status: string, changed_at: timestamp, changed_by: string (имя пользователя), changed_by_id: string (UUID пользователя), comment: string}]';
 COMMENT ON COLUMN offer_statuses.created_at IS 'Дата и время создания записи';
 COMMENT ON COLUMN offer_statuses.updated_at IS 'Дата и время последнего обновления';
 

@@ -81,6 +81,7 @@ const OfferRow = memo(({
   onOpenTooltip,
   onStatusChange,
   userName,
+  userId,
   allBuyers,
   initialAssignments,
   onAssignmentsChange,
@@ -209,6 +210,7 @@ const OfferRow = memo(({
             daysInStatus={offerStatus?.days_in_status}
             onStatusChange={onStatusChange}
             userName={userName}
+            userId={userId}
           />
           <button
             onClick={handleStatusHistoryClick}
@@ -394,6 +396,7 @@ const OfferRow = memo(({
     prevProps.loadingDays === nextProps.loadingDays &&
     prevProps.loadingStocks === nextProps.loadingStocks &&
     prevProps.userName === nextProps.userName &&
+    prevProps.userId === nextProps.userId &&
     prevProps.allBuyers === nextProps.allBuyers &&
     prevProps.initialAssignments === nextProps.initialAssignments &&
     prevProps.buyerMetricsData === nextProps.buyerMetricsData

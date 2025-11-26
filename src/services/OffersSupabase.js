@@ -85,13 +85,14 @@ export const offerStatusService = {
    * @param {string} status - Новый статус
    * @param {string} article - Артикул оффера
    * @param {string} offerName - Название оффера
-   * @param {string} changedBy - Кто изменил
+   * @param {string} changedBy - Имя пользователя (полное имя, не email)
+   * @param {string} changedById - UUID пользователя
    * @param {string} comment - Комментарий (опционально)
    * @returns {Promise<Object>} Обновленный объект статуса
    */
-  async upsertOfferStatus(offerId, status, article = null, offerName = null, changedBy = 'System', comment = null) {
+  async upsertOfferStatus(offerId, status, article = null, offerName = null, changedBy = 'System', changedById = null, comment = null) {
     try {
-      console.log(`📝 Обновляем статус оффера ${offerId} на "${status}"...`);
+      console.log(`📝 Обновляем статус оффера ${offerId} на "${status}" (изменил: ${changedBy})...`);
 
       // Проверяем, существует ли уже запись
       const existingStatus = await this.getOfferStatus(offerId);
@@ -102,6 +103,7 @@ export const offerStatusService = {
           status: status,
           changed_at: new Date().toISOString(),
           changed_by: changedBy,
+          changed_by_id: changedById,
           comment: comment
         };
 
@@ -130,6 +132,7 @@ export const offerStatusService = {
           status: status,
           changed_at: new Date().toISOString(),
           changed_by: changedBy,
+          changed_by_id: changedById,
           comment: comment || 'Начальный статус'
         };
 

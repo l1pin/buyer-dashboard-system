@@ -7,7 +7,7 @@ import { offerStatusService } from '../services/OffersSupabase';
  * Показывает только цветной кружок и количество дней в этом статусе
  * @param {boolean} readOnly - если true, статус нельзя изменить (только просмотр)
  */
-function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User', readOnly = false }) {
+function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User', userId = null, readOnly = false }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const dropdownRef = useRef(null);
@@ -54,6 +54,7 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
         article,
         offerName,
         userName,
+        userId,
         null
       );
 
