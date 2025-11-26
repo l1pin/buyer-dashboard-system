@@ -68,73 +68,116 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
 
     const flatItems = [];
 
+    // Собираем все уникальные трекеры из всех дней
+    const allTrackers = new Map();
     sortedDates.forEach(date => {
       const dayData = data.hierarchy[date];
-
       Object.keys(dayData).forEach(tracker => {
-        const trackerData = dayData[tracker];
-        const trackerKey = `${date}-${tracker}`;
-
-        flatItems.push({
-          key: trackerKey,
-          level: 1,
-          date,
-          name: tracker,
-          data: trackerData,
-          type: 'tracker'
-        });
-
-        if (expandedItems[trackerKey]) {
-          Object.keys(trackerData.children || {}).forEach(campaign => {
-            const campaignData = trackerData.children[campaign];
-            const campaignKey = `${date}-${tracker}-${campaign}`;
-
-            flatItems.push({
-              key: campaignKey,
-              level: 2,
-              date,
-              name: campaign,
-              data: campaignData,
-              type: 'campaign',
-              parentKey: trackerKey
-            });
-
-            if (expandedItems[campaignKey]) {
-              Object.keys(campaignData.children || {}).forEach(group => {
-                const groupData = campaignData.children[group];
-                const groupKey = `${date}-${tracker}-${campaign}-${group}`;
-
-                flatItems.push({
-                  key: groupKey,
-                  level: 3,
-                  date,
-                  name: group,
-                  data: groupData,
-                  type: 'group',
-                  parentKey: campaignKey
-                });
-
-                if (expandedItems[groupKey]) {
-                  Object.keys(groupData.children || {}).forEach(ad => {
-                    const adData = groupData.children[ad];
-                    const adKey = `${date}-${tracker}-${campaign}-${group}-${ad}`;
-
-                    flatItems.push({
-                      key: adKey,
-                      level: 4,
-                      date,
-                      name: ad,
-                      data: adData,
-                      type: 'ad',
-                      parentKey: groupKey
-                    });
-                  });
-                }
-              });
-            }
+        if (!allTrackers.has(tracker)) {
+          allTrackers.set(tracker, {
+            name: tracker,
+            campaigns: new Map()
           });
         }
+
+        const trackerInfo = allTrackers.get(tracker);
+        const trackerData = dayData[tracker];
+
+        // Собираем кампании этого трекера
+        Object.keys(trackerData.children || {}).forEach(campaign => {
+          if (!trackerInfo.campaigns.has(campaign)) {
+            trackerInfo.campaigns.set(campaign, {
+              name: campaign,
+              groups: new Map()
+            });
+          }
+
+          const campaignInfo = trackerInfo.campaigns.get(campaign);
+          const campaignData = trackerData.children[campaign];
+
+          // Собираем группы этой кампании
+          Object.keys(campaignData.children || {}).forEach(group => {
+            if (!campaignInfo.groups.has(group)) {
+              campaignInfo.groups.set(group, {
+                name: group,
+                ads: new Set()
+              });
+            }
+
+            const groupInfo = campaignInfo.groups.get(group);
+            const groupData = campaignData.children[group];
+
+            // Собираем объявления этой группы
+            Object.keys(groupData.children || {}).forEach(ad => {
+              groupInfo.ads.add(ad);
+            });
+          });
+        });
       });
+    });
+
+    // Строим плоскую иерархию
+    allTrackers.forEach((trackerInfo, tracker) => {
+      const trackerKey = tracker;
+
+      flatItems.push({
+        key: trackerKey,
+        level: 1,
+        name: tracker,
+        type: 'tracker',
+        hasChildren: trackerInfo.campaigns.size > 0
+      });
+
+      if (expandedItems[trackerKey]) {
+        trackerInfo.campaigns.forEach((campaignInfo, campaign) => {
+          const campaignKey = `${tracker}-${campaign}`;
+
+          flatItems.push({
+            key: campaignKey,
+            level: 2,
+            name: campaign,
+            type: 'campaign',
+            parentKey: trackerKey,
+            trackerName: tracker,
+            hasChildren: campaignInfo.groups.size > 0
+          });
+
+          if (expandedItems[campaignKey]) {
+            campaignInfo.groups.forEach((groupInfo, group) => {
+              const groupKey = `${tracker}-${campaign}-${group}`;
+
+              flatItems.push({
+                key: groupKey,
+                level: 3,
+                name: group,
+                type: 'group',
+                parentKey: campaignKey,
+                trackerName: tracker,
+                campaignName: campaign,
+                hasChildren: groupInfo.ads.size > 0
+              });
+
+              if (expandedItems[groupKey]) {
+                groupInfo.ads.forEach(ad => {
+                  const adKey = `${tracker}-${campaign}-${group}-${ad}`;
+
+                  flatItems.push({
+                    key: adKey,
+                    level: 4,
+                    name: ad,
+                    type: 'ad',
+                    parentKey: groupKey,
+                    trackerName: tracker,
+                    campaignName: campaign,
+                    groupName: group,
+                    hasChildren: false
+                  });
+                });
+              }
+            });
+          }
+        });
+      }
     });
 
     return flatItems;
@@ -281,7 +324,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
               </thead>
               <tbody>
                 {flatHierarchy.map((item, index) => {
-                  const hasChildren = item.data.children && Object.keys(item.data.children).length > 0;
+                  const hasChildren = item.hasChildren;
                   const isExpanded = expandedItems[item.key];
                   const paddingLeft = 16 + (item.level - 1) * 20;
 
@@ -328,8 +371,16 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
                         let cellData = null;
 
                         // Ищем данные для этого элемента в конкретную дату
-                        if (item.date === date) {
-                          cellData = item.data;
+                        if (dayData) {
+                          if (item.type === 'tracker' && dayData[item.name]) {
+                            cellData = dayData[item.name];
+                          } else if (item.type === 'campaign' && dayData[item.trackerName]?.children[item.name]) {
+                            cellData = dayData[item.trackerName].children[item.name];
+                          } else if (item.type === 'group' && dayData[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
+                            cellData = dayData[item.trackerName].children[item.campaignName].children[item.name];
+                          } else if (item.type === 'ad' && dayData[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
+                            cellData = dayData[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
+                          }
                         }
 
                         const hasCost = cellData && (cellData.cost > 0 || cellData.valid > 0);
