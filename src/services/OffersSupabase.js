@@ -9,55 +9,22 @@ import { supabase } from '../supabaseClient';
  */
 export const offerStatusService = {
   /**
-   * Получить все статусы офферов (с пагинацией)
+   * Получить все статусы офферов
    * @returns {Promise<Array>} Массив статусов офферов
    */
   async getAllStatuses() {
     try {
       console.log('📊 Загружаем все статусы офферов...');
 
-      // Сначала получаем общее количество
-      const { count, error: countError } = await supabase
+      const { data, error } = await supabase
         .from('offer_statuses')
-        .select('*', { count: 'exact', head: true });
+        .select('*')
+        .order('offer_id', { ascending: true });
 
-      if (countError) throw countError;
+      if (error) throw error;
 
-      const totalCount = count || 0;
-      const pageSize = 1000;
-      const totalPages = Math.ceil(totalCount / pageSize);
-
-      console.log(`📄 Всего статусов: ${totalCount}, страниц: ${totalPages}`);
-
-      if (totalCount === 0) return [];
-
-      // Загружаем все страницы параллельно
-      const pagePromises = [];
-      for (let page = 0; page < totalPages; page++) {
-        const from = page * pageSize;
-        const to = from + pageSize - 1;
-
-        pagePromises.push(
-          supabase
-            .from('offer_statuses')
-            .select('*')
-            .order('offer_id', { ascending: true })
-            .range(from, to)
-        );
-      }
-
-      const results = await Promise.all(pagePromises);
-
-      // Собираем все данные
-      let allData = [];
-      results.forEach(result => {
-        if (!result.error && result.data) {
-          allData = allData.concat(result.data);
-        }
-      });
-
-      console.log(`✅ Загружено ${allData.length} статусов офферов`);
-      return allData;
+      console.log(`✅ Загружено ${data?.length || 0} статусов офферов`);
+      return data || [];
 
     } catch (error) {
       console.error('❌ Ошибка загрузки статусов офферов:', error);
@@ -513,58 +480,26 @@ export const offerBuyersService = {
  */
 export const articleOfferMappingService = {
   /**
-   * Получить все маппинги артикулов и Offer ID (с пагинацией)
+   * Получить все маппинги артикулов и Offer ID
    * @returns {Promise<Object>} Объект с маппингом article -> offer_id
    */
   async getAllMappings() {
     try {
       console.log('📊 Загружаем маппинг артикулов и Offer ID...');
 
-      // Сначала получаем общее количество
-      const { count, error: countError } = await supabase
+      const { data, error } = await supabase
         .from('article_offer_mapping')
-        .select('*', { count: 'exact', head: true });
+        .select('*');
 
-      if (countError) throw countError;
+      if (error) throw error;
 
-      const totalCount = count || 0;
-      const pageSize = 1000;
-      const totalPages = Math.ceil(totalCount / pageSize);
-
-      console.log(`📄 Всего маппингов: ${totalCount}, страниц: ${totalPages}`);
-
-      if (totalCount === 0) return {};
-
-      // Загружаем все страницы параллельно
-      const pagePromises = [];
-      for (let page = 0; page < totalPages; page++) {
-        const from = page * pageSize;
-        const to = from + pageSize - 1;
-
-        pagePromises.push(
-          supabase
-            .from('article_offer_mapping')
-            .select('*')
-            .range(from, to)
-        );
-      }
-
-      const results = await Promise.all(pagePromises);
-
-      // Собираем все данные и преобразуем в объект
+      // Преобразуем массив в объект для быстрого поиска
       const mappingMap = {};
-      let totalLoaded = 0;
-
-      results.forEach(result => {
-        if (!result.error && result.data) {
-          result.data.forEach(item => {
-            mappingMap[item.article] = item.offer_id;
-          });
-          totalLoaded += result.data.length;
-        }
+      (data || []).forEach(item => {
+        mappingMap[item.article] = item.offer_id;
       });
 
-      console.log(`✅ Загружено ${totalLoaded} маппингов`);
+      console.log(`✅ Загружено ${data?.length || 0} маппингов`);
       return mappingMap;
 
     } catch (error) {
