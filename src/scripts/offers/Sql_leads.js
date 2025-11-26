@@ -1,10 +1,12 @@
 /**
  * ОПТИМИЗИРОВАННЫЙ скрипт для получения данных о лидах и рейтинга из SQL базы данных
  *
- * ПРОИЗВОДИТЕЛЬНОСТЬ:
- * – 🚀 Фильтрует по offer_id_tracker сразу в SQL (WHERE IN) - индекс работает эффективно
- * – 🚀 Выполняет запросы параллельно (Promise.all) вместо последовательно
- * – 🚀 Загружает только нужные offer_id, а не всю таблицу
+ * ПРОИЗВОДИТЕЛЬНОСТЬ v2.0:
+ * – 🚀 Использует предзагруженные данные из Calculate_days.js (экономия 6 запросов)
+ * – 🚀 4 попытки с exponential backoff (2s, 4s, 8s, 16s)
+ * – 🚀 Таймаут 45 секунд для больших запросов
+ * – 🚀 Фильтрует по offer_id_tracker сразу в SQL (WHERE IN)
+ * – 🚀 Выполняет запросы параллельно (Promise.all)
  *
  * ФУНКЦИОНАЛ:
  * – Загружает данные за 90 дней для CPL, Лидов и Рейтинга
@@ -30,8 +32,9 @@ const PERIODS = [
 ];
 
 // Настройки для retry логики
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 3000; // 3 секунды
+const MAX_RETRIES = 4; // 4 попытки
+const RETRY_DELAY = 2000; // 2 секунды стартовая задержка
+const FETCH_TIMEOUT = 45000; // 45 секунд таймаут
 
 /**
  * Задержка выполнения
@@ -487,25 +490,42 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
 }
 
 /**
- * Универсальный fetch к SQL API с retry логикой
+ * 🚀 УЛУЧШЕННАЯ функция запроса к SQL API
+ *
+ * ОПТИМИЗАЦИИ:
+ * - 4 попытки с exponential backoff (2s, 4s, 8s, 16s)
+ * - Таймаут 45 секунд (для больших запросов)
+ * - Обработка 502, 503, 504, таймаутов и сетевых ошибок
  */
 async function getDataBySql(strSQL, retryCount = 0) {
   try {
+    // Создаём контроллер для отмены по таймауту
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+    const startTime = performance.now();
+
     const response = await fetch(CORE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ sql: strSQL })
+      body: JSON.stringify({ sql: strSQL }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const code = response.status;
     const text = await response.text();
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
 
-    // Если 500 или 502 - пробуем повторить
-    if ((code === 500 || code === 502) && retryCount < MAX_RETRIES) {
+    console.log(`HTTP ${code}, ${(text.length / 1024).toFixed(0)}KB за ${elapsed}с`);
+
+    // Если 500, 502, 503, 504 - пробуем повторить
+    if ([500, 502, 503, 504].includes(code) && retryCount < MAX_RETRIES) {
       const delay = RETRY_DELAY * Math.pow(2, retryCount);
-      console.log(`      ⚠️ HTTP ${code}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+      console.log(`⚠️ HTTP ${code}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay / 1000}с...`);
       await sleep(delay);
       return getDataBySql(strSQL, retryCount + 1);
     }
@@ -542,12 +562,18 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
     return json;
   } catch (error) {
-    // Если это сетевая ошибка и есть попытки - повторяем
-    if (retryCount < MAX_RETRIES && error.message.includes('fetch')) {
-      const delay = RETRY_DELAY * Math.pow(2, retryCount);
-      console.log(`      ⚠️ Сетевая ошибка, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
-      await sleep(delay);
-      return getDataBySql(strSQL, retryCount + 1);
+    // Обработка таймаутов и сетевых ошибок
+    if (retryCount < MAX_RETRIES) {
+      const isTimeout = error.name === 'AbortError';
+      const isNetworkError = error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed');
+
+      if (isTimeout || isNetworkError) {
+        const delay = RETRY_DELAY * Math.pow(2, retryCount);
+        const errorType = isTimeout ? 'Таймаут' : 'Сетевая ошибка';
+        console.log(`⚠️ ${errorType}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay / 1000}с...`);
+        await sleep(delay);
+        return getDataBySql(strSQL, retryCount + 1);
+      }
     }
     throw error;
   }
