@@ -51,6 +51,11 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
     return `$${Number(value).toFixed(2)}`;
   };
 
+  const formatCPL = (cpl, valid) => {
+    if (!valid || valid === 0) return '—';
+    return formatCurrency(cpl);
+  };
+
   // Функция для определения цвета CPL на основе рейтинга
   const getCPLColor = (cpl) => {
     if (!cpl || cpl === 0) return 'text-gray-400';
@@ -304,24 +309,6 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
               </>
             )}
           </div>
-
-          {/* Summary */}
-          {totalMetrics && (
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="text-xs text-gray-500 mb-1">Всего лидов</div>
-                <div className="text-lg font-bold text-gray-900">{totalMetrics.valid}</div>
-              </div>
-              <div className={`rounded-lg p-3 border ${getCPLCardBg(totalMetrics.cpl)}`}>
-                <div className="text-xs text-gray-500 mb-1">Средний CPL</div>
-                <div className="text-lg font-bold text-gray-900">{formatCurrency(totalMetrics.cpl)}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="text-xs text-gray-500 mb-1">Общий расход</div>
-                <div className="text-lg font-bold text-gray-900">{formatCurrency(totalMetrics.cost)}</div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Table Container */}
@@ -350,24 +337,56 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                 {flatHierarchy.map((item, index) => {
                   const hasChildren = item.hasChildren;
                   const isExpanded = expandedItems[item.key];
-                  const paddingLeft = 16 + (item.level - 1) * 20;
+                  const baseIndent = 16;
+                  const levelIndent = (item.level - 1) * 24;
+                  const paddingLeft = baseIndent + levelIndent;
 
-                  // Цвета левых полосок для разных уровней иерархии
-                  const levelBorderColors = {
-                    1: 'border-l-blue-500',
-                    2: 'border-l-green-500',
-                    3: 'border-l-yellow-500',
-                    4: 'border-l-purple-500'
+                  // Цвета для линий по уровням
+                  const levelColors = {
+                    1: '#3b82f6', // blue
+                    2: '#10b981', // green
+                    3: '#f59e0b', // yellow
+                    4: '#a855f7'  // purple
                   };
 
                   return (
                     <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
-                      <td className={`sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200 border-l-4 ${levelBorderColors[item.level]}`} style={{ minWidth: '280px' }}>
-                        <div className="flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
+                        <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
+                          {/* Визуальные линии иерархии */}
+                          {item.level > 1 && (
+                            <>
+                              {/* Горизонтальная линия к родителю */}
+                              <div
+                                className="absolute"
+                                style={{
+                                  left: `${baseIndent + (item.level - 2) * 24 + 12}px`,
+                                  top: '50%',
+                                  width: '16px',
+                                  height: '1px',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.4
+                                }}
+                              />
+                              {/* Вертикальная линия от родителя */}
+                              <div
+                                className="absolute"
+                                style={{
+                                  left: `${baseIndent + (item.level - 2) * 24 + 12}px`,
+                                  top: '-50%',
+                                  width: '1px',
+                                  height: '50%',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.4
+                                }}
+                              />
+                            </>
+                          )}
+
                           {hasChildren && (
                             <button
                               onClick={() => toggleItem(item.key)}
-                              className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0"
+                              className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
                             >
                               {isExpanded ? (
                                 <ChevronDown className="w-3 h-3 text-gray-600" />
@@ -410,24 +429,26 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                         const hasCost = cellData && (cellData.cost > 0 || cellData.valid > 0);
 
                         return (
-                          <td key={date} className="px-2 py-2 text-center" style={{ minWidth: '100px' }}>
+                          <td key={date} className="px-2 py-2 text-center" style={{ minWidth: '120px' }}>
                             {hasCost ? (
-                              <div className={`rounded-lg p-2 border ${getCPLCardBg(cellData.cpl)}`}>
-                                <div className="text-[10px] text-gray-500 mb-1">Лиды</div>
-                                <div className="text-xs font-semibold text-gray-900 mb-1">{cellData.valid}</div>
-                                <div className="text-[10px] text-gray-500 mb-1">CPL</div>
-                                <div className="text-xs font-semibold text-gray-900 mb-1">{formatCurrency(cellData.cpl)}</div>
-                                <div className="text-[10px] text-gray-500 mb-1">Расх</div>
-                                <div className="text-xs font-semibold text-gray-900">{formatCurrency(cellData.cost)}</div>
+                              <div className={`rounded-lg px-2 py-1.5 border text-xs ${getCPLCardBg(cellData.cpl)}`}>
+                                <div className="flex items-center justify-between gap-1 text-gray-900 font-medium whitespace-nowrap">
+                                  <span>Лиды: {cellData.valid}</span>
+                                  <span>|</span>
+                                  <span>CPL: {formatCPL(cellData.cpl, cellData.valid)}</span>
+                                  <span>|</span>
+                                  <span>Расх: {formatCurrency(cellData.cost)}</span>
+                                </div>
                               </div>
                             ) : (
-                              <div className="rounded-lg p-2 border border-gray-200 bg-gray-100">
-                                <div className="text-[10px] text-gray-400 mb-1">Лиды</div>
-                                <div className="text-xs font-semibold text-gray-400 mb-1">—</div>
-                                <div className="text-[10px] text-gray-400 mb-1">CPL</div>
-                                <div className="text-xs font-semibold text-gray-400 mb-1">—</div>
-                                <div className="text-[10px] text-gray-400 mb-1">Расх</div>
-                                <div className="text-xs font-semibold text-gray-400">—</div>
+                              <div className="rounded-lg px-2 py-1.5 border border-gray-200 bg-gray-100">
+                                <div className="flex items-center justify-between gap-1 text-gray-400 text-xs font-medium whitespace-nowrap">
+                                  <span>Лиды: —</span>
+                                  <span>|</span>
+                                  <span>CPL: —</span>
+                                  <span>|</span>
+                                  <span>Расх: —</span>
+                                </div>
                               </div>
                             )}
                           </td>
