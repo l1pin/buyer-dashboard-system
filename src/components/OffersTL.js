@@ -139,6 +139,18 @@ function OffersTL({ user }) {
     }));
   };
 
+  // Обновление маппингов после миграции
+  const handleMigrationSuccess = async () => {
+    try {
+      console.log('🔄 Перезагружаем маппинг артикулов...');
+      const mappings = await articleOfferMappingService.getAllMappings();
+      setArticleOfferMap(mappings);
+      console.log(`✅ Маппинг обновлен: ${Object.keys(mappings).length} записей`);
+    } catch (error) {
+      console.error('❌ Ошибка перезагрузки маппинга:', error);
+    }
+  };
+
   // Функция для открытия tooltip через изолированный менеджер (без setState в OffersTL!)
   const openTooltip = useCallback((type, index, data, event) => {
     if (!tooltipManagerRef.current) return;
@@ -205,7 +217,8 @@ function OffersTL({ user }) {
       setError('');
 
       // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
-      const result = await updateLeadsFromSqlScript(metrics);
+      // Передаем маппинг артикулов -> offer_id для получения данных по offer_id_tracker
+      const result = await updateLeadsFromSqlScript(metrics, articleOfferMap);
 
       setMetrics(result.metrics);
 
@@ -648,6 +661,7 @@ function OffersTL({ user }) {
       <MigrationModal
         isOpen={showMigrationModal}
         onClose={() => setShowMigrationModal(false)}
+        onMigrationSuccess={handleMigrationSuccess}
       />
     </div>
   );

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-const MigrationModal = ({ isOpen, onClose }) => {
+const MigrationModal = ({ isOpen, onClose, onMigrationSuccess }) => {
   const [activeTab, setActiveTab] = useState('offer_id'); // offer_id, statuses, season
   const [articlesInput, setArticlesInput] = useState('');
   const [offerIdsInput, setOfferIdsInput] = useState('');
@@ -49,6 +49,11 @@ const MigrationModal = ({ isOpen, onClose }) => {
       setSuccess(`✅ Успешно мигрировано ${records.length} записей`);
       setArticlesInput('');
       setOfferIdsInput('');
+
+      // Вызываем колбэк для обновления маппингов в родительском компоненте
+      if (onMigrationSuccess) {
+        onMigrationSuccess();
+      }
 
     } catch (err) {
       console.error('Ошибка миграции:', err);
