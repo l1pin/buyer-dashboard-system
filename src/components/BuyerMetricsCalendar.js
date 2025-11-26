@@ -70,14 +70,14 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
   // Функция для определения фона карточки по CPL
   const getCPLCardBg = (cpl) => {
-    if (!cpl || cpl === 0) return 'bg-gray-50 border-gray-200';
+    if (!cpl || cpl === 0) return 'border-gray-200';
 
     const percentage = (cpl / maxCPL) * 100;
 
-    if (percentage <= 35) return 'bg-green-50 border-green-200'; // A
-    if (percentage <= 65) return 'bg-blue-50 border-blue-200';   // B
-    if (percentage <= 90) return 'bg-yellow-50 border-yellow-200'; // C
-    return 'bg-red-50 border-red-200'; // D
+    if (percentage <= 35) return 'border-green-300 hover:border-green-400'; // A
+    if (percentage <= 65) return 'border-blue-300 hover:border-blue-400';   // B
+    if (percentage <= 90) return 'border-yellow-300 hover:border-yellow-400'; // C
+    return 'border-red-300 hover:border-red-400'; // D
   };
 
   const totalMetrics = useMemo(() => {
@@ -284,26 +284,26 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl border border-gray-200 w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
+      <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold text-gray-900">Календарь метрик</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">Календарь метрик</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span className="font-medium">Байер: <span className="text-blue-600">{buyerName}</span></span>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span><span className="font-medium text-gray-700">Байер:</span> {buyerName}</span>
             <span>•</span>
-            <span className="font-medium">Артикул: <span className="text-blue-600">{article}</span></span>
+            <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
             <span>•</span>
-            <span className="font-medium">Источник: <span className="text-blue-600">{source}</span></span>
+            <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
             {data?.period && (
               <>
                 <span>•</span>
-                <span className="font-medium">
+                <span>
                   {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
                 </span>
               </>
@@ -317,16 +317,16 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r-2 border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ minWidth: '280px' }}>
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
                     Иерархия
                   </th>
                   {sortedDates.map(date => {
                     const { day, month, weekday } = formatDate(date);
                     return (
-                      <th key={date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase" style={{ minWidth: '100px' }}>
+                      <th key={date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-gray-500 text-[10px]">{weekday}</span>
-                          <span className="text-gray-900 text-sm font-bold">{day}.{month}</span>
+                          <span className="text-gray-500 text-[10px] uppercase">{weekday}</span>
+                          <span className="text-gray-900 text-xs font-semibold">{day}.{month}</span>
                         </div>
                       </th>
                     );
@@ -429,25 +429,39 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                         const hasCost = cellData && (cellData.cost > 0 || cellData.valid > 0);
 
                         return (
-                          <td key={date} className="px-2 py-2 text-center" style={{ minWidth: '120px' }}>
+                          <td key={date} className="px-2 py-2" style={{ minWidth: '140px' }}>
                             {hasCost ? (
-                              <div className={`rounded-lg px-2 py-1.5 border text-xs ${getCPLCardBg(cellData.cpl)}`}>
-                                <div className="flex items-center justify-between gap-1 text-gray-900 font-medium whitespace-nowrap">
-                                  <span>Лиды: {cellData.valid}</span>
-                                  <span>|</span>
-                                  <span>CPL: {formatCPL(cellData.cpl, cellData.valid)}</span>
-                                  <span>|</span>
-                                  <span>Расх: {formatCurrency(cellData.cost)}</span>
+                              <div className={`bg-white border rounded-lg p-2 hover:shadow-md transition-all ${getCPLCardBg(cellData.cpl)}`}>
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-500">Лиды</span>
+                                    <span className="font-semibold text-gray-900">{cellData.valid}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-500">CPL</span>
+                                    <span className="font-semibold text-gray-900">{formatCPL(cellData.cpl, cellData.valid)}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-500">Расх</span>
+                                    <span className="font-semibold text-gray-900">{formatCurrency(cellData.cost)}</span>
+                                  </div>
                                 </div>
                               </div>
                             ) : (
-                              <div className="rounded-lg px-2 py-1.5 border border-gray-200 bg-gray-100">
-                                <div className="flex items-center justify-between gap-1 text-gray-400 text-xs font-medium whitespace-nowrap">
-                                  <span>Лиды: —</span>
-                                  <span>|</span>
-                                  <span>CPL: —</span>
-                                  <span>|</span>
-                                  <span>Расх: —</span>
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-400">Лиды</span>
+                                    <span className="font-medium text-gray-400">—</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-400">CPL</span>
+                                    <span className="font-medium text-gray-400">—</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-400">Расх</span>
+                                    <span className="font-medium text-gray-400">—</span>
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -464,18 +478,12 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">Всего дней: </span>
-              <span className="text-gray-900">{sortedDates.length}</span>
-            </div>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-            >
-              Закрыть
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Закрыть
+          </button>
         </div>
       </div>
     </div>
