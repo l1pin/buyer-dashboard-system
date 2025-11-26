@@ -196,8 +196,7 @@ function OffersTL({ user }) {
       setError('');
 
       // Используем функцию из отдельного скрипта
-      // Передаем маппинг артикулов -> offer_id для получения данных по offer_id_tracker
-      const result = await calculateRemainingDaysScript(metrics, articleOfferMap);
+      const result = await calculateRemainingDaysScript(metrics);
 
       setMetrics(result.metrics);
       setSuccess(`✅ Дни продаж рассчитаны для ${result.processedCount} офферов`);
