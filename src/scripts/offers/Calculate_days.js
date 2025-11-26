@@ -133,10 +133,14 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
     const processedCount = updatedMetrics.filter(m => m.days_remaining_value !== null).length;
     console.log(`✅ Обработано офферов: ${processedCount}`);
 
+    // 🎯 ОПТИМИЗАЦИЯ: Возвращаем сырые данные для повторного использования в Sql_leads.js
+    console.log(`📦 Возвращаем ${tracker.length} агрегированных записей (с source_id) для CPL/Лидов/Рейтинга`);
+
     return {
       metrics: updatedMetrics,
       processedCount: processedCount,
-      totalArticles: Object.keys(forecastMap).length
+      totalArticles: Object.keys(forecastMap).length,
+      rawData: tracker // Агрегированные данные за 12 месяцев с source_id_tracker
     };
 
   } catch (error) {
@@ -179,18 +183,19 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
-    // SQL с GROUP BY для агрегации данных на сервере
+    // 🎯 ОПТИМИЗАЦИЯ: GROUP BY с source_id_tracker для повторного использования в Sql_leads.js
     const sql = `
       SELECT
         offer_id_tracker,
         DATE(adv_date) as adv_date,
         SUM(valid) as total_leads,
-        SUM(cost) as total_cost
+        SUM(cost) as total_cost,
+        source_id_tracker
       FROM ads_collection
       WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
         AND offer_id_tracker IN (${offerIdsList})
         AND cost > 0
-      GROUP BY offer_id_tracker, DATE(adv_date)
+      GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
     `;
 
     console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to} (параллельно)`);
@@ -208,7 +213,8 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
           offerId: offerId,
           date: new Date(it.adv_date),
           leads: Number(it.total_leads) || 0,
-          cost: Number(it.total_cost) || 0
+          cost: Number(it.total_cost) || 0,
+          source_id: it.source_id_tracker || 'unknown' // Для метрик байеров и повторного использования
         };
       });
 
