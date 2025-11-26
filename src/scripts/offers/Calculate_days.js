@@ -286,7 +286,8 @@ async function fetchIncrementalData(offerIdArticleMap) {
       DATE(adv_date) as adv_date,
       SUM(valid) as total_leads,
       SUM(cost) as total_cost,
-      source_id_tracker
+      source_id_tracker,
+      MIN(offer_name) as offer_name
     FROM ads_collection
     WHERE adv_date BETWEEN '${formatDate(start)}' AND '${formatDate(end)}'
       AND offer_id_tracker IN (${offerIdsList})
@@ -299,7 +300,7 @@ async function fetchIncrementalData(offerIdArticleMap) {
     console.log(`✅ Инкрементально загружено: ${chunk.length} записей`);
 
     return chunk.map(it => ({
-      article: offerIdArticleMap[it.offer_id_tracker] || '',
+      article: extractArticle(it.offer_name) || '',
       offerId: it.offer_id_tracker || '',
       date: new Date(it.adv_date),
       leads: Number(it.total_leads) || 0,
@@ -341,7 +342,8 @@ async function fetchFullData(offerIdArticleMap, start, end) {
           DATE(adv_date) as adv_date,
           SUM(valid) as total_leads,
           SUM(cost) as total_cost,
-          source_id_tracker
+          source_id_tracker,
+          MIN(offer_name) as offer_name
         FROM ads_collection
         WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
           AND offer_id_tracker IN (${offerIdsList})
@@ -355,23 +357,9 @@ async function fetchFullData(offerIdArticleMap, start, end) {
         const chunk = await getDataBySql(sql);
         console.log(`  ✅ ${chunk.length} строк`);
 
-        // 🔍 ДИАГНОСТИКА: Показываем сырые offer_id_tracker из SQL (только первый батч)
-        if (idx === 0 && chunk.length > 0) {
-          const rawOfferIds = [...new Set(chunk.slice(0, 20).map(it => it.offer_id_tracker))];
-          console.log(`🔍 Сырые offer_id_tracker из SQL:`, rawOfferIds.slice(0, 5));
-
-          // Проверяем, есть ли они в маппинге
-          const matchedInMapping = rawOfferIds.filter(id => offerIdArticleMap[id]);
-          const notMatchedInMapping = rawOfferIds.filter(id => !offerIdArticleMap[id]);
-          console.log(`🔍 Из ${rawOfferIds.length} уникальных: ${matchedInMapping.length} есть в маппинге, ${notMatchedInMapping.length} нет`);
-
-          if (notMatchedInMapping.length > 0) {
-            console.warn(`⚠️ Примеры offer_id БЕЗ маппинга:`, notMatchedInMapping.slice(0, 3));
-          }
-        }
-
+        // Извлекаем артикул из offer_name (как в оригинале!)
         const mapped = chunk.map(it => ({
-          article: offerIdArticleMap[it.offer_id_tracker] || '',
+          article: extractArticle(it.offer_name) || '',
           offerId: it.offer_id_tracker || '',
           date: new Date(it.adv_date),
           leads: Number(it.total_leads) || 0,
