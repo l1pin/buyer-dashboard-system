@@ -274,16 +274,17 @@ async function fetchIncrementalData(offerIdArticleMap) {
 }
 
 /**
- * Полная загрузка данных за 12 месяцев (4 периода по 3 месяца)
+ * Полная загрузка данных за 12 месяцев (6 периодов по 2 месяца)
+ * Уменьшены периоды для избежания "Response payload size exceeded" на Netlify
  */
 async function fetchFullData(offerIdArticleMap, start, end) {
   const offerIds = Object.keys(offerIdArticleMap);
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: 4 периода по 3 месяца (вместо 12 по 1)
-  const periods = createQuarterlyPeriods(start, end);
+  // 🚀 ОПТИМИЗАЦИЯ: 6 периодов по 2 месяца (вместо 4 по 3 - слишком большие ответы!)
+  const periods = createBiMonthlyPeriods(start, end);
 
-  console.log(`📅 Загрузка ${periods.length} периодов (по 3 месяца) ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по 2 месяца) ПАРАЛЛЕЛЬНО...`);
 
   // Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
@@ -346,8 +347,12 @@ async function fetchFullData(offerIdArticleMap, start, end) {
 
   console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} периодов 🚀`);
 
-  // Сохраняем в кэш
-  saveCachedData(all);
+  // НЕ сохраняем в localStorage если данных слишком много (> 50000 записей или > 5MB)
+  if (all.length < 50000) {
+    saveCachedData(all);
+  } else {
+    console.log(`⚠️ Кэш не сохранён: слишком много данных (${all.length} записей)`);
+  }
 
   return all;
 }
