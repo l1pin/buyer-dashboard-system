@@ -1,8 +1,16 @@
 /**
- * Скрипт для расчёта оставшихся дней продаж на основе всей истории из SQL-API
- * – Достаём сначала MIN(adv_date), затем по месяцам всё накопительно
- * – Экспоненциальное сглаживание прогноза
- * – Возвращает результаты для обновления метрик
+ * ОПТИМИЗИРОВАННЫЙ скрипт для расчёта оставшихся дней продаж
+ *
+ * ПРОИЗВОДИТЕЛЬНОСТЬ:
+ * – 🚀 Фильтрует по offer_id_tracker сразу в SQL (WHERE IN) - индекс работает эффективно
+ * – 🚀 Выполняет запросы параллельно (Promise.all) вместо последовательно
+ * – 🚀 Загружает только нужные offer_id, а не всю таблицу
+ *
+ * ФУНКЦИОНАЛ:
+ * – Загружает историю за 12 месяцев из SQL БД
+ * – Экспоненциальное сглаживание прогноза (α = 0.3)
+ * – Рассчитывает оставшиеся дни продаж: stock / прогноз
+ * – Использует offer_id_tracker из БД API и маппинг article_offer_mapping
  */
 
 // Используем Netlify Function для обхода CORS
@@ -12,14 +20,23 @@ const CORE_URL = '/.netlify/functions/sql-proxy';
  * Рассчитывает оставшиеся дни продаж для массива метрик
  *
  * @param {Array} metrics - Массив метрик офферов
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id из article_offer_mapping
  * @returns {Promise<Object>} - Объект с обновленными метриками и статистикой
  */
-export const calculateRemainingDays = async (metrics) => {
+export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
   try {
     console.log('🔄 Начинаем расчет оставшихся дней продаж...');
 
-    // Получаем всю историю по частям
-    const tracker = await fetchTrackerAll();
+    // Создаем обратный маппинг: offer_id -> article
+    const offerIdArticleMap = {};
+    Object.keys(articleOfferMap).forEach(article => {
+      const offerId = articleOfferMap[article];
+      offerIdArticleMap[offerId] = article;
+    });
+    console.log(`📊 Загружено ${Object.keys(offerIdArticleMap).length} маппингов Offer ID -> Артикул`);
+
+    // Получаем всю историю по частям (с фильтрацией по offer_id)
+    const tracker = await fetchTrackerAll(offerIdArticleMap);
     console.log(`Всего строк истории: ${tracker.length}`);
 
     // Группируем по артикулу
@@ -130,80 +147,99 @@ export const calculateRemainingDays = async (metrics) => {
 
 /**
  * Достаёт данные за последние 12 месяцев с АГРЕГАЦИЕЙ на SQL сервере.
- * КРИТИЧЕСКИЕ ОПТИМИЗАЦИИ под лимиты Netlify Functions (6MB на ответ):
- * 1. ДВОЙНАЯ агрегация SQL: GROUP BY + округление дат до недель
- * 2. Последовательные запросы по месяцам (не параллельно из-за лимита)
- * 3. Задержки между запросами для снижения нагрузки
+ * ОПТИМИЗИРОВАННАЯ ВЕРСИЯ:
+ * - Фильтрует по offer_id_tracker сразу в SQL (WHERE IN) - индекс работает эффективно
+ * - Выполняет запросы ПАРАЛЛЕЛЬНО (Promise.all) вместо последовательно
+ * - Агрегирует данные на SQL уровне (GROUP BY)
+ * @param {Object} offerIdArticleMap - Обратный маппинг offer_id -> article
  */
-async function fetchTrackerAll() {
+async function fetchTrackerAll(offerIdArticleMap = {}) {
   const end = new Date();
   const start = new Date();
   start.setMonth(start.getMonth() - 12);
 
+  // Получаем список всех offer_id из маппинга
+  const offerIds = Object.keys(offerIdArticleMap);
+
+  if (offerIds.length === 0) {
+    console.warn('⚠️ Маппинг пуст! Невозможно загрузить данные без Offer ID');
+    return [];
+  }
+
+  console.log(`📊 Будем фильтровать по ${offerIds.length} Offer ID`);
+
+  // Создаём SQL список для IN clause
+  const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
   // Создаём периоды по 1 месяцу
   const periods = createMonthlyPeriods(start, end);
 
-  console.log(`📅 Будет загружено ${periods.length} месяцев (последовательно)`);
+  console.log(`📅 Загрузка ${periods.length} месяцев ПАРАЛЛЕЛЬНО...`);
 
-  let all = [];
-  let successCount = 0;
-  let failedPeriods = [];
-  const DELAY_BETWEEN_REQUESTS = 500; // 0.5 сек между запросами
-
-  // ПОСЛЕДОВАТЕЛЬНАЯ загрузка по месяцам
-  for (let i = 0; i < periods.length; i++) {
-    const p = periods[i];
-
-    // SQL с ДВОЙНОЙ агрегацией:
-    // 1. DATE(adv_date) - группировка по дням
-    // 2. SUM() - суммирование лидов и расходов
+  // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
+  const promises = periods.map(async (p, i) => {
+    // SQL с агрегацией И фильтрацией по offer_id
     const sql = `
       SELECT
-        offer_name,
+        offer_id_tracker,
         DATE(adv_date) as adv_date,
         SUM(valid) as total_leads,
         SUM(cost) as total_cost
       FROM ads_collection
       WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
+        AND offer_id_tracker IN (${offerIdsList})
         AND cost > 0
-      GROUP BY offer_name, DATE(adv_date)
+      GROUP BY offer_id_tracker, DATE(adv_date)
     `;
 
-    console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to}`);
+    console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to} (параллельно)`);
 
     try {
       const chunk = await getDataBySql(sql);
       console.log(`  ✅ ${chunk.length} строк`);
 
-      const mapped = chunk.map(it => ({
-        offer: it.offer_name || '',
-        date: new Date(it.adv_date),
-        leads: Number(it.total_leads) || 0,
-        cost: Number(it.total_cost) || 0
-      }));
+      const mapped = chunk.map(it => {
+        const offerId = it.offer_id_tracker || '';
+        const article = offerIdArticleMap[offerId] || '';
 
-      all = all.concat(mapped);
-      successCount++;
+        return {
+          article: article,
+          offerId: offerId,
+          date: new Date(it.adv_date),
+          leads: Number(it.total_leads) || 0,
+          cost: Number(it.total_cost) || 0
+        };
+      });
 
-      // Задержка между запросами для снижения нагрузки
-      if (i < periods.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS));
-      }
-
+      return { success: true, data: mapped, period: `${p.from}..${p.to}` };
     } catch (error) {
-      console.warn(`  ⚠️ Пропуск: ${error.message.substring(0, 100)}`);
-      failedPeriods.push(`${p.from}..${p.to}`);
-
-      // Продолжаем даже при ошибке
-      continue;
+      console.warn(`  ⚠️ Пропуск ${p.from}..${p.to}: ${error.message.substring(0, 100)}`);
+      return { success: false, data: [], period: `${p.from}..${p.to}`, error: error.message };
     }
-  }
+  });
+
+  // Ждем завершения всех запросов параллельно
+  const results = await Promise.all(promises);
+
+  // Собираем данные и статистику
+  let all = [];
+  let successCount = 0;
+  let failedPeriods = [];
+
+  results.forEach(result => {
+    if (result.success) {
+      all = all.concat(result.data);
+      successCount++;
+    } else {
+      failedPeriods.push(result.period);
+    }
+  });
 
   if (failedPeriods.length > 0) {
-    console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} месяцев`);
+    console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} месяцев: ${failedPeriods.join(', ')}`);
   }
 
-  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} месяцев`);
+  console.log(`✅ Загружено ${all.length} записей за ${successCount}/${periods.length} месяцев - ПАРАЛЛЕЛЬНО 🚀`);
 
   return all;
 }
@@ -324,16 +360,17 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
 /**
  * Группирует записи по артикулу
+ * ОПТИМИЗИРОВАННАЯ ВЕРСИЯ: использует article напрямую (уже получен из маппинга)
  */
 function buildTrackerIndex(tracker) {
   const map = {};
   let processedCount = 0;
   let skippedNoCost = 0;
-  let skippedNoOffer = 0;
+  let skippedNoArticle = 0;
 
-  tracker.forEach(({ offer, date, leads, cost }) => {
-    if (!offer) {
-      skippedNoOffer++;
+  tracker.forEach(({ article, date, leads, cost }) => {
+    if (!article) {
+      skippedNoArticle++;
       return;
     }
 
@@ -342,27 +379,25 @@ function buildTrackerIndex(tracker) {
       return;
     }
 
-    const art = extractArticle(offer);
-
-    if (!map[art]) {
-      map[art] = [];
+    if (!map[article]) {
+      map[article] = [];
     }
 
-    map[art].push({ date, leads });
+    map[article].push({ date, leads });
     processedCount++;
   });
 
-  console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без offer: ${skippedNoOffer}, пропущено без cost: ${skippedNoCost}`);
+  console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без article: ${skippedNoArticle}, пропущено без cost: ${skippedNoCost}`);
 
-  // Выводим примеры извлеченных артикулов
-  const sampleOffers = tracker
-    .filter(t => t.offer && t.cost > 0)
+  // Выводим примеры артикулов
+  const sampleArticles = tracker
+    .filter(t => t.article && t.cost > 0)
     .slice(0, 5);
 
-  if (sampleOffers.length > 0) {
-    console.log('📋 Примеры извлечения артикулов:');
-    sampleOffers.forEach(({ offer }) => {
-      console.log(`  "${offer}" -> "${extractArticle(offer)}"`);
+  if (sampleArticles.length > 0) {
+    console.log('📋 Примеры артикулов из маппинга:');
+    sampleArticles.forEach(({ article, offerId }) => {
+      console.log(`  Offer ID: "${offerId}" -> Артикул: "${article}"`);
     });
   }
 
