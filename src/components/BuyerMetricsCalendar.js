@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { getBuyerMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 
-function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }) {
+function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, maxCPL = 3.5 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -49,6 +49,30 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
 
   const formatCurrency = (value) => {
     return `$${Number(value).toFixed(2)}`;
+  };
+
+  // Функция для определения цвета CPL на основе рейтинга
+  const getCPLColor = (cpl) => {
+    if (!cpl || cpl === 0) return 'text-gray-400';
+
+    const percentage = (cpl / maxCPL) * 100;
+
+    if (percentage <= 35) return 'text-green-600'; // A
+    if (percentage <= 65) return 'text-blue-600';  // B
+    if (percentage <= 90) return 'text-yellow-600'; // C
+    return 'text-red-600'; // D
+  };
+
+  // Функция для определения фона карточки по CPL
+  const getCPLCardBg = (cpl) => {
+    if (!cpl || cpl === 0) return 'bg-gray-50 border-gray-200';
+
+    const percentage = (cpl / maxCPL) * 100;
+
+    if (percentage <= 35) return 'bg-green-50 border-green-200'; // A
+    if (percentage <= 65) return 'bg-blue-50 border-blue-200';   // B
+    if (percentage <= 90) return 'bg-yellow-50 border-yellow-200'; // C
+    return 'bg-red-50 border-red-200'; // D
   };
 
   const totalMetrics = useMemo(() => {
@@ -188,7 +212,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="bg-white rounded-xl border border-gray-200 max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
@@ -203,7 +227,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
   if (error) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-red-600">Ошибка</h2>
@@ -229,7 +253,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
   if (!data || sortedDates.length === 0) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Календарь метрик</h2>
@@ -255,7 +279,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
+      <div className="bg-white rounded-xl border border-gray-200 w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
@@ -285,16 +309,16 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
           {totalMetrics && (
             <div className="mt-4 grid grid-cols-3 gap-3">
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="text-xs text-gray-500 mb-1">Общий расход</div>
-                <div className="text-lg font-bold text-gray-900">{formatCurrency(totalMetrics.cost)}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="text-xs text-gray-500 mb-1">Всего лидов</div>
                 <div className="text-lg font-bold text-gray-900">{totalMetrics.valid}</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className={`rounded-lg p-3 border ${getCPLCardBg(totalMetrics.cpl)}`}>
                 <div className="text-xs text-gray-500 mb-1">Средний CPL</div>
                 <div className="text-lg font-bold text-gray-900">{formatCurrency(totalMetrics.cpl)}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div className="text-xs text-gray-500 mb-1">Общий расход</div>
+                <div className="text-lg font-bold text-gray-900">{formatCurrency(totalMetrics.cost)}</div>
               </div>
             </div>
           )}
@@ -306,7 +330,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider shadow-md" style={{ minWidth: '280px' }}>
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r-2 border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ minWidth: '280px' }}>
                     Иерархия
                   </th>
                   {sortedDates.map(date => {
@@ -328,17 +352,17 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
                   const isExpanded = expandedItems[item.key];
                   const paddingLeft = 16 + (item.level - 1) * 20;
 
-                  // Цвета для разных уровней
-                  const levelColors = {
-                    1: 'bg-blue-50 border-blue-200',
-                    2: 'bg-green-50 border-green-200',
-                    3: 'bg-yellow-50 border-yellow-200',
-                    4: 'bg-purple-50 border-purple-200'
+                  // Цвета левых полосок для разных уровней иерархии
+                  const levelBorderColors = {
+                    1: 'border-l-blue-500',
+                    2: 'border-l-green-500',
+                    3: 'border-l-yellow-500',
+                    4: 'border-l-purple-500'
                   };
 
                   return (
                     <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200 shadow-sm" style={{ minWidth: '280px' }}>
+                      <td className={`sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200 border-l-4 ${levelBorderColors[item.level]}`} style={{ minWidth: '280px' }}>
                         <div className="flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
                           {hasChildren && (
                             <button
@@ -388,13 +412,23 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose }
                         return (
                           <td key={date} className="px-2 py-2 text-center" style={{ minWidth: '100px' }}>
                             {hasCost ? (
-                              <div className={`rounded-lg p-2 border ${levelColors[item.level]}`}>
+                              <div className={`rounded-lg p-2 border ${getCPLCardBg(cellData.cpl)}`}>
+                                <div className="text-[10px] text-gray-500 mb-1">Лиды</div>
+                                <div className="text-xs font-semibold text-gray-900 mb-1">{cellData.valid}</div>
+                                <div className="text-[10px] text-gray-500 mb-1">CPL</div>
+                                <div className="text-xs font-semibold text-gray-900 mb-1">{formatCurrency(cellData.cpl)}</div>
+                                <div className="text-[10px] text-gray-500 mb-1">Расх</div>
                                 <div className="text-xs font-semibold text-gray-900">{formatCurrency(cellData.cost)}</div>
-                                <div className="text-xs text-gray-600 mt-0.5">{cellData.valid} лидов</div>
-                                <div className="text-xs font-bold text-blue-600 mt-0.5">{formatCurrency(cellData.cpl)}</div>
                               </div>
                             ) : (
-                              <div className="text-gray-300 text-xs">—</div>
+                              <div className="rounded-lg p-2 border border-gray-200 bg-gray-100">
+                                <div className="text-[10px] text-gray-400 mb-1">Лиды</div>
+                                <div className="text-xs font-semibold text-gray-400 mb-1">—</div>
+                                <div className="text-[10px] text-gray-400 mb-1">CPL</div>
+                                <div className="text-xs font-semibold text-gray-400 mb-1">—</div>
+                                <div className="text-[10px] text-gray-400 mb-1">Расх</div>
+                                <div className="text-xs font-semibold text-gray-400">—</div>
+                              </div>
                             )}
                           </td>
                         );
