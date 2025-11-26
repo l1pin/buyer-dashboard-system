@@ -96,11 +96,11 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
     const forecastArticles = Object.keys(forecastMap).slice(0, 5);
     console.log('📋 Примеры артикулов в forecastMap:', forecastArticles);
 
-    const metricsArticles = metrics
+    const sampleMetricsArticles = metrics
       .filter(m => m.article)
       .slice(0, 5)
       .map(m => m.article);
-    console.log('📋 Примеры артикулов в метриках:', metricsArticles);
+    console.log('📋 Примеры артикулов в метриках:', sampleMetricsArticles);
 
     // Подсчет метрик с наличием артикула и остатков
     const activeMetrics = metrics.filter(m => m.article && m.stock_quantity != null);
