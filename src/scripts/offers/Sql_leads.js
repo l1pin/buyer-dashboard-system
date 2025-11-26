@@ -43,23 +43,46 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * ГЛАВНАЯ ФУНКЦИЯ: Обновляет данные для всех трех колонок
  * @param {Array} metrics - Массив метрик офферов
  * @param {Object} articleOfferMap - Маппинг article -> offer_id из article_offer_mapping
+ * @param {Array} preloadedData - Опционально: предзагруженные данные из Calculate_days.js (оптимизация!)
  * @returns {Promise<Object>} - Объект с обновленными метриками
  */
-export const updateLeadsFromSql = async (metrics, articleOfferMap = {}) => {
+export const updateLeadsFromSql = async (metrics, articleOfferMap = {}, preloadedData = null) => {
   try {
-    console.log('🔄 Начинаем загрузку данных из БД (CPL, Лиды, Рейтинг)...');
+    let data90Days;
 
-    // Создаем обратный маппинг: offer_id -> article
-    const offerIdArticleMap = {};
-    Object.keys(articleOfferMap).forEach(article => {
-      const offerId = articleOfferMap[article];
-      offerIdArticleMap[offerId] = article;
-    });
-    console.log(`📊 Загружено ${Object.keys(offerIdArticleMap).length} маппингов Offer ID -> Артикул`);
+    // 🎯 НОВАЯ ОПТИМИЗАЦИЯ: Используем предзагруженные данные, если они есть
+    if (preloadedData && preloadedData.length > 0) {
+      console.log('🚀 Используем предзагруженные данные из Calculate_days.js (12 месяцев)...');
 
-    // 1. Загружаем данные за 90 дней для CPL, Лидов и Рейтинга
-    const data90Days = await fetchDataFor90Days(offerIdArticleMap);
-    console.log(`✅ Загружено ${data90Days.length} записей за 90 дней`);
+      // Фильтруем последние 90 дней
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 89);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      data90Days = preloadedData.filter(item => {
+        const itemDate = new Date(item.date);
+        return itemDate >= start && itemDate <= end;
+      });
+
+      console.log(`✅ Отфильтровано ${data90Days.length} записей за последние 90 дней (из ${preloadedData.length})`);
+    } else {
+      // Старый способ: загружаем данные из БД
+      console.log('🔄 Загружаем данные из БД (CPL, Лиды, Рейтинг)...');
+
+      // Создаем обратный маппинг: offer_id -> article
+      const offerIdArticleMap = {};
+      Object.keys(articleOfferMap).forEach(article => {
+        const offerId = articleOfferMap[article];
+        offerIdArticleMap[offerId] = article;
+      });
+      console.log(`📊 Загружено ${Object.keys(offerIdArticleMap).length} маппингов Offer ID -> Артикул`);
+
+      // 1. Загружаем данные за 90 дней для CPL, Лидов и Рейтинга
+      data90Days = await fetchDataFor90Days(offerIdArticleMap);
+      console.log(`✅ Загружено ${data90Days.length} записей за 90 дней`);
+    }
 
     // 2. Группируем данные по артикулу
     const dataByArticleAndDate = groupDataByArticleAndDate(data90Days);

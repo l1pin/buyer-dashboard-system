@@ -133,10 +133,14 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
     const processedCount = updatedMetrics.filter(m => m.days_remaining_value !== null).length;
     console.log(`✅ Обработано офферов: ${processedCount}`);
 
+    // 🎯 НОВАЯ ОПТИМИЗАЦИЯ: Возвращаем сырые данные для использования в Sql_leads.js
+    console.log(`📦 Возвращаем ${tracker.length} сырых записей для повторного использования`);
+
     return {
       metrics: updatedMetrics,
       processedCount: processedCount,
-      totalArticles: Object.keys(forecastMap).length
+      totalArticles: Object.keys(forecastMap).length,
+      rawData: tracker // Сырые данные за 12 месяцев для CPL/Лидов/Рейтинга
     };
 
   } catch (error) {
@@ -179,18 +183,19 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
-    // SQL с агрегацией И фильтрацией по offer_id
+    // 🎯 НОВАЯ ОПТИМИЗАЦИЯ: Загружаем детальные данные БЕЗ GROUP BY
+    // Эти же данные будут использованы для CPL/Лидов/Рейтинга!
     const sql = `
       SELECT
         offer_id_tracker,
-        DATE(adv_date) as adv_date,
-        SUM(valid) as total_leads,
-        SUM(cost) as total_cost
+        adv_date,
+        valid,
+        cost,
+        source_id_tracker
       FROM ads_collection
       WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
         AND offer_id_tracker IN (${offerIdsList})
         AND cost > 0
-      GROUP BY offer_id_tracker, DATE(adv_date)
     `;
 
     console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to} (параллельно)`);
@@ -207,8 +212,9 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
           article: article,
           offerId: offerId,
           date: new Date(it.adv_date),
-          leads: Number(it.total_leads) || 0,
-          cost: Number(it.total_cost) || 0
+          leads: Number(it.valid) || 0,
+          cost: Number(it.cost) || 0,
+          source_id: it.source_id_tracker || 'unknown' // Для метрик байеров
         };
       });
 
@@ -398,6 +404,10 @@ function buildTrackerIndex(tracker) {
   let skippedNoCost = 0;
   let skippedNoArticle = 0;
 
+  // 🎯 ОПТИМИЗАЦИЯ: Группируем по артикулу и дате на клиенте
+  // Т.к. мы убрали GROUP BY из SQL, нужно сгруппировать здесь
+  const articleDateMap = {};
+
   tracker.forEach(({ article, date, leads, cost }) => {
     if (!article) {
       skippedNoArticle++;
@@ -409,12 +419,23 @@ function buildTrackerIndex(tracker) {
       return;
     }
 
+    const dateStr = formatDate(date);
+    const key = `${article}|${dateStr}`;
+
+    if (!articleDateMap[key]) {
+      articleDateMap[key] = { article, date, leads: 0 };
+    }
+
+    articleDateMap[key].leads += leads;
+    processedCount++;
+  });
+
+  // Преобразуем в структуру {article: [{date, leads}]}
+  Object.values(articleDateMap).forEach(({ article, date, leads }) => {
     if (!map[article]) {
       map[article] = [];
     }
-
     map[article].push({ date, leads });
-    processedCount++;
   });
 
   console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без article: ${skippedNoArticle}, пропущено без cost: ${skippedNoCost}`);
