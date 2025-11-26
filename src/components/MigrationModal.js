@@ -71,6 +71,8 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
   };
 
   const handleStatusesMigration = async () => {
+    let errorCount = 0; // Объявляем здесь, чтобы была доступна в finally
+
     try {
       setLoading(true);
       setError('');
@@ -97,7 +99,6 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
       console.log(`📋 Статус: ${selectedStatus}, Пользователь: ${userName}`);
 
       let successCount = 0;
-      let errorCount = 0;
       const errors = [];
 
       // Обрабатываем каждый артикул
