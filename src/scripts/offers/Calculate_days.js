@@ -35,7 +35,27 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
   try {
     console.log('🔄 Начинаем расчет оставшихся дней продаж...');
 
-    // Создаем обратный маппинг: offer_id -> article
+    // 🔍 ДИАГНОСТИКА: Проверяем совпадение артикулов metrics с articleOfferMap
+    const mappingArticles = Object.keys(articleOfferMap);
+    const metricsArticles = metrics.filter(m => m.article).map(m => m.article);
+
+    const matchedArticles = metricsArticles.filter(a => articleOfferMap[a]);
+    const unmatchedArticles = metricsArticles.filter(a => !articleOfferMap[a]);
+
+    console.log(`📊 Проверка маппинга:`);
+    console.log(`   - Артикулов в маппинге: ${mappingArticles.length}`);
+    console.log(`   - Артикулов в метриках: ${metricsArticles.length}`);
+    console.log(`   - Совпадений: ${matchedArticles.length}`);
+    console.log(`   - Без маппинга: ${unmatchedArticles.length}`);
+
+    if (matchedArticles.length === 0 && metricsArticles.length > 0 && mappingArticles.length > 0) {
+      console.warn(`⚠️ ВНИМАНИЕ: Артикулы в маппинге НЕ совпадают с артикулами в метриках!`);
+      console.warn(`   Примеры артикулов в маппинге: ${mappingArticles.slice(0, 5).join(', ')}`);
+      console.warn(`   Примеры артикулов в метриках: ${metricsArticles.slice(0, 5).join(', ')}`);
+      console.warn(`   💡 Решение: В модальном окне "Миграция" введите артикулы из метрик (первый столбец) и соответствующие offer_id.`);
+    }
+
+    // Создаем обратный маппинг: offer_id -> article (для тех кто совпал)
     const offerIdArticleMap = {};
     Object.keys(articleOfferMap).forEach(article => {
       const offerId = articleOfferMap[article];
