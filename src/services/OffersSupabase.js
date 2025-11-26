@@ -470,3 +470,61 @@ export const offerBuyersService = {
     }
   }
 };
+
+/**
+ * Сервис для работы с маппингом артикулов и Offer ID
+ * Таблица article_offer_mapping
+ */
+export const articleOfferMappingService = {
+  /**
+   * Получить все маппинги артикулов и Offer ID
+   * @returns {Promise<Object>} Объект с маппингом article -> offer_id
+   */
+  async getAllMappings() {
+    try {
+      console.log('📊 Загружаем маппинг артикулов и Offer ID...');
+
+      const { data, error } = await supabase
+        .from('article_offer_mapping')
+        .select('*');
+
+      if (error) throw error;
+
+      // Преобразуем массив в объект для быстрого поиска
+      const mappingMap = {};
+      (data || []).forEach(item => {
+        mappingMap[item.article] = item.offer_id;
+      });
+
+      console.log(`✅ Загружено ${data?.length || 0} маппингов`);
+      return mappingMap;
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки маппингов:', error);
+      return {}; // Возвращаем пустой объект при ошибке
+    }
+  },
+
+  /**
+   * Получить Offer ID по артикулу
+   * @param {string} article - Артикул
+   * @returns {Promise<string|null>} Offer ID или null
+   */
+  async getOfferIdByArticle(article) {
+    try {
+      const { data, error } = await supabase
+        .from('article_offer_mapping')
+        .select('offer_id')
+        .eq('article', article)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+
+      return data?.offer_id || null;
+
+    } catch (error) {
+      console.error(`❌ Ошибка получения Offer ID для артикула ${article}:`, error);
+      return null;
+    }
+  }
+};

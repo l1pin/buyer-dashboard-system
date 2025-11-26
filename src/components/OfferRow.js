@@ -84,7 +84,8 @@ const OfferRow = memo(({
   allBuyers,
   initialAssignments,
   onAssignmentsChange,
-  buyerMetricsData
+  buyerMetricsData,
+  articleOfferMap
 }) => {
   // Мемоизированные обработчики для этой строки
   const handleStatusHistoryClick = useCallback(async (e) => {
@@ -184,7 +185,12 @@ const OfferRow = memo(({
         <div className="w-[3%] min-w-[32px] text-slate-700 font-medium text-xs">{metric.id}</div>
 
         {/* Артикул */}
-        <div className="w-[6%] min-w-[60px] font-mono text-xs text-slate-800">{metric.article || '—'}</div>
+        <div
+          className="w-[6%] min-w-[60px] font-mono text-xs text-slate-800 cursor-help"
+          title={articleOfferMap?.[metric.article] ? `Offer ID: ${articleOfferMap[metric.article]}` : metric.article}
+        >
+          {metric.article || '—'}
+        </div>
 
         {/* Название */}
         <div className="w-[14%] min-w-[120px] text-left">
