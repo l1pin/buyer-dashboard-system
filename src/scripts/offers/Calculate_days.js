@@ -13,8 +13,8 @@
  * – Использует offer_id_tracker из БД API и маппинг article_offer_mapping
  */
 
-// Используем Netlify Function для обхода CORS
-const CORE_URL = '/.netlify/functions/sql-proxy';
+// Прямой доступ к API (CORS включен на сервере)
+const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
 /**
  * Рассчитывает оставшиеся дни продаж для массива метрик
