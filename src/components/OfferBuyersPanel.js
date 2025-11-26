@@ -4,6 +4,7 @@ import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
+import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   offer,
@@ -17,6 +18,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [availableBuyers, setAvailableBuyers] = useState([]);
   const [loadingBuyers, setLoadingBuyers] = useState(false);
   const [savingAssignment, setSavingAssignment] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
 
   // Преобразуем привязки из БД в формат компонента
   const assignedBuyers = useMemo(() => {
@@ -125,6 +128,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     }
   }, [offer.id, initialAssignments, onAssignmentsChange]);
 
+  const handleOpenCalendar = useCallback((assignment) => {
+    console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
+    setSelectedBuyerForCalendar({
+      offerId: offer.id,
+      sourceIds: assignment.source_ids || [],
+      article: offer.article,
+      buyerName: assignment.buyer.name,
+      source: assignment.source
+    });
+    setShowCalendar(true);
+  }, [offer]);
+
+  const handleCloseCalendar = useCallback(() => {
+    setShowCalendar(false);
+    setSelectedBuyerForCalendar(null);
+  }, []);
+
   // Группируем байеров по источникам
   const buyersBySource = useMemo(() => ({
     Facebook: assignedBuyers.filter(b => b.source === 'Facebook'),
@@ -150,7 +170,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return { date: formattedDate, days: diffDays };
   }, []);
 
-  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer }) => {
+  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar }) => {
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -193,7 +213,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 return (
                   <div
                     key={assignment.id}
-                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 hover:border-gray-300 hover:bg-gray-50 transition-all group cursor-pointer"
+                    onClick={() => onOpenCalendar(assignment)}
+                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md transition-all group cursor-pointer"
+                    title="Нажмите для просмотра календаря метрик"
                   >
                     <div className="flex flex-col items-center text-center space-y-1">
                       {/* Аватар */}
@@ -285,6 +307,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             isLast={false}
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
+            onOpenCalendar={handleOpenCalendar}
           />
           <SourceColumn
             source="Google"
@@ -293,6 +316,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             isLast={false}
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
+            onOpenCalendar={handleOpenCalendar}
           />
           <SourceColumn
             source="TikTok"
@@ -301,6 +325,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             isLast={true}
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
+            onOpenCalendar={handleOpenCalendar}
           />
         </div>
       </div>
@@ -420,6 +445,18 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Модальное окно календаря метрик */}
+      {showCalendar && selectedBuyerForCalendar && (
+        <BuyerMetricsCalendar
+          offerId={selectedBuyerForCalendar.offerId}
+          sourceIds={selectedBuyerForCalendar.sourceIds}
+          article={selectedBuyerForCalendar.article}
+          buyerName={selectedBuyerForCalendar.buyerName}
+          source={selectedBuyerForCalendar.source}
+          onClose={handleCloseCalendar}
+        />
       )}
     </>
   );
