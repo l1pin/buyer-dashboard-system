@@ -294,72 +294,81 @@ async function fetchIncrementalData(offerIdArticleMap) {
 }
 
 /**
- * Полная загрузка данных за 12 месяцев (12 периодов по 1 месяцу)
- * Уменьшены периоды для избежания "Response payload size exceeded" на Netlify (~6MB лимит)
+ * Полная загрузка данных за 12 месяцев
+ * ПОСЛЕДОВАТЕЛЬНАЯ загрузка по 2 запроса за раз (чтобы не перегружать сервер)
  */
 async function fetchFullData(offerIdArticleMap, start, end) {
   const offerIds = Object.keys(offerIdArticleMap);
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: 12 периодов по 1 месяцу (2 месяца = слишком большие ответы для Netlify!)
   const periods = createMonthlyPeriods(start, end);
+  const CONCURRENCY = 2; // Максимум 2 запроса одновременно
 
-  console.log(`📅 Загрузка ${periods.length} периодов (по 1 месяцу) ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по ${CONCURRENCY} за раз)...`);
 
-  // Запускаем все запросы параллельно
-  const promises = periods.map(async (p, i) => {
-    const sql = `
-      SELECT
-        offer_id_tracker,
-        DATE(adv_date) as adv_date,
-        SUM(valid) as total_leads,
-        SUM(cost) as total_cost,
-        source_id_tracker
-      FROM ads_collection
-      WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
-        AND offer_id_tracker IN (${offerIdsList})
-        AND cost > 0
-      GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
-    `;
-
-    console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to}`);
-
-    try {
-      const chunk = await getDataBySql(sql);
-      console.log(`  ✅ ${chunk.length} строк`);
-
-      const mapped = chunk.map(it => ({
-        article: offerIdArticleMap[it.offer_id_tracker] || '',
-        offerId: it.offer_id_tracker || '',
-        date: new Date(it.adv_date),
-        leads: Number(it.total_leads) || 0,
-        cost: Number(it.total_cost) || 0,
-        source_id: it.source_id_tracker || 'unknown'
-      }));
-
-      return { success: true, data: mapped, period: `${p.from}..${p.to}` };
-    } catch (error) {
-      console.warn(`  ⚠️ Пропуск ${p.from}..${p.to}: ${error.message.substring(0, 100)}`);
-      return { success: false, data: [], period: `${p.from}..${p.to}`, error: error.message };
-    }
-  });
-
-  // Ждем завершения всех запросов
-  const results = await Promise.all(promises);
-
-  // Собираем данные
   let all = [];
   let successCount = 0;
   let failedPeriods = [];
 
-  results.forEach(result => {
-    if (result.success) {
-      all = all.concat(result.data);
-      successCount++;
-    } else {
-      failedPeriods.push(result.period);
+  // Загружаем батчами по CONCURRENCY штук
+  for (let i = 0; i < periods.length; i += CONCURRENCY) {
+    const batch = periods.slice(i, i + CONCURRENCY);
+
+    const batchPromises = batch.map(async (p, batchIdx) => {
+      const idx = i + batchIdx;
+      const sql = `
+        SELECT
+          offer_id_tracker,
+          DATE(adv_date) as adv_date,
+          SUM(valid) as total_leads,
+          SUM(cost) as total_cost,
+          source_id_tracker
+        FROM ads_collection
+        WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
+          AND offer_id_tracker IN (${offerIdsList})
+          AND cost > 0
+        GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
+      `;
+
+      console.log(`📦 [${idx + 1}/${periods.length}] ${p.from}..${p.to}`);
+
+      try {
+        const chunk = await getDataBySql(sql);
+        console.log(`  ✅ ${chunk.length} строк`);
+
+        const mapped = chunk.map(it => ({
+          article: offerIdArticleMap[it.offer_id_tracker] || '',
+          offerId: it.offer_id_tracker || '',
+          date: new Date(it.adv_date),
+          leads: Number(it.total_leads) || 0,
+          cost: Number(it.total_cost) || 0,
+          source_id: it.source_id_tracker || 'unknown'
+        }));
+
+        return { success: true, data: mapped, period: `${p.from}..${p.to}` };
+      } catch (error) {
+        console.warn(`  ⚠️ Пропуск ${p.from}..${p.to}: ${error.message.substring(0, 100)}`);
+        return { success: false, data: [], period: `${p.from}..${p.to}`, error: error.message };
+      }
+    });
+
+    // Ждём завершения текущего батча
+    const batchResults = await Promise.all(batchPromises);
+
+    batchResults.forEach(result => {
+      if (result.success) {
+        all = all.concat(result.data);
+        successCount++;
+      } else {
+        failedPeriods.push(result.period);
+      }
+    });
+
+    // Пауза между батчами чтобы сервер "отдохнул"
+    if (i + CONCURRENCY < periods.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-  });
+  }
 
   if (failedPeriods.length > 0) {
     console.warn(`⚠️ Пропущено ${failedPeriods.length}/${periods.length} периодов: ${failedPeriods.join(', ')}`);
