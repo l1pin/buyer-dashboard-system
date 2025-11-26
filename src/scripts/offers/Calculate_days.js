@@ -133,14 +133,10 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
     const processedCount = updatedMetrics.filter(m => m.days_remaining_value !== null).length;
     console.log(`✅ Обработано офферов: ${processedCount}`);
 
-    // 🎯 НОВАЯ ОПТИМИЗАЦИЯ: Возвращаем сырые данные для использования в Sql_leads.js
-    console.log(`📦 Возвращаем ${tracker.length} сырых записей для повторного использования`);
-
     return {
       metrics: updatedMetrics,
       processedCount: processedCount,
-      totalArticles: Object.keys(forecastMap).length,
-      rawData: tracker // Сырые данные за 12 месяцев для CPL/Лидов/Рейтинга
+      totalArticles: Object.keys(forecastMap).length
     };
 
   } catch (error) {
@@ -175,27 +171,26 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
   // Создаём SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: Создаём периоды по 2 месяца для предотвращения HTTP 502
-  // 12 месяцев = 6 запросов (баланс между скоростью и размером ответа)
-  const periods = createBiMonthlyPeriods(start, end);
+  // 🚀 ОПТИМИЗАЦИЯ: Создаём периоды по 1 месяцу
+  // 12 месяцев = 12 запросов, но с GROUP BY размер ответа приемлемый
+  const periods = createMonthlyPeriods(start, end);
 
-  console.log(`📅 Загрузка ${periods.length} периодов (по 2 месяца) ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по 1 месяцу) ПАРАЛЛЕЛЬНО...`);
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
-    // 🎯 НОВАЯ ОПТИМИЗАЦИЯ: Загружаем детальные данные БЕЗ GROUP BY
-    // Эти же данные будут использованы для CPL/Лидов/Рейтинга!
+    // SQL с GROUP BY для агрегации данных на сервере
     const sql = `
       SELECT
         offer_id_tracker,
-        adv_date,
-        valid,
-        cost,
-        source_id_tracker
+        DATE(adv_date) as adv_date,
+        SUM(valid) as total_leads,
+        SUM(cost) as total_cost
       FROM ads_collection
       WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
         AND offer_id_tracker IN (${offerIdsList})
         AND cost > 0
+      GROUP BY offer_id_tracker, DATE(adv_date)
     `;
 
     console.log(`📦 [${i + 1}/${periods.length}] ${p.from}..${p.to} (параллельно)`);
@@ -212,9 +207,8 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
           article: article,
           offerId: offerId,
           date: new Date(it.adv_date),
-          leads: Number(it.valid) || 0,
-          cost: Number(it.cost) || 0,
-          source_id: it.source_id_tracker || 'unknown' // Для метрик байеров
+          leads: Number(it.total_leads) || 0,
+          cost: Number(it.total_cost) || 0
         };
       });
 
@@ -281,7 +275,8 @@ function createBiMonthlyPeriods(start, end) {
 }
 
 /**
- * Создаёт периоды по 1 месяцу (УСТАРЕВШАЯ ВЕРСИЯ - не используется)
+ * Создаёт периоды по 1 месяцу для параллельной загрузки
+ * 12 месяцев = 12 запросов (с GROUP BY размер ответа приемлемый)
  */
 function createMonthlyPeriods(start, end) {
   const periods = [];
@@ -404,10 +399,6 @@ function buildTrackerIndex(tracker) {
   let skippedNoCost = 0;
   let skippedNoArticle = 0;
 
-  // 🎯 ОПТИМИЗАЦИЯ: Группируем по артикулу и дате на клиенте
-  // Т.к. мы убрали GROUP BY из SQL, нужно сгруппировать здесь
-  const articleDateMap = {};
-
   tracker.forEach(({ article, date, leads, cost }) => {
     if (!article) {
       skippedNoArticle++;
@@ -419,23 +410,12 @@ function buildTrackerIndex(tracker) {
       return;
     }
 
-    const dateStr = formatDate(date);
-    const key = `${article}|${dateStr}`;
-
-    if (!articleDateMap[key]) {
-      articleDateMap[key] = { article, date, leads: 0 };
-    }
-
-    articleDateMap[key].leads += leads;
-    processedCount++;
-  });
-
-  // Преобразуем в структуру {article: [{date, leads}]}
-  Object.values(articleDateMap).forEach(({ article, date, leads }) => {
     if (!map[article]) {
       map[article] = [];
     }
+
     map[article].push({ date, leads });
+    processedCount++;
   });
 
   console.log(`🔍 buildTrackerIndex: обработано ${processedCount}, пропущено без article: ${skippedNoArticle}, пропущено без cost: ${skippedNoCost}`);
