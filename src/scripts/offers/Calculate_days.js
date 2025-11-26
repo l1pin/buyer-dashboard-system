@@ -294,17 +294,17 @@ async function fetchIncrementalData(offerIdArticleMap) {
 }
 
 /**
- * Полная загрузка данных за 12 месяцев (6 периодов по 2 месяца)
- * Уменьшены периоды для избежания "Response payload size exceeded" на Netlify
+ * Полная загрузка данных за 12 месяцев (12 периодов по 1 месяцу)
+ * Уменьшены периоды для избежания "Response payload size exceeded" на Netlify (~6MB лимит)
  */
 async function fetchFullData(offerIdArticleMap, start, end) {
   const offerIds = Object.keys(offerIdArticleMap);
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: 6 периодов по 2 месяца (вместо 4 по 3 - слишком большие ответы!)
-  const periods = createBiMonthlyPeriods(start, end);
+  // 🚀 ОПТИМИЗАЦИЯ: 12 периодов по 1 месяцу (2 месяца = слишком большие ответы для Netlify!)
+  const periods = createMonthlyPeriods(start, end);
 
-  console.log(`📅 Загрузка ${periods.length} периодов (по 2 месяца) ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по 1 месяцу) ПАРАЛЛЕЛЬНО...`);
 
   // Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
