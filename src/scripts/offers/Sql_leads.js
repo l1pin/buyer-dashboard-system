@@ -16,8 +16,8 @@
  * – Также агрегирует данные по source_id_tracker для метрик байеров
  */
 
-// Используем Netlify Function для обхода CORS
-const CORE_URL = '/.netlify/functions/sql-proxy';
+// Прямой доступ к API (CORS включен на сервере)
+const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
 // Периоды для агрегации данных
 const PERIODS = [
