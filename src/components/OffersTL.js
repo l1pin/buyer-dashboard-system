@@ -169,6 +169,71 @@ function OffersTL({ user }) {
     tooltipManagerRef.current.open(tooltipId, title, content, position);
   }, []);
 
+  // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
+  const updateAllMetrics = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('Обновление метрик...');
+
+      console.log('🚀 Начинаем обновление ВСЕХ метрик...');
+
+      // ШАГ 1: Сначала обновляем остатки (нужны для расчета дней)
+      console.log('📦 Шаг 1/3: Обновление остатков из YML...');
+      setLoadingStocks(true);
+      const stocksResult = await updateStocksFromYmlScript(metrics);
+      let updatedMetrics = stocksResult.metrics;
+      setStockData(stocksResult.skuData);
+      setLoadingStocks(false);
+      console.log(`✅ Остатки обновлены для ${stocksResult.totalArticles} артикулов`);
+
+      // ШАГ 2: Параллельно обновляем CPL/Лиды/Рейтинг и Дни продаж
+      console.log('⚡ Шаг 2/3: Параллельное обновление CPL/Лидов/Рейтинга и Дней продаж...');
+      setLoadingLeadsData(true);
+      setLoadingDays(true);
+
+      const [leadsResult, daysResult] = await Promise.all([
+        updateLeadsFromSqlScript(updatedMetrics, articleOfferMap),
+        calculateRemainingDaysScript(updatedMetrics, articleOfferMap)
+      ]);
+
+      setLoadingLeadsData(false);
+      setLoadingDays(false);
+
+      // Объединяем результаты
+      updatedMetrics = updatedMetrics.map(metric => {
+        const leadsMetric = leadsResult.metrics.find(m => m.id === metric.id);
+        const daysMetric = daysResult.metrics.find(m => m.id === metric.id);
+
+        return {
+          ...metric,
+          ...(leadsMetric || {}),
+          ...(daysMetric || {})
+        };
+      });
+
+      // Сохраняем данные по source_id для метрик байеров
+      if (leadsResult.dataBySourceIdAndDate) {
+        setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
+      }
+
+      setMetrics(updatedMetrics);
+      setSuccess(`✅ Все метрики обновлены! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
+
+      console.log('🎉 Все метрики успешно обновлены!');
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления метрик:', error);
+      setError('Ошибка обновления метрик: ' + error.message);
+    } finally {
+      setLoading(false);
+      setLoadingStocks(false);
+      setLoadingLeadsData(false);
+      setLoadingDays(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
   const updateStocksFromYml = async () => {
     try {
       setLoadingStocks(true);
@@ -503,12 +568,20 @@ function OffersTL({ user }) {
               Миграция
             </button>
             <button
+              onClick={updateAllMetrics}
+              disabled={loading || loadingStocks || loadingLeadsData || loadingDays}
+              className="inline-flex items-center px-4 py-2 border border-green-400 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-500 disabled:opacity-50 transition-all duration-200 shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || loadingStocks || loadingLeadsData || loadingDays) ? 'animate-spin' : ''}`} />
+              Обновить метрики
+            </button>
+            <button
               onClick={loadAllData}
               disabled={loading}
               className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all duration-200"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Обновить
+              Обновить список
             </button>
           </div>
         </div>
@@ -588,59 +661,21 @@ function OffersTL({ user }) {
                 <div className="w-[6%] min-w-[60px]">Артикул</div>
                 <div className="w-[14%] min-w-[120px] text-left">Название</div>
                 <div className="w-[8%] min-w-[80px]">Статус</div>
-                <div className="w-[5%] min-w-[50px] flex items-center justify-center gap-1">
-                  <span>CPL</span>
-                  <button
-                    onClick={updateLeadsData}
-                    disabled={loadingLeadsData}
-                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-50"
-                    title="Обновить CPL и лиды из БД"
-                  >
-                    <RefreshCw className={`h-3 w-3 text-slate-500 ${loadingLeadsData ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+                <div className="w-[5%] min-w-[50px]">CPL</div>
                 <div className="w-[4%] min-w-[40px]">Лиды</div>
                 <div className="w-[4%] min-w-[36px]" title="Продажи на 1 заявку">
                   <Package className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>
-                <div className="w-[5%] min-w-[44px] flex items-center justify-center gap-1" title="Рейтинг">
-                  <Star className="h-3.5 w-3.5 text-slate-500" />
-                  <button
-                    onClick={updateLeadsData}
-                    disabled={loadingLeadsData}
-                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-50"
-                    title="Обновить рейтинг"
-                  >
-                    <RefreshCw className={`h-3 w-3 text-slate-500 ${loadingLeadsData ? 'animate-spin' : ''}`} />
-                  </button>
+                <div className="w-[5%] min-w-[44px]" title="Рейтинг">
+                  <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>
                 <div className="w-[4%] min-w-[36px]" title="Реклама">
                   <Tv className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>
                 <div className="w-[5%] min-w-[44px]" title="Зона эффективности">Зона</div>
                 <div className="w-[6%] min-w-[56px]" title="Цена лида в зоне">CPL зона</div>
-                <div className="w-[5%] min-w-[48px] flex items-center justify-center gap-1" title="Дней продаж">
-                  Дни
-                  <button
-                    onClick={calculateDays}
-                    disabled={loadingDays}
-                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-50"
-                    title="Рассчитать дни продаж"
-                  >
-                    <RefreshCw className={`h-3 w-3 text-slate-500 ${loadingDays ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <div className="w-[5%] min-w-[48px] flex items-center justify-center gap-1" title="Остаток">
-                  Ост.
-                  <button
-                    onClick={updateStocksFromYml}
-                    disabled={loadingStocks}
-                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-50"
-                    title="Обновить остатки из YML"
-                  >
-                    <RefreshCw className={`h-3 w-3 text-slate-500 ${loadingStocks ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+                <div className="w-[5%] min-w-[48px]" title="Дней продаж">Дни</div>
+                <div className="w-[5%] min-w-[48px]" title="Остаток">Ост.</div>
                 <div className="w-[5%] min-w-[44px]" title="Дней до прихода">Приход</div>
                 <div className="w-[5%] min-w-[44px]" title="% отказа">Отказ</div>
                 <div className="w-[5%] min-w-[44px]" title="% невыкупа">Невык.</div>
