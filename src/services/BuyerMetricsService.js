@@ -14,25 +14,83 @@
 const CORE_URL = '/.netlify/functions/sql-proxy';
 
 /**
+ * Получить offer_id_tracker по артикулу из таблицы article_offer_mapping
+ * @param {string} article - Артикул оффера
+ * @returns {Promise<string|null>} - offer_id_tracker или null
+ */
+async function getOfferIdByArticle(article) {
+  try {
+    const sql = `SELECT offer_id FROM \`article_offer_mapping\` WHERE \`article\` = '${article}' LIMIT 1`;
+    console.log('🔍 SQL для получения offer_id_tracker:', sql);
+
+    const response = await fetch(CORE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql })
+    });
+
+    if (!response.ok) {
+      throw new Error('Ошибка получения offer_id_tracker');
+    }
+
+    const data = await response.json();
+    console.log('📊 Результат поиска offer_id_tracker:', data);
+
+    if (!data || data.length === 0 || !data[0] || !data[0].offer_id) {
+      console.warn('⚠️ Не найден offer_id_tracker для артикула:', article);
+      return null;
+    }
+
+    return data[0].offer_id;
+  } catch (error) {
+    console.error('❌ Ошибка получения offer_id_tracker:', error);
+    throw error;
+  }
+}
+
+/**
  * Получить календарь метрик байера для оффера
- * @param {number} offerId - ID оффера
  * @param {Array} sourceIds - Массив source_id байера
  * @param {string} article - Артикул оффера
  * @returns {Promise<Object>} - Данные календаря с иерархией
  */
-export async function getBuyerMetricsCalendar(offerId, sourceIds, article) {
+export async function getBuyerMetricsCalendar(sourceIds, article) {
   try {
     console.log('📊 Загрузка календаря метрик байера...');
-    console.log('Offer ID:', offerId);
     console.log('Source IDs:', sourceIds);
     console.log('Article:', article);
 
-    // 1. Найти последнюю дату с расходом для этого байера и оффера
+    if (!sourceIds || sourceIds.length === 0) {
+      console.warn('⚠️ Нет source_ids для байера');
+      return {
+        period: { start: null, end: null },
+        data: [],
+        hierarchy: {}
+      };
+    }
+
+    // 1. Получаем offer_id_tracker по артикулу
+    const offerIdTracker = await getOfferIdByArticle(article);
+    if (!offerIdTracker) {
+      console.warn('⚠️ Не найден offer_id_tracker для артикула');
+      return {
+        period: { start: null, end: null },
+        data: [],
+        hierarchy: {}
+      };
+    }
+
+    console.log('✅ Найден offer_id_tracker:', offerIdTracker);
+
+    // 2. Найти последнюю дату с расходом для этого байера и оффера
+    const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
     const lastDateWithCostSql = `
       SELECT MAX(adv_date) as last_date
       FROM \`ads_collection\`
-      WHERE \`offer_id_tracker\` = '${offerId}'
-        AND \`source_id_tracker\` IN (${sourceIds.map(id => `'${id}'`).join(',')})
+      WHERE \`offer_id_tracker\` = '${offerIdTracker}'
+        AND \`source_id_tracker\` IN (${sourceIdsStr})
         AND \`cost\` > 0
     `;
 
@@ -85,8 +143,8 @@ export async function getBuyerMetricsCalendar(offerId, sourceIds, article) {
         cost,
         valid
       FROM \`ads_collection\`
-      WHERE \`offer_id_tracker\` = '${offerId}'
-        AND \`source_id_tracker\` IN (${sourceIds.map(id => `'${id}'`).join(',')})
+      WHERE \`offer_id_tracker\` = '${offerIdTracker}'
+        AND \`source_id_tracker\` IN (${sourceIdsStr})
         AND \`adv_date\` >= '${startDateStr}'
         AND \`adv_date\` <= '${endDateStr}'
       ORDER BY adv_date ASC
