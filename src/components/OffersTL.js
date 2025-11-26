@@ -1,7 +1,7 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
-import { offerStatusService, offerBuyersService } from '../services/OffersSupabase';
+import { offerStatusService, offerBuyersService, articleOfferMappingService } from '../services/OffersSupabase';
 import {
   RefreshCw,
   AlertCircle,
@@ -18,6 +18,7 @@ import { calculateRemainingDays as calculateRemainingDaysScript } from '../scrip
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
+import MigrationModal from './MigrationModal';
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -36,6 +37,8 @@ function OffersTL({ user }) {
   const [offerStatuses, setOfferStatuses] = useState({});
   const [allAssignments, setAllAssignments] = useState({});
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [articleOfferMap, setArticleOfferMap] = useState({});
 
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
@@ -54,11 +57,12 @@ function OffersTL({ user }) {
       console.log('🔄 Загружаем все данные параллельно...');
 
       // Запускаем ВСЕ запросы параллельно
-      const [metricsResult, buyersResult, statusesResult, assignmentsResult] = await Promise.all([
+      const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetricsLarge().catch(e => ({ metrics: [], error: e })),
         userService.getUsersByRole('buyer').catch(e => []),
         offerStatusService.getAllStatuses().catch(e => []),
-        offerBuyersService.getAllAssignments().catch(e => [])
+        offerBuyersService.getAllAssignments().catch(e => []),
+        articleOfferMappingService.getAllMappings().catch(e => ({}))
       ]);
 
       // Устанавливаем метрики
@@ -95,6 +99,9 @@ function OffersTL({ user }) {
         grouped[a.offer_id].push(a);
       });
       setAllAssignments(grouped);
+
+      // Устанавливаем маппинги артикулов -> offer_id
+      setArticleOfferMap(mappingsResult || {});
 
       if (metricsData.length > 0) {
         setSuccess(`✅ Загружено ${metricsData.length} офферов`);
@@ -434,10 +441,11 @@ function OffersTL({ user }) {
           initialAssignments={allAssignments[metric.id] || []}
           onAssignmentsChange={handleAssignmentsChange}
           buyerMetricsData={buyerMetricsData}
+          articleOfferMap={articleOfferMap}
         />
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, articleOfferMap]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -474,6 +482,12 @@ function OffersTL({ user }) {
             </h1>
           </div>
           <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowMigrationModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"
+            >
+              Миграция
+            </button>
             <button
               onClick={loadAllData}
               disabled={loading}
@@ -629,6 +643,12 @@ function OffersTL({ user }) {
 
       {/* Изолированный менеджер tooltip'ов - не вызывает ре-рендер OffersTL */}
       <TooltipManager ref={tooltipManagerRef} />
+
+      {/* Модальное окно миграции */}
+      <MigrationModal
+        isOpen={showMigrationModal}
+        onClose={() => setShowMigrationModal(false)}
+      />
     </div>
   );
 }
