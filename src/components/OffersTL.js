@@ -186,26 +186,18 @@ function OffersTL({ user }) {
       setLoadingStocks(false);
       console.log(`✅ Остатки обновлены для ${stocksResult.totalArticles} артикулов`);
 
-      // ШАГ 2: 🎯 ОПТИМИЗАЦИЯ - сначала загружаем данные за 12 месяцев
-      console.log('⚡ Шаг 2/3: Загрузка данных за 12 месяцев и расчет Дней продаж...');
+      // ШАГ 2: Параллельно обновляем CPL/Лиды/Рейтинг и Дни продаж
+      console.log('⚡ Шаг 2/3: Параллельное обновление CPL/Лидов/Рейтинга и Дней продаж...');
+      setLoadingLeadsData(true);
       setLoadingDays(true);
 
-      const daysResult = await calculateRemainingDaysScript(updatedMetrics, articleOfferMap);
-
-      setLoadingDays(false);
-      console.log(`✅ Дни продаж рассчитаны, получено ${daysResult.rawData?.length || 0} сырых записей`);
-
-      // ШАГ 3: 🚀 Используем те же данные для CPL/Лидов/Рейтинга (экономим 6 SQL запросов!)
-      console.log('⚡ Шаг 3/3: Расчет CPL/Лидов/Рейтинга из тех же данных...');
-      setLoadingLeadsData(true);
-
-      const leadsResult = await updateLeadsFromSqlScript(
-        updatedMetrics,
-        articleOfferMap,
-        daysResult.rawData // 🎯 Передаем предзагруженные данные!
-      );
+      const [leadsResult, daysResult] = await Promise.all([
+        updateLeadsFromSqlScript(updatedMetrics, articleOfferMap),
+        calculateRemainingDaysScript(updatedMetrics, articleOfferMap)
+      ]);
 
       setLoadingLeadsData(false);
+      setLoadingDays(false);
 
       // Объединяем результаты
       updatedMetrics = updatedMetrics.map(metric => {
