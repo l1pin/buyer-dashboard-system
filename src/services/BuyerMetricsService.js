@@ -16,6 +16,31 @@ import { articleOfferMappingService } from './OffersSupabase';
 const CORE_URL = '/.netlify/functions/sql-proxy';
 
 /**
+ * Парсит данные из формата [headers, ...rows] в массив объектов
+ * @param {Array} data - Данные в формате [['col1', 'col2'], ['val1', 'val2'], ...]
+ * @returns {Array} - Массив объектов [{col1: 'val1', col2: 'val2'}, ...]
+ */
+function parseDataToObjects(data) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+
+  // Если первый элемент - массив, значит формат [headers, ...rows]
+  if (Array.isArray(data[0])) {
+    const [headers, ...rows] = data;
+    return rows.map(row =>
+      headers.reduce((obj, header, index) => {
+        obj[header] = row[index];
+        return obj;
+      }, {})
+    );
+  }
+
+  // Если уже массив объектов
+  return data;
+}
+
+/**
  * Получить календарь метрик байера для оффера
  * @param {Array} sourceIds - Массив source_id байера
  * @param {string} article - Артикул оффера
@@ -73,8 +98,11 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
       throw new Error('Ошибка получения последней даты с расходом');
     }
 
-    const lastDateData = await lastDateResponse.json();
-    console.log('📅 Результат поиска последней даты:', lastDateData);
+    const lastDateDataRaw = await lastDateResponse.json();
+    console.log('📅 Результат поиска последней даты (raw):', lastDateDataRaw);
+
+    const lastDateData = parseDataToObjects(lastDateDataRaw);
+    console.log('📅 Результат поиска последней даты (parsed):', lastDateData);
 
     if (!lastDateData || lastDateData.length === 0 || !lastDateData[0] || !lastDateData[0].last_date) {
       console.warn('⚠️ Нет данных о расходах для этого байера');
@@ -129,8 +157,11 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
       throw new Error('Ошибка получения данных метрик');
     }
 
-    const rawData = await dataResponse.json();
-    console.log('✅ Получено записей:', rawData.length);
+    const rawDataRaw = await dataResponse.json();
+    console.log('📊 Получено сырых данных (raw):', rawDataRaw.length);
+
+    const rawData = parseDataToObjects(rawDataRaw);
+    console.log('✅ Получено записей (parsed):', rawData.length);
 
     // 3. Обработать данные и построить иерархию
     const hierarchy = buildHierarchy(rawData);
