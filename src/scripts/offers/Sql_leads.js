@@ -4,7 +4,7 @@
  * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
  * – Рассчитывает рейтинг (A/B/C/D) на основе CPL за 4 дня и "Цены лида в зоне" (red_zone_price)
  * – Если red_zone_price отсутствует, используется константа 3.5
- * – Извлекает артикул из offer_name (формат: "C01829 - Жіноча блуза")
+ * – Использует offer_id_tracker из БД API и маппинг для получения артикула
  * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
  * – Также агрегирует данные по source_id_tracker для метрик байеров
  */
@@ -35,14 +35,23 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 /**
  * ГЛАВНАЯ ФУНКЦИЯ: Обновляет данные для всех трех колонок
  * @param {Array} metrics - Массив метрик офферов
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id из article_offer_mapping
  * @returns {Promise<Object>} - Объект с обновленными метриками
  */
-export const updateLeadsFromSql = async (metrics) => {
+export const updateLeadsFromSql = async (metrics, articleOfferMap = {}) => {
   try {
     console.log('🔄 Начинаем загрузку данных из БД (CPL, Лиды, Рейтинг)...');
 
+    // Создаем обратный маппинг: offer_id -> article
+    const offerIdArticleMap = {};
+    Object.keys(articleOfferMap).forEach(article => {
+      const offerId = articleOfferMap[article];
+      offerIdArticleMap[offerId] = article;
+    });
+    console.log(`📊 Загружено ${Object.keys(offerIdArticleMap).length} маппингов Offer ID -> Артикул`);
+
     // 1. Загружаем данные за 90 дней для CPL, Лидов и Рейтинга
-    const data90Days = await fetchDataFor90Days();
+    const data90Days = await fetchDataFor90Days(offerIdArticleMap);
     console.log(`✅ Загружено ${data90Days.length} записей за 90 дней`);
 
     // 2. Группируем данные по артикулу
@@ -338,8 +347,9 @@ function calculateMonthlyRatings(article, dataByArticleAndDate, baseThreshold, t
 
 /**
  * Получает данные из SQL БД за 90 дней для CPL, Лидов и Рейтинга
+ * @param {Object} offerIdArticleMap - Обратный маппинг offer_id -> article
  */
-async function fetchDataFor90Days() {
+async function fetchDataFor90Days(offerIdArticleMap = {}) {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - 89);
@@ -370,7 +380,7 @@ async function fetchDataFor90Days() {
 
   for (const p of periods) {
     const sql =
-      `SELECT offer_name, adv_date, valid, cost, source_id_tracker ` +
+      `SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker ` +
       `FROM ads_collection ` +
       `WHERE adv_date BETWEEN '${p.from}' AND '${p.to}' ` +
       `AND valid > 0`;
@@ -381,13 +391,19 @@ async function fetchDataFor90Days() {
       const rawData = await getDataBySql(sql);
       console.log(`    ✅ ${rawData.length} записей`);
 
-      const processedChunk = rawData.map(row => ({
-        article: extractArticle(row.offer_name || ''),
-        date: new Date(row.adv_date),
-        leads: Number(row.valid) || 0,
-        cost: Number(row.cost) || 0,
-        source_id: row.source_id_tracker || 'unknown'
-      })).filter(item => item.article && item.leads > 0);
+      const processedChunk = rawData.map(row => {
+        const offerId = row.offer_id_tracker || '';
+        // Используем маппинг для получения артикула по offer_id
+        const article = offerIdArticleMap[offerId] || '';
+
+        return {
+          article: article,
+          date: new Date(row.adv_date),
+          leads: Number(row.valid) || 0,
+          cost: Number(row.cost) || 0,
+          source_id: row.source_id_tracker || 'unknown'
+        };
+      }).filter(item => item.article && item.leads > 0);
 
       allData = allData.concat(processedChunk);
       successCount++;
