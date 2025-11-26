@@ -47,6 +47,7 @@ function parseDataToObjects(data) {
  * @returns {Promise<Object>} - Данные календаря с иерархией
  */
 export async function getBuyerMetricsCalendar(sourceIds, article) {
+  const startTime = performance.now();
   try {
     console.log('📊 Загрузка календаря метрик байера...');
     console.log('Source IDs:', sourceIds);
@@ -133,13 +134,14 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
         campaign_name,
         adv_group_name,
         adv_name,
-        cost,
-        valid
+        SUM(cost) as cost,
+        SUM(valid) as valid
       FROM \`ads_collection\`
       WHERE \`offer_id_tracker\` = '${offerIdTracker}'
         AND \`source_id_tracker\` IN (${sourceIdsStr})
         AND \`adv_date\` >= '${startDateStr}'
         AND \`adv_date\` <= '${endDateStr}'
+      GROUP BY adv_date, campaign_name_tracker, campaign_name, adv_group_name, adv_name
       ORDER BY adv_date ASC
     `;
 
@@ -166,6 +168,9 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
     // 3. Обработать данные и построить иерархию
     const hierarchy = buildHierarchy(rawData);
 
+    const elapsed = performance.now() - startTime;
+    console.log(`⏱️ Загрузка метрик заняла: ${elapsed.toFixed(0)}ms (${(elapsed/1000).toFixed(2)}s)`);
+
     return {
       period: {
         start: startDateStr,
@@ -176,7 +181,8 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
     };
 
   } catch (error) {
-    console.error('❌ Ошибка получения календаря метрик:', error);
+    const elapsed = performance.now() - startTime;
+    console.error(`❌ Ошибка получения календаря метрик (после ${elapsed.toFixed(0)}ms):`, error);
     throw error;
   }
 }
