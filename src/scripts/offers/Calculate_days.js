@@ -63,9 +63,28 @@ export const calculateRemainingDays = async (metrics, articleOfferMap = {}) => {
     });
     console.log(`📊 Загружено ${Object.keys(offerIdArticleMap).length} маппингов Offer ID -> Артикул`);
 
+    // 🔍 ДИАГНОСТИКА: Показываем примеры offer_id из маппинга
+    const sampleOfferIds = Object.keys(offerIdArticleMap).slice(0, 5);
+    console.log(`🔍 Примеры offer_id из маппинга:`, sampleOfferIds);
+
     // Получаем всю историю по частям (с фильтрацией по offer_id)
     const tracker = await fetchTrackerAll(offerIdArticleMap);
     console.log(`Всего строк истории: ${tracker.length}`);
+
+    // 🔍 ДИАГНОСТИКА: Показываем примеры данных из SQL
+    if (tracker.length > 0) {
+      const sampleFromSql = tracker.slice(0, 5).map(t => ({
+        offerId: t.offerId,
+        article: t.article,
+        leads: t.leads
+      }));
+      console.log(`🔍 Примеры данных из SQL:`, JSON.stringify(sampleFromSql));
+
+      // Считаем сколько записей имеют пустой article
+      const emptyArticleCount = tracker.filter(t => !t.article).length;
+      const withArticleCount = tracker.filter(t => t.article).length;
+      console.log(`🔍 Записей с article: ${withArticleCount}, без article: ${emptyArticleCount}`);
+    }
 
     // Группируем по артикулу
     const index = buildTrackerIndex(tracker);
@@ -335,6 +354,21 @@ async function fetchFullData(offerIdArticleMap, start, end) {
       try {
         const chunk = await getDataBySql(sql);
         console.log(`  ✅ ${chunk.length} строк`);
+
+        // 🔍 ДИАГНОСТИКА: Показываем сырые offer_id_tracker из SQL (только первый батч)
+        if (idx === 0 && chunk.length > 0) {
+          const rawOfferIds = [...new Set(chunk.slice(0, 20).map(it => it.offer_id_tracker))];
+          console.log(`🔍 Сырые offer_id_tracker из SQL:`, rawOfferIds.slice(0, 5));
+
+          // Проверяем, есть ли они в маппинге
+          const matchedInMapping = rawOfferIds.filter(id => offerIdArticleMap[id]);
+          const notMatchedInMapping = rawOfferIds.filter(id => !offerIdArticleMap[id]);
+          console.log(`🔍 Из ${rawOfferIds.length} уникальных: ${matchedInMapping.length} есть в маппинге, ${notMatchedInMapping.length} нет`);
+
+          if (notMatchedInMapping.length > 0) {
+            console.warn(`⚠️ Примеры offer_id БЕЗ маппинга:`, notMatchedInMapping.slice(0, 3));
+          }
+        }
 
         const mapped = chunk.map(it => ({
           article: offerIdArticleMap[it.offer_id_tracker] || '',
