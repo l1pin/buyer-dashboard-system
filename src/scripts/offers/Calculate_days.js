@@ -171,10 +171,11 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
   // Создаём SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // Создаём периоды по 1 месяцу
-  const periods = createMonthlyPeriods(start, end);
+  // 🚀 ОПТИМИЗАЦИЯ: Создаём периоды по 4 месяца (вместо 1) для уменьшения количества запросов
+  // 12 месяцев = 3 запроса вместо 12
+  const periods = createQuarterlyPeriods(start, end);
 
-  console.log(`📅 Загрузка ${periods.length} месяцев ПАРАЛЛЕЛЬНО...`);
+  console.log(`📅 Загрузка ${periods.length} периодов (по 4 месяца) ПАРАЛЛЕЛЬНО...`);
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p, i) => {
@@ -245,7 +246,36 @@ async function fetchTrackerAll(offerIdArticleMap = {}) {
 }
 
 /**
- * Создаёт периоды по 1 месяцу для последовательной загрузки
+ * Создаёт периоды по 4 месяца для параллельной загрузки
+ * 12 месяцев = 3 запроса (вместо 12)
+ * ОПТИМИЗИРОВАНО под лимит 6 МБ
+ */
+function createQuarterlyPeriods(start, end) {
+  const periods = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+
+  while (cur <= end) {
+    const from = formatDate(cur);
+
+    // Добавляем 4 месяца
+    const tmp = new Date(cur.getFullYear(), cur.getMonth() + 4, 0);
+
+    if (tmp > end) {
+      tmp.setTime(end.getTime());
+    }
+
+    const to = formatDate(tmp);
+    periods.push({ from, to });
+
+    // Следующий период (+4 месяца)
+    cur.setMonth(cur.getMonth() + 4);
+  }
+
+  return periods;
+}
+
+/**
+ * Создаёт периоды по 1 месяцу (УСТАРЕВШАЯ ВЕРСИЯ - не используется)
  */
 function createMonthlyPeriods(start, end) {
   const periods = [];

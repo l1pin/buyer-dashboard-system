@@ -377,13 +377,13 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
   // Создаем SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 СУПЕР-ОПТИМИЗАЦИЯ: Если офферов немного (<= 150), делаем ОДИН запрос за все 90 дней
-  // Это быстрее, чем несколько параллельных запросов (меньше HTTP overhead)
-  if (offerIds.length <= 150) {
+  // 🚀 СУПЕР-ОПТИМИЗАЦИЯ: Если офферов <= 5000, делаем ОДИН запрос за все 90 дней
+  // Лимит 6 МБ позволяет загружать гораздо больше данных одним запросом
+  if (offerIds.length <= 5000) {
     const startDate = formatDate(start);
     const endDate = formatDate(end);
 
-    console.log(`⚡ Загрузка одним запросом за весь период ${startDate}..${endDate}`);
+    console.log(`⚡ Загрузка ОДНИМ запросом за весь период ${startDate}..${endDate} (${offerIds.length} офферов)`);
 
     const sql =
       `SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker ` +
@@ -416,26 +416,16 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
     }
   }
 
-  // Для большого количества офферов (>150) разбиваем на периоды для параллельной загрузки
-  const periods = [];
-  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  // Для большого количества офферов (>5000) разбиваем на 2 периода по 45 дней
+  console.log(`📅 Разбиваем 90 дней на 2 периода (по 45 дней) для параллельной загрузки...`);
 
-  while (cur <= end) {
-    const from = formatDate(cur);
-    const tmp = new Date(cur);
-    tmp.setMonth(tmp.getMonth() + 1);
-    tmp.setDate(tmp.getDate() - 1);
+  const midDate = new Date(start);
+  midDate.setDate(start.getDate() + 44); // 45 дней
 
-    if (tmp > end) tmp.setTime(end.getTime());
-
-    const to = formatDate(tmp);
-    periods.push({ from, to });
-
-    cur.setMonth(cur.getMonth() + 1);
-    cur.setDate(1);
-  }
-
-  console.log(`📅 Загрузка 90 дней (${periods.length} периодов) ПАРАЛЛЕЛЬНО...`);
+  const periods = [
+    { from: formatDate(start), to: formatDate(midDate) },
+    { from: formatDate(new Date(midDate.getTime() + 24*60*60*1000)), to: formatDate(end) }
+  ];
 
   // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Запускаем все запросы параллельно
   const promises = periods.map(async (p) => {
