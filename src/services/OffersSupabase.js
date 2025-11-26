@@ -478,53 +478,25 @@ export const offerBuyersService = {
 export const articleOfferMappingService = {
   /**
    * Получить все маппинги артикулов и Offer ID
-   * ОПТИМИЗИРОВАНО: Загружает ВСЕ данные с пагинацией (обход лимита 1000 строк)
    * @returns {Promise<Object>} Объект с маппингом article -> offer_id
    */
   async getAllMappings() {
     try {
       console.log('📊 Загружаем маппинг артикулов и Offer ID...');
 
-      let allData = [];
-      let from = 0;
-      const pageSize = 1000; // Supabase возвращает максимум 1000 строк за раз
-      let hasMore = true;
+      const { data, error } = await supabase
+        .from('article_offer_mapping')
+        .select('*');
 
-      // 🚀 КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Пагинация для загрузки ВСЕХ данных
-      while (hasMore) {
-        const to = from + pageSize - 1;
-
-        console.log(`  📦 Загрузка строк ${from}-${to}...`);
-
-        const { data, error } = await supabase
-          .from('article_offer_mapping')
-          .select('*')
-          .range(from, to);
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          console.log(`    ✅ Загружено ${data.length} записей`);
-
-          // Если получили меньше pageSize, значит это последняя страница
-          if (data.length < pageSize) {
-            hasMore = false;
-          } else {
-            from += pageSize;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
+      if (error) throw error;
 
       // Преобразуем массив в объект для быстрого поиска
       const mappingMap = {};
-      allData.forEach(item => {
+      (data || []).forEach(item => {
         mappingMap[item.article] = item.offer_id;
       });
 
-      console.log(`✅ Всего загружено ${allData.length} маппингов (с пагинацией)`);
+      console.log(`✅ Загружено ${data?.length || 0} маппингов`);
       return mappingMap;
 
     } catch (error) {
