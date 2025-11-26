@@ -139,15 +139,37 @@ function OffersTL({ user }) {
     }));
   };
 
-  // Обновление маппингов после миграции
+  // Обновление маппингов и статусов после миграции
   const handleMigrationSuccess = async () => {
     try {
-      console.log('🔄 Перезагружаем маппинг артикулов...');
+      console.log('🔄 Перезагружаем данные после миграции...');
+
+      // Перезагружаем маппинги артикулов
       const mappings = await articleOfferMappingService.getAllMappings();
       setArticleOfferMap(mappings);
       console.log(`✅ Маппинг обновлен: ${Object.keys(mappings).length} записей`);
+
+      // Перезагружаем статусы офферов
+      const statusesResult = await offerStatusService.getAllStatuses();
+      const statusesMap = {};
+      (statusesResult || []).forEach(status => {
+        let daysInStatus = 0;
+        if (status.status_history && status.status_history.length > 0) {
+          const currentStatusEntry = status.status_history[0];
+          const changedAt = new Date(currentStatusEntry.changed_at);
+          const now = new Date();
+          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+        }
+        statusesMap[status.offer_id] = {
+          ...status,
+          days_in_status: daysInStatus
+        };
+      });
+      setOfferStatuses(statusesMap);
+      console.log(`✅ Статусы обновлены: ${Object.keys(statusesMap).length} записей`);
+
     } catch (error) {
-      console.error('❌ Ошибка перезагрузки маппинга:', error);
+      console.error('❌ Ошибка перезагрузки данных:', error);
     }
   };
 
@@ -702,6 +724,8 @@ function OffersTL({ user }) {
         isOpen={showMigrationModal}
         onClose={() => setShowMigrationModal(false)}
         onMigrationSuccess={handleMigrationSuccess}
+        user={user}
+        metrics={metrics}
       />
     </div>
   );
