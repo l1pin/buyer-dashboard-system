@@ -11,44 +11,9 @@
  * Метрики: cost (расход), valid (лиды), CPL (cost / valid)
  */
 
+import { articleOfferMappingService } from './OffersSupabase';
+
 const CORE_URL = '/.netlify/functions/sql-proxy';
-
-/**
- * Получить offer_id_tracker по артикулу из таблицы article_offer_mapping
- * @param {string} article - Артикул оффера
- * @returns {Promise<string|null>} - offer_id_tracker или null
- */
-async function getOfferIdByArticle(article) {
-  try {
-    const sql = `SELECT offer_id FROM \`article_offer_mapping\` WHERE \`article\` = '${article}' LIMIT 1`;
-    console.log('🔍 SQL для получения offer_id_tracker:', sql);
-
-    const response = await fetch(CORE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ sql })
-    });
-
-    if (!response.ok) {
-      throw new Error('Ошибка получения offer_id_tracker');
-    }
-
-    const data = await response.json();
-    console.log('📊 Результат поиска offer_id_tracker:', data);
-
-    if (!data || data.length === 0 || !data[0] || !data[0].offer_id) {
-      console.warn('⚠️ Не найден offer_id_tracker для артикула:', article);
-      return null;
-    }
-
-    return data[0].offer_id;
-  } catch (error) {
-    console.error('❌ Ошибка получения offer_id_tracker:', error);
-    throw error;
-  }
-}
 
 /**
  * Получить календарь метрик байера для оффера
@@ -71,8 +36,8 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
       };
     }
 
-    // 1. Получаем offer_id_tracker по артикулу
-    const offerIdTracker = await getOfferIdByArticle(article);
+    // 1. Получаем offer_id_tracker по артикулу из Supabase
+    const offerIdTracker = await articleOfferMappingService.getOfferIdByArticle(article);
     if (!offerIdTracker) {
       console.warn('⚠️ Не найден offer_id_tracker для артикула');
       return {
