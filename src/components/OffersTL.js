@@ -154,7 +154,8 @@ function OffersTL({ user }) {
       hasAutoUpdatedRef.current = true;
       autoUpdateMetrics();
     }
-  }, [metrics, allAssignments, articleOfferMap, loading, autoUpdateMetrics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metrics, allAssignments, articleOfferMap, loading]);
 
   // Главная функция загрузки - всё параллельно
   const loadAllData = async (isBackground = false) => {
