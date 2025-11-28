@@ -1,6 +1,6 @@
 /**
  * Сервис для получения детальных метрик байера по офферу
- * Использует БД API для получения данных за последние 30 дней
+ * Использует прямой доступ к БД API для получения данных за последние 30 дней
  *
  * Иерархия данных:
  * 1. campaign_name_tracker
@@ -13,31 +13,96 @@
 
 import { articleOfferMappingService } from './OffersSupabase';
 
-const CORE_URL = '/.netlify/functions/sql-proxy';
+// Прямой доступ к API (CORS включен на сервере)
+const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
 /**
- * Парсит данные из формата [headers, ...rows] в массив объектов
- * @param {Array} data - Данные в формате [['col1', 'col2'], ['val1', 'val2'], ...]
- * @returns {Array} - Массив объектов [{col1: 'val1', col2: 'val2'}, ...]
+ * Универсальный fetch с оптимизированными таймаутами и retry
+ * @param {string} sql - SQL запрос
+ * @param {number} retryCount - Текущая попытка
+ * @returns {Promise<Array>} - Массив объектов с данными
  */
-function parseDataToObjects(data) {
-  if (!Array.isArray(data) || data.length === 0) {
-    return [];
-  }
+async function getDataBySql(sql, retryCount = 0) {
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY = 1000; // 1 секунда между попытками
+  const FETCH_TIMEOUT = 60000; // 60 секунд
 
-  // Если первый элемент - массив, значит формат [headers, ...rows]
-  if (Array.isArray(data[0])) {
-    const [headers, ...rows] = data;
-    return rows.map(row =>
-      headers.reduce((obj, header, index) => {
-        obj[header] = row[index];
-        return obj;
-      }, {})
-    );
-  }
+  try {
+    // Создаём контроллер для отмены по таймауту
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
-  // Если уже массив объектов
-  return data;
+    const response = await fetch(CORE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ assoc: true, sql: sql }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const code = response.status;
+    const text = await response.text();
+
+    console.log(`HTTP ${code}, ответ ${(text.length / 1024).toFixed(0)}KB`);
+
+    // Если 500, 502, 503, 504 - пробуем повторить
+    if ([500, 502, 503, 504].includes(code) && retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAY * Math.pow(2, retryCount);
+      console.log(`⚠️ HTTP ${code}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return getDataBySql(sql, retryCount + 1);
+    }
+
+    if (code !== 200) {
+      throw new Error(`HTTP ${code}: ${text.substring(0, 100)}`);
+    }
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON: ${e.message}`);
+    }
+
+    if (json.error) {
+      throw new Error(`API error: ${json.error}`);
+    }
+
+    if (!Array.isArray(json)) {
+      throw new Error('Неподдерживаемый формат данных');
+    }
+
+    // Если заголовки в первой строке
+    if (Array.isArray(json[0])) {
+      const [headers, ...rows] = json;
+      return rows.map(row =>
+        headers.reduce((o, h, i) => {
+          o[h] = row[i];
+          return o;
+        }, {})
+      );
+    }
+
+    return json;
+  } catch (error) {
+    // Обработка таймаутов и сетевых ошибок
+    if (retryCount < MAX_RETRIES) {
+      const isTimeout = error.name === 'AbortError';
+      const isNetworkError = error.message.includes('fetch') || error.message.includes('network');
+
+      if (isTimeout || isNetworkError) {
+        const delay = RETRY_DELAY * Math.pow(2, retryCount);
+        console.log(`⚠️ ${isTimeout ? 'Timeout' : 'Network error'}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return getDataBySql(sql, retryCount + 1);
+      }
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -75,34 +140,19 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
     console.log('✅ Найден offer_id_tracker:', offerIdTracker);
 
     // 2. Найти последнюю дату с расходом для этого байера и оффера
-    const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
+    const sourceIdsStr = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
     const lastDateWithCostSql = `
       SELECT MAX(adv_date) as last_date
-      FROM \`ads_collection\`
-      WHERE \`offer_id_tracker\` = '${offerIdTracker}'
-        AND \`source_id_tracker\` IN (${sourceIdsStr})
-        AND \`cost\` > 0
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerIdTracker.replace(/'/g, "''")}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND cost > 0
     `;
 
     console.log('🔍 SQL для поиска последней даты:', lastDateWithCostSql);
 
-    const lastDateResponse = await fetch(CORE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ sql: lastDateWithCostSql })
-    });
-
-    if (!lastDateResponse.ok) {
-      throw new Error('Ошибка получения последней даты с расходом');
-    }
-
-    const lastDateDataRaw = await lastDateResponse.json();
-    console.log('📅 Результат поиска последней даты (raw):', lastDateDataRaw);
-
-    const lastDateData = parseDataToObjects(lastDateDataRaw);
-    console.log('📅 Результат поиска последней даты (parsed):', lastDateData);
+    const lastDateData = await getDataBySql(lastDateWithCostSql);
+    console.log('📅 Результат поиска последней даты:', lastDateData);
 
     if (!lastDateData || lastDateData.length === 0 || !lastDateData[0] || !lastDateData[0].last_date) {
       console.warn('⚠️ Нет данных о расходах для этого байера');
@@ -122,7 +172,7 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
       end: lastDate.toISOString().split('T')[0]
     });
 
-    // 2. Получить данные за период
+    // 3. Получить данные за период
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = lastDate.toISOString().split('T')[0];
 
@@ -135,36 +185,23 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
         adv_name,
         cost,
         valid
-      FROM \`ads_collection\`
-      WHERE \`offer_id_tracker\` = '${offerIdTracker}'
-        AND \`source_id_tracker\` IN (${sourceIdsStr})
-        AND \`adv_date\` >= '${startDateStr}'
-        AND \`adv_date\` <= '${endDateStr}'
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerIdTracker.replace(/'/g, "''")}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date >= '${startDateStr}'
+        AND adv_date <= '${endDateStr}'
       ORDER BY adv_date ASC
     `;
 
     console.log('🔍 SQL для получения данных:', dataSql);
 
-    const dataResponse = await fetch(CORE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ sql: dataSql })
-    });
+    const rawData = await getDataBySql(dataSql);
+    console.log('✅ Получено записей:', rawData.length);
 
-    if (!dataResponse.ok) {
-      throw new Error('Ошибка получения данных метрик');
-    }
-
-    const rawDataRaw = await dataResponse.json();
-    console.log('📊 Получено сырых данных (raw):', rawDataRaw.length);
-
-    const rawData = parseDataToObjects(rawDataRaw);
-    console.log('✅ Получено записей (parsed):', rawData.length);
-
-    // 3. Обработать данные и построить иерархию
+    // 4. Обработать данные и построить иерархию
     const hierarchy = buildHierarchy(rawData);
+
+    console.log(`✅ Построена иерархия для ${Object.keys(hierarchy).length} дней`);
 
     return {
       period: {
