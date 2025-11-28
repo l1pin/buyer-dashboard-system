@@ -7,7 +7,7 @@
 -- =====================================================
 
 -- Удаляем существующие привязки для facebook (опционально - раскомментировать если нужно очистить)
--- DELETE FROM offer_buyers WHERE source = 'facebook';
+-- DELETE FROM offer_buyers WHERE source = 'Facebook';
 
 -- Основной INSERT
 WITH
@@ -60,14 +60,14 @@ SELECT
   t.offer_id,
   t.buyer_id,
   t.buyer_name,
-  'facebook' as source,
+  'Facebook' as source,
   t.fb_source_ids as source_ids
 FROM top5_per_offer t
 WHERE NOT EXISTS (
   SELECT 1 FROM offer_buyers ob
   WHERE ob.offer_id = t.offer_id
     AND ob.buyer_id = t.buyer_id
-    AND ob.source = 'facebook'
+    AND ob.source = 'Facebook'
 );
 
 -- =====================================================
@@ -75,16 +75,16 @@ WHERE NOT EXISTS (
 -- =====================================================
 
 -- Сколько добавлено привязок
-SELECT 'Всего привязок facebook' as metric, COUNT(*) as value
-FROM offer_buyers WHERE source = 'facebook';
+SELECT 'Всего привязок Facebook' as metric, COUNT(*) as value
+FROM offer_buyers WHERE source = 'Facebook';
 
 -- Сколько офферов с привязками
 SELECT 'Офферов с байерами' as metric, COUNT(DISTINCT offer_id) as value
-FROM offer_buyers WHERE source = 'facebook';
+FROM offer_buyers WHERE source = 'Facebook';
 
 -- Сколько уникальных байеров привязано
 SELECT 'Уникальных байеров' as metric, COUNT(DISTINCT buyer_id) as value
-FROM offer_buyers WHERE source = 'facebook';
+FROM offer_buyers WHERE source = 'Facebook';
 
 -- Пример привязок (первые 10)
 SELECT
@@ -95,6 +95,6 @@ SELECT
   jsonb_array_length(ob.source_ids) as source_ids_count
 FROM offer_buyers ob
 LEFT JOIN metrics_analytics m ON m.id = ob.offer_id
-WHERE ob.source = 'facebook'
+WHERE ob.source = 'Facebook'
 ORDER BY ob.offer_id
 LIMIT 10;
