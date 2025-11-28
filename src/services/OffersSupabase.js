@@ -16,15 +16,45 @@ export const offerStatusService = {
     try {
       console.log('📊 Загружаем все статусы офферов...');
 
-      const { data, error } = await supabase
+      // Спочатку отримуємо загальну кількість
+      const { count, error: countError } = await supabase
         .from('offer_statuses')
-        .select('*')
-        .order('offer_id', { ascending: true });
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
+      if (countError) throw countError;
 
-      console.log(`✅ Загружено ${data?.length || 0} статусов офферов`);
-      return data || [];
+      const totalCount = count || 0;
+      const pageSize = 1000;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      if (totalCount === 0) return [];
+
+      // Завантажуємо всі сторінки паралельно
+      const pagePromises = [];
+      for (let page = 0; page < totalPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        pagePromises.push(
+          supabase
+            .from('offer_statuses')
+            .select('*')
+            .order('offer_id', { ascending: true })
+            .range(from, to)
+        );
+      }
+
+      const results = await Promise.all(pagePromises);
+
+      // Збираємо всі дані
+      let allData = [];
+      results.forEach(result => {
+        if (!result.error && result.data) {
+          allData = allData.concat(result.data);
+        }
+      });
+
+      console.log(`✅ Загружено ${allData.length} статусов офферов`);
+      return allData;
 
     } catch (error) {
       console.error('❌ Ошибка загрузки статусов офферов:', error);
@@ -487,19 +517,45 @@ export const articleOfferMappingService = {
     try {
       console.log('📊 Загружаем маппинг артикулов и Offer ID...');
 
-      const { data, error } = await supabase
+      // Спочатку отримуємо загальну кількість
+      const { count, error: countError } = await supabase
         .from('article_offer_mapping')
-        .select('*');
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
+      if (countError) throw countError;
 
-      // Преобразуем массив в объект для быстрого поиска
+      const totalCount = count || 0;
+      const pageSize = 1000;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      if (totalCount === 0) return {};
+
+      // Завантажуємо всі сторінки паралельно
+      const pagePromises = [];
+      for (let page = 0; page < totalPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        pagePromises.push(
+          supabase
+            .from('article_offer_mapping')
+            .select('*')
+            .range(from, to)
+        );
+      }
+
+      const results = await Promise.all(pagePromises);
+
+      // Збираємо всі дані та перетворюємо в об'єкт
       const mappingMap = {};
-      (data || []).forEach(item => {
-        mappingMap[item.article] = item.offer_id;
+      results.forEach(result => {
+        if (!result.error && result.data) {
+          result.data.forEach(item => {
+            mappingMap[item.article] = item.offer_id;
+          });
+        }
       });
 
-      console.log(`✅ Загружено ${data?.length || 0} маппингов`);
+      console.log(`✅ Загружено ${Object.keys(mappingMap).length} маппингов`);
       return mappingMap;
 
     } catch (error) {

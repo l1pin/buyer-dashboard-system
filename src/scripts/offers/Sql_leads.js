@@ -496,7 +496,7 @@ async function getDataBySql(strSQL, retryCount = 0) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ sql: strSQL })
+      body: JSON.stringify({ assoc: true, sql: strSQL })
     });
 
     const code = response.status;
