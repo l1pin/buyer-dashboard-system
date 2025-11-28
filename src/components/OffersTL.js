@@ -17,6 +17,7 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
+import { updateBuyerStatuses as updateBuyerStatusesScript } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 import MigrationModal from './MigrationModal';
@@ -38,6 +39,8 @@ function OffersTL({ user }) {
   const [offerStatuses, setOfferStatuses] = useState({});
   const [allAssignments, setAllAssignments] = useState({});
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
+  const [buyerStatuses, setBuyerStatuses] = useState({});
+  const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
 
@@ -334,6 +337,41 @@ function OffersTL({ user }) {
     }
   };
 
+  // Функция обновления статусов байеров
+  const updateBuyerStatuses = async () => {
+    try {
+      setLoadingBuyerStatuses(true);
+      setError('');
+      setSuccess('Обновление статусов байеров...');
+
+      // Собираем все привязки в плоский массив
+      const flatAssignments = Object.values(allAssignments).flat();
+
+      if (flatAssignments.length === 0) {
+        setSuccess('⚠️ Нет привязок байеров для обновления');
+        return;
+      }
+
+      console.log(`🔄 Обновляем статусы для ${flatAssignments.length} привязок...`);
+
+      const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap);
+      setBuyerStatuses(statuses);
+
+      // Подсчет статистики
+      const stats = { active: 0, not_configured: 0, not_in_tracker: 0 };
+      Object.values(statuses).forEach(s => stats[s.status]++);
+
+      setSuccess(`✅ Статусы обновлены! Активных: ${stats.active}, Не настроено: ${stats.not_configured}, Нет в трекере: ${stats.not_in_tracker}`);
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления статусов байеров:', error);
+      setError('Ошибка обновления статусов: ' + error.message);
+    } finally {
+      setLoadingBuyerStatuses(false);
+      setTimeout(() => setSuccess(''), 5000);
+    }
+  };
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -555,11 +593,12 @@ function OffersTL({ user }) {
           initialAssignments={allAssignments[metric.id] || []}
           onAssignmentsChange={handleAssignmentsChange}
           buyerMetricsData={buyerMetricsData}
+          buyerStatuses={buyerStatuses}
           articleOfferMap={articleOfferMap}
         />
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, articleOfferMap]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -612,6 +651,14 @@ function OffersTL({ user }) {
               className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"
             >
               Миграция
+            </button>
+            <button
+              onClick={updateBuyerStatuses}
+              disabled={loadingBuyerStatuses}
+              className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loadingBuyerStatuses ? 'animate-spin' : ''}`} />
+              Обновить статусы
             </button>
             <button
               onClick={updateAllMetrics}

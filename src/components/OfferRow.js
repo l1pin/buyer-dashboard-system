@@ -86,6 +86,7 @@ const OfferRow = memo(({
   initialAssignments,
   onAssignmentsChange,
   buyerMetricsData,
+  buyerStatuses,
   articleOfferMap
 }) => {
   // Мемоизированные обработчики для этой строки
@@ -382,6 +383,7 @@ const OfferRow = memo(({
         initialAssignments={initialAssignments}
         onAssignmentsChange={onAssignmentsChange}
         buyerMetricsData={buyerMetricsData}
+        buyerStatuses={buyerStatuses}
       />
     </div>
   );
@@ -399,7 +401,8 @@ const OfferRow = memo(({
     prevProps.userId === nextProps.userId &&
     prevProps.allBuyers === nextProps.allBuyers &&
     prevProps.initialAssignments === nextProps.initialAssignments &&
-    prevProps.buyerMetricsData === nextProps.buyerMetricsData
+    prevProps.buyerMetricsData === nextProps.buyerMetricsData &&
+    prevProps.buyerStatuses === nextProps.buyerStatuses
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });
