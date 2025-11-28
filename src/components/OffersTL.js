@@ -44,7 +44,6 @@ function OffersTL({ user }) {
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(50); // Показываем по 50 офферов
 
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
@@ -659,11 +658,6 @@ function OffersTL({ user }) {
     }
   };
 
-  // Сбрасываем пагинацию при изменении поиска
-  useEffect(() => {
-    setVisibleCount(50);
-  }, [searchTerm, sortField, sortDirection]);
-
   // Фильтрация и сортировка
   const filteredMetrics = useMemo(() => {
     return metrics.filter(metric => {
@@ -684,55 +678,39 @@ function OffersTL({ user }) {
     });
   }, [metrics, searchTerm, sortField, sortDirection]);
 
-  // Видимые офферы (только первые visibleCount)
-  const visibleMetrics = useMemo(() => {
-    return filteredMetrics.slice(0, visibleCount);
-  }, [filteredMetrics, visibleCount]);
-
-  // Есть ли ещё офферы для показа
-  const hasMoreOffers = filteredMetrics.length > visibleCount;
-
-  // Показать ещё офферы
-  const loadMoreOffers = useCallback(() => {
-    setVisibleCount(prev => prev + 50);
-  }, []);
-
-  // Мемоизированный список офферов (вынесен на верхний уровень для соблюдения правил хуков)
+  // Мемоизированный список офферов с CSS content-visibility для оптимизации
   const renderedOffersList = useMemo(() => (
     <div className="px-4 py-2 space-y-1">
-      {visibleMetrics.map((metric, index) => (
-        <OfferRow
+      {filteredMetrics.map((metric, index) => (
+        <div
           key={metric.id}
-          metric={metric}
-          index={index}
-          offerStatus={offerStatuses[metric.id]}
-          loadingLeadsData={loadingLeadsData}
-          loadingDays={loadingDays}
-          loadingStocks={loadingStocks}
-          onOpenTooltip={openTooltip}
-          onStatusChange={handleStatusChange}
-          userName={user?.name || 'Неизвестно'}
-          userId={user?.id}
-          allBuyers={allBuyers}
-          initialAssignments={allAssignments[metric.id] || []}
-          onAssignmentsChange={handleAssignmentsChange}
-          buyerMetricsData={buyerMetricsData}
-          buyerStatuses={buyerStatuses}
-          articleOfferMap={articleOfferMap}
-        />
-      ))}
-      {hasMoreOffers && (
-        <div className="flex justify-center py-4">
-          <button
-            onClick={loadMoreOffers}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
-          >
-            Показать ещё 50 ({visibleCount} из {filteredMetrics.length})
-          </button>
+          style={{
+            contentVisibility: 'auto',
+            containIntrinsicSize: '0 80px'
+          }}
+        >
+          <OfferRow
+            metric={metric}
+            index={index}
+            offerStatus={offerStatuses[metric.id]}
+            loadingLeadsData={loadingLeadsData}
+            loadingDays={loadingDays}
+            loadingStocks={loadingStocks}
+            onOpenTooltip={openTooltip}
+            onStatusChange={handleStatusChange}
+            userName={user?.name || 'Неизвестно'}
+            userId={user?.id}
+            allBuyers={allBuyers}
+            initialAssignments={allAssignments[metric.id] || []}
+            onAssignmentsChange={handleAssignmentsChange}
+            buyerMetricsData={buyerMetricsData}
+            buyerStatuses={buyerStatuses}
+            articleOfferMap={articleOfferMap}
+          />
         </div>
-      )}
+      ))}
     </div>
-  ), [visibleMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, hasMoreOffers, loadMoreOffers, visibleCount, filteredMetrics.length]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
