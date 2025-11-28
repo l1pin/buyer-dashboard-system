@@ -1,16 +1,18 @@
 /**
  * ОПТИМИЗИРОВАННЫЙ скрипт для обновления статусов байеров
+ * Адаптировано из Google Apps Script под систему
  *
  * СТАТУСЫ:
- * - "active" (зеленый) - есть расходы сегодня
- * - "not_configured" (красный) - нет расходов сегодня, но были раньше
- * - "not_in_tracker" (фиолетовый) - нет данных в трекере вообще
+ * - "active" (зеленый) - есть расходы сегодня (cost > 0)
+ * - "not_configured" (красный) - были расходы раньше, но сегодня нет
+ * - "not_in_tracker" (фиолетовый) - нет данных в трекере вообще за всю историю
  *
- * ОПТИМИЗАЦИИ:
- * - 🚀 Один SQL запрос на ВСЕ source_ids (вместо отдельных запросов)
- * - 🚀 GROUP BY source_id_tracker для быстрой агрегации
- * - 🚀 Параллельная загрузка по чанкам (по 500 source_ids)
- * - 🚀 Таймаут 60с, быстрый retry
+ * ЛОГИКА (как в оригинале):
+ * - Извлекаем артикул из campaign_name_tracker (первое слово до разделителя)
+ * - Проверяем по source_ids байера + артикулу оффера
+ * - Если нет записей вообще -> "Нет в трекере"
+ * - Если нет cost сегодня -> "Не настроено" + дата последнего расхода
+ * - Если есть cost сегодня -> "Активный"
  */
 
 // Прямой доступ к API (CORS включен на сервере)
@@ -20,16 +22,10 @@ const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000;
 const FETCH_TIMEOUT = 60000;
-const CHUNK_SIZE = 500; // Сколько source_ids в одном запросе
+const CHUNK_SIZE = 500;
 
-/**
- * Задержка выполнения
- */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Форматирует дату в YYYY-MM-DD
- */
 function formatDate(d) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -37,9 +33,6 @@ function formatDate(d) {
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Добавляет дни к дате в формате YYYY-MM-DD
- */
 function addDays(dateStr, days) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
@@ -51,10 +44,11 @@ function addDays(dateStr, days) {
  * ГЛАВНАЯ ФУНКЦИЯ: Обновляет статусы всех байеров
  *
  * @param {Array} allAssignments - Все привязки байеров [{offer_id, buyer_id, source_ids, ...}]
- * @param {Object} articleOfferMap - Маппинг article -> offer_id
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id (нужен для получения артикула)
+ * @param {Array} metrics - Массив метрик офферов (для получения артикула по offer_id)
  * @returns {Promise<Object>} - Map: assignmentKey -> {status, date}
  */
-export async function updateBuyerStatuses(allAssignments = [], articleOfferMap = {}) {
+export async function updateBuyerStatuses(allAssignments = [], articleOfferMap = {}, metrics = []) {
   try {
     console.log('🔄 Начинаем обновление статусов байеров...');
 
@@ -69,44 +63,72 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
       offerIdToArticle[offerId] = article;
     });
 
-    // Собираем ВСЕ уникальные source_ids и offer_ids
-    const allSourceIds = new Set();
-    const allOfferIds = new Set();
+    // Группируем привязки по артикулу + собираем source_ids
+    // Формат: { article: { sourceIds: Set, assignments: [] } }
+    const articleGroups = {};
 
     allAssignments.forEach(assignment => {
+      const article = offerIdToArticle[assignment.offer_id];
+      if (!article) {
+        console.warn(`⚠️ Не найден артикул для offer_id: ${assignment.offer_id}`);
+        return;
+      }
+
+      if (!articleGroups[article]) {
+        articleGroups[article] = {
+          sourceIds: new Set(),
+          assignments: []
+        };
+      }
+
+      // Добавляем source_ids байера
       if (assignment.source_ids && Array.isArray(assignment.source_ids)) {
-        assignment.source_ids.forEach(id => allSourceIds.add(id));
+        assignment.source_ids.forEach(id => articleGroups[article].sourceIds.add(id));
       }
-      if (assignment.offer_id) {
-        allOfferIds.add(String(assignment.offer_id));
-      }
+
+      articleGroups[article].assignments.push(assignment);
     });
 
-    const sourceIdsList = Array.from(allSourceIds);
-    const offerIdsList = Array.from(allOfferIds);
+    const articles = Object.keys(articleGroups);
+    console.log(`📊 Уникальных артикулов: ${articles.length}`);
 
-    console.log(`📊 Всего ${sourceIdsList.length} уникальных source_ids, ${offerIdsList.length} offer_ids`);
-
-    if (sourceIdsList.length === 0) {
-      console.log('⚠️ Нет source_ids для проверки');
+    if (articles.length === 0) {
+      console.log('⚠️ Нет артикулов для проверки');
       return {};
     }
 
-    // Загружаем данные о расходах по всем source_ids
-    const spendData = await fetchSpendDataBulk(sourceIdsList, offerIdsList);
-    console.log(`✅ Получены данные для ${Object.keys(spendData).length} комбинаций source_id+offer_id`);
+    // Собираем ВСЕ уникальные source_ids
+    const allSourceIds = new Set();
+    Object.values(articleGroups).forEach(group => {
+      group.sourceIds.forEach(id => allSourceIds.add(id));
+    });
+
+    const sourceIdsList = Array.from(allSourceIds);
+    console.log(`📊 Всего ${sourceIdsList.length} уникальных source_ids`);
+
+    // Загружаем данные о расходах - по артикулам из campaign_name_tracker
+    const spendData = await fetchSpendDataByArticles(sourceIdsList, articles);
+    console.log(`✅ Получены данные для ${Object.keys(spendData).length} комбинаций`);
 
     // Определяем статусы для каждой привязки
     const todayStr = formatDate(new Date());
     const statusesMap = {};
 
     allAssignments.forEach(assignment => {
-      const offerId = String(assignment.offer_id);
+      const article = offerIdToArticle[assignment.offer_id];
       const sourceIds = assignment.source_ids || [];
       const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
 
+      if (!article) {
+        statusesMap[assignmentKey] = {
+          status: 'not_in_tracker',
+          date: null,
+          message: 'Артикул не найден'
+        };
+        return;
+      }
+
       if (sourceIds.length === 0) {
-        // Нет source_ids - статус "не настроено"
         statusesMap[assignmentKey] = {
           status: 'not_configured',
           date: null,
@@ -115,13 +137,13 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
         return;
       }
 
-      // Проверяем данные для каждого source_id этого байера по этому офферу
+      // Проверяем данные для каждого source_id этого байера по этому артикулу
       let hasSpendToday = false;
       let lastSpendDate = null;
       let foundInTracker = false;
 
       sourceIds.forEach(sourceId => {
-        const key = `${sourceId}:${offerId}`;
+        const key = `${article}:${sourceId}`;
         const data = spendData[key];
 
         if (data) {
@@ -139,21 +161,23 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
         }
       });
 
-      // Определяем статус
+      // Определяем статус (как в оригинальном скрипте)
       if (!foundInTracker) {
+        // Нет записей вообще в трекере
         statusesMap[assignmentKey] = {
           status: 'not_in_tracker',
           date: null,
           message: 'Нет в трекере'
         };
       } else if (hasSpendToday || lastSpendDate === todayStr) {
+        // Есть расходы сегодня - активный
         statusesMap[assignmentKey] = {
           status: 'active',
           date: null,
           message: 'Активный'
         };
       } else if (lastSpendDate) {
-        // Нет расходов сегодня, но были раньше
+        // Были расходы раньше, но сегодня нет
         const noSpendSince = addDays(lastSpendDate, 1);
         statusesMap[assignmentKey] = {
           status: 'not_configured',
@@ -161,7 +185,7 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
           message: `Нет расходов с ${noSpendSince}`
         };
       } else {
-        // Данные есть, но никогда не было расходов
+        // Данные есть, но cost всегда был 0
         statusesMap[assignmentKey] = {
           status: 'not_configured',
           date: null,
@@ -172,7 +196,6 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 
     console.log(`✅ Статусы определены для ${Object.keys(statusesMap).length} привязок`);
 
-    // Статистика
     const stats = { active: 0, not_configured: 0, not_in_tracker: 0 };
     Object.values(statusesMap).forEach(s => stats[s.status]++);
     console.log(`📊 Статистика: Активных: ${stats.active}, Не настроено: ${stats.not_configured}, Нет в трекере: ${stats.not_in_tracker}`);
@@ -186,52 +209,87 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 }
 
 /**
- * Загружает данные о расходах для ВСЕХ source_ids одним bulk-запросом
- *
- * @param {Array} sourceIds - Массив source_id_tracker
- * @param {Array} offerIds - Массив offer_id_tracker
- * @returns {Object} - Map: "sourceId:offerId" -> {last_spend, spend_today}
+ * Загружает данные о расходах по артикулам (извлеченным из campaign_name_tracker)
+ * КАК В ОРИГИНАЛЬНОМ СКРИПТЕ
  */
-async function fetchSpendDataBulk(sourceIds, offerIds) {
+async function fetchSpendDataByArticles(sourceIds, articles) {
   const result = {};
   const todayStr = formatDate(new Date());
 
-  // Разбиваем на чанки если слишком много
+  if (sourceIds.length === 0 || articles.length === 0) {
+    return result;
+  }
+
+  // Разбиваем source_ids на чанки
   const chunks = [];
   for (let i = 0; i < sourceIds.length; i += CHUNK_SIZE) {
     chunks.push(sourceIds.slice(i, i + CHUNK_SIZE));
   }
 
-  console.log(`📦 Загрузка данных: ${chunks.length} чанк(ов) по ${CHUNK_SIZE} source_ids`);
+  console.log(`📦 Загрузка данных: ${chunks.length} чанк(ов)`);
 
-  // Загружаем все чанки параллельно
+  // SQL выражение для очистки campaign_name (как в оригинале)
+  const CLEAN_EXPR = `
+    TRIM(
+      REPLACE(
+        REPLACE(
+          REPLACE(
+            REPLACE(
+              REPLACE(campaign_name_tracker, CHAR(160), ' '),
+            CHAR(9), ' '),
+          CHAR(13), ' '),
+        CHAR(10), ' '),
+      '  ', ' ')
+    )
+  `;
+
+  // SQL выражение для извлечения артикула (как в оригинале)
+  const ARTIKUL_EXPR = `
+    CASE
+      WHEN INSTR(${CLEAN_EXPR}, '-') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '-', 1))
+      WHEN INSTR(${CLEAN_EXPR}, ' ') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, ' ', 1))
+      WHEN INSTR(${CLEAN_EXPR}, '_') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '_', 1))
+      WHEN INSTR(${CLEAN_EXPR}, '|') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '|', 1))
+      WHEN INSTR(${CLEAN_EXPR}, ':') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, ':', 1))
+      ELSE TRIM(${CLEAN_EXPR})
+    END
+  `;
+
+  // Загружаем чанки параллельно
   const promises = chunks.map(async (chunk, idx) => {
     const sourceIdsSql = chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
-    const offerIdsSql = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    const articlesSql = articles.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
 
-    // SQL запрос: получаем последнюю дату с расходами и сумму за сегодня
-    // GROUP BY source_id_tracker, offer_id_tracker для быстрой агрегации
+    // SQL запрос как в оригинальном скрипте
     const sql = `
       SELECT
+        artikul,
         source_id_tracker,
-        offer_id_tracker,
-        MAX(CASE WHEN cost > 0 THEN adv_date END) AS last_spend,
-        SUM(CASE WHEN adv_date = '${todayStr}' THEN cost ELSE 0 END) AS spend_today
-      FROM ads_collection
-      WHERE source_id_tracker IN (${sourceIdsSql})
-        AND offer_id_tracker IN (${offerIdsSql})
-      GROUP BY source_id_tracker, offer_id_tracker
+        MAX(CASE WHEN s > 0 THEN adv_date END) AS last_spend,
+        SUM(CASE WHEN adv_date = '${todayStr}' THEN s ELSE 0 END) AS spend_today
+      FROM (
+        SELECT
+          ${ARTIKUL_EXPR} AS artikul,
+          source_id_tracker,
+          adv_date,
+          SUM(cost) AS s
+        FROM ads_collection
+        WHERE source_id_tracker IN (${sourceIdsSql})
+          AND (${ARTIKUL_EXPR}) IN (${articlesSql})
+        GROUP BY 1, 2, 3
+      ) t
+      GROUP BY artikul, source_id_tracker
     `;
 
-    console.log(`  📆 Чанк ${idx + 1}/${chunks.length}: ${chunk.length} source_ids`);
+    console.log(`  📆 Чанк ${idx + 1}/${chunks.length}: ${chunk.length} source_ids, ${articles.length} артикулов`);
 
     try {
       const rows = await getDataBySql(sql);
       console.log(`    ✅ Получено ${rows.length} записей`);
 
       return rows.map(row => ({
+        article: row.artikul,
         sourceId: row.source_id_tracker,
-        offerId: row.offer_id_tracker,
         last_spend: row.last_spend ? String(row.last_spend).slice(0, 10) : null,
         spend_today: Number(row.spend_today || 0)
       }));
@@ -243,10 +301,10 @@ async function fetchSpendDataBulk(sourceIds, offerIds) {
 
   const results = await Promise.all(promises);
 
-  // Объединяем результаты в Map
+  // Объединяем результаты
   results.flat().forEach(row => {
-    if (row.sourceId && row.offerId) {
-      const key = `${row.sourceId}:${row.offerId}`;
+    if (row.article && row.sourceId) {
+      const key = `${row.article}:${row.sourceId}`;
       result[key] = {
         last_spend: row.last_spend,
         spend_today: row.spend_today
@@ -279,13 +337,13 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
     if ([500, 502, 503, 504].includes(code) && retryCount < MAX_RETRIES) {
       const delay = RETRY_DELAY * Math.pow(2, retryCount);
-      console.log(`⚠️ HTTP ${code}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+      console.log(`⚠️ HTTP ${code}, повтор ${retryCount + 1}/${MAX_RETRIES}...`);
       await sleep(delay);
       return getDataBySql(strSQL, retryCount + 1);
     }
 
     if (code !== 200) {
-      throw new Error(`HTTP ${code}: ${text.substring(0, 100)}`);
+      throw new Error(`HTTP ${code}: ${text.substring(0, 200)}`);
     }
 
     let json;
@@ -303,7 +361,6 @@ async function getDataBySql(strSQL, retryCount = 0) {
       throw new Error('Неподдерживаемый формат данных');
     }
 
-    // Если заголовки в первой строке
     if (Array.isArray(json[0])) {
       const [headers, ...rows] = json;
       return rows.map(row =>
@@ -322,7 +379,7 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
       if (isTimeout || isNetworkError) {
         const delay = RETRY_DELAY * Math.pow(2, retryCount);
-        console.log(`⚠️ ${isTimeout ? 'Таймаут' : 'Сетевая ошибка'}, повтор ${retryCount + 1}/${MAX_RETRIES}...`);
+        console.log(`⚠️ ${isTimeout ? 'Таймаут' : 'Сетевая ошибка'}, повтор...`);
         await sleep(delay);
         return getDataBySql(strSQL, retryCount + 1);
       }
