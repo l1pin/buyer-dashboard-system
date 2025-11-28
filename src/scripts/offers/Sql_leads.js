@@ -301,6 +301,60 @@ export function aggregateMetricsBySourceIds(article, sourceIds, dataBySourceIdAn
 }
 
 /**
+ * Подсчитывает количество дней подряд (с конца) с cost > 0 для байера
+ * Считает с сегодняшнего дня назад, пока cost > 0
+ * @param {string} article - Артикул оффера
+ * @param {Array} sourceIds - Массив source_id байера
+ * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
+ * @returns {number} - Количество дней подряд с cost > 0
+ */
+export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceIdAndDate) {
+  const articleData = dataBySourceIdAndDate[article];
+  if (!articleData) {
+    return 0;
+  }
+
+  // Собираем все даты с cost > 0 для всех source_ids байера
+  const datesWithCost = new Set();
+
+  sourceIds.forEach(sourceId => {
+    const sourceData = articleData[sourceId];
+    if (!sourceData) return;
+
+    Object.keys(sourceData).forEach(dateStr => {
+      if (sourceData[dateStr].cost > 0) {
+        datesWithCost.add(dateStr);
+      }
+    });
+  });
+
+  if (datesWithCost.size === 0) {
+    return 0;
+  }
+
+  // Считаем дни подряд с сегодняшнего дня назад
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let consecutiveDays = 0;
+  let currentDate = new Date(today);
+
+  // Идем назад от сегодняшнего дня
+  for (let i = 0; i < 90; i++) { // Максимум 90 дней назад
+    const dateStr = currentDate.toISOString().split('T')[0];
+
+    if (datesWithCost.has(dateStr)) {
+      consecutiveDays++;
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      break; // Прерываем, как только нашли день без cost
+    }
+  }
+
+  return consecutiveDays;
+}
+
+/**
  * Рассчитывает рейтинг на основе CPL и базового порога
  * @param {number} cpl - CPL за 4 дня
  * @param {number} base - Базовый порог (red_zone_price или 3.5)
