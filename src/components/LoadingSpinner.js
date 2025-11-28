@@ -18,10 +18,10 @@ MiniSpinner.displayName = 'MiniSpinner';
  * Используется в статусах байеров
  */
 export const LoadingDots = memo(({ className = "" }) => (
-  <div className={`inline-flex items-center space-x-1 ${className}`}>
-    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+  <div className={`inline-flex items-center space-x-1.5 ${className}`}>
+    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
+    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></div>
+    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></div>
   </div>
 ));
 

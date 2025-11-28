@@ -305,38 +305,32 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
-                      <div className="w-full text-[9px] text-gray-500 space-y-0.5">
-                        <div className="flex justify-between px-1">
-                          <span>CPL:</span>
-                          {loadingBuyerMetrics ? (
-                            <MiniSpinner />
-                          ) : (
+                      {loadingBuyerMetrics ? (
+                        <div className="w-full flex items-center justify-center py-3">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                        </div>
+                      ) : (
+                        <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+                          <div className="flex justify-between px-1">
+                            <span>CPL:</span>
                             <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
                               {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
                             </span>
-                          )}
-                        </div>
-                        <div className="flex justify-between px-1">
-                          <span>Lead:</span>
-                          {loadingBuyerMetrics ? (
-                            <MiniSpinner />
-                          ) : (
+                          </div>
+                          <div className="flex justify-between px-1">
+                            <span>Lead:</span>
                             <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
                               {hasData ? metrics.leads : '—'}
                             </span>
-                          )}
-                        </div>
-                        <div className="flex justify-between px-1">
-                          <span>Cost:</span>
-                          {loadingBuyerMetrics ? (
-                            <MiniSpinner />
-                          ) : (
+                          </div>
+                          <div className="flex justify-between px-1">
+                            <span>Cost:</span>
                             <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
                               {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
                             </span>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Цветная полоска статуса внизу карточки */}
