@@ -104,7 +104,7 @@ FROM offer_buyers WHERE source = 'facebook';
 -- Пример привязок (первые 10)
 SELECT
   ob.offer_id,
-  m.name as offer_name,
+  m.article as offer_article,
   ob.buyer_name,
   jsonb_array_length(ob.source_ids) as source_ids_count
 FROM offer_buyers ob
