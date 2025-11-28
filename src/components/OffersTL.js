@@ -830,6 +830,7 @@ function OffersTL({ user }) {
             loadingLeadsData={loadingLeadsData}
             loadingDays={loadingDays}
             loadingStocks={loadingStocks}
+            loadingBuyerStatuses={loadingBuyerStatuses}
             onOpenTooltip={openTooltip}
             onStatusChange={handleStatusChange}
             userName={user?.name || 'Неизвестно'}
@@ -844,7 +845,7 @@ function OffersTL({ user }) {
         </div>
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
