@@ -4,6 +4,7 @@ import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
+import { getAssignmentKey, BUYER_STATUS_CONFIG } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
@@ -11,7 +12,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   allBuyers = [],
   initialAssignments = [],
   onAssignmentsChange,
-  buyerMetricsData = {}
+  buyerMetricsData = {},
+  buyerStatuses = {}
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
@@ -282,10 +284,29 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         </div>
                       </div>
 
-                      {/* Бейдж "Активный" */}
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-800">
-                        Активный
-                      </span>
+                      {/* Бейдж статуса байера */}
+                      {(() => {
+                        const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+                        const statusData = buyerStatuses[statusKey];
+                        const statusType = statusData?.status || 'active';
+                        const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
+
+                        return (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium ${config.color} ${config.textColor}`}
+                              title={statusData?.message || config.label}
+                            >
+                              {config.label}
+                            </span>
+                            {statusData?.date && (
+                              <span className="text-[8px] text-red-600 font-medium">
+                                с {statusData.date}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
