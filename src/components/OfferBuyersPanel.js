@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
-import { aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
+import { aggregateMetricsBySourceIds, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 
@@ -213,14 +213,52 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 const metrics = aggregateMetricsBySourceIds(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
 
+                // Вычисляем данные для статуса
+                const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+                const statusData = buyerStatuses[statusKey];
+                const statusType = statusData?.status || 'active';
+                const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
+
+                // Подсчитываем дни для статуса
+                let daysToShow = 0;
+                let daysLabel = '';
+
+                if (statusType === 'active') {
+                  // Для активных - считаем дни подряд с cost > 0
+                  daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData);
+                  daysLabel = daysToShow > 0 ? `${daysToShow} д` : '';
+                } else if (statusType === 'not_configured' && statusData?.date) {
+                  // Для "Не настроено" - считаем дни с момента последнего расхода
+                  const lastDate = new Date(statusData.date);
+                  const today = new Date();
+                  const diffTime = Math.abs(today - lastDate);
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  daysToShow = diffDays;
+                  daysLabel = diffDays > 0 ? `${diffDays} д` : '';
+                }
+
+                // Получаем цвета для полоски статуса
+                const getStatusBarColor = () => {
+                  switch (statusType) {
+                    case 'active':
+                      return 'bg-green-500';
+                    case 'not_configured':
+                      return 'bg-red-500';
+                    case 'not_in_tracker':
+                      return 'bg-purple-500';
+                    default:
+                      return 'bg-gray-500';
+                  }
+                };
+
                 return (
                   <div
                     key={assignment.id}
                     onClick={() => onOpenCalendar(assignment)}
-                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md transition-all group cursor-pointer"
+                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:shadow-md transition-all group cursor-pointer overflow-hidden"
                     title="Нажмите для просмотра календаря метрик"
                   >
-                    <div className="flex flex-col items-center text-center space-y-1">
+                    <div className="flex flex-col items-center text-center space-y-1 p-2">
                       {/* Аватар */}
                       <div className="relative">
                         {assignment.buyer.avatar_url ? (
@@ -257,11 +295,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         </div>
                       </div>
 
-                      {/* Дата привязки и дни */}
-                      <div className="text-[9px] text-gray-500">
-                        {date} | {days} д
-                      </div>
-
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
                       <div className="w-full text-[9px] text-gray-500 space-y-0.5">
                         <div className="flex justify-between px-1">
@@ -283,30 +316,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                           </span>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Бейдж статуса байера */}
-                      {(() => {
-                        const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
-                        const statusData = buyerStatuses[statusKey];
-                        const statusType = statusData?.status || 'active';
-                        const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
-
-                        return (
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium ${config.color} ${config.textColor}`}
-                              title={statusData?.message || config.label}
-                            >
-                              {config.label}
-                            </span>
-                            {statusData?.date && (
-                              <span className="text-[8px] text-red-600 font-medium">
-                                с {statusData.date}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
+                    {/* Цветная полоска статуса внизу карточки */}
+                    <div className={`${getStatusBarColor()} py-1.5 px-2 flex items-center justify-center`}>
+                      <span className="text-[10px] font-semibold text-white text-center leading-tight">
+                        {config.label}{daysLabel && ` • ${daysLabel}`}
+                      </span>
                     </div>
                   </div>
                 );
