@@ -7,6 +7,7 @@ import { aggregateMetricsBySourceIds, calculateConsecutiveActiveDays } from '../
 import { getAssignmentKey, BUYER_STATUS_CONFIG } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
+import { MiniSpinner, LoadingDots } from './LoadingSpinner';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   offer,
@@ -14,7 +15,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   initialAssignments = [],
   onAssignmentsChange,
   buyerMetricsData = {},
-  buyerStatuses = {}
+  buyerStatuses = {},
+  loadingBuyerStatuses = false,
+  loadingBuyerMetrics = false
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
@@ -305,31 +308,49 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       <div className="w-full text-[9px] text-gray-500 space-y-0.5">
                         <div className="flex justify-between px-1">
                           <span>CPL:</span>
-                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                            {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
-                          </span>
+                          {loadingBuyerMetrics ? (
+                            <MiniSpinner />
+                          ) : (
+                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                              {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
+                            </span>
+                          )}
                         </div>
                         <div className="flex justify-between px-1">
                           <span>Lead:</span>
-                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                            {hasData ? metrics.leads : '—'}
-                          </span>
+                          {loadingBuyerMetrics ? (
+                            <MiniSpinner />
+                          ) : (
+                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                              {hasData ? metrics.leads : '—'}
+                            </span>
+                          )}
                         </div>
                         <div className="flex justify-between px-1">
                           <span>Cost:</span>
-                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                            {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
-                          </span>
+                          {loadingBuyerMetrics ? (
+                            <MiniSpinner />
+                          ) : (
+                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                              {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Цветная полоска статуса внизу карточки */}
-                    <div className={`${getStatusBarColor()} py-1.5 px-2 flex items-center justify-center`}>
-                      <span className="text-[10px] font-semibold text-white text-center leading-tight">
-                        {config.label}{daysLabel && ` • ${daysLabel}`}
-                      </span>
-                    </div>
+                    {loadingBuyerStatuses ? (
+                      <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
+                        <LoadingDots className="mx-auto" />
+                      </div>
+                    ) : (
+                      <div className={`${getStatusBarColor()} py-1.5 px-2 flex items-center justify-center`}>
+                        <span className="text-[10px] font-semibold text-white text-center leading-tight">
+                          {config.label}{daysLabel && ` • ${daysLabel}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
