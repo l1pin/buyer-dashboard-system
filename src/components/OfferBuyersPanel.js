@@ -213,27 +213,21 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 const metrics = aggregateMetricsBySourceIds(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
 
-                // Проверяем загружены ли метрики для этого байера
-                const hasMetricsData = Object.keys(buyerMetricsData).length > 0;
-
                 // Вычисляем данные для статуса
                 const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
                 const statusData = buyerStatuses[statusKey];
                 const statusType = statusData?.status || 'active';
                 const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
 
-                // Проверяем загружен ли статус для этого байера
-                const hasStatusData = Object.keys(buyerStatuses).length > 0 && statusData !== undefined;
-
                 // Подсчитываем дни для статуса
                 let daysToShow = 0;
                 let daysLabel = '';
 
-                if (hasStatusData && statusType === 'active') {
+                if (statusType === 'active') {
                   // Для активных - считаем дни подряд с cost > 0
                   daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData);
                   daysLabel = daysToShow > 0 ? `${daysToShow} д` : '';
-                } else if (hasStatusData && statusType === 'not_configured' && statusData?.date) {
+                } else if (statusType === 'not_configured' && statusData?.date) {
                   // Для "Не настроено" - считаем дни с момента последнего расхода
                   const lastDate = new Date(statusData.date);
                   const today = new Date();
@@ -245,8 +239,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                 // Получаем цвета для полоски статуса
                 const getStatusBarColor = () => {
-                  if (!hasStatusData) return 'bg-gray-400'; // Серый для загрузки
-
                   switch (statusType) {
                     case 'active':
                       return 'bg-green-500';
@@ -309,47 +301,33 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
-                      {!hasMetricsData ? (
-                        <div className="w-full py-3 flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-500"></div>
+                      <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+                        <div className="flex justify-between px-1">
+                          <span>CPL:</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="w-full text-[9px] text-gray-500 space-y-0.5">
-                          <div className="flex justify-between px-1">
-                            <span>CPL:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between px-1">
-                            <span>Lead:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? metrics.leads : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between px-1">
-                            <span>Cost:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
-                            </span>
-                          </div>
+                        <div className="flex justify-between px-1">
+                          <span>Lead:</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? metrics.leads : '—'}
+                          </span>
                         </div>
-                      )}
+                        <div className="flex justify-between px-1">
+                          <span>Cost:</span>
+                          <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                            {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Цветная полоска статуса внизу карточки */}
                     <div className={`${getStatusBarColor()} py-1.5 px-2 flex items-center justify-center`}>
-                      {!hasStatusData ? (
-                        <div className="flex gap-1">
-                          <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] font-semibold text-white text-center leading-tight">
-                          {config.label}{daysLabel && ` • ${daysLabel}`}
-                        </span>
-                      )}
+                      <span className="text-[10px] font-semibold text-white text-center leading-tight">
+                        {config.label}{daysLabel && ` • ${daysLabel}`}
+                      </span>
                     </div>
                   </div>
                 );
