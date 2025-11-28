@@ -18,7 +18,6 @@ import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/off
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
 import { updateBuyerStatuses as updateBuyerStatusesScript } from '../scripts/offers/Update_buyer_statuses';
-import { seedBuyersToOffers } from '../scripts/offers/Seed_buyers_test';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 import MigrationModal from './MigrationModal';
@@ -42,7 +41,6 @@ function OffersTL({ user }) {
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
   const [buyerStatuses, setBuyerStatuses] = useState({});
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(false);
-  const [loadingSeeding, setLoadingSeeding] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
 
@@ -375,37 +373,6 @@ function OffersTL({ user }) {
     }
   };
 
-  // Одноразовая функция для заполнения тестовых привязок (УДАЛИТЬ ПОСЛЕ ТЕСТА!)
-  const runSeedBuyers = async () => {
-    try {
-      setLoadingSeeding(true);
-      setError('');
-      setSuccess('🌱 Заполняем тестовые привязки байеров...');
-
-      const result = await seedBuyersToOffers();
-
-      if (result.success) {
-        setSuccess(`✅ Готово! Добавлено: ${result.added}, пропущено: ${result.skipped}`);
-        // Перезагружаем привязки
-        const assignments = await offerBuyersService.getAllAssignments();
-        const grouped = {};
-        assignments.forEach(a => {
-          if (!grouped[a.offer_id]) grouped[a.offer_id] = [];
-          grouped[a.offer_id].push(a);
-        });
-        setAllAssignments(grouped);
-      } else {
-        setError('Ошибка: ' + result.error);
-      }
-    } catch (error) {
-      console.error('❌ Ошибка seed:', error);
-      setError('Ошибка: ' + error.message);
-    } finally {
-      setLoadingSeeding(false);
-      setTimeout(() => setSuccess(''), 5000);
-    }
-  };
-
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -685,14 +652,6 @@ function OffersTL({ user }) {
               className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"
             >
               Миграция
-            </button>
-            <button
-              onClick={runSeedBuyers}
-              disabled={loadingSeeding}
-              className="inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-lg text-orange-700 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loadingSeeding ? 'animate-spin' : ''}`} />
-              🌱 Seed Buyers
             </button>
             <button
               onClick={updateBuyerStatuses}
