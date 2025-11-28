@@ -295,6 +295,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         </div>
                       </div>
 
+                      {/* Дата привязки и дни */}
+                      <div className="text-[9px] text-gray-500">
+                        {date} | {days} д
+                      </div>
+
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
                       <div className="w-full text-[9px] text-gray-500 space-y-0.5">
                         <div className="flex justify-between px-1">
