@@ -1,19 +1,19 @@
 /**
- * ОПТИМИЗИРОВАННЫЙ скрипт для получения данных о лидах и рейтинга из SQL базы данных
+ * МАКСИМАЛЬНО ОПТИМІЗОВАНИЙ скрипт для отримання даних про ліди та рейтинг з SQL БД
  *
- * ПРОИЗВОДИТЕЛЬНОСТЬ:
- * – 🚀 Фильтрует по offer_id_tracker сразу в SQL (WHERE IN) - индекс работает эффективно
- * – 🚀 Выполняет запросы параллельно (Promise.all) вместо последовательно
- * – 🚀 Загружает только нужные offer_id, а не всю таблицу
+ * ПРОДУКТИВНІСТЬ (без лімітів Netlify):
+ * – 🚀 Фільтрує по offer_id_tracker в SQL (WHERE IN) - індекс працює ефективно
+ * – 🚀 3 паралельних запити по 30 днів (замість 6 по 15) - менше HTTP overhead
+ * – 🚀 Використовує preloadedData з Calculate_days.js (економія запитів!)
+ * – 🚀 Таймаут 60с (без обмеження Netlify 26с)
  *
- * ФУНКЦИОНАЛ:
- * – Загружает данные за 90 дней для CPL, Лидов и Рейтинга
- * – Агрегирует данные на клиенте для периодов: 4, 7, 14, 30, 60, 90 дней
- * – Рассчитывает рейтинг (A/B/C/D) на основе CPL за 4 дня и "Цены лида в зоне" (red_zone_price)
- * – Если red_zone_price отсутствует, используется константа 3.5
- * – Использует offer_id_tracker из БД API и маппинг article_offer_mapping
- * – Обновляет ТРИ колонки одним запросом: CPL 4дн, Лиды 4дн, Рейтинг
- * – Также агрегирует данные по source_id_tracker для метрик байеров
+ * ФУНКЦІОНАЛ:
+ * – Завантажує дані за 90 днів для CPL, Лідів та Рейтингу
+ * – Агрегує дані на клієнті для періодів: 4, 7, 14, 30, 60, 90 днів
+ * – Розраховує рейтинг (A/B/C/D) на основі CPL за 4 дні та "Ціни ліда в зоні" (red_zone_price)
+ * – Якщо red_zone_price відсутній, використовується константа 3.5
+ * – Оновлює ТРИ колонки одним запитом: CPL 4дн, Ліди 4дн, Рейтинг
+ * – Також агрегує дані по source_id_tracker для метрик байерів
  */
 
 // Прямой доступ к API (CORS включен на сервере)
@@ -29,9 +29,10 @@ const PERIODS = [
   { days: 90, label: '90 дней' }
 ];
 
-// Настройки для retry логики
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 3000; // 3 секунды
+// 🚀 Оптимізовані налаштування (без лімітів Netlify)
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000;   // 1с між спробами (швидше)
+const FETCH_TIMEOUT = 60000; // 60 секунд
 
 /**
  * Задержка выполнения
@@ -401,19 +402,19 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
   // Создаем SQL список для IN clause
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // 🚀 ОПТИМИЗАЦИЯ: Разбиваем 90 дней на 6 периодов по 15 дней
-  // Это предотвращает HTTP 502 из-за превышения размера ответа
-  console.log(`📅 Разбиваем 90 дней на 6 периодов (по 15 дней) для параллельной загрузки...`);
+  // 🚀 МАКСИМАЛЬНА ОПТИМІЗАЦІЯ: 3 періоди по 30 днів (замість 6 по 15)
+  // Без лімітів Netlify можемо завантажувати більше за раз
+  console.log(`📅 Розбиваємо 90 днів на 3 періоди (по 30 днів) для паралельного завантаження...`);
 
   const periods = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     const periodStart = new Date(start);
-    periodStart.setDate(start.getDate() + (i * 15));
+    periodStart.setDate(start.getDate() + (i * 30));
 
     const periodEnd = new Date(start);
-    periodEnd.setDate(start.getDate() + ((i + 1) * 15) - 1);
+    periodEnd.setDate(start.getDate() + ((i + 1) * 30) - 1);
 
-    // Последний период может быть короче
+    // Останній період може бути коротшим
     if (periodEnd > end) {
       periodEnd.setTime(end.getTime());
     }
@@ -434,7 +435,7 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
       `AND offer_id_tracker IN (${offerIdsList}) ` +
       `AND valid > 0`;
 
-    console.log(`  📆 ${p.from}..${p.to} (параллельно)`);
+    console.log(`  📆 ${p.from}..${p.to} (30 днів, паралельно)`);
 
     try {
       const rawData = await getDataBySql(sql);
@@ -481,23 +482,31 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
     console.warn(`⚠️ Пропущено ${failedPeriods.length} периодов: ${failedPeriods.join(', ')}`);
   }
 
-  console.log(`✅ 90 дней: ${allData.length} записей (${successCount}/${periods.length} периодов) - загружено ПАРАЛЛЕЛЬНО 🚀`);
+  console.log(`✅ 90 днів: ${allData.length} записів (${successCount}/${periods.length} періодів по 30 днів) - завантажено ПАРАЛЕЛЬНО 🚀`);
 
   return allData;
 }
 
 /**
- * Универсальный fetch к SQL API с retry логикой
+ * Універсальний fetch з оптимізованими таймаутами
+ * 🚀 БЕЗ ЛІМІТІВ NETLIFY: таймаут 60с, швидкий retry
  */
 async function getDataBySql(strSQL, retryCount = 0) {
   try {
+    // Контролер для відміни по таймауту
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
     const response = await fetch(CORE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ assoc: true, sql: strSQL })
+      body: JSON.stringify({ assoc: true, sql: strSQL }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const code = response.status;
     const text = await response.text();
@@ -542,12 +551,18 @@ async function getDataBySql(strSQL, retryCount = 0) {
 
     return json;
   } catch (error) {
-    // Если это сетевая ошибка и есть попытки - повторяем
-    if (retryCount < MAX_RETRIES && error.message.includes('fetch')) {
-      const delay = RETRY_DELAY * Math.pow(2, retryCount);
-      console.log(`      ⚠️ Сетевая ошибка, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
-      await sleep(delay);
-      return getDataBySql(strSQL, retryCount + 1);
+    // Обробка таймаутів та мережевих помилок
+    if (retryCount < MAX_RETRIES) {
+      const isTimeout = error.name === 'AbortError';
+      const isNetworkError = error.message.includes('fetch') || error.message.includes('network');
+
+      if (isTimeout || isNetworkError) {
+        const delay = RETRY_DELAY * Math.pow(2, retryCount);
+        const errorType = isTimeout ? 'Таймаут' : 'Мережева помилка';
+        console.log(`      ⚠️ ${errorType}, повтор ${retryCount + 1}/${MAX_RETRIES} через ${delay}мс...`);
+        await sleep(delay);
+        return getDataBySql(strSQL, retryCount + 1);
+      }
     }
     throw error;
   }
