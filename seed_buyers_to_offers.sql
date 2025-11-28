@@ -13,7 +13,7 @@
 WITH
 -- Все офферы
 offers AS (
-  SELECT id as offer_id FROM metrics
+  SELECT id as offer_id FROM metrics_analytics
 ),
 
 -- Все байеры с их facebook source_ids
@@ -108,7 +108,7 @@ SELECT
   ob.buyer_name,
   jsonb_array_length(ob.source_ids) as source_ids_count
 FROM offer_buyers ob
-LEFT JOIN metrics m ON m.id = ob.offer_id
+LEFT JOIN metrics_analytics m ON m.id = ob.offer_id
 WHERE ob.source = 'facebook'
 ORDER BY ob.offer_id
 LIMIT 10;
