@@ -45,6 +45,9 @@ function OffersTL({ user }) {
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
 
+  // Ref для отслеживания автообновления
+  const hasAutoUpdatedRef = useRef(false);
+
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
 
@@ -130,18 +133,28 @@ function OffersTL({ user }) {
 
       // Обновляем в фоне
       setIsBackgroundRefresh(true);
-      loadAllData(true).then(() => {
-        // После загрузки данных запускаем автообновление метрик
-        autoUpdateMetrics();
-      });
+      loadAllData(true);
     } else {
       // Нет кэша - грузим с нуля
-      loadAllData(false).then(() => {
-        // После загрузки данных запускаем автообновление метрик
-        autoUpdateMetrics();
-      });
+      loadAllData(false);
     }
   }, []);
+
+  // Автообновление метрик после загрузки данных
+  useEffect(() => {
+    // Проверяем что данные загружены и автообновление еще не запускалось
+    if (
+      metrics.length > 0 &&
+      Object.keys(allAssignments).length > 0 &&
+      Object.keys(articleOfferMap).length > 0 &&
+      !loading &&
+      !hasAutoUpdatedRef.current
+    ) {
+      console.log('✅ Данные загружены, запускаем автообновление...');
+      hasAutoUpdatedRef.current = true;
+      autoUpdateMetrics();
+    }
+  }, [metrics, allAssignments, articleOfferMap, loading, autoUpdateMetrics]);
 
   // Главная функция загрузки - всё параллельно
   const loadAllData = async (isBackground = false) => {
