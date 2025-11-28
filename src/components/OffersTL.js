@@ -43,22 +43,109 @@ function OffersTL({ user }) {
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
+  const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
 
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
 
-  // Загружаем ВСЁ параллельно при монтировании
+  // Ключи для кэша в sessionStorage
+  const CACHE_KEYS = {
+    metrics: 'offersTL_metrics',
+    buyers: 'offersTL_buyers',
+    statuses: 'offersTL_statuses',
+    assignments: 'offersTL_assignments',
+    mappings: 'offersTL_mappings',
+    lastUpdated: 'offersTL_lastUpdated',
+    timestamp: 'offersTL_cacheTimestamp'
+  };
+
+  // Загрузка из кэша
+  const loadFromCache = () => {
+    try {
+      const cached = {
+        metrics: sessionStorage.getItem(CACHE_KEYS.metrics),
+        buyers: sessionStorage.getItem(CACHE_KEYS.buyers),
+        statuses: sessionStorage.getItem(CACHE_KEYS.statuses),
+        assignments: sessionStorage.getItem(CACHE_KEYS.assignments),
+        mappings: sessionStorage.getItem(CACHE_KEYS.mappings),
+        lastUpdated: sessionStorage.getItem(CACHE_KEYS.lastUpdated),
+        timestamp: sessionStorage.getItem(CACHE_KEYS.timestamp)
+      };
+
+      // Проверяем есть ли кэш и не устарел ли он (5 минут)
+      if (cached.metrics && cached.timestamp) {
+        const cacheAge = Date.now() - parseInt(cached.timestamp);
+        const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
+        if (cacheAge < CACHE_TTL) {
+          console.log('⚡ Загружаем из кэша...');
+          return {
+            metrics: JSON.parse(cached.metrics),
+            buyers: JSON.parse(cached.buyers || '[]'),
+            statuses: JSON.parse(cached.statuses || '{}'),
+            assignments: JSON.parse(cached.assignments || '{}'),
+            mappings: JSON.parse(cached.mappings || '{}'),
+            lastUpdated: cached.lastUpdated
+          };
+        }
+      }
+      return null;
+    } catch (e) {
+      console.warn('⚠️ Ошибка чтения кэша:', e);
+      return null;
+    }
+  };
+
+  // Сохранение в кэш
+  const saveToCache = (data) => {
+    try {
+      sessionStorage.setItem(CACHE_KEYS.metrics, JSON.stringify(data.metrics));
+      sessionStorage.setItem(CACHE_KEYS.buyers, JSON.stringify(data.buyers));
+      sessionStorage.setItem(CACHE_KEYS.statuses, JSON.stringify(data.statuses));
+      sessionStorage.setItem(CACHE_KEYS.assignments, JSON.stringify(data.assignments));
+      sessionStorage.setItem(CACHE_KEYS.mappings, JSON.stringify(data.mappings));
+      sessionStorage.setItem(CACHE_KEYS.lastUpdated, data.lastUpdated || '');
+      sessionStorage.setItem(CACHE_KEYS.timestamp, Date.now().toString());
+      console.log('💾 Данные сохранены в кэш');
+    } catch (e) {
+      console.warn('⚠️ Ошибка сохранения в кэш:', e);
+    }
+  };
+
+  // Загружаем данные при монтировании
   useEffect(() => {
-    loadAllData();
+    // Сначала пробуем загрузить из кэша
+    const cachedData = loadFromCache();
+
+    if (cachedData && cachedData.metrics.length > 0) {
+      // Есть кэш - показываем сразу
+      setMetrics(cachedData.metrics);
+      setAllBuyers(cachedData.buyers);
+      setOfferStatuses(cachedData.statuses);
+      setAllAssignments(cachedData.assignments);
+      setArticleOfferMap(cachedData.mappings);
+      setLastUpdated(cachedData.lastUpdated);
+      setLoading(false);
+      console.log(`⚡ Загружено из кэша: ${cachedData.metrics.length} офферов`);
+
+      // Обновляем в фоне
+      setIsBackgroundRefresh(true);
+      loadAllData(true);
+    } else {
+      // Нет кэша - грузим с нуля
+      loadAllData(false);
+    }
   }, []);
 
   // Главная функция загрузки - всё параллельно
-  const loadAllData = async () => {
+  const loadAllData = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) {
+        setLoading(true);
+      }
       setError('');
 
-      console.log('🔄 Загружаем все данные параллельно...');
+      console.log(isBackground ? '🔄 Фоновое обновление...' : '🔄 Загружаем все данные...');
 
       // Запускаем ВСЕ запросы параллельно
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult] = await Promise.all([
@@ -75,7 +162,8 @@ function OffersTL({ user }) {
       setLastUpdated(metricsResult.lastUpdated);
 
       // Устанавливаем байеров
-      setAllBuyers(buyersResult || []);
+      const buyersData = buyersResult || [];
+      setAllBuyers(buyersData);
 
       // Обрабатываем статусы
       const statusesMap = {};
@@ -105,9 +193,20 @@ function OffersTL({ user }) {
       setAllAssignments(grouped);
 
       // Устанавливаем маппинги артикулов -> offer_id
-      setArticleOfferMap(mappingsResult || {});
+      const mappingsData = mappingsResult || {};
+      setArticleOfferMap(mappingsData);
 
-      if (metricsData.length > 0) {
+      // Сохраняем в кэш
+      saveToCache({
+        metrics: metricsData,
+        buyers: buyersData,
+        statuses: statusesMap,
+        assignments: grouped,
+        mappings: mappingsData,
+        lastUpdated: metricsResult.lastUpdated
+      });
+
+      if (metricsData.length > 0 && !isBackground) {
         setSuccess(`✅ Загружено ${metricsData.length} офферов`);
       }
 
@@ -115,10 +214,15 @@ function OffersTL({ user }) {
 
     } catch (error) {
       console.error('❌ Ошибка загрузки:', error);
-      setError('Ошибка загрузки: ' + error.message);
+      if (!isBackground) {
+        setError('Ошибка загрузки: ' + error.message);
+      }
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccess(''), 3000);
+      setIsBackgroundRefresh(false);
+      if (!isBackground) {
+        setTimeout(() => setSuccess(''), 3000);
+      }
     }
   };
 
@@ -688,6 +792,12 @@ function OffersTL({ user }) {
         </div>
       )}
 
+      {isBackgroundRefresh && (
+        <div className="mx-6 mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm flex items-center shadow-sm">
+          <RefreshCw className="h-4 w-4 mr-2 flex-shrink-0 animate-spin" />
+          Обновление данных в фоне...
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
