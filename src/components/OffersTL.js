@@ -354,7 +354,8 @@ function OffersTL({ user }) {
 
       console.log(`🔄 Обновляем статусы для ${flatAssignments.length} привязок...`);
 
-      const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap);
+      // Передаем metrics для получения артикула по offer_id
+      const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
       setBuyerStatuses(statuses);
 
       // Подсчет статистики

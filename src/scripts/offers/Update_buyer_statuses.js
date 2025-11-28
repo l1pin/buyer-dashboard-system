@@ -3,16 +3,15 @@
  * Адаптировано из Google Apps Script под систему
  *
  * СТАТУСЫ:
- * - "active" (зеленый) - есть расходы сегодня (cost > 0)
+ * - "active" (зеленый) - есть расходы (cost > 0) сегодня
  * - "not_configured" (красный) - были расходы раньше, но сегодня нет
  * - "not_in_tracker" (фиолетовый) - нет данных в трекере вообще за всю историю
  *
- * ЛОГИКА (как в оригинале):
- * - Извлекаем артикул из campaign_name_tracker (первое слово до разделителя)
- * - Проверяем по source_ids байера + артикулу оффера
- * - Если нет записей вообще -> "Нет в трекере"
- * - Если нет cost сегодня -> "Не настроено" + дата последнего расхода
- * - Если есть cost сегодня -> "Активный"
+ * ЛОГИКА:
+ * 1. По offer_id (ID в системе) получаем article из metrics
+ * 2. По article получаем offer_id_tracker из articleOfferMap (Supabase)
+ * 3. Ищем в БД API по offer_id_tracker + source_id_tracker
+ * 4. Проверяем cost за сегодня
  */
 
 // Прямой доступ к API (CORS включен на сервере)
@@ -44,70 +43,106 @@ function addDays(dateStr, days) {
  * ГЛАВНАЯ ФУНКЦИЯ: Обновляет статусы всех байеров
  *
  * @param {Array} allAssignments - Все привязки байеров [{offer_id, buyer_id, source_ids, ...}]
- * @param {Object} articleOfferMap - Маппинг article -> offer_id (нужен для получения артикула)
- * @param {Array} metrics - Массив метрик офферов (для получения артикула по offer_id)
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id_tracker (из Supabase)
+ * @param {Array} metrics - Массив метрик офферов (для получения article по offer_id)
  * @returns {Promise<Object>} - Map: assignmentKey -> {status, date}
  */
 export async function updateBuyerStatuses(allAssignments = [], articleOfferMap = {}, metrics = []) {
   try {
     console.log('🔄 Начинаем обновление статусов байеров...');
+    console.log(`📊 articleOfferMap keys (первые 5):`, Object.keys(articleOfferMap).slice(0, 5));
+    console.log(`📊 metrics count:`, metrics.length);
 
     if (!allAssignments || allAssignments.length === 0) {
       console.log('⚠️ Нет привязок байеров для обработки');
       return {};
     }
 
-    // Создаем обратный маппинг: offer_id -> article
+    // Создаем маппинг: offer_id (ID в системе) -> article (из metrics)
     const offerIdToArticle = {};
-    Object.entries(articleOfferMap).forEach(([article, offerId]) => {
-      offerIdToArticle[offerId] = article;
+    metrics.forEach(m => {
+      if (m.id && m.article) {
+        offerIdToArticle[m.id] = m.article;
+      }
     });
+    console.log(`📊 offerIdToArticle (первые 5):`, Object.entries(offerIdToArticle).slice(0, 5));
 
-    // Группируем привязки по артикулу + собираем source_ids
-    // Формат: { article: { sourceIds: Set, assignments: [] } }
-    const articleGroups = {};
+    // Группируем привязки и собираем данные
+    // Формат: { offerIdTracker: { sourceIds: Set, assignments: [], article: string } }
+    const trackerGroups = {};
+    let skippedNoArticle = 0;
+    let skippedNoOfferIdTracker = 0;
 
     allAssignments.forEach(assignment => {
+      // 1. Получаем article по offer_id из metrics
       const article = offerIdToArticle[assignment.offer_id];
       if (!article) {
         console.warn(`⚠️ Не найден артикул для offer_id: ${assignment.offer_id}`);
+        skippedNoArticle++;
         return;
       }
 
-      if (!articleGroups[article]) {
-        articleGroups[article] = {
+      // 2. Получаем offer_id_tracker по article из articleOfferMap
+      const offerIdTracker = articleOfferMap[article];
+      if (!offerIdTracker) {
+        console.warn(`⚠️ Не найден offer_id_tracker для артикула: ${article}`);
+        skippedNoOfferIdTracker++;
+        return;
+      }
+
+      if (!trackerGroups[offerIdTracker]) {
+        trackerGroups[offerIdTracker] = {
           sourceIds: new Set(),
-          assignments: []
+          assignments: [],
+          article: article
         };
       }
 
       // Добавляем source_ids байера
       if (assignment.source_ids && Array.isArray(assignment.source_ids)) {
-        assignment.source_ids.forEach(id => articleGroups[article].sourceIds.add(id));
+        assignment.source_ids.forEach(id => trackerGroups[offerIdTracker].sourceIds.add(id));
       }
 
-      articleGroups[article].assignments.push(assignment);
+      trackerGroups[offerIdTracker].assignments.push({
+        ...assignment,
+        article: article,
+        offerIdTracker: offerIdTracker
+      });
     });
 
-    const articles = Object.keys(articleGroups);
-    console.log(`📊 Уникальных артикулов: ${articles.length}`);
+    console.log(`📊 Пропущено: без артикула=${skippedNoArticle}, без offer_id_tracker=${skippedNoOfferIdTracker}`);
 
-    if (articles.length === 0) {
-      console.log('⚠️ Нет артикулов для проверки');
-      return {};
+    const offerIdTrackers = Object.keys(trackerGroups);
+    console.log(`📊 Уникальных offer_id_tracker: ${offerIdTrackers.length}`);
+
+    if (offerIdTrackers.length === 0) {
+      console.log('⚠️ Нет offer_id_tracker для проверки');
+      // Возвращаем статусы для пропущенных
+      const statusesMap = {};
+      allAssignments.forEach(assignment => {
+        const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
+        statusesMap[assignmentKey] = {
+          status: 'not_in_tracker',
+          date: null,
+          message: 'Нет маппинга'
+        };
+      });
+      return statusesMap;
     }
 
     // Собираем ВСЕ уникальные source_ids
     const allSourceIds = new Set();
-    Object.values(articleGroups).forEach(group => {
+    Object.values(trackerGroups).forEach(group => {
       group.sourceIds.forEach(id => allSourceIds.add(id));
     });
 
     const sourceIdsList = Array.from(allSourceIds);
     console.log(`📊 Всего ${sourceIdsList.length} уникальных source_ids`);
+    console.log(`📊 Примеры source_ids:`, sourceIdsList.slice(0, 3));
+    console.log(`📊 Примеры offer_id_tracker:`, offerIdTrackers.slice(0, 3));
 
-    // Загружаем данные о расходах - по артикулам из campaign_name_tracker
-    const spendData = await fetchSpendDataByArticles(sourceIdsList, articles);
+    // Загружаем данные о расходах по offer_id_tracker + source_id_tracker
+    const spendData = await fetchSpendDataByOfferIds(sourceIdsList, offerIdTrackers);
     console.log(`✅ Получены данные для ${Object.keys(spendData).length} комбинаций`);
 
     // Определяем статусы для каждой привязки
@@ -116,14 +151,15 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 
     allAssignments.forEach(assignment => {
       const article = offerIdToArticle[assignment.offer_id];
+      const offerIdTracker = article ? articleOfferMap[article] : null;
       const sourceIds = assignment.source_ids || [];
       const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
 
-      if (!article) {
+      if (!article || !offerIdTracker) {
         statusesMap[assignmentKey] = {
           status: 'not_in_tracker',
           date: null,
-          message: 'Артикул не найден'
+          message: 'Нет маппинга'
         };
         return;
       }
@@ -137,13 +173,13 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
         return;
       }
 
-      // Проверяем данные для каждого source_id этого байера по этому артикулу
+      // Проверяем данные для каждого source_id этого байера по этому offer_id_tracker
       let hasSpendToday = false;
       let lastSpendDate = null;
       let foundInTracker = false;
 
       sourceIds.forEach(sourceId => {
-        const key = `${article}:${sourceId}`;
+        const key = `${offerIdTracker}:${sourceId}`;
         const data = spendData[key];
 
         if (data) {
@@ -163,7 +199,7 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 
       // Определяем статус (как в оригинальном скрипте)
       if (!foundInTracker) {
-        // Нет записей вообще в трекере
+        // Нет записей вообще в трекере по этому offer_id_tracker + source_ids
         statusesMap[assignmentKey] = {
           status: 'not_in_tracker',
           date: null,
@@ -209,14 +245,14 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 }
 
 /**
- * Загружает данные о расходах по артикулам (извлеченным из campaign_name_tracker)
- * КАК В ОРИГИНАЛЬНОМ СКРИПТЕ
+ * Загружает данные о расходах по offer_id_tracker + source_id_tracker
+ * Прямой поиск по колонкам БД API
  */
-async function fetchSpendDataByArticles(sourceIds, articles) {
+async function fetchSpendDataByOfferIds(sourceIds, offerIdTrackers) {
   const result = {};
   const todayStr = formatDate(new Date());
 
-  if (sourceIds.length === 0 || articles.length === 0) {
+  if (sourceIds.length === 0 || offerIdTrackers.length === 0) {
     return result;
   }
 
@@ -228,67 +264,37 @@ async function fetchSpendDataByArticles(sourceIds, articles) {
 
   console.log(`📦 Загрузка данных: ${chunks.length} чанк(ов)`);
 
-  // SQL выражение для очистки campaign_name (как в оригинале)
-  const CLEAN_EXPR = `
-    TRIM(
-      REPLACE(
-        REPLACE(
-          REPLACE(
-            REPLACE(
-              REPLACE(campaign_name_tracker, CHAR(160), ' '),
-            CHAR(9), ' '),
-          CHAR(13), ' '),
-        CHAR(10), ' '),
-      '  ', ' ')
-    )
-  `;
-
-  // SQL выражение для извлечения артикула (как в оригинале)
-  const ARTIKUL_EXPR = `
-    CASE
-      WHEN INSTR(${CLEAN_EXPR}, '-') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '-', 1))
-      WHEN INSTR(${CLEAN_EXPR}, ' ') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, ' ', 1))
-      WHEN INSTR(${CLEAN_EXPR}, '_') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '_', 1))
-      WHEN INSTR(${CLEAN_EXPR}, '|') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, '|', 1))
-      WHEN INSTR(${CLEAN_EXPR}, ':') > 0 THEN TRIM(SUBSTRING_INDEX(${CLEAN_EXPR}, ':', 1))
-      ELSE TRIM(${CLEAN_EXPR})
-    END
-  `;
-
   // Загружаем чанки параллельно
   const promises = chunks.map(async (chunk, idx) => {
     const sourceIdsSql = chunk.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
-    const articlesSql = articles.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+    const offerIdsSql = offerIdTrackers.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-    // SQL запрос как в оригинальном скрипте
+    // SQL запрос - ищем по offer_id_tracker и source_id_tracker
     const sql = `
       SELECT
-        artikul,
+        offer_id_tracker,
         source_id_tracker,
-        MAX(CASE WHEN s > 0 THEN adv_date END) AS last_spend,
-        SUM(CASE WHEN adv_date = '${todayStr}' THEN s ELSE 0 END) AS spend_today
-      FROM (
-        SELECT
-          ${ARTIKUL_EXPR} AS artikul,
-          source_id_tracker,
-          adv_date,
-          SUM(cost) AS s
-        FROM ads_collection
-        WHERE source_id_tracker IN (${sourceIdsSql})
-          AND (${ARTIKUL_EXPR}) IN (${articlesSql})
-        GROUP BY 1, 2, 3
-      ) t
-      GROUP BY artikul, source_id_tracker
+        MAX(CASE WHEN cost > 0 THEN adv_date END) AS last_spend,
+        SUM(CASE WHEN adv_date = '${todayStr}' THEN cost ELSE 0 END) AS spend_today
+      FROM ads_collection
+      WHERE source_id_tracker IN (${sourceIdsSql})
+        AND offer_id_tracker IN (${offerIdsSql})
+      GROUP BY offer_id_tracker, source_id_tracker
     `;
 
-    console.log(`  📆 Чанк ${idx + 1}/${chunks.length}: ${chunk.length} source_ids, ${articles.length} артикулов`);
+    console.log(`  📆 Чанк ${idx + 1}/${chunks.length}: ${chunk.length} source_ids, ${offerIdTrackers.length} offer_ids`);
 
     try {
       const rows = await getDataBySql(sql);
       console.log(`    ✅ Получено ${rows.length} записей`);
 
+      // Отладка - показать первые результаты
+      if (rows.length > 0 && idx === 0) {
+        console.log(`    📋 Пример данных:`, rows.slice(0, 2));
+      }
+
       return rows.map(row => ({
-        article: row.artikul,
+        offerIdTracker: row.offer_id_tracker,
         sourceId: row.source_id_tracker,
         last_spend: row.last_spend ? String(row.last_spend).slice(0, 10) : null,
         spend_today: Number(row.spend_today || 0)
@@ -303,8 +309,8 @@ async function fetchSpendDataByArticles(sourceIds, articles) {
 
   // Объединяем результаты
   results.flat().forEach(row => {
-    if (row.article && row.sourceId) {
-      const key = `${row.article}:${row.sourceId}`;
+    if (row.offerIdTracker && row.sourceId) {
+      const key = `${row.offerIdTracker}:${row.sourceId}`;
       result[key] = {
         last_spend: row.last_spend,
         spend_today: row.spend_today
