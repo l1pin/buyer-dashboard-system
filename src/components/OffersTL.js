@@ -678,29 +678,36 @@ function OffersTL({ user }) {
     });
   }, [metrics, searchTerm, sortField, sortDirection]);
 
-  // Мемоизированный список офферов (вынесен на верхний уровень для соблюдения правил хуков)
+  // Мемоизированный список офферов с CSS content-visibility для оптимизации
   const renderedOffersList = useMemo(() => (
     <div className="px-4 py-2 space-y-1">
       {filteredMetrics.map((metric, index) => (
-        <OfferRow
+        <div
           key={metric.id}
-          metric={metric}
-          index={index}
-          offerStatus={offerStatuses[metric.id]}
-          loadingLeadsData={loadingLeadsData}
-          loadingDays={loadingDays}
-          loadingStocks={loadingStocks}
-          onOpenTooltip={openTooltip}
-          onStatusChange={handleStatusChange}
-          userName={user?.name || 'Неизвестно'}
-          userId={user?.id}
-          allBuyers={allBuyers}
-          initialAssignments={allAssignments[metric.id] || []}
-          onAssignmentsChange={handleAssignmentsChange}
-          buyerMetricsData={buyerMetricsData}
-          buyerStatuses={buyerStatuses}
-          articleOfferMap={articleOfferMap}
-        />
+          style={{
+            contentVisibility: 'auto',
+            containIntrinsicSize: '0 80px'
+          }}
+        >
+          <OfferRow
+            metric={metric}
+            index={index}
+            offerStatus={offerStatuses[metric.id]}
+            loadingLeadsData={loadingLeadsData}
+            loadingDays={loadingDays}
+            loadingStocks={loadingStocks}
+            onOpenTooltip={openTooltip}
+            onStatusChange={handleStatusChange}
+            userName={user?.name || 'Неизвестно'}
+            userId={user?.id}
+            allBuyers={allBuyers}
+            initialAssignments={allAssignments[metric.id] || []}
+            onAssignmentsChange={handleAssignmentsChange}
+            buyerMetricsData={buyerMetricsData}
+            buyerStatuses={buyerStatuses}
+            articleOfferMap={articleOfferMap}
+          />
+        </div>
       ))}
     </div>
   ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
