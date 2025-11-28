@@ -1,6 +1,7 @@
 // src/components/OfferStatusBadge.js
 import React, { useState, useRef, useEffect } from 'react';
 import { offerStatusService } from '../services/OffersSupabase';
+import Portal from './Portal';
 
 /**
  * Компонент для отображения и изменения статуса оффера
@@ -10,7 +11,9 @@ import { offerStatusService } from '../services/OffersSupabase';
 function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInStatus, onStatusChange, userName = 'User', userId = null, readOnly = false }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const availableStatuses = offerStatusService.getAvailableStatuses();
   const statusConfig = offerStatusService.getStatusColor(currentStatus || 'Активный');
@@ -35,6 +38,15 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
   const handleStatusClick = (e) => {
     e.stopPropagation();
     if (readOnly) return; // Не открываем dropdown в режиме только чтения
+
+    if (!isDropdownOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX
+      });
+    }
+
     setIsDropdownOpen(!isDropdownOpen);
   };
 
@@ -77,6 +89,7 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
     <div className="relative inline-block" ref={dropdownRef}>
       {/* Кружок со статусом + дни */}
       <button
+        ref={buttonRef}
         onClick={handleStatusClick}
         disabled={isUpdating || readOnly}
         className={`inline-flex items-center gap-2 transition-all duration-200 disabled:opacity-50 ${readOnly ? 'cursor-default' : 'hover:opacity-80 cursor-pointer'}`}
@@ -100,33 +113,41 @@ function OfferStatusBadge({ offerId, article, offerName, currentStatus, daysInSt
 
       {/* Dropdown меню (не показываем в readOnly режиме) */}
       {isDropdownOpen && !readOnly && (
-        <div className="absolute z-50 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 left-0">
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200">
-            Изменить статус
+        <Portal>
+          <div
+            className="fixed z-50 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1"
+            style={{
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`
+            }}
+          >
+            <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200">
+              Изменить статус
+            </div>
+            {availableStatuses.map((status) => (
+              <button
+                key={status.value}
+                onClick={() => handleStatusChange(status.value)}
+                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                  currentStatus === status.value ? 'bg-gray-100' : ''
+                }`}
+              >
+                {/* Цветной кружок */}
+                <span className={`w-3 h-3 rounded-full ${status.color}`}></span>
+
+                {/* Название статуса */}
+                <span className="text-gray-900">{status.label}</span>
+
+                {/* Галочка для текущего статуса */}
+                {currentStatus === status.value && (
+                  <svg className="w-4 h-4 ml-auto text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            ))}
           </div>
-          {availableStatuses.map((status) => (
-            <button
-              key={status.value}
-              onClick={() => handleStatusChange(status.value)}
-              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                currentStatus === status.value ? 'bg-gray-100' : ''
-              }`}
-            >
-              {/* Цветной кружок */}
-              <span className={`w-3 h-3 rounded-full ${status.color}`}></span>
-
-              {/* Название статуса */}
-              <span className="text-gray-900">{status.label}</span>
-
-              {/* Галочка для текущего статуса */}
-              {currentStatus === status.value && (
-                <svg className="w-4 h-4 ml-auto text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-          ))}
-        </div>
+        </Portal>
       )}
     </div>
   );

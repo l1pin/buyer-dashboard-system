@@ -6,6 +6,7 @@ import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsBySourceIds, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
+import Portal from './Portal';
 
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   offer,
@@ -375,8 +376,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
       {/* Модальное окно выбора байера */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
             {/* Заголовок */}
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -487,7 +489,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
 
       {/* Модальное окно календаря метрик */}

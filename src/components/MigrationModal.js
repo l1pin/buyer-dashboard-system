@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { offerStatusService } from '../services/OffersSupabase';
+import Portal from './Portal';
 
 const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) => {
   const [activeTab, setActiveTab] = useState('offer_id'); // offer_id, statuses, season
@@ -176,8 +177,9 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Portal>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Миграция данных</h2>
@@ -402,7 +404,8 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 };
 

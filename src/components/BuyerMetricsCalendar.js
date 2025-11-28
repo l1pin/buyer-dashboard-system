@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { getBuyerMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
+import Portal from './Portal';
 
 function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, maxCPL = 3.5 }) {
   const [loading, setLoading] = useState(true);
@@ -216,75 +217,82 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl border border-gray-200 max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-gray-600">Загрузка данных...</p>
+      <Portal>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl border border-gray-200 max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
+                <p className="text-gray-600">Загрузка данных...</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Portal>
     );
   }
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-red-600">Ошибка</h2>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                <X className="w-6 h-6" />
+      <Portal>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-red-600">Ошибка</h2>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 text-center">
+              <p className="text-gray-700">{error}</p>
+              <button
+                onClick={onClose}
+                className="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700"
+              >
+                Закрыть
               </button>
             </div>
           </div>
-          <div className="p-6 text-center">
-            <p className="text-gray-700">{error}</p>
-            <button
-              onClick={onClose}
-              className="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700"
-            >
-              Закрыть
-            </button>
-          </div>
         </div>
-      </div>
+      </Portal>
     );
   }
 
   if (!data || sortedDates.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">Календарь метрик</h2>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                <X className="w-6 h-6" />
+      <Portal>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl border border-gray-200 max-w-md w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Календарь метрик</h2>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 text-center">
+              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">Нет данных за выбранный период</p>
+              <button
+                onClick={onClose}
+                className="mt-6 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
+              >
+                Закрыть
               </button>
             </div>
           </div>
-          <div className="p-6 text-center">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">Нет данных за выбранный период</p>
-            <button
-              onClick={onClose}
-              className="mt-6 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
-            >
-              Закрыть
-            </button>
-          </div>
         </div>
-      </div>
+      </Portal>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
+    <Portal>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-2">
@@ -486,7 +494,8 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 }
 
