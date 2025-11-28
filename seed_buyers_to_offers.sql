@@ -16,30 +16,15 @@ offers AS (
   SELECT id as offer_id FROM metrics_analytics
 ),
 
--- Все байеры с их facebook source_ids
+-- Все байеры с их facebook source_ids из таблицы buyer_source
 buyers_with_fb AS (
   SELECT
-    u.id as buyer_id,
-    u.name as buyer_name,
-    -- Извлекаем все channel_id где source = 'facebook'
-    COALESCE(
-      (
-        SELECT jsonb_agg(ch->>'channel_id')
-        FROM jsonb_array_elements(
-          CASE
-            WHEN u.buyer_settings->'traffic_channels' IS NOT NULL
-            THEN u.buyer_settings->'traffic_channels'
-            ELSE '[]'::jsonb
-          END
-        ) ch
-        WHERE ch->>'source' = 'facebook'
-          AND ch->>'channel_id' IS NOT NULL
-          AND ch->>'channel_id' != ''
-      ),
-      '[]'::jsonb
-    ) as fb_source_ids
-  FROM users u
-  WHERE u.role = 'buyer'
+    bs.buyer_id,
+    bs.buyer_name,
+    bs.source_ids as fb_source_ids
+  FROM buyer_source bs
+  WHERE bs.source_ids IS NOT NULL
+    AND jsonb_array_length(bs.source_ids) > 0
 ),
 
 -- Рандомизируем байеров для каждого оффера
@@ -106,6 +91,7 @@ SELECT
   ob.offer_id,
   m.article as offer_article,
   ob.buyer_name,
+  ob.source_ids,
   jsonb_array_length(ob.source_ids) as source_ids_count
 FROM offer_buyers ob
 LEFT JOIN metrics_analytics m ON m.id = ob.offer_id
