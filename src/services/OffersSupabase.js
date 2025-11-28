@@ -323,22 +323,57 @@ export const offerStatusService = {
  */
 export const offerBuyersService = {
   /**
-   * Получить все привязки байеров к офферам
+   * Получить все привязки байеров к офферам (с пагинацией)
    * @returns {Promise<Array>} Массив привязок
    */
   async getAllAssignments() {
     try {
       console.log('📊 Загружаем все привязки байеров к офферам...');
 
-      const { data, error } = await supabase
+      // Сначала получаем общее количество
+      const { count, error: countError } = await supabase
         .from('offer_buyers')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
+      if (countError) throw countError;
 
-      console.log(`✅ Загружено ${data?.length || 0} привязок`);
-      return data || [];
+      const totalCount = count || 0;
+      const pageSize = 1000;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      if (totalCount === 0) {
+        console.log('✅ Привязок нет');
+        return [];
+      }
+
+      console.log(`📊 Всего привязок: ${totalCount}, страниц: ${totalPages}`);
+
+      // Загружаем все страницы параллельно
+      const pagePromises = [];
+      for (let page = 0; page < totalPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        pagePromises.push(
+          supabase
+            .from('offer_buyers')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        );
+      }
+
+      const results = await Promise.all(pagePromises);
+
+      // Собираем все данные
+      let allData = [];
+      results.forEach(result => {
+        if (!result.error && result.data) {
+          allData = allData.concat(result.data);
+        }
+      });
+
+      console.log(`✅ Загружено ${allData.length} привязок`);
+      return allData;
 
     } catch (error) {
       console.error('❌ Ошибка загрузки привязок:', error);
