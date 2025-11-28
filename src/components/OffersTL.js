@@ -130,10 +130,16 @@ function OffersTL({ user }) {
 
       // Обновляем в фоне
       setIsBackgroundRefresh(true);
-      loadAllData(true);
+      loadAllData(true).then(() => {
+        // После загрузки данных запускаем автообновление метрик
+        autoUpdateMetrics();
+      });
     } else {
       // Нет кэша - грузим с нуля
-      loadAllData(false);
+      loadAllData(false).then(() => {
+        // После загрузки данных запускаем автообновление метрик
+        autoUpdateMetrics();
+      });
     }
   }, []);
 
@@ -298,6 +304,120 @@ function OffersTL({ user }) {
 
     tooltipManagerRef.current.open(tooltipId, title, content, position);
   }, []);
+
+  // 🚀 АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ: запускается при загрузке страницы
+  const autoUpdateMetrics = useCallback(async () => {
+    // Проверяем что есть данные для обновления
+    if (!metrics || metrics.length === 0) {
+      console.log('⚠️ Нет метрик для автообновления');
+      return;
+    }
+
+    try {
+      console.log('🚀 Автоматическое обновление метрик при загрузке страницы...');
+
+      // Получаем актуальные данные из state
+      const currentMetrics = metrics;
+      const currentAssignments = allAssignments;
+      const currentArticleOfferMap = articleOfferMap;
+
+      // ШАГ 1: Запускаем ПАРАЛЛЕЛЬНО остатки и статусы байеров
+      console.log('📦 Шаг 1: Параллельное обновление остатков и статусов байеров...');
+
+      setLoadingStocks(true);
+      setLoadingBuyerStatuses(true);
+
+      const [stocksResult, buyerStatusesResult] = await Promise.all([
+        // Обновление остатков
+        (async () => {
+          try {
+            const result = await updateStocksFromYmlScript(currentMetrics);
+            setStockData(result.skuData);
+            console.log(`✅ Остатки обновлены для ${result.totalArticles} артикулов`);
+            return result;
+          } catch (error) {
+            console.error('❌ Ошибка обновления остатков:', error);
+            return { metrics: currentMetrics, totalArticles: 0, skuData: {} };
+          } finally {
+            setLoadingStocks(false);
+          }
+        })(),
+
+        // Обновление статусов байеров
+        (async () => {
+          try {
+            const flatAssignments = Object.values(currentAssignments).flat();
+            if (flatAssignments.length > 0) {
+              const statuses = await updateBuyerStatusesScript(flatAssignments, currentArticleOfferMap, currentMetrics);
+              setBuyerStatuses(statuses);
+
+              const stats = { active: 0, not_configured: 0, not_in_tracker: 0 };
+              Object.values(statuses).forEach(s => stats[s.status]++);
+              console.log(`✅ Статусы байеров обновлены! Активных: ${stats.active}, Не настроено: ${stats.not_configured}, Нет в трекере: ${stats.not_in_tracker}`);
+              return statuses;
+            }
+            console.log('⚠️ Нет привязок байеров для обновления статусов');
+            return {};
+          } catch (error) {
+            console.error('❌ Ошибка обновления статусов байеров:', error);
+            return {};
+          } finally {
+            setLoadingBuyerStatuses(false);
+          }
+        })()
+      ]);
+
+      let updatedMetrics = stocksResult.metrics;
+
+      // ШАГ 2: Расчет дней продаж (с загрузкой данных за 12 месяцев)
+      console.log('⚡ Шаг 2: Расчет дней продаж...');
+      setLoadingDays(true);
+
+      try {
+        const daysResult = await calculateRemainingDaysScript(updatedMetrics, currentArticleOfferMap);
+        setLoadingDays(false);
+        console.log(`✅ Дни продаж рассчитаны, получено ${daysResult.rawData?.length || 0} агрегированных записей`);
+
+        // ШАГ 3: Расчет CPL/Лидов/Рейтинга (используем данные из предыдущего шага)
+        console.log('⚡ Шаг 3: Расчет CPL/Лидов/Рейтинга...');
+        setLoadingLeadsData(true);
+
+        const leadsResult = await updateLeadsFromSqlScript(
+          updatedMetrics,
+          currentArticleOfferMap,
+          daysResult.rawData
+        );
+        setLoadingLeadsData(false);
+
+        // Объединяем результаты
+        updatedMetrics = updatedMetrics.map(metric => {
+          const leadsMetric = leadsResult.metrics.find(m => m.id === metric.id);
+          const daysMetric = daysResult.metrics.find(m => m.id === metric.id);
+
+          return {
+            ...metric,
+            ...(leadsMetric || {}),
+            ...(daysMetric || {})
+          };
+        });
+
+        // Сохраняем данные по source_id для метрик байеров
+        if (leadsResult.dataBySourceIdAndDate) {
+          setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
+        }
+
+        setMetrics(updatedMetrics);
+        console.log('🎉 Автоматическое обновление завершено!');
+      } catch (error) {
+        console.error('❌ Ошибка обновления дней/CPL:', error);
+        setLoadingDays(false);
+        setLoadingLeadsData(false);
+      }
+
+    } catch (error) {
+      console.error('❌ Ошибка автоматического обновления:', error);
+    }
+  }, [metrics, allAssignments, articleOfferMap]);
 
   // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
   const updateAllMetrics = async () => {
