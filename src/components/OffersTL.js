@@ -17,7 +17,7 @@ import {
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql as updateLeadsFromSqlScript } from '../scripts/offers/Sql_leads';
-import { updateBuyerStatuses as updateBuyerStatusesScript, getAssignmentKey } from '../scripts/offers/Update_buyer_statuses';
+import { updateBuyerStatuses as updateBuyerStatusesScript } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 import MigrationModal from './MigrationModal';
@@ -41,7 +41,6 @@ function OffersTL({ user }) {
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
   const [buyerStatuses, setBuyerStatuses] = useState({});
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(true);
-  const [loadingAssignmentKeys, setLoadingAssignmentKeys] = useState(new Set()); // Отслеживание загрузки конкретных байеров
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
@@ -270,35 +269,39 @@ function OffersTL({ user }) {
               return;
             }
 
-            // Ключ для отслеживания загрузки этой конкретной привязки
-            const assignmentKey = getAssignmentKey(offerId, addedAssignment.buyer_id, addedAssignment.source);
+            // Обновляем статусы и метрики параллельно только для этого байера
+            const [statuses, leadsResult] = await Promise.all([
+              // Обновление статуса ТОЛЬКО этого байера
+              (async () => {
+                setLoadingBuyerStatuses(true);
+                try {
+                  // Передаем только одну привязку!
+                  const result = await updateBuyerStatusesScript([addedAssignment], articleOfferMap, [offerMetric]);
+                  console.log(`✅ Статус обновлен для байера ${addedAssignment.buyer_name}`);
+                  return result;
+                } finally {
+                  setLoadingBuyerStatuses(false);
+                }
+              })(),
 
-            // Добавляем ключ в Set загружающихся привязок
-            setLoadingAssignmentKeys(prev => new Set([...prev, assignmentKey]));
+              // Обновление метрик ТОЛЬКО этого байера
+              (async () => {
+                setLoadingLeadsData(true);
+                try {
+                  // Передаем только метрику этого оффера!
+                  const result = await updateLeadsFromSqlScript([offerMetric], articleOfferMap, null);
+                  console.log(`✅ Метрики обновлены для байера ${addedAssignment.buyer_name}`);
+                  return result;
+                } finally {
+                  setLoadingLeadsData(false);
+                }
+              })()
+            ]);
 
-            try {
-              // Обновляем статусы и метрики параллельно только для этого байера
-              const [statuses, leadsResult] = await Promise.all([
-                // Обновление статуса ТОЛЬКО этого байера
-                updateBuyerStatusesScript([addedAssignment], articleOfferMap, [offerMetric]),
-                // Обновление метрик ТОЛЬКО этого байера
-                updateLeadsFromSqlScript([offerMetric], articleOfferMap, null)
-              ]);
-
-              console.log(`✅ Статус и метрики обновлены для байера ${addedAssignment.buyer_name}`);
-
-              // Сохраняем результаты (мержим с существующими данными)
-              setBuyerStatuses(prev => ({ ...prev, ...statuses }));
-              if (leadsResult?.dataBySourceIdAndDate) {
-                setBuyerMetricsData(prev => ({ ...prev, ...leadsResult.dataBySourceIdAndDate }));
-              }
-            } finally {
-              // Удаляем ключ из Set после завершения
-              setLoadingAssignmentKeys(prev => {
-                const next = new Set(prev);
-                next.delete(assignmentKey);
-                return next;
-              });
+            // Сохраняем результаты (мержим с существующими данными)
+            setBuyerStatuses(prev => ({ ...prev, ...statuses }));
+            if (leadsResult?.dataBySourceIdAndDate) {
+              setBuyerMetricsData(prev => ({ ...prev, ...leadsResult.dataBySourceIdAndDate }));
             }
           } else {
             // Массовое обновление (при удалении или других изменениях)
@@ -925,7 +928,6 @@ function OffersTL({ user }) {
             loadingDays={loadingDays}
             loadingStocks={loadingStocks}
             loadingBuyerStatuses={loadingBuyerStatuses}
-            loadingAssignmentKeys={loadingAssignmentKeys}
             onOpenTooltip={openTooltip}
             onStatusChange={handleStatusChange}
             userName={user?.name || 'Неизвестно'}
@@ -940,7 +942,7 @@ function OffersTL({ user }) {
         </div>
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, loadingAssignmentKeys, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {

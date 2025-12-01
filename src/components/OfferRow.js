@@ -80,7 +80,6 @@ const OfferRow = memo(({
   loadingDays,
   loadingStocks,
   loadingBuyerStatuses,
-  loadingAssignmentKeys,
   onOpenTooltip,
   onStatusChange,
   userName,
@@ -389,7 +388,6 @@ const OfferRow = memo(({
         buyerStatuses={buyerStatuses}
         loadingBuyerStatuses={loadingBuyerStatuses}
         loadingBuyerMetrics={loadingLeadsData}
-        loadingAssignmentKeys={loadingAssignmentKeys}
       />
     </div>
   );
@@ -404,7 +402,6 @@ const OfferRow = memo(({
     prevProps.loadingDays === nextProps.loadingDays &&
     prevProps.loadingStocks === nextProps.loadingStocks &&
     prevProps.loadingBuyerStatuses === nextProps.loadingBuyerStatuses &&
-    prevProps.loadingAssignmentKeys === nextProps.loadingAssignmentKeys &&
     prevProps.userName === nextProps.userName &&
     prevProps.userId === nextProps.userId &&
     prevProps.allBuyers === nextProps.allBuyers &&
