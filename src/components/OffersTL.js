@@ -247,12 +247,66 @@ function OffersTL({ user }) {
   };
 
   // Callback для обновления привязок после изменения
-  const handleAssignmentsChange = useCallback((offerId, newAssignments) => {
-    setAllAssignments(prev => ({
-      ...prev,
-      [offerId]: newAssignments
-    }));
-  }, []);
+  const handleAssignmentsChange = useCallback(async (offerId, newAssignments) => {
+    // Обновляем state привязок
+    setAllAssignments(prev => {
+      const updated = {
+        ...prev,
+        [offerId]: newAssignments
+      };
+
+      // Запускаем асинхронное обновление статусов и метрик для этого оффера
+      (async () => {
+        try {
+          console.log(`🔄 Обновляем статусы и метрики для оффера ${offerId}...`);
+
+          // Получаем все привязки для обновления статусов
+          const flatAssignments = Object.values(updated).flat();
+
+          if (flatAssignments.length > 0) {
+            // Обновляем статусы и метрики параллельно
+            const [statuses, leadsResult] = await Promise.all([
+              // Обновление статусов байеров
+              (async () => {
+                setLoadingBuyerStatuses(true);
+                try {
+                  const result = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
+                  console.log(`✅ Статусы обновлены для ${Object.keys(result).length} привязок`);
+                  return result;
+                } finally {
+                  setLoadingBuyerStatuses(false);
+                }
+              })(),
+
+              // Обновление метрик байеров (CPL, Lead, Cost)
+              (async () => {
+                setLoadingLeadsData(true);
+                try {
+                  const result = await updateLeadsFromSqlScript(metrics, articleOfferMap, null);
+                  console.log(`✅ Метрики байеров обновлены`);
+                  return result;
+                } finally {
+                  setLoadingLeadsData(false);
+                }
+              })()
+            ]);
+
+            // Сохраняем результаты
+            setBuyerStatuses(statuses);
+            if (leadsResult?.dataBySourceIdAndDate) {
+              setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
+            }
+          }
+        } catch (error) {
+          console.error('❌ Ошибка обновления статусов и метрик после привязки:', error);
+          setLoadingBuyerStatuses(false);
+          setLoadingLeadsData(false);
+        }
+      })();
+
+      return updated;
+    });
+  }, [metrics, articleOfferMap]);
 
   // Обновление статусов после изменения
   const handleStatusChange = async (offerId, newStatus) => {
