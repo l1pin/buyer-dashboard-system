@@ -17,7 +17,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   buyerMetricsData = {},
   buyerStatuses = {},
   loadingBuyerStatuses = false,
-  loadingBuyerMetrics = false
+  loadingBuyerMetrics = false,
+  loadingAssignmentKeys = new Set()
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
@@ -220,6 +221,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                 // Вычисляем данные для статуса
                 const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+
+                // Проверяем загружается ли КОНКРЕТНО эта карточка
+                const isThisCardLoading = loadingAssignmentKeys.has(statusKey);
+
                 const statusData = buyerStatuses[statusKey];
                 const statusType = statusData?.status || 'active';
                 const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
@@ -314,7 +319,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
-                      {loadingBuyerMetrics ? (
+                      {isThisCardLoading ? (
                         <div className="w-full flex items-center justify-center py-3">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
                         </div>
@@ -343,7 +348,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                     </div>
 
                     {/* Цветная полоска статуса внизу карточки */}
-                    {loadingBuyerStatuses ? (
+                    {isThisCardLoading ? (
                       <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
                         <LoadingDots className="mx-auto" />
                       </div>
