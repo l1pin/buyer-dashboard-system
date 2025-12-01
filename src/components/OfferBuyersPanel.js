@@ -103,8 +103,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       );
 
       // Уведомляем родительский компонент о новой привязке
+      // Передаем savedAssignment как третий параметр для оптимизированного обновления
       if (onAssignmentsChange) {
-        onAssignmentsChange(offer.id, [...initialAssignments, savedAssignment]);
+        onAssignmentsChange(offer.id, [...initialAssignments, savedAssignment], savedAssignment);
       }
 
       setShowModal(false);

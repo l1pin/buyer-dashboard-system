@@ -247,7 +247,7 @@ function OffersTL({ user }) {
   };
 
   // Callback для обновления привязок после изменения
-  const handleAssignmentsChange = useCallback(async (offerId, newAssignments) => {
+  const handleAssignmentsChange = useCallback(async (offerId, newAssignments, addedAssignment = null) => {
     // Обновляем state привязок
     setAllAssignments(prev => {
       const updated = {
@@ -255,35 +255,42 @@ function OffersTL({ user }) {
         [offerId]: newAssignments
       };
 
-      // Запускаем асинхронное обновление статусов и метрик для этого оффера
+      // Запускаем асинхронное обновление статусов и метрик
       (async () => {
         try {
-          console.log(`🔄 Обновляем статусы и метрики для оффера ${offerId}...`);
+          // Если это новая привязка - обновляем ТОЛЬКО её (оптимизация!)
+          if (addedAssignment) {
+            console.log(`🔄 Обновляем статусы и метрики для байера ${addedAssignment.buyer_name} (${addedAssignment.source})...`);
 
-          // Получаем все привязки для обновления статусов
-          const flatAssignments = Object.values(updated).flat();
+            // Получаем метрику этого оффера
+            const offerMetric = metrics.find(m => m.id === offerId);
+            if (!offerMetric) {
+              console.warn('⚠️ Метрика оффера не найдена');
+              return;
+            }
 
-          if (flatAssignments.length > 0) {
-            // Обновляем статусы и метрики параллельно
+            // Обновляем статусы и метрики параллельно только для этого байера
             const [statuses, leadsResult] = await Promise.all([
-              // Обновление статусов байеров
+              // Обновление статуса ТОЛЬКО этого байера
               (async () => {
                 setLoadingBuyerStatuses(true);
                 try {
-                  const result = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
-                  console.log(`✅ Статусы обновлены для ${Object.keys(result).length} привязок`);
+                  // Передаем только одну привязку!
+                  const result = await updateBuyerStatusesScript([addedAssignment], articleOfferMap, [offerMetric]);
+                  console.log(`✅ Статус обновлен для байера ${addedAssignment.buyer_name}`);
                   return result;
                 } finally {
                   setLoadingBuyerStatuses(false);
                 }
               })(),
 
-              // Обновление метрик байеров (CPL, Lead, Cost)
+              // Обновление метрик ТОЛЬКО этого байера
               (async () => {
                 setLoadingLeadsData(true);
                 try {
-                  const result = await updateLeadsFromSqlScript(metrics, articleOfferMap, null);
-                  console.log(`✅ Метрики байеров обновлены`);
+                  // Передаем только метрику этого оффера!
+                  const result = await updateLeadsFromSqlScript([offerMetric], articleOfferMap, null);
+                  console.log(`✅ Метрики обновлены для байера ${addedAssignment.buyer_name}`);
                   return result;
                 } finally {
                   setLoadingLeadsData(false);
@@ -291,10 +298,46 @@ function OffersTL({ user }) {
               })()
             ]);
 
-            // Сохраняем результаты
-            setBuyerStatuses(statuses);
+            // Сохраняем результаты (мержим с существующими данными)
+            setBuyerStatuses(prev => ({ ...prev, ...statuses }));
             if (leadsResult?.dataBySourceIdAndDate) {
-              setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
+              setBuyerMetricsData(prev => ({ ...prev, ...leadsResult.dataBySourceIdAndDate }));
+            }
+          } else {
+            // Массовое обновление (при удалении или других изменениях)
+            console.log(`🔄 Обновляем статусы и метрики для всех байеров...`);
+
+            const flatAssignments = Object.values(updated).flat();
+
+            if (flatAssignments.length > 0) {
+              const [statuses, leadsResult] = await Promise.all([
+                (async () => {
+                  setLoadingBuyerStatuses(true);
+                  try {
+                    const result = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
+                    console.log(`✅ Статусы обновлены для ${Object.keys(result).length} привязок`);
+                    return result;
+                  } finally {
+                    setLoadingBuyerStatuses(false);
+                  }
+                })(),
+
+                (async () => {
+                  setLoadingLeadsData(true);
+                  try {
+                    const result = await updateLeadsFromSqlScript(metrics, articleOfferMap, null);
+                    console.log(`✅ Метрики байеров обновлены`);
+                    return result;
+                  } finally {
+                    setLoadingLeadsData(false);
+                  }
+                })()
+              ]);
+
+              setBuyerStatuses(statuses);
+              if (leadsResult?.dataBySourceIdAndDate) {
+                setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
+              }
             }
           }
         } catch (error) {
