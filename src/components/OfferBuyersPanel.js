@@ -222,8 +222,17 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 // Вычисляем данные для статуса
                 const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
 
-                // Проверяем загружается ли КОНКРЕТНО эта карточка
-                const isThisCardLoading = loadingAssignmentKeys.has(statusKey);
+                // Проверяем загружается ли эта карточка:
+                // 1. Конкретная карточка в процессе загрузки (при добавлении нового байера)
+                // 2. ИЛИ идет глобальная загрузка статусов И для этой карточки нет данных
+                const isThisCardLoading = loadingAssignmentKeys.has(statusKey) ||
+                  (loadingBuyerStatuses && !buyerStatuses[statusKey]);
+
+                // Проверяем загружаются ли метрики:
+                // 1. Карточка грузится
+                // 2. ИЛИ глобальная загрузка метрик И данных нет
+                const isMetricsLoading = isThisCardLoading ||
+                  (loadingBuyerMetrics && !hasData);
 
                 const statusData = buyerStatuses[statusKey];
                 const statusType = statusData?.status || 'active';
@@ -272,9 +281,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 return (
                   <div
                     key={assignment.id}
-                    onClick={() => onOpenCalendar(assignment)}
-                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:shadow-md transition-all group cursor-pointer overflow-hidden"
-                    title="Нажмите для просмотра календаря метрик"
+                    onClick={() => !isThisCardLoading && onOpenCalendar(assignment)}
+                    className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-hidden ${
+                      isThisCardLoading
+                        ? 'bg-gray-100 border-2 border-gray-300 border-dashed cursor-wait'
+                        : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md cursor-pointer'
+                    }`}
+                    title={isThisCardLoading ? "Загрузка данных..." : "Нажмите для просмотра календаря метрик"}
                   >
                     <div className="flex flex-col items-center text-center space-y-1 p-2">
                       {/* Аватар */}
@@ -283,45 +296,52 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                           <img
                             src={assignment.buyer.avatar_url}
                             alt={assignment.buyer.name}
-                            className="w-10 h-10 rounded-full object-cover"
+                            className={`w-10 h-10 rounded-full object-cover ${isThisCardLoading ? 'opacity-50' : ''}`}
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-600 text-sm font-medium">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            isThisCardLoading ? 'bg-gray-200' : 'bg-gray-100'
+                          }`}>
+                            <span className={`text-sm font-medium ${isThisCardLoading ? 'text-gray-400' : 'text-gray-600'}`}>
                               {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
                             </span>
                           </div>
                         )}
 
-                        {/* Кнопка удаления */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveBuyer(assignment.id);
-                          }}
-                          className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
-                          title="Удалить привязку"
-                        >
-                          <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
-                        </button>
+                        {/* Кнопка удаления - скрываем при загрузке */}
+                        {!isThisCardLoading && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveBuyer(assignment.id);
+                            }}
+                            className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
+                            title="Удалить привязку"
+                          >
+                            <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
+                          </button>
+                        )}
                       </div>
 
                       {/* Имя */}
                       <div className="w-full px-0.5">
-                        <div className="text-[11px] font-medium text-gray-900 leading-tight truncate" title={assignment.buyer.name}>
+                        <div className={`text-[11px] font-medium leading-tight truncate ${
+                          isThisCardLoading ? 'text-gray-500' : 'text-gray-900'
+                        }`} title={assignment.buyer.name}>
                           {assignment.buyer.name}
                         </div>
                       </div>
 
                       {/* Дата привязки и дни */}
-                      <div className="text-[9px] text-gray-500">
+                      <div className={`text-[9px] ${isThisCardLoading ? 'text-gray-400' : 'text-gray-500'}`}>
                         {date} | {days} д
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
-                      {isThisCardLoading ? (
-                        <div className="w-full flex items-center justify-center py-3">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                      {isMetricsLoading ? (
+                        <div className="w-full flex flex-col items-center justify-center py-2">
+                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-500 mb-1"></div>
+                          <span className="text-[8px] text-gray-400">Загрузка...</span>
                         </div>
                       ) : (
                         <div className="w-full text-[9px] text-gray-500 space-y-0.5">
