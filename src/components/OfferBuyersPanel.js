@@ -239,6 +239,14 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                   daysToShow = diffDays;
                   daysLabel = diffDays > 0 ? `${diffDays} д` : '';
+                } else if (statusType === 'not_in_tracker' && assignment.created_at) {
+                  // Для "Нет в трекере" - считаем дни с момента привязки байера
+                  const createdDate = new Date(assignment.created_at);
+                  const today = new Date();
+                  const diffTime = Math.abs(today - createdDate);
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  daysToShow = diffDays;
+                  daysLabel = diffDays > 0 ? `${diffDays} д` : '';
                 }
 
                 // Получаем цвета для полоски статуса
