@@ -235,6 +235,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       .map(a => ({
         buyerId: a.buyer.id,
         buyerName: a.buyer.name,
+        avatarUrl: a.buyer.avatar_url,
         sourceIds: a.source_ids || [],
         source: a.source
       }));
