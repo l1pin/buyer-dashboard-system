@@ -50,13 +50,62 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       };
     });
 
-    // Сортируем: архивированные в начало (слева)
-    return buyers.sort((a, b) => {
-      if (a.archived && !b.archived) return -1;
-      if (!a.archived && b.archived) return 1;
+    // Функция для получения приоритета статуса (меньше = левее)
+    const getStatusPriority = (assignment) => {
+      if (assignment.archived) return 0; // Неактивные - слева
+      const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+      const statusData = buyerStatuses[statusKey];
+      const statusType = statusData?.status || 'active';
+
+      switch (statusType) {
+        case 'not_in_tracker': return 1; // Нет в трекере
+        case 'not_configured': return 2; // Не настроено
+        case 'active': return 3; // Активный - справа
+        default: return 4;
+      }
+    };
+
+    // Функция для получения количества дней для сортировки
+    const getDaysForSorting = (assignment) => {
+      const sourceIds = assignment.source_ids || [];
+      const offerArticle = offer?.article || '';
+      const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+      const statusData = buyerStatuses[statusKey];
+      const statusType = assignment.archived ? 'archived' : (statusData?.status || 'active');
+
+      if (statusType === 'active') {
+        // Для активных - дни подряд с cost > 0
+        return calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData);
+      } else if (statusType === 'not_configured' && statusData?.date) {
+        // Для "Не настроено" - дни с момента последнего расхода
+        const lastDate = new Date(statusData.date);
+        const today = new Date();
+        return Math.floor(Math.abs(today - lastDate) / (1000 * 60 * 60 * 24));
+      } else if ((statusType === 'not_in_tracker' || statusType === 'archived') && assignment.created_at) {
+        // Для "Нет в трекере" и архивированных - дни с момента привязки
+        const createdDate = new Date(assignment.created_at);
+        const today = new Date();
+        return Math.floor(Math.abs(today - createdDate) / (1000 * 60 * 60 * 24));
+      }
       return 0;
+    };
+
+    // Сортируем: по статусу, затем по дням (меньше дней слева, больше справа)
+    return buyers.sort((a, b) => {
+      const priorityA = getStatusPriority(a);
+      const priorityB = getStatusPriority(b);
+
+      // Сначала по приоритету статуса
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      // Внутри одного статуса - по дням (меньше дней слева)
+      const daysA = getDaysForSorting(a);
+      const daysB = getDaysForSorting(b);
+      return daysA - daysB;
     });
-  }, [initialAssignments, allBuyers]);
+  }, [initialAssignments, allBuyers, buyerStatuses, buyerMetricsData, offer]);
 
   const handleAddBuyer = useCallback(async (source) => {
     setSelectedSource(source);
