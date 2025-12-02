@@ -409,6 +409,15 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return map;
   }, [allBuyers]);
 
+  // Создаём маппинг имени байера -> archived статус
+  const buyerArchivedMap = useMemo(() => {
+    const map = {};
+    (allBuyers || []).forEach(b => {
+      map[b.buyerName] = b.archived || false;
+    });
+    return map;
+  }, [allBuyers]);
+
   // Построение плоской структуры иерархии для таблицы (с уровнем байера)
   const buildFlatHierarchy = () => {
     if (!data || !data.hierarchy) return [];
@@ -487,8 +496,12 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       return indexA - indexB;
     });
 
-    // Строим плоскую иерархию с уровнем 0 - байер
-    sortedBuyers.forEach(buyer => {
+    // Разделяем на активных и архивированных
+    const activeBuyers = sortedBuyers.filter(b => !buyerArchivedMap[b]);
+    const archivedBuyers = sortedBuyers.filter(b => buyerArchivedMap[b]);
+
+    // Функция для добавления байера и его детей в иерархию
+    const addBuyerToHierarchy = (buyer, isArchived) => {
       const buyerInfo = allBuyersMap.get(buyer);
       const buyerKey = buyer;
 
@@ -498,6 +511,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
         name: buyer,
         type: 'buyer',
         avatarUrl: buyerAvatarMap[buyer],
+        archived: isArchived,
         hasChildren: buyerInfo.trackers.size > 0
       });
 
@@ -570,7 +584,22 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
           }
         });
       }
-    });
+    };
+
+    // Добавляем активных байеров
+    activeBuyers.forEach(buyer => addBuyerToHierarchy(buyer, false));
+
+    // Добавляем разделитель если есть архивированные
+    if (archivedBuyers.length > 0) {
+      flatItems.push({
+        key: '__archived_separator__',
+        type: 'separator',
+        name: `Архивированные байеры (${archivedBuyers.length})`
+      });
+
+      // Добавляем архивированных байеров
+      archivedBuyers.forEach(buyer => addBuyerToHierarchy(buyer, true));
+    }
 
     return flatItems;
   };
@@ -747,11 +776,27 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
               </thead>
               <tbody>
                 {flatHierarchy.map((item, index) => {
+                  // Разделитель для архивированных
+                  if (item.type === 'separator') {
+                    return (
+                      <tr key={item.key} className="bg-gray-100 border-y-2 border-gray-300">
+                        <td colSpan={2 + datesWithGaps.length} className="sticky left-0 z-10 px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-gray-400"></div>
+                            <span className="text-xs font-semibold text-gray-600 uppercase">{item.name}</span>
+                            <div className="h-px flex-1 bg-gray-400"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   const hasChildren = item.hasChildren;
                   const isExpanded = expandedItems[item.key];
                   const baseIndent = 16;
                   const levelIndent = item.level * 24;
                   const paddingLeft = baseIndent + levelIndent;
+                  const isArchived = item.archived;
 
                   // Цвета для линий по уровням
                   const levelColors = {
@@ -766,7 +811,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   const itemMetrics = getMetricsForItem(item);
 
                   return (
-                    <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
+                    <tr key={item.key} className={`hover:bg-gray-50 border-b border-gray-100 ${isArchived ? 'opacity-60' : ''}`}>
                       {/* Колонка иерархии */}
                       <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>

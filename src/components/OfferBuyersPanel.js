@@ -229,15 +229,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     console.log('📊 Source IDs:', assignment.source_ids);
     console.log('📊 Всего привязок оффера:', assignedBuyers.length);
 
-    // Собираем данные по всем байерам оффера
+    // Собираем данные по всем байерам оффера (включая архивированных)
     const allBuyersData = assignedBuyers
-      .filter(a => !a.archived) // Исключаем архивированных
       .map(a => ({
         buyerId: a.buyer.id,
         buyerName: a.buyer.name,
         avatarUrl: a.buyer.avatar_url,
         sourceIds: a.source_ids || [],
-        source: a.source
+        source: a.source,
+        archived: a.archived || false
       }));
 
     setSelectedBuyerForCalendar({
