@@ -343,6 +343,14 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                   daysToShow = diffDays;
                   daysLabel = diffDays > 0 ? `${diffDays} д` : '';
+                } else if (statusType === 'archived' && assignment.archived_at) {
+                  // Для "Неактивный" (архивированные) - считаем дни с момента архивации
+                  const archivedDate = new Date(assignment.archived_at);
+                  const today = new Date();
+                  const diffTime = Math.abs(today - archivedDate);
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  daysToShow = diffDays;
+                  daysLabel = diffDays > 0 ? `${diffDays} д` : '';
                 }
 
                 // Получаем цвета для полоски статуса
