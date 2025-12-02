@@ -170,6 +170,15 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     };
   }, [data, sortedDates]);
 
+  // Создаём маппинг имени байера -> аватарка
+  const buyerAvatarMap = useMemo(() => {
+    const map = {};
+    (allBuyers || []).forEach(b => {
+      map[b.buyerName] = b.avatarUrl;
+    });
+    return map;
+  }, [allBuyers]);
+
   // Построение плоской структуры иерархии для таблицы (с уровнем байера)
   const buildFlatHierarchy = () => {
     if (!data || !data.hierarchy) return [];
@@ -258,6 +267,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
         level: 0,
         name: buyer,
         type: 'buyer',
+        avatarUrl: buyerAvatarMap[buyer],
         hasChildren: buyerInfo.trackers.size > 0
       });
 
@@ -450,7 +460,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
                     Иерархия
                   </th>
-                  <th className="bg-gray-800 border-b-2 border-gray-700 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
+                  <th className="sticky z-20 bg-gray-800 border-b-2 border-gray-700 px-2 py-3 text-center" style={{ minWidth: '140px', left: '280px' }}>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-gray-400 text-[10px] uppercase">итого</span>
                       <span className="text-white text-xs font-semibold">30 дней</span>
@@ -537,6 +547,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                             </button>
                           )}
                           {!hasChildren && <div className="w-5" />}
+
+                          {/* Аватарка для байера */}
+                          {item.type === 'buyer' && (
+                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
+                              {item.avatarUrl ? (
+                                <img src={item.avatarUrl} alt={item.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
+                                  {item.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
                               {item.name}
@@ -552,8 +576,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
 
-                      {/* Колонка "30 дней" - тёмная карточка */}
-                      <td className="px-2 py-2 bg-gray-800" style={{ minWidth: '140px' }}>
+                      {/* Колонка "30 дней" - тёмная карточка (sticky) */}
+                      <td className="sticky z-10 px-2 py-2 bg-gray-800" style={{ minWidth: '140px', left: '280px' }}>
                         <div className="bg-gray-900 border border-gray-700 rounded-lg p-2">
                           <div className="space-y-1">
                             <div className="flex justify-between items-center text-[10px]">
