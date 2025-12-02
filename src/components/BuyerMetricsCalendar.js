@@ -120,6 +120,41 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
+  // Создаём структуру дат с учётом пропусков (gap колонки между датами)
+  const datesWithGaps = useMemo(() => {
+    if (sortedDates.length === 0) return [];
+
+    const result = [];
+    for (let i = 0; i < sortedDates.length; i++) {
+      const currentDate = sortedDates[i];
+
+      // Если это не первая дата, проверяем есть ли пропуск
+      if (i > 0) {
+        const prevDate = sortedDates[i - 1];
+        const prevDateObj = new Date(prevDate);
+        const currentDateObj = new Date(currentDate);
+        const daysDiff = Math.floor((currentDateObj - prevDateObj) / (1000 * 60 * 60 * 24));
+
+        // Если пропуск больше 1 дня - добавляем gap колонку
+        if (daysDiff > 1) {
+          result.push({
+            type: 'gap',
+            gapDays: daysDiff - 1,
+            fromDate: prevDate,
+            toDate: currentDate
+          });
+        }
+      }
+
+      result.push({
+        type: 'date',
+        date: currentDate
+      });
+    }
+
+    return result;
+  }, [sortedDates]);
+
   // Получить данные ячейки для элемента
   const getCellDataForItem = (dayData, item) => {
     if (!dayData) return null;
@@ -617,10 +652,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                       )}
                     </div>
                   </th>
-                  {sortedDates.map(date => {
-                    const { day, month, weekday } = formatDate(date);
+                  {datesWithGaps.map((item, idx) => {
+                    if (item.type === 'gap') {
+                      return (
+                        <th key={`gap-${idx}`} className="bg-gray-200 border-b-2 border-gray-300 px-2 py-3 text-center" style={{ minWidth: '80px' }}>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-gray-500 text-[10px]">пропуск</span>
+                            <span className="text-gray-600 text-xs font-semibold">{item.gapDays} д.</span>
+                          </div>
+                        </th>
+                      );
+                    }
+                    const { day, month, weekday } = formatDate(item.date);
                     return (
-                      <th key={date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
+                      <th key={item.date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
                         <div className="flex flex-col gap-0.5">
                           <span className="text-gray-500 text-[10px] uppercase">{weekday}</span>
                           <span className="text-gray-900 text-xs font-semibold">{day}.{month}</span>
@@ -762,7 +807,19 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                           </div>
                         </div>
                       </td>
-                      {sortedDates.map(date => {
+                      {datesWithGaps.map((dateItem, idx) => {
+                        // Gap колонка - показываем затемнённую ячейку
+                        if (dateItem.type === 'gap') {
+                          return (
+                            <td key={`gap-${idx}`} className="px-2 py-2 bg-gray-200" style={{ minWidth: '80px' }}>
+                              <div className="h-full flex items-center justify-center">
+                                <span className="text-gray-500 text-[10px] text-center">{dateItem.gapDays} д.</span>
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        const date = dateItem.date;
                         const dayData = data.hierarchy[date];
                         let cellData = null;
 
