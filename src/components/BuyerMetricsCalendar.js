@@ -92,7 +92,54 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
-  // Расчёт метрик за последние 30 АКТИВНЫХ дней (дни с расходом)
+  // Функция расчёта метрик за последние 30 активных дней для конкретного элемента иерархии
+  const getLast30DaysMetricsForItem = (item) => {
+    if (!data || !data.hierarchy || sortedDates.length === 0) {
+      return { cost: 0, valid: 0, cpl: 0, activeDays: 0 };
+    }
+
+    // Берём последние 30 дат
+    const last30Dates = sortedDates.slice(-30);
+
+    let totalCost = 0;
+    let totalValid = 0;
+    let activeDays = 0;
+
+    last30Dates.forEach(date => {
+      const dayData = data.hierarchy[date];
+      if (!dayData) return;
+
+      let cellData = null;
+
+      // Находим данные для этого элемента в конкретную дату
+      if (item.type === 'buyer' && dayData[item.name]) {
+        cellData = dayData[item.name];
+      } else if (item.type === 'tracker' && dayData[item.buyerName]?.children[item.name]) {
+        cellData = dayData[item.buyerName].children[item.name];
+      } else if (item.type === 'campaign' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.name]) {
+        cellData = dayData[item.buyerName].children[item.trackerName].children[item.name];
+      } else if (item.type === 'group' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
+        cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.name];
+      } else if (item.type === 'ad' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
+        cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
+      }
+
+      if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+        totalCost += cellData.cost || 0;
+        totalValid += cellData.valid || 0;
+        activeDays++;
+      }
+    });
+
+    return {
+      cost: totalCost,
+      valid: totalValid,
+      cpl: totalValid > 0 ? totalCost / totalValid : 0,
+      activeDays
+    };
+  };
+
+  // Расчёт метрик за последние 30 АКТИВНЫХ дней (дни с расходом) - общие
   const last30DaysMetrics = useMemo(() => {
     if (!data || !data.hierarchy || sortedDates.length === 0) {
       return { cost: 0, valid: 0, cpl: 0, activeDays: 0 };
@@ -427,8 +474,11 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
-                    Иерархия
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '480px' }}>
+                    <div className="flex items-center justify-between">
+                      <span>Иерархия</span>
+                      <span className="text-gray-400 font-normal">30 акт. дней</span>
+                    </div>
                   </th>
                   {sortedDates.map(date => {
                     const { day, month, weekday } = formatDate(date);
@@ -460,63 +510,94 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                     4: '#a855f7'  // purple - объявление
                   };
 
+                  // Рассчитываем метрики за 30 дней для этого элемента
+                  const itemMetrics = getLast30DaysMetricsForItem(item);
+
                   return (
                     <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
-                        <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
-                          {/* Визуальные линии иерархии */}
-                          {item.level > 0 && (
-                            <>
-                              {/* Горизонтальная линия к родителю */}
-                              <div
-                                className="absolute"
-                                style={{
-                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                  top: '50%',
-                                  width: '16px',
-                                  height: '1px',
-                                  backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.4
-                                }}
-                              />
-                              {/* Вертикальная линия от родителя */}
-                              <div
-                                className="absolute"
-                                style={{
-                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                  top: '-50%',
-                                  width: '1px',
-                                  height: '50%',
-                                  backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.4
-                                }}
-                              />
-                            </>
-                          )}
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '480px' }}>
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Левая часть - иерархия */}
+                          <div className="flex items-center gap-2 relative flex-1 min-w-0" style={{ paddingLeft: `${paddingLeft}px` }}>
+                            {/* Визуальные линии иерархии */}
+                            {item.level > 0 && (
+                              <>
+                                {/* Горизонтальная линия к родителю */}
+                                <div
+                                  className="absolute"
+                                  style={{
+                                    left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
+                                    top: '50%',
+                                    width: '16px',
+                                    height: '1px',
+                                    backgroundColor: levelColors[item.level - 1],
+                                    opacity: 0.4
+                                  }}
+                                />
+                                {/* Вертикальная линия от родителя */}
+                                <div
+                                  className="absolute"
+                                  style={{
+                                    left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
+                                    top: '-50%',
+                                    width: '1px',
+                                    height: '50%',
+                                    backgroundColor: levelColors[item.level - 1],
+                                    opacity: 0.4
+                                  }}
+                                />
+                              </>
+                            )}
 
-                          {hasChildren && (
-                            <button
-                              onClick={() => toggleItem(item.key)}
-                              className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="w-3 h-3 text-gray-600" />
-                              ) : (
-                                <ChevronRight className="w-3 h-3 text-gray-600" />
-                              )}
-                            </button>
-                          )}
-                          {!hasChildren && <div className="w-5" />}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
-                              {item.name}
+                            {hasChildren && (
+                              <button
+                                onClick={() => toggleItem(item.key)}
+                                className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-3 h-3 text-gray-600" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 text-gray-600" />
+                                )}
+                              </button>
+                            )}
+                            {!hasChildren && <div className="w-5" />}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.type === 'buyer' && 'Байер'}
+                                {item.type === 'tracker' && 'Трекер'}
+                                {item.type === 'campaign' && 'Кампания'}
+                                {item.type === 'group' && 'Группа'}
+                                {item.type === 'ad' && 'Объявление'}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {item.type === 'buyer' && 'Байер'}
-                              {item.type === 'tracker' && 'Трекер'}
-                              {item.type === 'campaign' && 'Кампания'}
-                              {item.type === 'group' && 'Группа'}
-                              {item.type === 'ad' && 'Объявление'}
+                          </div>
+
+                          {/* Правая часть - тёмная карточка с метриками за 30 дней */}
+                          <div className="bg-gray-900 rounded-md px-2 py-1 flex items-center gap-2 flex-shrink-0">
+                            <div className="text-[9px] text-gray-400 whitespace-nowrap">
+                              {itemMetrics.activeDays}д
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="text-center">
+                                <div className="text-[8px] text-gray-500">$</div>
+                                <div className="text-[11px] font-medium text-white leading-none">{itemMetrics.cost.toFixed(0)}</div>
+                              </div>
+                              <div className="w-px h-4 bg-gray-700"></div>
+                              <div className="text-center">
+                                <div className="text-[8px] text-gray-500">L</div>
+                                <div className="text-[11px] font-medium text-white leading-none">{itemMetrics.valid}</div>
+                              </div>
+                              <div className="w-px h-4 bg-gray-700"></div>
+                              <div className="text-center">
+                                <div className="text-[8px] text-gray-500">CPL</div>
+                                <div className={`text-[11px] font-medium leading-none ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                                  {itemMetrics.valid > 0 ? `$${itemMetrics.cpl.toFixed(2)}` : '—'}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
