@@ -536,6 +536,67 @@ export const offerBuyersService = {
       console.error(`❌ Ошибка получения offer_id для байера:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Архивировать привязку байера (не удалять, а пометить как неактивную)
+   * Используется когда у байера был расход (cost > 0)
+   * @param {number} assignmentId - ID привязки
+   * @returns {Promise<Object>} Обновленная привязка
+   */
+  async archiveAssignment(assignmentId) {
+    try {
+      console.log(`📦 Архивируем привязку ${assignmentId}...`);
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .update({
+          archived: true,
+          archived_at: new Date().toISOString()
+        })
+        .eq('id', assignmentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Привязка ${assignmentId} архивирована`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка архивации привязки ${assignmentId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Восстановить архивированную привязку байера
+   * @param {number} assignmentId - ID привязки
+   * @returns {Promise<Object>} Обновленная привязка
+   */
+  async unarchiveAssignment(assignmentId) {
+    try {
+      console.log(`♻️ Восстанавливаем привязку ${assignmentId}...`);
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .update({
+          archived: false,
+          archived_at: null
+        })
+        .eq('id', assignmentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Привязка ${assignmentId} восстановлена`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка восстановления привязки ${assignmentId}:`, error);
+      throw error;
+    }
   }
 };
 

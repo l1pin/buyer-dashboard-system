@@ -1,10 +1,10 @@
 // src/components/OfferBuyersPanel.js
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, Archive } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsBySourceIds, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
-import { getAssignmentKey, BUYER_STATUS_CONFIG } from '../scripts/offers/Update_buyer_statuses';
+import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
 import { MiniSpinner, LoadingDots } from './LoadingSpinner';
@@ -18,8 +18,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   buyerStatuses = {},
   loadingBuyerStatuses = false,
   loadingBuyerMetrics = false,
-  loadingBuyerIds = new Set() // ID привязок, которые сейчас загружаются
+  loadingBuyerIds = new Set(), // ID привязок, которые сейчас загружаются
+  articleOfferMap = {} // Маппинг article -> offer_id_tracker для проверки расхода
 }) {
+  const [removingBuyerId, setRemovingBuyerId] = useState(null); // ID байера, который удаляется
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [availableBuyers, setAvailableBuyers] = useState([]);
@@ -30,7 +32,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   // Преобразуем привязки из БД в формат компонента
   const assignedBuyers = useMemo(() => {
-    return initialAssignments.map(assignment => {
+    const buyers = initialAssignments.map(assignment => {
       const buyerData = allBuyers.find(b => b.id === assignment.buyer_id);
       return {
         id: assignment.id,
@@ -42,8 +44,17 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         },
         offer_id: assignment.offer_id,
         source_ids: assignment.source_ids || [], // Массив source_id
-        created_at: assignment.created_at // Дата привязки
+        created_at: assignment.created_at, // Дата привязки
+        archived: assignment.archived || false, // Флаг архивации
+        archived_at: assignment.archived_at // Дата архивации
       };
+    });
+
+    // Сортируем: архивированные в начало (слева)
+    return buyers.sort((a, b) => {
+      if (a.archived && !b.archived) return -1;
+      if (!a.archived && b.archived) return 1;
+      return 0;
     });
   }, [initialAssignments, allBuyers]);
 
@@ -119,22 +130,49 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     }
   }, [selectedSource, offer.id, initialAssignments, onAssignmentsChange]);
 
-  const handleRemoveBuyer = useCallback(async (assignmentId) => {
+  const handleRemoveBuyer = useCallback(async (assignmentId, assignment) => {
     if (!window.confirm('Удалить привязку байера к офферу?')) return;
 
-    try {
-      // Удаляем из БД
-      await offerBuyersService.removeAssignment(assignmentId);
+    setRemovingBuyerId(assignmentId);
 
-      // Уведомляем родительский компонент об удалении
-      if (onAssignmentsChange) {
-        onAssignmentsChange(offer.id, initialAssignments.filter(a => a.id !== assignmentId));
+    try {
+      const sourceIds = assignment.source_ids || [];
+      const offerIdTracker = articleOfferMap[offer.article];
+
+      console.log(`🗑️ Проверяем расход для байера ${assignment.buyer.name}...`);
+
+      // Проверяем был ли расход у байера за все время
+      const { hasSpend, totalCost } = await checkBuyerHasSpend(sourceIds, offerIdTracker);
+
+      if (hasSpend) {
+        // Был расход - архивируем (не удаляем)
+        console.log(`📦 Архивируем байера ${assignment.buyer.name} (расход: $${totalCost.toFixed(2)})`);
+        const archivedAssignment = await offerBuyersService.archiveAssignment(assignmentId);
+
+        // Уведомляем родительский компонент об архивации
+        if (onAssignmentsChange) {
+          const updatedAssignments = initialAssignments.map(a =>
+            a.id === assignmentId ? { ...a, archived: true, archived_at: archivedAssignment.archived_at } : a
+          );
+          onAssignmentsChange(offer.id, updatedAssignments);
+        }
+      } else {
+        // Не было расхода - полностью удаляем
+        console.log(`🗑️ Полностью удаляем байера ${assignment.buyer.name} (расход: $0)`);
+        await offerBuyersService.removeAssignment(assignmentId);
+
+        // Уведомляем родительский компонент об удалении
+        if (onAssignmentsChange) {
+          onAssignmentsChange(offer.id, initialAssignments.filter(a => a.id !== assignmentId));
+        }
       }
     } catch (error) {
-      console.error('Ошибка удаления привязки:', error);
+      console.error('Ошибка удаления/архивации привязки:', error);
       alert('Ошибка удаления привязки');
+    } finally {
+      setRemovingBuyerId(null);
     }
-  }, [offer.id, initialAssignments, onAssignmentsChange]);
+  }, [offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
@@ -179,7 +217,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return { date: formattedDate, days: diffDays };
   }, []);
 
-  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds }) => {
+  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds, removingBuyerId }) => {
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -221,12 +259,16 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                 // Проверяем, загружается ли этот конкретный байер
                 const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
+                const isRemoving = removingBuyerId === assignment.id;
+                const isArchived = assignment.archived;
 
                 // Вычисляем данные для статуса
                 const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
                 const statusData = buyerStatuses[statusKey];
-                const statusType = statusData?.status || 'active';
-                const config = BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active;
+                const statusType = isArchived ? 'archived' : (statusData?.status || 'active');
+                const config = isArchived
+                  ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
+                  : (BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
 
                 // Подсчитываем дни для статуса
                 let daysToShow = 0;
@@ -256,6 +298,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                 // Получаем цвета для полоски статуса
                 const getStatusBarColor = () => {
+                  if (isArchived) return 'bg-gray-400';
                   switch (statusType) {
                     case 'active':
                       return 'bg-green-500';
@@ -271,10 +314,29 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 return (
                   <div
                     key={assignment.id}
-                    onClick={() => onOpenCalendar(assignment)}
-                    className="flex-shrink-0 w-32 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:shadow-md transition-all group cursor-pointer overflow-hidden"
-                    title="Нажмите для просмотра календаря метрик"
+                    onClick={() => !isRemoving && onOpenCalendar(assignment)}
+                    className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-hidden relative
+                      ${isArchived
+                        ? 'bg-gray-100 border-2 border-dashed border-gray-300 opacity-60 hover:opacity-80'
+                        : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md'
+                      }
+                      ${isRemoving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
+                    `}
+                    title={isArchived ? 'Архивированный байер (был расход)' : 'Нажмите для просмотра календаря метрик'}
                   >
+                    {/* Индикатор загрузки при удалении/архивации */}
+                    {isRemoving && (
+                      <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+                      </div>
+                    )}
+
+                    {/* Иконка архива для архивированных */}
+                    {isArchived && (
+                      <div className="absolute top-1 left-1 bg-gray-400 rounded-full p-0.5" title="Архивирован">
+                        <Archive className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
                     <div className="flex flex-col items-center text-center space-y-1 p-2">
                       {/* Аватар */}
                       <div className="relative">
@@ -296,10 +358,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onRemoveBuyer(assignment.id);
+                            onRemoveBuyer(assignment.id, assignment);
                           }}
-                          className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm"
-                          title="Удалить привязку"
+                          disabled={isRemoving}
+                          className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm disabled:opacity-50"
+                          title={isArchived ? "Удалить архивированную запись" : "Удалить привязку"}
                         >
                           <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
                         </button>
@@ -381,6 +444,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
             loadingBuyerIds={loadingBuyerIds}
+            removingBuyerId={removingBuyerId}
           />
           <SourceColumn
             source="Google"
@@ -391,6 +455,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
             loadingBuyerIds={loadingBuyerIds}
+            removingBuyerId={removingBuyerId}
           />
           <SourceColumn
             source="TikTok"
@@ -401,6 +466,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
             loadingBuyerIds={loadingBuyerIds}
+            removingBuyerId={removingBuyerId}
           />
         </div>
       </div>

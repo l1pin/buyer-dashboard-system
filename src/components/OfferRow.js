@@ -390,6 +390,7 @@ const OfferRow = memo(({
         loadingBuyerStatuses={loadingBuyerStatuses}
         loadingBuyerMetrics={loadingLeadsData}
         loadingBuyerIds={loadingBuyerIds}
+        articleOfferMap={articleOfferMap}
       />
     </div>
   );
@@ -410,7 +411,8 @@ const OfferRow = memo(({
     prevProps.initialAssignments === nextProps.initialAssignments &&
     prevProps.buyerMetricsData === nextProps.buyerMetricsData &&
     prevProps.buyerStatuses === nextProps.buyerStatuses &&
-    prevProps.loadingBuyerIds === nextProps.loadingBuyerIds
+    prevProps.loadingBuyerIds === nextProps.loadingBuyerIds &&
+    prevProps.articleOfferMap === nextProps.articleOfferMap
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });
