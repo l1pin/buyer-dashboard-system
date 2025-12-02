@@ -268,14 +268,16 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds, removingBuyerId }) => {
     const scrollContainerRef = useRef(null);
-    const initialScrollDone = useRef(false);
 
-    // Прокручиваем контейнер вправо только один раз при первой загрузке
+    // Прокручиваем контейнер вправо при загрузке и при изменении списка байеров
     useEffect(() => {
-      if (scrollContainerRef.current && buyers.length > 0 && !initialScrollDone.current) {
-        initialScrollDone.current = true;
-        // Сразу без анимации
-        scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+      if (scrollContainerRef.current && buyers.length > 0) {
+        // Небольшая задержка чтобы DOM успел отрендериться
+        setTimeout(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+          }
+        }, 100);
       }
     }, [buyers.length]);
 
@@ -301,6 +303,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           ref={scrollContainerRef}
           className="overflow-x-auto pb-2 -mx-1 px-1"
           style={{
+            scrollBehavior: 'smooth',
             WebkitOverflowScrolling: 'touch'
           }}
         >
