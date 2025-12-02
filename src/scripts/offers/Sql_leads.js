@@ -545,7 +545,7 @@ async function fetchDataFor90Days(offerIdArticleMap = {}) {
  * Універсальний fetch з оптимізованими таймаутами
  * 🚀 БЕЗ ЛІМІТІВ NETLIFY: таймаут 60с, швидкий retry
  */
-async function getDataBySql(strSQL, retryCount = 0) {
+export async function getDataBySql(strSQL, retryCount = 0) {
   try {
     // Контролер для відміни по таймауту
     const controller = new AbortController();
