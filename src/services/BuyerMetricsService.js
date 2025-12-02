@@ -1,6 +1,6 @@
 /**
  * Сервис для получения детальных метрик байера по офферу
- * Использует прямой доступ к БД API для получения данных за последние 30 дней
+ * Использует прямой доступ к БД API для получения данных за ВСЕ ВРЕМЯ
  *
  * Иерархия данных:
  * 1. campaign_name_tracker
@@ -139,22 +139,22 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
 
     console.log('✅ Найден offer_id_tracker:', offerIdTracker);
 
-    // 2. Найти последнюю дату с расходом для этого байера и оффера
+    // 2. Найти первую и последнюю даты с расходом для этого байера и оффера (ВСЕ ВРЕМЯ)
     const sourceIdsStr = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
-    const lastDateWithCostSql = `
-      SELECT MAX(adv_date) as last_date
+    const dateRangeSql = `
+      SELECT MIN(adv_date) as first_date, MAX(adv_date) as last_date
       FROM ads_collection
       WHERE offer_id_tracker = '${offerIdTracker.replace(/'/g, "''")}'
         AND source_id_tracker IN (${sourceIdsStr})
         AND cost > 0
     `;
 
-    console.log('🔍 SQL для поиска последней даты:', lastDateWithCostSql);
+    console.log('🔍 SQL для поиска периода:', dateRangeSql);
 
-    const lastDateData = await getDataBySql(lastDateWithCostSql);
-    console.log('📅 Результат поиска последней даты:', lastDateData);
+    const dateRangeData = await getDataBySql(dateRangeSql);
+    console.log('📅 Результат поиска периода:', dateRangeData);
 
-    if (!lastDateData || lastDateData.length === 0 || !lastDateData[0] || !lastDateData[0].last_date) {
+    if (!dateRangeData || dateRangeData.length === 0 || !dateRangeData[0] || !dateRangeData[0].last_date) {
       console.warn('⚠️ Нет данных о расходах для этого байера');
       return {
         period: { start: null, end: null },
@@ -163,17 +163,16 @@ export async function getBuyerMetricsCalendar(sourceIds, article) {
       };
     }
 
-    const lastDate = new Date(lastDateData[0].last_date);
-    const startDate = new Date(lastDate);
-    startDate.setDate(startDate.getDate() - 29); // 30 дней включительно
+    const firstDate = new Date(dateRangeData[0].first_date);
+    const lastDate = new Date(dateRangeData[0].last_date);
 
-    console.log('📅 Период данных:', {
-      start: startDate.toISOString().split('T')[0],
+    console.log('📅 Период данных (ВСЕ ВРЕМЯ):', {
+      start: firstDate.toISOString().split('T')[0],
       end: lastDate.toISOString().split('T')[0]
     });
 
-    // 3. Получить данные за период
-    const startDateStr = startDate.toISOString().split('T')[0];
+    // 3. Получить данные за весь период
+    const startDateStr = firstDate.toISOString().split('T')[0];
     const endDateStr = lastDate.toISOString().split('T')[0];
 
     const dataSql = `
