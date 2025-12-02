@@ -4,7 +4,7 @@
  * Иерархия: buyer > campaign_name_tracker > campaign_name > adv_group_name > adv_name
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { getAllBuyersMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 import Portal from './Portal';
@@ -14,10 +14,38 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
+  const [selectedPeriod, setSelectedPeriod] = useState(30); // Выбранный период в днях
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Варианты периодов
+  const periodOptions = [
+    { value: 4, label: '4 дня' },
+    { value: 7, label: '7 дней' },
+    { value: 15, label: '15 дней' },
+    { value: 30, label: '30 дней' },
+    { value: 60, label: '60 дней' },
+    { value: 90, label: '90 дней' },
+    { value: 'lastActivity', label: 'Последняя активность' },
+    { value: 'all', label: 'Все время' }
+  ];
 
   useEffect(() => {
     loadData();
   }, [allBuyers, article, selectedBuyerName]);
+
+  // Закрытие дропдауна при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowPeriodDropdown(false);
+      }
+    };
+    if (showPeriodDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPeriodDropdown]);
 
   const loadData = async () => {
     try {
@@ -92,38 +120,84 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
-  // Функция расчёта метрик за последние 30 активных дней для конкретного элемента иерархии
-  const getLast30DaysMetricsForItem = (item) => {
+  // Получить данные ячейки для элемента
+  const getCellDataForItem = (dayData, item) => {
+    if (!dayData) return null;
+    if (item.type === 'buyer' && dayData[item.name]) {
+      return dayData[item.name];
+    } else if (item.type === 'tracker' && dayData[item.buyerName]?.children[item.name]) {
+      return dayData[item.buyerName].children[item.name];
+    } else if (item.type === 'campaign' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.name]) {
+      return dayData[item.buyerName].children[item.trackerName].children[item.name];
+    } else if (item.type === 'group' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
+      return dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.name];
+    } else if (item.type === 'ad' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
+      return dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
+    }
+    return null;
+  };
+
+  // Найти период активности для элемента (первый и последний день с расходом)
+  const getActivityPeriodForItem = (item) => {
     if (!data || !data.hierarchy || sortedDates.length === 0) {
-      return { cost: 0, valid: 0, cpl: 0, activeDays: 0 };
+      return { startDate: null, endDate: null, days: 0, isActiveToday: false };
     }
 
-    // Берём последние 30 дат
-    const last30Dates = sortedDates.slice(-30);
+    let startDate = null;
+    let endDate = null;
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const date of sortedDates) {
+      const cellData = getCellDataForItem(data.hierarchy[date], item);
+      if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+        if (!startDate) startDate = date;
+        endDate = date;
+      }
+    }
+
+    if (!startDate || !endDate) {
+      return { startDate: null, endDate: null, days: 0, isActiveToday: false };
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const isActiveToday = endDate === today;
+
+    return { startDate, endDate, days, isActiveToday };
+  };
+
+  // Функция расчёта метрик для выбранного периода
+  const getMetricsForItem = (item) => {
+    if (!data || !data.hierarchy || sortedDates.length === 0) {
+      return { cost: 0, valid: 0, cpl: 0, activeDays: 0, startDate: null, endDate: null, isActiveToday: false };
+    }
+
+    let datesToUse = [];
+    let startDate = null;
+    let endDate = null;
+    let isActiveToday = false;
+
+    if (selectedPeriod === 'all') {
+      datesToUse = sortedDates;
+    } else if (selectedPeriod === 'lastActivity') {
+      const activity = getActivityPeriodForItem(item);
+      if (activity.startDate && activity.endDate) {
+        datesToUse = sortedDates.filter(d => d >= activity.startDate && d <= activity.endDate);
+        startDate = activity.startDate;
+        endDate = activity.endDate;
+        isActiveToday = activity.isActiveToday;
+      }
+    } else {
+      datesToUse = sortedDates.slice(-selectedPeriod);
+    }
 
     let totalCost = 0;
     let totalValid = 0;
     let activeDays = 0;
 
-    last30Dates.forEach(date => {
-      const dayData = data.hierarchy[date];
-      if (!dayData) return;
-
-      let cellData = null;
-
-      // Находим данные для этого элемента в конкретную дату
-      if (item.type === 'buyer' && dayData[item.name]) {
-        cellData = dayData[item.name];
-      } else if (item.type === 'tracker' && dayData[item.buyerName]?.children[item.name]) {
-        cellData = dayData[item.buyerName].children[item.name];
-      } else if (item.type === 'campaign' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.name]) {
-        cellData = dayData[item.buyerName].children[item.trackerName].children[item.name];
-      } else if (item.type === 'group' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
-        cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.name];
-      } else if (item.type === 'ad' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
-        cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
-      }
-
+    datesToUse.forEach(date => {
+      const cellData = getCellDataForItem(data.hierarchy[date], item);
       if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
         totalCost += cellData.cost || 0;
         totalValid += cellData.valid || 0;
@@ -135,7 +209,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       cost: totalCost,
       valid: totalValid,
       cpl: totalValid > 0 ? totalCost / totalValid : 0,
-      activeDays
+      activeDays,
+      startDate,
+      endDate,
+      isActiveToday
     };
   };
 
@@ -460,10 +537,36 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
                     Иерархия
                   </th>
-                  <th className="sticky z-20 bg-gray-800 border-b-2 border-gray-700 px-2 py-3 text-center" style={{ minWidth: '140px', left: '280px' }}>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-gray-400 text-[10px] uppercase">итого</span>
-                      <span className="text-white text-xs font-semibold">30 дней</span>
+                  <th className="sticky z-20 bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px', left: '280px' }}>
+                    <div className="relative" ref={dropdownRef}>
+                      <button
+                        onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                        className="flex flex-col gap-0.5 items-center w-full hover:bg-gray-100 rounded px-2 py-1 transition-colors"
+                      >
+                        <span className="text-gray-500 text-[10px] uppercase">итого</span>
+                        <span className="text-gray-900 text-xs font-semibold flex items-center gap-1">
+                          {periodOptions.find(p => p.value === selectedPeriod)?.label || '30 дней'}
+                          <ChevronDown className="w-3 h-3" />
+                        </span>
+                      </button>
+                      {showPeriodDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                          {periodOptions.map(option => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSelectedPeriod(option.value);
+                                setShowPeriodDropdown(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left text-xs hover:bg-gray-100 ${
+                                selectedPeriod === option.value ? 'bg-gray-100 font-semibold' : ''
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </th>
                   {sortedDates.map(date => {
@@ -496,8 +599,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                     4: '#a855f7'  // purple - объявление
                   };
 
-                  // Рассчитываем метрики за 30 дней для этого элемента
-                  const itemMetrics = getLast30DaysMetricsForItem(item);
+                  // Рассчитываем метрики для выбранного периода
+                  const itemMetrics = getMetricsForItem(item);
 
                   return (
                     <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
@@ -576,9 +679,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
 
-                      {/* Колонка "30 дней" - тёмная карточка (sticky) */}
-                      <td className="sticky z-10 px-2 py-2 bg-gray-800" style={{ minWidth: '140px', left: '280px' }}>
-                        <div className="bg-gray-900 border border-gray-700 rounded-lg p-2">
+                      {/* Колонка периода - тёмная карточка (sticky) */}
+                      <td className="sticky z-10 px-2 py-2 bg-white" style={{ minWidth: '140px', left: '280px' }}>
+                        <div className="bg-gray-800 border border-gray-700 rounded-lg p-2">
                           <div className="space-y-1">
                             <div className="flex justify-between items-center text-[10px]">
                               <span className="text-gray-400">Лиды</span>
@@ -594,6 +697,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                               <span className="text-gray-400">Расх</span>
                               <span className="font-semibold text-white">{formatCurrency(itemMetrics.cost)}</span>
                             </div>
+                            {/* Показать период активности и индикатор для режима lastActivity */}
+                            {selectedPeriod === 'lastActivity' && itemMetrics.startDate && (
+                              <>
+                                <div className="border-t border-gray-600 pt-1 mt-1">
+                                  <div className="text-[9px] text-gray-400 text-center">
+                                    {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month} - {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month} • {itemMetrics.activeDays} д.
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-center gap-1 text-[9px]">
+                                  <span className={`w-2 h-2 rounded-full ${itemMetrics.isActiveToday ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                  <span className="text-gray-400">{itemMetrics.isActiveToday ? 'Активен' : 'Неактивен'}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </td>
