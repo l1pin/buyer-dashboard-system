@@ -227,14 +227,26 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
     console.log('📊 Article:', offer.article);
     console.log('📊 Source IDs:', assignment.source_ids);
+    console.log('📊 Всего привязок оффера:', assignedBuyers.length);
+
+    // Собираем данные по всем байерам оффера
+    const allBuyersData = assignedBuyers
+      .filter(a => !a.archived) // Исключаем архивированных
+      .map(a => ({
+        buyerId: a.buyer.id,
+        buyerName: a.buyer.name,
+        sourceIds: a.source_ids || [],
+        source: a.source
+      }));
+
     setSelectedBuyerForCalendar({
-      sourceIds: assignment.source_ids || [],
+      selectedBuyerName: assignment.buyer.name, // Выбранный байер (будет вверху)
+      allBuyers: allBuyersData, // Все байеры оффера
       article: offer.article,
-      buyerName: assignment.buyer.name,
       source: assignment.source
     });
     setShowCalendar(true);
-  }, [offer]);
+  }, [offer, assignedBuyers]);
 
   const handleCloseCalendar = useCallback(() => {
     setShowCalendar(false);
@@ -653,9 +665,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       {/* Модальное окно календаря метрик */}
       {showCalendar && selectedBuyerForCalendar && (
         <BuyerMetricsCalendar
-          sourceIds={selectedBuyerForCalendar.sourceIds}
+          allBuyers={selectedBuyerForCalendar.allBuyers}
+          selectedBuyerName={selectedBuyerForCalendar.selectedBuyerName}
           article={selectedBuyerForCalendar.article}
-          buyerName={selectedBuyerForCalendar.buyerName}
           source={selectedBuyerForCalendar.source}
           onClose={handleCloseCalendar}
         />

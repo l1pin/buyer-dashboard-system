@@ -1,15 +1,15 @@
 /**
  * Компонент календаря метрик байера
  * Горизонтальное представление со скроллом в виде карточек
- * Иерархия: campaign_name_tracker > campaign_name > adv_group_name > adv_name
+ * Иерархия: buyer > campaign_name_tracker > campaign_name > adv_group_name > adv_name
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
-import { getBuyerMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
+import { getAllBuyersMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 import Portal from './Portal';
 
-function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, maxCPL = 3.5 }) {
+function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, onClose, maxCPL = 3.5 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -17,13 +17,13 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
   useEffect(() => {
     loadData();
-  }, [sourceIds, article]);
+  }, [allBuyers, article, selectedBuyerName]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError('');
-      const result = await getBuyerMetricsCalendar(sourceIds, article);
+      const result = await getAllBuyersMetricsCalendar(allBuyers, article, selectedBuyerName);
       setData(result);
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
@@ -92,116 +92,160 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
     return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
-  // Построение плоской структуры иерархии для таблицы
+  // Построение плоской структуры иерархии для таблицы (с уровнем байера)
   const buildFlatHierarchy = () => {
     if (!data || !data.hierarchy) return [];
 
     const flatItems = [];
+    const buyerOrder = data.buyerOrder || [];
 
-    // Собираем все уникальные трекеры из всех дней
-    const allTrackers = new Map();
+    // Собираем все уникальные байеры и их иерархию из всех дней
+    const allBuyersMap = new Map();
     sortedDates.forEach(date => {
       const dayData = data.hierarchy[date];
-      Object.keys(dayData).forEach(tracker => {
-        if (!allTrackers.has(tracker)) {
-          allTrackers.set(tracker, {
-            name: tracker,
-            campaigns: new Map()
+      Object.keys(dayData).forEach(buyer => {
+        if (!allBuyersMap.has(buyer)) {
+          allBuyersMap.set(buyer, {
+            name: buyer,
+            trackers: new Map()
           });
         }
 
-        const trackerInfo = allTrackers.get(tracker);
-        const trackerData = dayData[tracker];
+        const buyerInfo = allBuyersMap.get(buyer);
+        const buyerData = dayData[buyer];
 
-        // Собираем кампании этого трекера
-        Object.keys(trackerData.children || {}).forEach(campaign => {
-          if (!trackerInfo.campaigns.has(campaign)) {
-            trackerInfo.campaigns.set(campaign, {
-              name: campaign,
-              groups: new Map()
+        // Собираем трекеры этого байера
+        Object.keys(buyerData.children || {}).forEach(tracker => {
+          if (!buyerInfo.trackers.has(tracker)) {
+            buyerInfo.trackers.set(tracker, {
+              name: tracker,
+              campaigns: new Map()
             });
           }
 
-          const campaignInfo = trackerInfo.campaigns.get(campaign);
-          const campaignData = trackerData.children[campaign];
+          const trackerInfo = buyerInfo.trackers.get(tracker);
+          const trackerData = buyerData.children[tracker];
 
-          // Собираем группы этой кампании
-          Object.keys(campaignData.children || {}).forEach(group => {
-            if (!campaignInfo.groups.has(group)) {
-              campaignInfo.groups.set(group, {
-                name: group,
-                ads: new Set()
+          // Собираем кампании этого трекера
+          Object.keys(trackerData.children || {}).forEach(campaign => {
+            if (!trackerInfo.campaigns.has(campaign)) {
+              trackerInfo.campaigns.set(campaign, {
+                name: campaign,
+                groups: new Map()
               });
             }
 
-            const groupInfo = campaignInfo.groups.get(group);
-            const groupData = campaignData.children[group];
+            const campaignInfo = trackerInfo.campaigns.get(campaign);
+            const campaignData = trackerData.children[campaign];
 
-            // Собираем объявления этой группы
-            Object.keys(groupData.children || {}).forEach(ad => {
-              groupInfo.ads.add(ad);
+            // Собираем группы этой кампании
+            Object.keys(campaignData.children || {}).forEach(group => {
+              if (!campaignInfo.groups.has(group)) {
+                campaignInfo.groups.set(group, {
+                  name: group,
+                  ads: new Set()
+                });
+              }
+
+              const groupInfo = campaignInfo.groups.get(group);
+              const groupData = campaignData.children[group];
+
+              // Собираем объявления этой группы
+              Object.keys(groupData.children || {}).forEach(ad => {
+                groupInfo.ads.add(ad);
+              });
             });
           });
         });
       });
     });
 
-    // Строим плоскую иерархию
-    allTrackers.forEach((trackerInfo, tracker) => {
-      const trackerKey = tracker;
+    // Сортируем байеров согласно buyerOrder (выбранный первый)
+    const sortedBuyers = [...allBuyersMap.keys()].sort((a, b) => {
+      const indexA = buyerOrder.indexOf(a);
+      const indexB = buyerOrder.indexOf(b);
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+
+    // Строим плоскую иерархию с уровнем 0 - байер
+    sortedBuyers.forEach(buyer => {
+      const buyerInfo = allBuyersMap.get(buyer);
+      const buyerKey = buyer;
 
       flatItems.push({
-        key: trackerKey,
-        level: 1,
-        name: tracker,
-        type: 'tracker',
-        hasChildren: trackerInfo.campaigns.size > 0
+        key: buyerKey,
+        level: 0,
+        name: buyer,
+        type: 'buyer',
+        hasChildren: buyerInfo.trackers.size > 0
       });
 
-      if (expandedItems[trackerKey]) {
-        trackerInfo.campaigns.forEach((campaignInfo, campaign) => {
-          const campaignKey = `${tracker}-${campaign}`;
+      if (expandedItems[buyerKey]) {
+        buyerInfo.trackers.forEach((trackerInfo, tracker) => {
+          const trackerKey = `${buyer}-${tracker}`;
 
           flatItems.push({
-            key: campaignKey,
-            level: 2,
-            name: campaign,
-            type: 'campaign',
-            parentKey: trackerKey,
-            trackerName: tracker,
-            hasChildren: campaignInfo.groups.size > 0
+            key: trackerKey,
+            level: 1,
+            name: tracker,
+            type: 'tracker',
+            parentKey: buyerKey,
+            buyerName: buyer,
+            hasChildren: trackerInfo.campaigns.size > 0
           });
 
-          if (expandedItems[campaignKey]) {
-            campaignInfo.groups.forEach((groupInfo, group) => {
-              const groupKey = `${tracker}-${campaign}-${group}`;
+          if (expandedItems[trackerKey]) {
+            trackerInfo.campaigns.forEach((campaignInfo, campaign) => {
+              const campaignKey = `${buyer}-${tracker}-${campaign}`;
 
               flatItems.push({
-                key: groupKey,
-                level: 3,
-                name: group,
-                type: 'group',
-                parentKey: campaignKey,
+                key: campaignKey,
+                level: 2,
+                name: campaign,
+                type: 'campaign',
+                parentKey: trackerKey,
+                buyerName: buyer,
                 trackerName: tracker,
-                campaignName: campaign,
-                hasChildren: groupInfo.ads.size > 0
+                hasChildren: campaignInfo.groups.size > 0
               });
 
-              if (expandedItems[groupKey]) {
-                groupInfo.ads.forEach(ad => {
-                  const adKey = `${tracker}-${campaign}-${group}-${ad}`;
+              if (expandedItems[campaignKey]) {
+                campaignInfo.groups.forEach((groupInfo, group) => {
+                  const groupKey = `${buyer}-${tracker}-${campaign}-${group}`;
 
                   flatItems.push({
-                    key: adKey,
-                    level: 4,
-                    name: ad,
-                    type: 'ad',
-                    parentKey: groupKey,
+                    key: groupKey,
+                    level: 3,
+                    name: group,
+                    type: 'group',
+                    parentKey: campaignKey,
+                    buyerName: buyer,
                     trackerName: tracker,
                     campaignName: campaign,
-                    groupName: group,
-                    hasChildren: false
+                    hasChildren: groupInfo.ads.size > 0
                   });
+
+                  if (expandedItems[groupKey]) {
+                    groupInfo.ads.forEach(ad => {
+                      const adKey = `${buyer}-${tracker}-${campaign}-${group}-${ad}`;
+
+                      flatItems.push({
+                        key: adKey,
+                        level: 4,
+                        name: ad,
+                        type: 'ad',
+                        parentKey: groupKey,
+                        buyerName: buyer,
+                        trackerName: tracker,
+                        campaignName: campaign,
+                        groupName: group,
+                        hasChildren: false
+                      });
+                    });
+                  }
                 });
               }
             });
@@ -303,11 +347,11 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
           </div>
 
           <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span><span className="font-medium text-gray-700">Байер:</span> {buyerName}</span>
-            <span>•</span>
             <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
             <span>•</span>
             <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
+            <span>•</span>
+            <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
             {data?.period && (
               <>
                 <span>•</span>
@@ -346,15 +390,16 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                   const hasChildren = item.hasChildren;
                   const isExpanded = expandedItems[item.key];
                   const baseIndent = 16;
-                  const levelIndent = (item.level - 1) * 24;
+                  const levelIndent = item.level * 24;
                   const paddingLeft = baseIndent + levelIndent;
 
                   // Цвета для линий по уровням
                   const levelColors = {
-                    1: '#3b82f6', // blue
-                    2: '#10b981', // green
-                    3: '#f59e0b', // yellow
-                    4: '#a855f7'  // purple
+                    0: '#ef4444', // red - байер
+                    1: '#3b82f6', // blue - трекер
+                    2: '#10b981', // green - кампания
+                    3: '#f59e0b', // yellow - группа
+                    4: '#a855f7'  // purple - объявление
                   };
 
                   return (
@@ -362,13 +407,13 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                       <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
                           {/* Визуальные линии иерархии */}
-                          {item.level > 1 && (
+                          {item.level > 0 && (
                             <>
                               {/* Горизонтальная линия к родителю */}
                               <div
                                 className="absolute"
                                 style={{
-                                  left: `${baseIndent + (item.level - 2) * 24 + 12}px`,
+                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
                                   top: '50%',
                                   width: '16px',
                                   height: '1px',
@@ -380,7 +425,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                               <div
                                 className="absolute"
                                 style={{
-                                  left: `${baseIndent + (item.level - 2) * 24 + 12}px`,
+                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
                                   top: '-50%',
                                   width: '1px',
                                   height: '50%',
@@ -409,6 +454,7 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
                               {item.name}
                             </div>
                             <div className="text-xs text-gray-500">
+                              {item.type === 'buyer' && 'Байер'}
                               {item.type === 'tracker' && 'Трекер'}
                               {item.type === 'campaign' && 'Кампания'}
                               {item.type === 'group' && 'Группа'}
@@ -423,14 +469,16 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
 
                         // Ищем данные для этого элемента в конкретную дату
                         if (dayData) {
-                          if (item.type === 'tracker' && dayData[item.name]) {
+                          if (item.type === 'buyer' && dayData[item.name]) {
                             cellData = dayData[item.name];
-                          } else if (item.type === 'campaign' && dayData[item.trackerName]?.children[item.name]) {
-                            cellData = dayData[item.trackerName].children[item.name];
-                          } else if (item.type === 'group' && dayData[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
-                            cellData = dayData[item.trackerName].children[item.campaignName].children[item.name];
-                          } else if (item.type === 'ad' && dayData[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
-                            cellData = dayData[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
+                          } else if (item.type === 'tracker' && dayData[item.buyerName]?.children[item.name]) {
+                            cellData = dayData[item.buyerName].children[item.name];
+                          } else if (item.type === 'campaign' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.name]) {
+                            cellData = dayData[item.buyerName].children[item.trackerName].children[item.name];
+                          } else if (item.type === 'group' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.name]) {
+                            cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.name];
+                          } else if (item.type === 'ad' && dayData[item.buyerName]?.children[item.trackerName]?.children[item.campaignName]?.children[item.groupName]?.children[item.name]) {
+                            cellData = dayData[item.buyerName].children[item.trackerName].children[item.campaignName].children[item.groupName].children[item.name];
                           }
                         }
 
