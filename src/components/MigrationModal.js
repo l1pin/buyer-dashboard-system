@@ -57,7 +57,7 @@ const getFirstSpendDate = async (sourceIds, offerIdTracker) => {
     const offerIdSql = `'${offerIdTracker.replace(/'/g, "''")}'`;
 
     const sql = `
-      SELECT MIN(date) as first_date
+      SELECT MIN(adv_date) as first_date
       FROM ads_collection
       WHERE source_id_tracker IN (${sourceIdsSql})
         AND offer_id_tracker = ${offerIdSql}
@@ -68,7 +68,8 @@ const getFirstSpendDate = async (sourceIds, offerIdTracker) => {
     const firstDate = rows[0]?.first_date;
 
     if (firstDate) {
-      return new Date(firstDate);
+      // Формат даты: 2025-11-17 → Date
+      return new Date(firstDate + 'T12:00:00');
     }
     return null;
   } catch (error) {
