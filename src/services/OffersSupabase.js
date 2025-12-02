@@ -691,22 +691,54 @@ export const articleOfferMappingService = {
  */
 export const offerSeasonService = {
   /**
-   * Получить все сезоны офферов
+   * Получить все сезоны офферов (с пагинацией)
    * @returns {Promise<Array>} Массив сезонов офферов
    */
   async getAllSeasons() {
     try {
       console.log('🌿 Загружаем все сезоны офферов...');
 
-      const { data, error } = await supabase
+      // Сначала получаем общее количество записей
+      const { count, error: countError } = await supabase
         .from('offer_seasons')
-        .select('*')
-        .order('article', { ascending: true });
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
+      if (countError) throw countError;
 
-      console.log(`✅ Загружено ${data?.length || 0} записей сезонов`);
-      return data || [];
+      const totalCount = count || 0;
+      const pageSize = 1000;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      console.log(`📊 Всего сезонов: ${totalCount}, страниц: ${totalPages}`);
+
+      if (totalCount === 0) return [];
+
+      // Загружаем все страницы параллельно
+      const pagePromises = [];
+      for (let page = 0; page < totalPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        pagePromises.push(
+          supabase
+            .from('offer_seasons')
+            .select('*')
+            .order('article', { ascending: true })
+            .range(from, to)
+        );
+      }
+
+      const results = await Promise.all(pagePromises);
+
+      // Собираем все данные
+      let allData = [];
+      results.forEach(result => {
+        if (!result.error && result.data) {
+          allData = allData.concat(result.data);
+        }
+      });
+
+      console.log(`✅ Загружено ${allData.length} записей сезонов`);
+      return allData;
 
     } catch (error) {
       console.error('❌ Ошибка загрузки сезонов офферов:', error);
