@@ -815,31 +815,44 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                       {/* Колонка иерархии */}
                       <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
-                          {/* Визуальные линии иерархии */}
+                          {/* Визуальные линии иерархии - современный стиль */}
                           {item.level > 0 && (
                             <>
-                              {/* Горизонтальная линия к родителю */}
-                              <div
-                                className="absolute"
-                                style={{
-                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                  top: '50%',
-                                  width: '16px',
-                                  height: '1px',
-                                  backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.4
-                                }}
-                              />
                               {/* Вертикальная линия от родителя */}
                               <div
-                                className="absolute"
+                                className="absolute rounded-full"
                                 style={{
-                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                  top: '-50%',
-                                  width: '1px',
+                                  left: `${baseIndent + (item.level - 1) * 24 + 11}px`,
+                                  top: 0,
+                                  width: '2px',
                                   height: '50%',
                                   backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.4
+                                  opacity: 0.7
+                                }}
+                              />
+                              {/* Горизонтальная линия к элементу */}
+                              <div
+                                className="absolute rounded-full"
+                                style={{
+                                  left: `${baseIndent + (item.level - 1) * 24 + 11}px`,
+                                  top: '50%',
+                                  width: '14px',
+                                  height: '2px',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.7
+                                }}
+                              />
+                              {/* Точка соединения */}
+                              <div
+                                className="absolute rounded-full"
+                                style={{
+                                  left: `${baseIndent + (item.level - 1) * 24 + 9}px`,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  width: '6px',
+                                  height: '6px',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.9
                                 }}
                               />
                             </>
