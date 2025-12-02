@@ -73,8 +73,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     const date = new Date(dateStr);
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2); // Последние 2 цифры года
     const weekday = date.toLocaleDateString('ru-RU', { weekday: 'short' });
-    return { day, month, weekday };
+    return { day, month, year, weekday };
   };
 
   const formatCurrency = (value) => {
@@ -673,7 +674,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
               <>
                 <span>•</span>
                 <span>
-                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
+                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month}.{formatDate(data.period.start).year} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}.{formatDate(data.period.end).year}
                 </span>
               </>
             )}
@@ -732,12 +733,12 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </th>
                       );
                     }
-                    const { day, month, weekday } = formatDate(item.date);
+                    const { day, month, year, weekday } = formatDate(item.date);
                     return (
                       <th key={item.date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
                         <div className="flex flex-col gap-0.5">
                           <span className="text-gray-500 text-[10px] uppercase">{weekday}</span>
-                          <span className="text-gray-900 text-xs font-semibold">{day}.{month}</span>
+                          <span className="text-gray-900 text-xs font-semibold">{day}.{month}.{year}</span>
                         </div>
                       </th>
                     );
@@ -864,7 +865,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                               <>
                                 <div className="border-t border-gray-600 pt-1 mt-1">
                                   <div className="text-[9px] text-white text-center">
-                                    {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month} - {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month} • {itemMetrics.activeDays} д.
+                                    {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month}.{formatDate(itemMetrics.startDate).year} - {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month}.{formatDate(itemMetrics.endDate).year} • {itemMetrics.activeDays} д.
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-center gap-1 text-[9px]">
