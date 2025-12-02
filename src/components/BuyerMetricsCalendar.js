@@ -17,7 +17,17 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const [selectedPeriod, setSelectedPeriod] = useState(30); // Выбранный период в днях
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [periodIndexes, setPeriodIndexes] = useState({}); // Индексы выбранных периодов для каждого элемента
+  const [activeFilters, setActiveFilters] = useState(['all']); // Активные фильтры
   const dropdownRef = useRef(null);
+
+  // Варианты фильтров
+  const filterOptions = [
+    { value: 'all', label: 'Все' },
+    { value: 'inactive', label: 'Неактивные' },
+    { value: 'noTracker', label: 'Нет в трекере' },
+    { value: 'notConfigured', label: 'Не настроено' },
+    { value: 'active', label: 'Активные' }
+  ];
 
   // Варианты периодов
   const periodOptions = [
@@ -67,6 +77,30 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  // Переключение фильтра (мультивыбор)
+  const toggleFilter = (filterValue) => {
+    setActiveFilters(prev => {
+      if (filterValue === 'all') {
+        // Если кликнули "Все" - сбрасываем на только "Все"
+        return ['all'];
+      }
+
+      // Убираем "all" если выбираем другой фильтр
+      let newFilters = prev.filter(f => f !== 'all');
+
+      if (newFilters.includes(filterValue)) {
+        // Убираем фильтр
+        newFilters = newFilters.filter(f => f !== filterValue);
+      } else {
+        // Добавляем фильтр
+        newFilters.push(filterValue);
+      }
+
+      // Если ничего не выбрано - возвращаем "Все"
+      return newFilters.length === 0 ? ['all'] : newFilters;
+    });
   };
 
   const formatDate = (dateStr) => {
@@ -606,6 +640,58 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
   const flatHierarchy = buildFlatHierarchy();
 
+  // Проверка активности элемента (есть ли расход за последние 7 дней)
+  const isItemActive = (item) => {
+    if (!data || !data.hierarchy) return false;
+    const last7Dates = sortedDates.slice(-7);
+    for (const date of last7Dates) {
+      const cellData = getCellDataForItem(data.hierarchy[date], item);
+      if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Фильтрация иерархии
+  const filteredHierarchy = useMemo(() => {
+    if (activeFilters.includes('all')) {
+      return flatHierarchy;
+    }
+
+    return flatHierarchy.filter(item => {
+      // Разделители всегда показываем
+      if (item.type === 'separator') return true;
+
+      // Только для байеров применяем фильтры
+      if (item.type !== 'buyer') {
+        // Дочерние элементы показываем если родитель-байер прошёл фильтр
+        return true;
+      }
+
+      const isActive = isItemActive(item);
+      const hasTracker = item.hasChildren;
+
+      // Проверяем каждый активный фильтр
+      let matches = false;
+
+      if (activeFilters.includes('active') && isActive) {
+        matches = true;
+      }
+      if (activeFilters.includes('inactive') && !isActive) {
+        matches = true;
+      }
+      if (activeFilters.includes('noTracker') && !hasTracker) {
+        matches = true;
+      }
+      if (activeFilters.includes('notConfigured') && !hasTracker && !isActive) {
+        matches = true;
+      }
+
+      return matches;
+    });
+  }, [flatHierarchy, activeFilters, data, sortedDates]);
+
   if (loading) {
     return (
       <Portal>
@@ -710,6 +796,25 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
           </div>
         </div>
 
+        {/* Кнопки-фильтры */}
+        <div className="px-6 py-2 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {filterOptions.map(option => (
+              <button
+                key={option.value}
+                onClick={() => toggleFilter(option.value)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  activeFilters.includes(option.value)
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Table Container */}
         <div className="flex-1 overflow-hidden">
           <div className="h-full overflow-auto">
@@ -775,7 +880,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                 </tr>
               </thead>
               <tbody>
-                {flatHierarchy.map((item, index) => {
+                {filteredHierarchy.map((item, index) => {
                   // Разделитель для архивированных
                   if (item.type === 'separator') {
                     return (
