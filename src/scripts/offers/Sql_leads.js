@@ -641,3 +641,103 @@ function formatDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * ОПТИМИЗИРОВАННАЯ ФУНКЦИЯ: Загружает метрики для ОДНОГО байера за 14 дней
+ * Используется при добавлении нового байера к офферу
+ *
+ * @param {Array} sourceIds - Массив source_id байера
+ * @param {string} offerIdTracker - ID оффера в трекере
+ * @param {string} article - Артикул оффера
+ * @returns {Promise<Object>} - { dataBySourceIdAndDate, metrics: { leads, cost, cpl } }
+ */
+export async function fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, article) {
+  try {
+    console.log(`📊 Загрузка метрик для байера: ${sourceIds.length} source_ids, offer: ${offerIdTracker}`);
+
+    if (!sourceIds || sourceIds.length === 0 || !offerIdTracker) {
+      return {
+        dataBySourceIdAndDate: {},
+        metrics: { leads: 0, cost: 0, cpl: 0 }
+      };
+    }
+
+    // Период: 14 дней назад от сегодня
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 13); // 14 дней включая сегодня
+
+    const fromStr = formatDate(startDate);
+    const toStr = formatDate(today);
+
+    // Формируем SQL запрос
+    const sourceIdsSql = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    const offerIdSql = `'${offerIdTracker.replace(/'/g, "''")}'`;
+
+    const sql = `
+      SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker
+      FROM ads_collection
+      WHERE adv_date BETWEEN '${fromStr}' AND '${toStr}'
+        AND offer_id_tracker = ${offerIdSql}
+        AND source_id_tracker IN (${sourceIdsSql})
+    `;
+
+    console.log(`📆 Запрос метрик за ${fromStr}..${toStr}`);
+
+    const rawData = await getDataBySql(sql);
+    console.log(`✅ Получено ${rawData.length} записей`);
+
+    // Группируем данные по source_id и дате
+    const dataBySourceIdAndDate = {};
+
+    if (!dataBySourceIdAndDate[article]) {
+      dataBySourceIdAndDate[article] = {};
+    }
+
+    let totalLeads = 0;
+    let totalCost = 0;
+
+    rawData.forEach(row => {
+      const sourceId = row.source_id_tracker;
+      const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
+      const leads = Number(row.valid) || 0;
+      const cost = Number(row.cost) || 0;
+
+      if (!sourceId || !dateStr) return;
+
+      if (!dataBySourceIdAndDate[article][sourceId]) {
+        dataBySourceIdAndDate[article][sourceId] = {};
+      }
+
+      if (!dataBySourceIdAndDate[article][sourceId][dateStr]) {
+        dataBySourceIdAndDate[article][sourceId][dateStr] = { leads: 0, cost: 0 };
+      }
+
+      dataBySourceIdAndDate[article][sourceId][dateStr].leads += leads;
+      dataBySourceIdAndDate[article][sourceId][dateStr].cost += cost;
+
+      totalLeads += leads;
+      totalCost += cost;
+    });
+
+    const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+    console.log(`✅ Метрики байера за 14 дней: Leads=${totalLeads}, Cost=${totalCost.toFixed(2)}, CPL=${cpl.toFixed(2)}`);
+
+    return {
+      dataBySourceIdAndDate,
+      metrics: {
+        leads: totalLeads,
+        cost: totalCost,
+        cpl: cpl
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Ошибка загрузки метрик байера:', error);
+    return {
+      dataBySourceIdAndDate: {},
+      metrics: { leads: 0, cost: 0, cpl: 0 }
+    };
+  }
+}

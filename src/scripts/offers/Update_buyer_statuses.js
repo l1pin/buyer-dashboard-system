@@ -424,3 +424,171 @@ export const BUYER_STATUS_CONFIG = {
     borderColor: 'border-purple-200'
   }
 };
+
+/**
+ * ОПТИМИЗИРОВАННАЯ ФУНКЦИЯ: Обновляет статус ОДНОГО байера для конкретного оффера
+ * Используется при добавлении нового байера к офферу
+ *
+ * @param {Object} assignment - Привязка байера {offer_id, buyer_id, source, source_ids}
+ * @param {string} article - Артикул оффера
+ * @param {string} offerIdTracker - ID оффера в трекере
+ * @returns {Promise<Object>} - {status, date, message}
+ */
+export async function updateSingleBuyerStatus(assignment, article, offerIdTracker) {
+  try {
+    console.log(`🔄 Обновляем статус для байера ${assignment.buyer_name || assignment.buyer_id}...`);
+
+    const sourceIds = assignment.source_ids || [];
+    const assignmentKey = getAssignmentKey(assignment.offer_id, assignment.buyer_id, assignment.source);
+
+    // Проверяем наличие данных
+    if (!article || !offerIdTracker) {
+      console.log(`⚠️ Нет маппинга для оффера ${assignment.offer_id}`);
+      return {
+        key: assignmentKey,
+        status: {
+          status: 'not_in_tracker',
+          date: null,
+          message: 'Нет маппинга'
+        }
+      };
+    }
+
+    if (sourceIds.length === 0) {
+      console.log(`⚠️ У байера нет source_ids`);
+      return {
+        key: assignmentKey,
+        status: {
+          status: 'not_configured',
+          date: null,
+          message: 'Нет source_id'
+        }
+      };
+    }
+
+    // Загружаем данные о расходах для этого байера и оффера
+    const spendData = await fetchSpendDataForSingleBuyer(sourceIds, offerIdTracker);
+    console.log(`✅ Получены данные для ${Object.keys(spendData).length} комбинаций source_id`);
+
+    // Определяем статус
+    const todayStr = formatDate(new Date());
+    let hasSpendToday = false;
+    let lastSpendDate = null;
+    let foundInTracker = false;
+
+    sourceIds.forEach(sourceId => {
+      const key = `${offerIdTracker}:${sourceId}`;
+      const data = spendData[key];
+
+      if (data) {
+        foundInTracker = true;
+
+        if (data.spend_today > 0) {
+          hasSpendToday = true;
+        }
+
+        if (data.last_spend) {
+          if (!lastSpendDate || data.last_spend > lastSpendDate) {
+            lastSpendDate = data.last_spend;
+          }
+        }
+      }
+    });
+
+    // Определяем итоговый статус
+    let result;
+    if (!foundInTracker) {
+      result = {
+        status: 'not_in_tracker',
+        date: null,
+        message: 'Нет в трекере'
+      };
+    } else if (hasSpendToday || lastSpendDate === todayStr) {
+      result = {
+        status: 'active',
+        date: null,
+        message: 'Активный'
+      };
+    } else if (lastSpendDate) {
+      const noSpendSince = addDays(lastSpendDate, 1);
+      result = {
+        status: 'not_configured',
+        date: noSpendSince,
+        message: `Нет расходов с ${noSpendSince}`
+      };
+    } else {
+      result = {
+        status: 'not_configured',
+        date: null,
+        message: 'Нет расходов'
+      };
+    }
+
+    console.log(`✅ Статус байера ${assignment.buyer_name}: ${result.status}`);
+
+    return {
+      key: assignmentKey,
+      status: result
+    };
+
+  } catch (error) {
+    console.error('❌ Ошибка обновления статуса байера:', error);
+    const assignmentKey = getAssignmentKey(assignment.offer_id, assignment.buyer_id, assignment.source);
+    return {
+      key: assignmentKey,
+      status: {
+        status: 'not_in_tracker',
+        date: null,
+        message: 'Ошибка загрузки'
+      }
+    };
+  }
+}
+
+/**
+ * Загружает данные о расходах для ОДНОГО байера по его source_ids и одному offer_id_tracker
+ */
+async function fetchSpendDataForSingleBuyer(sourceIds, offerIdTracker) {
+  const result = {};
+  const todayStr = formatDate(new Date());
+
+  if (sourceIds.length === 0 || !offerIdTracker) {
+    return result;
+  }
+
+  const sourceIdsSql = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+  const offerIdSql = `'${offerIdTracker.replace(/'/g, "''")}'`;
+
+  const sql = `
+    SELECT
+      offer_id_tracker,
+      source_id_tracker,
+      MAX(CASE WHEN cost > 0 THEN adv_date END) AS last_spend,
+      SUM(CASE WHEN adv_date = '${todayStr}' THEN cost ELSE 0 END) AS spend_today
+    FROM ads_collection
+    WHERE source_id_tracker IN (${sourceIdsSql})
+      AND offer_id_tracker = ${offerIdSql}
+    GROUP BY offer_id_tracker, source_id_tracker
+  `;
+
+  console.log(`📊 Запрос статуса для ${sourceIds.length} source_ids и offer_id_tracker: ${offerIdTracker}`);
+
+  try {
+    const rows = await getDataBySql(sql);
+    console.log(`✅ Получено ${rows.length} записей`);
+
+    rows.forEach(row => {
+      if (row.offer_id_tracker && row.source_id_tracker) {
+        const key = `${row.offer_id_tracker}:${row.source_id_tracker}`;
+        result[key] = {
+          last_spend: row.last_spend ? String(row.last_spend).slice(0, 10) : null,
+          spend_today: Number(row.spend_today || 0)
+        };
+      }
+    });
+  } catch (error) {
+    console.warn(`⚠️ Ошибка загрузки данных: ${error.message}`);
+  }
+
+  return result;
+}
