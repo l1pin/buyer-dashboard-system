@@ -394,6 +394,22 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         <Archive className="w-2.5 h-2.5 text-white" />
                       </div>
                     )}
+
+                    {/* Кнопка удаления - только для активных байеров, в правом верхнем углу карточки */}
+                    {!isArchived && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveBuyer(assignment.id, assignment);
+                        }}
+                        disabled={isRemoving}
+                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full transition-all hover:bg-red-100 disabled:opacity-50 z-10"
+                        title="Удалить привязку"
+                      >
+                        <X className="w-3.5 h-3.5 text-red-500" />
+                      </button>
+                    )}
+
                     <div className="flex flex-col items-center text-center space-y-1 p-2">
                       {/* Аватар */}
                       <div className="relative">
@@ -409,21 +425,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                               {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
                             </span>
                           </div>
-                        )}
-
-                        {/* Кнопка удаления - только для активных байеров */}
-                        {!isArchived && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemoveBuyer(assignment.id, assignment);
-                            }}
-                            disabled={isRemoving}
-                            className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 p-0.5 rounded-full transition-all shadow-sm disabled:opacity-50"
-                            title="Удалить привязку"
-                          >
-                            <X className="w-3 h-3 text-white" />
-                          </button>
                         )}
                       </div>
 
