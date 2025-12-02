@@ -256,11 +256,10 @@ function OffersTL({ user }) {
         [offerId]: newAssignments
       };
 
-      // Запускаем асинхронное обновление статусов и метрик
-      (async () => {
-        try {
-          // Если это новая привязка - обновляем ТОЛЬКО её (оптимизация!)
-          if (addedAssignment) {
+      // Запускаем асинхронное обновление статусов и метрик ТОЛЬКО для нового байера
+      if (addedAssignment) {
+        (async () => {
+          try {
             console.log(`🔄 Обновляем статусы и метрики ТОЛЬКО для нового байера ${addedAssignment.buyer_name} (${addedAssignment.source})...`);
 
             // Получаем метрику этого оффера
@@ -326,57 +325,20 @@ function OffersTL({ user }) {
                 return newSet;
               });
             }
-          } else {
-            // Массовое обновление (при удалении или других изменениях)
-            console.log(`🔄 Обновляем статусы и метрики для всех байеров...`);
-
-            const flatAssignments = Object.values(updated).flat();
-
-            if (flatAssignments.length > 0) {
-              const [statuses, leadsResult] = await Promise.all([
-                (async () => {
-                  setLoadingBuyerStatuses(true);
-                  try {
-                    const result = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
-                    console.log(`✅ Статусы обновлены для ${Object.keys(result).length} привязок`);
-                    return result;
-                  } finally {
-                    setLoadingBuyerStatuses(false);
-                  }
-                })(),
-
-                (async () => {
-                  setLoadingLeadsData(true);
-                  try {
-                    const result = await updateLeadsFromSqlScript(metrics, articleOfferMap, null);
-                    console.log(`✅ Метрики байеров обновлены`);
-                    return result;
-                  } finally {
-                    setLoadingLeadsData(false);
-                  }
-                })()
-              ]);
-
-              setBuyerStatuses(statuses);
-              if (leadsResult?.dataBySourceIdAndDate) {
-                setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Ошибка обновления статусов и метрик после привязки:', error);
-          setLoadingBuyerStatuses(false);
-          setLoadingLeadsData(false);
-          // Очищаем loadingBuyerIds в случае ошибки
-          if (addedAssignment) {
+          } catch (error) {
+            console.error('❌ Ошибка обновления статусов и метрик после привязки:', error);
+            // Очищаем loadingBuyerIds в случае ошибки
             setLoadingBuyerIds(prev => {
               const newSet = new Set(prev);
               newSet.delete(addedAssignment.id);
               return newSet;
             });
           }
-        }
-      })();
+        })();
+      } else {
+        // При удалении байера - НЕ обновляем все статусы и метрики, просто логируем
+        console.log(`🗑️ Байер удален из оффера ${offerId}, данные других байеров не обновляются`);
+      }
 
       return updated;
     });
