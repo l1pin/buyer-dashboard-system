@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { offerStatusService, offerSeasonService, offerBuyersService } from '../services/OffersSupabase';
+import { offerStatusService, offerSeasonService, offerBuyersService, articleOfferMappingService } from '../services/OffersSupabase';
+import { getDataBySql } from '../scripts/offers/Sql_leads';
 import Portal from './Portal';
 
 // Источники трафика
@@ -43,6 +44,37 @@ const parseDate = (dateStr) => {
   }
 
   return null;
+};
+
+// Получить первую дату с cost > 0 для source_ids и offer_id_tracker
+const getFirstSpendDate = async (sourceIds, offerIdTracker) => {
+  if (!sourceIds || sourceIds.length === 0 || !offerIdTracker) {
+    return null;
+  }
+
+  try {
+    const sourceIdsSql = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    const offerIdSql = `'${offerIdTracker.replace(/'/g, "''")}'`;
+
+    const sql = `
+      SELECT MIN(date) as first_date
+      FROM ads_collection
+      WHERE source_id_tracker IN (${sourceIdsSql})
+        AND offer_id_tracker = ${offerIdSql}
+        AND cost > 0
+    `;
+
+    const rows = await getDataBySql(sql);
+    const firstDate = rows[0]?.first_date;
+
+    if (firstDate) {
+      return new Date(firstDate);
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Ошибка получения первой даты расхода:', error);
+    return null;
+  }
 };
 
 const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, allBuyers = [] }) => {
@@ -716,28 +748,28 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                 {/* Даты */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Даты привязки (по одной на строку)
+                    Даты привязки (по одной на строку, пустые = авто)
                   </label>
                   <textarea
                     value={capsDatesInput}
                     onChange={(e) => setCapsDatesInput(e.target.value)}
-                    placeholder="17.09.2025 13:34:54&#10;24.01&#10;15.03.2025"
+                    placeholder="17.09.2025 13:34:54&#10;&#10;15.03.2025&#10;(пустые строки = первый день с cost > 0)"
                     className="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
                   <p className="mt-2 text-xs text-gray-500">
-                    Строк: {capsDatesInput.split('\n').filter(d => d.trim()).length}
+                    Строк: {capsDatesInput.split('\n').length} (пустые = авто по cost)
                   </p>
                 </div>
               </div>
 
               {/* Предварительный просмотр */}
-              {capsArticlesInput.trim() && capsDatesInput.trim() && capsSelectedBuyer && (
+              {capsArticlesInput.trim() && capsSelectedBuyer && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Предварительный просмотр (первые 5):</h4>
                   <div className="space-y-1 text-sm">
                     {(() => {
                       const articles = capsArticlesInput.split('\n').filter(a => a.trim());
-                      const dates = capsDatesInput.split('\n').filter(d => d.trim());
+                      const dates = capsDatesInput.split('\n'); // Не фильтруем - сохраняем индексы
                       const buyer = allBuyers.find(b => b.id === capsSelectedBuyer);
                       const preview = [];
 
@@ -746,6 +778,7 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                         const dateStr = dates[i]?.trim() || '';
                         const parsedDate = parseDate(dateStr);
                         const offer = metrics?.find(m => m.article === article);
+                        const isEmpty = !dateStr;
 
                         preview.push(
                           <div key={i} className="flex items-center gap-2">
@@ -753,9 +786,13 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                               {article}
                             </span>
                             <span className="text-gray-400">→</span>
-                            <span className={parsedDate ? 'text-green-600' : 'text-red-500'}>
-                              {parsedDate ? parsedDate.toLocaleString('ru-RU') : `"${dateStr}" (некорректная дата)`}
-                            </span>
+                            {isEmpty ? (
+                              <span className="text-blue-600 italic">авто (первый день с cost {'>'} 0)</span>
+                            ) : (
+                              <span className={parsedDate ? 'text-green-600' : 'text-red-500'}>
+                                {parsedDate ? parsedDate.toLocaleString('ru-RU') : `"${dateStr}" (некорректная дата)`}
+                              </span>
+                            )}
                             {!offer && <span className="text-xs text-red-500">(оффер не найден)</span>}
                           </div>
                         );
@@ -786,15 +823,10 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                       }
 
                       const articles = capsArticlesInput.split('\n').filter(a => a.trim());
-                      const dates = capsDatesInput.split('\n').filter(d => d.trim());
+                      const dates = capsDatesInput.split('\n'); // Не фильтруем - сохраняем пустые строки
 
                       if (articles.length === 0) {
                         setError('Введите хотя бы один артикул');
-                        return;
-                      }
-
-                      if (articles.length !== dates.length) {
-                        setError(`Количество артикулов (${articles.length}) не совпадает с количеством дат (${dates.length})`);
                         return;
                       }
 
@@ -804,16 +836,21 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                         return;
                       }
 
+                      // Загружаем маппинг артикулов -> offer_id_tracker
+                      console.log('📊 Загружаем маппинг артикулов...');
+                      const articleOfferMap = await articleOfferMappingService.getAllMappings();
+
                       console.log(`🔄 Начинаем привязку ${articles.length} офферов к байеру ${buyer.name}...`);
 
                       let successCount = 0;
                       let errorCount = 0;
+                      let autoDateCount = 0;
                       const errors = [];
 
                       for (let i = 0; i < articles.length; i++) {
                         const article = articles[i].trim();
-                        const dateStr = dates[i].trim();
-                        const parsedDate = parseDate(dateStr);
+                        const dateStr = dates[i]?.trim() || '';
+                        let assignDate = parseDate(dateStr);
 
                         // Находим оффер по артикулу
                         const offer = metrics?.find(m => m.article === article);
@@ -823,7 +860,26 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                           continue;
                         }
 
-                        if (!parsedDate) {
+                        // Если дата пустая - ищем первый день с cost > 0
+                        if (!assignDate && !dateStr) {
+                          const offerIdTracker = articleOfferMap[article];
+                          if (offerIdTracker && selectedBuyerSourceIds.length > 0) {
+                            console.log(`🔍 Ищем первую дату с cost > 0 для ${article}...`);
+                            assignDate = await getFirstSpendDate(selectedBuyerSourceIds, offerIdTracker);
+                            if (assignDate) {
+                              console.log(`✅ Найдена дата: ${assignDate.toLocaleString('ru-RU')}`);
+                              autoDateCount++;
+                            } else {
+                              errors.push(`${article}: не найден расход (cost > 0)`);
+                              errorCount++;
+                              continue;
+                            }
+                          } else {
+                            errors.push(`${article}: нет маппинга offer_id или source_ids`);
+                            errorCount++;
+                            continue;
+                          }
+                        } else if (!assignDate && dateStr) {
                           errors.push(`${article}: некорректная дата "${dateStr}"`);
                           errorCount++;
                           continue;
@@ -839,12 +895,12 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                               buyer_name: buyer.name,
                               source: capsSelectedSource,
                               source_ids: selectedBuyerSourceIds,
-                              created_at: parsedDate.toISOString()
+                              created_at: assignDate.toISOString()
                             });
 
                           if (insertError) throw insertError;
 
-                          console.log(`✅ Привязан ${article} → ${buyer.name} (${capsSelectedSource}) с датой ${parsedDate.toLocaleString('ru-RU')}`);
+                          console.log(`✅ Привязан ${article} → ${buyer.name} (${capsSelectedSource}) с датой ${assignDate.toLocaleString('ru-RU')}`);
                           successCount++;
                         } catch (err) {
                           console.error(`❌ Ошибка привязки ${article}:`, err);
@@ -855,6 +911,9 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
 
                       // Формируем сообщение о результате
                       let resultMessage = `✅ Успешно привязано: ${successCount}`;
+                      if (autoDateCount > 0) {
+                        resultMessage += ` (авто-дат: ${autoDateCount})`;
+                      }
                       if (errorCount > 0) {
                         resultMessage += `\n⚠️ Ошибок: ${errorCount}`;
                         if (errors.length > 0) {
@@ -888,7 +947,7 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, al
                       }, 10000);
                     }
                   }}
-                  disabled={loading || !capsSelectedBuyer || !capsArticlesInput.trim() || !capsDatesInput.trim()}
+                  disabled={loading || !capsSelectedBuyer || !capsArticlesInput.trim()}
                   className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
