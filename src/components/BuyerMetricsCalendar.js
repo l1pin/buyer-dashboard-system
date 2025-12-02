@@ -86,10 +86,10 @@ function BuyerMetricsCalendar({ sourceIds, article, buyerName, source, onClose, 
     return getTotalMetrics(data.hierarchy);
   }, [data]);
 
-  // Сортируем даты в обратном порядке (от новых к старым)
+  // Сортируем даты слева направо (от старых к новым)
   const sortedDates = useMemo(() => {
     if (!data || !data.hierarchy) return [];
-    return Object.keys(data.hierarchy).sort((a, b) => new Date(b) - new Date(a));
+    return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
   // Построение плоской структуры иерархии для таблицы
