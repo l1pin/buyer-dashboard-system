@@ -90,7 +90,8 @@ const OfferRow = memo(({
   buyerMetricsData,
   buyerStatuses,
   articleOfferMap,
-  loadingBuyerIds = new Set() // ID привязок байеров, которые сейчас загружаются
+  loadingBuyerIds = new Set(), // ID привязок байеров, которые сейчас загружаются
+  seasons = [] // Массив сезонов ['☀️', '🍁', '❄️', '🌱']
 }) => {
   // Мемоизированные обработчики для этой строки
   const handleStatusHistoryClick = useCallback(async (e) => {
@@ -369,7 +370,7 @@ const OfferRow = memo(({
 
         {/* Сезон */}
         <div className="w-[5%] min-w-[44px] text-xs text-slate-500 flex items-center justify-center gap-1">
-          <span>{metric.season || '—'}</span>
+          <span className="text-base">{seasons.length > 0 ? seasons.join('') : '—'}</span>
           <InfoIcon onClick={handleSeasonClick} />
         </div>
 
@@ -412,7 +413,8 @@ const OfferRow = memo(({
     prevProps.buyerMetricsData === nextProps.buyerMetricsData &&
     prevProps.buyerStatuses === nextProps.buyerStatuses &&
     prevProps.loadingBuyerIds === nextProps.loadingBuyerIds &&
-    prevProps.articleOfferMap === nextProps.articleOfferMap
+    prevProps.articleOfferMap === nextProps.articleOfferMap &&
+    prevProps.seasons === nextProps.seasons
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });

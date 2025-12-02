@@ -1,7 +1,7 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
-import { offerStatusService, offerBuyersService, articleOfferMappingService } from '../services/OffersSupabase';
+import { offerStatusService, offerBuyersService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
 import {
   RefreshCw,
   AlertCircle,
@@ -44,6 +44,7 @@ function OffersTL({ user }) {
   const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set()); // ID привязок, которые сейчас загружаются
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
+  const [offerSeasons, setOfferSeasons] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
 
   // Ref для отслеживания автообновления
@@ -169,12 +170,13 @@ function OffersTL({ user }) {
       console.log(isBackground ? '🔄 Фоновое обновление...' : '🔄 Загружаем все данные...');
 
       // Запускаем ВСЕ запросы параллельно
-      const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult] = await Promise.all([
+      const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetricsLarge().catch(e => ({ metrics: [], error: e })),
         userService.getUsersByRole('buyer').catch(e => []),
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
-        articleOfferMappingService.getAllMappings().catch(e => ({}))
+        articleOfferMappingService.getAllMappings().catch(e => ({})),
+        offerSeasonService.getAllSeasons().catch(e => [])
       ]);
 
       // Устанавливаем метрики
@@ -216,6 +218,13 @@ function OffersTL({ user }) {
       // Устанавливаем маппинги артикулов -> offer_id
       const mappingsData = mappingsResult || {};
       setArticleOfferMap(mappingsData);
+
+      // Обрабатываем сезоны (article -> seasons[])
+      const seasonsMap = {};
+      (seasonsResult || []).forEach(season => {
+        seasonsMap[season.article] = season.seasons || [];
+      });
+      setOfferSeasons(seasonsMap);
 
       // Сохраняем в кэш
       saveToCache({
@@ -932,11 +941,12 @@ function OffersTL({ user }) {
             buyerStatuses={buyerStatuses}
             articleOfferMap={articleOfferMap}
             loadingBuyerIds={loadingBuyerIds}
+            seasons={offerSeasons[metric.article] || []}
           />
         </div>
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
