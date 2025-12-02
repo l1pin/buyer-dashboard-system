@@ -424,47 +424,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
             </button>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
-              <span>•</span>
-              <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
-              <span>•</span>
-              <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
-              {data?.period && (
-                <>
-                  <span>•</span>
-                  <span>
-                    {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Карточка с итогами за последние 30 активных дней */}
-            <div className="bg-gray-900 rounded-lg px-4 py-2 flex items-center gap-4">
-              <div className="text-xs text-gray-400">
-                Данные за {last30DaysMetrics.activeDays} акт. дней
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-center">
-                  <div className="text-[10px] text-gray-400 uppercase">Расход</div>
-                  <div className="text-sm font-semibold text-white">${last30DaysMetrics.cost.toFixed(2)}</div>
-                </div>
-                <div className="w-px h-6 bg-gray-700"></div>
-                <div className="text-center">
-                  <div className="text-[10px] text-gray-400 uppercase">Лиды</div>
-                  <div className="text-sm font-semibold text-white">{last30DaysMetrics.valid}</div>
-                </div>
-                <div className="w-px h-6 bg-gray-700"></div>
-                <div className="text-center">
-                  <div className="text-[10px] text-gray-400 uppercase">CPL</div>
-                  <div className={`text-sm font-semibold ${last30DaysMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-400'}`}>
-                    {last30DaysMetrics.valid > 0 ? `$${last30DaysMetrics.cpl.toFixed(2)}` : '—'}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
+            <span>•</span>
+            <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
+            <span>•</span>
+            <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
+            {data?.period && (
+              <>
+                <span>•</span>
+                <span>
+                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -474,10 +447,13 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '480px' }}>
-                    <div className="flex items-center justify-between">
-                      <span>Иерархия</span>
-                      <span className="text-gray-400 font-normal">30 акт. дней</span>
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
+                    Иерархия
+                  </th>
+                  <th className="bg-gray-800 border-b-2 border-gray-700 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-gray-400 text-[10px] uppercase">итого</span>
+                      <span className="text-white text-xs font-semibold">30 дней</span>
                     </div>
                   </th>
                   {sortedDates.map(date => {
@@ -515,89 +491,84 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
                   return (
                     <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '480px' }}>
-                        <div className="flex items-center justify-between gap-3">
-                          {/* Левая часть - иерархия */}
-                          <div className="flex items-center gap-2 relative flex-1 min-w-0" style={{ paddingLeft: `${paddingLeft}px` }}>
-                            {/* Визуальные линии иерархии */}
-                            {item.level > 0 && (
-                              <>
-                                {/* Горизонтальная линия к родителю */}
-                                <div
-                                  className="absolute"
-                                  style={{
-                                    left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                    top: '50%',
-                                    width: '16px',
-                                    height: '1px',
-                                    backgroundColor: levelColors[item.level - 1],
-                                    opacity: 0.4
-                                  }}
-                                />
-                                {/* Вертикальная линия от родителя */}
-                                <div
-                                  className="absolute"
-                                  style={{
-                                    left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
-                                    top: '-50%',
-                                    width: '1px',
-                                    height: '50%',
-                                    backgroundColor: levelColors[item.level - 1],
-                                    opacity: 0.4
-                                  }}
-                                />
-                              </>
-                            )}
+                      {/* Колонка иерархии */}
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
+                        <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
+                          {/* Визуальные линии иерархии */}
+                          {item.level > 0 && (
+                            <>
+                              {/* Горизонтальная линия к родителю */}
+                              <div
+                                className="absolute"
+                                style={{
+                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
+                                  top: '50%',
+                                  width: '16px',
+                                  height: '1px',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.4
+                                }}
+                              />
+                              {/* Вертикальная линия от родителя */}
+                              <div
+                                className="absolute"
+                                style={{
+                                  left: `${baseIndent + (item.level - 1) * 24 + 12}px`,
+                                  top: '-50%',
+                                  width: '1px',
+                                  height: '50%',
+                                  backgroundColor: levelColors[item.level - 1],
+                                  opacity: 0.4
+                                }}
+                              />
+                            </>
+                          )}
 
-                            {hasChildren && (
-                              <button
-                                onClick={() => toggleItem(item.key)}
-                                className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="w-3 h-3 text-gray-600" />
-                                ) : (
-                                  <ChevronRight className="w-3 h-3 text-gray-600" />
-                                )}
-                              </button>
-                            )}
-                            {!hasChildren && <div className="w-5" />}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
-                                {item.name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {item.type === 'buyer' && 'Байер'}
-                                {item.type === 'tracker' && 'Трекер'}
-                                {item.type === 'campaign' && 'Кампания'}
-                                {item.type === 'group' && 'Группа'}
-                                {item.type === 'ad' && 'Объявление'}
-                              </div>
+                          {hasChildren && (
+                            <button
+                              onClick={() => toggleItem(item.key)}
+                              className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="w-3 h-3 text-gray-600" />
+                              ) : (
+                                <ChevronRight className="w-3 h-3 text-gray-600" />
+                              )}
+                            </button>
+                          )}
+                          {!hasChildren && <div className="w-5" />}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
+                              {item.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.type === 'buyer' && 'Байер'}
+                              {item.type === 'tracker' && 'Трекер'}
+                              {item.type === 'campaign' && 'Кампания'}
+                              {item.type === 'group' && 'Группа'}
+                              {item.type === 'ad' && 'Объявление'}
                             </div>
                           </div>
+                        </div>
+                      </td>
 
-                          {/* Правая часть - тёмная карточка с метриками за 30 дней */}
-                          <div className="bg-gray-900 rounded-md px-2 py-1 flex items-center gap-2 flex-shrink-0">
-                            <div className="text-[9px] text-gray-400 whitespace-nowrap">
-                              {itemMetrics.activeDays}д
+                      {/* Колонка "30 дней" - тёмная карточка */}
+                      <td className="px-2 py-2 bg-gray-800" style={{ minWidth: '140px' }}>
+                        <div className="bg-gray-900 border border-gray-700 rounded-lg p-2">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-gray-400">Лиды</span>
+                              <span className="font-semibold text-white">{itemMetrics.valid}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="text-center">
-                                <div className="text-[8px] text-gray-500">$</div>
-                                <div className="text-[11px] font-medium text-white leading-none">{itemMetrics.cost.toFixed(0)}</div>
-                              </div>
-                              <div className="w-px h-4 bg-gray-700"></div>
-                              <div className="text-center">
-                                <div className="text-[8px] text-gray-500">L</div>
-                                <div className="text-[11px] font-medium text-white leading-none">{itemMetrics.valid}</div>
-                              </div>
-                              <div className="w-px h-4 bg-gray-700"></div>
-                              <div className="text-center">
-                                <div className="text-[8px] text-gray-500">CPL</div>
-                                <div className={`text-[11px] font-medium leading-none ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-500'}`}>
-                                  {itemMetrics.valid > 0 ? `$${itemMetrics.cpl.toFixed(2)}` : '—'}
-                                </div>
-                              </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-gray-400">CPL</span>
+                              <span className={`font-semibold ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                                {itemMetrics.valid > 0 ? formatCurrency(itemMetrics.cpl) : '—'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-gray-400">Расх</span>
+                              <span className="font-semibold text-white">{formatCurrency(itemMetrics.cost)}</span>
                             </div>
                           </div>
                         </div>
