@@ -1139,6 +1139,7 @@ function OffersTL({ user }) {
         onMigrationSuccess={handleMigrationSuccess}
         user={user}
         metrics={metrics}
+        allBuyers={allBuyers}
       />
     </div>
   );
