@@ -1,5 +1,5 @@
 // src/components/OfferBuyersPanel.js
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2, Archive } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
@@ -267,20 +267,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   }, []);
 
   const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds, removingBuyerId }) => {
-    const scrollContainerRef = useRef(null);
-
-    // Прокручиваем контейнер вправо при загрузке и при изменении списка байеров
-    useEffect(() => {
-      if (scrollContainerRef.current && buyers.length > 0) {
-        // Небольшая задержка чтобы DOM успел отрендериться
-        setTimeout(() => {
-          if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
-          }
-        }, 100);
-      }
-    }, [buyers.length]);
-
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -300,7 +286,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
         {/* Список привязанных байеров - горизонтальный ряд со скроллом */}
         <div
-          ref={scrollContainerRef}
           className="overflow-x-auto pb-2 -mx-1 px-1"
           style={{
             scrollBehavior: 'smooth',
