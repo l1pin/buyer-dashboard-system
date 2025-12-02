@@ -1,12 +1,52 @@
 // src/components/MigrationModal.js
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { offerStatusService, offerSeasonService } from '../services/OffersSupabase';
+import { offerStatusService, offerSeasonService, offerBuyersService } from '../services/OffersSupabase';
 import Portal from './Portal';
 
-const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) => {
-  const [activeTab, setActiveTab] = useState('offer_id'); // offer_id, statuses, season
+// Источники трафика
+const TRAFFIC_SOURCES = ['Facebook', 'Google', 'TikTok'];
+
+// Парсинг даты из разных форматов
+const parseDate = (dateStr) => {
+  if (!dateStr || !dateStr.trim()) return null;
+  const trimmed = dateStr.trim();
+
+  // Формат: "17.09.2025 13:34:54" (полный)
+  const fullMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+  if (fullMatch) {
+    const [, day, month, year, hours, minutes, seconds] = fullMatch;
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes),
+      parseInt(seconds)
+    );
+  }
+
+  // Формат: "17.09.2025" (дата без времени)
+  const dateOnlyMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dateOnlyMatch) {
+    const [, day, month, year] = dateOnlyMatch;
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
+  }
+
+  // Формат: "24.01" (день.месяц текущего года)
+  const shortMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})$/);
+  if (shortMatch) {
+    const [, day, month] = shortMatch;
+    const currentYear = new Date().getFullYear();
+    return new Date(currentYear, parseInt(month) - 1, parseInt(day), 12, 0, 0);
+  }
+
+  return null;
+};
+
+const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics, allBuyers = [] }) => {
+  const [activeTab, setActiveTab] = useState('offer_id'); // offer_id, statuses, season, caps
   const [articlesInput, setArticlesInput] = useState('');
   const [offerIdsInput, setOfferIdsInput] = useState('');
   const [statusArticlesInput, setStatusArticlesInput] = useState('');
@@ -16,6 +56,24 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Состояния для вкладки "Капы"
+  const [capsSelectedBuyer, setCapsSelectedBuyer] = useState('');
+  const [capsSelectedSource, setCapsSelectedSource] = useState('Facebook');
+  const [capsArticlesInput, setCapsArticlesInput] = useState('');
+  const [capsDatesInput, setCapsDatesInput] = useState('');
+
+  // Получаем source_ids байера для выбранного источника
+  const selectedBuyerSourceIds = useMemo(() => {
+    if (!capsSelectedBuyer || !capsSelectedSource) return [];
+    const buyer = allBuyers.find(b => b.id === capsSelectedBuyer);
+    if (!buyer?.buyer_settings?.traffic_channels) return [];
+
+    return buyer.buyer_settings.traffic_channels
+      .filter(ch => ch.source === capsSelectedSource)
+      .map(ch => ch.channel_id)
+      .filter(id => id);
+  }, [capsSelectedBuyer, capsSelectedSource, allBuyers]);
 
   if (!isOpen) return null;
 
@@ -225,6 +283,16 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
               }`}
             >
               Сезон
+            </button>
+            <button
+              onClick={() => setActiveTab('caps')}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'caps'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Капы
             </button>
           </div>
         </div>
@@ -564,6 +632,274 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
                     <>
                       <Upload className="w-5 h-5 mr-2" />
                       Сохранить сезоны
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Caps Tab */}
+          {activeTab === 'caps' && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Инструкция:</strong> Выберите байера и источник трафика, затем вставьте артикулы
+                  и даты привязки (каждый с новой строки). К выбранному байеру будут привязаны офферы с указанными датами.
+                </p>
+                <div className="mt-2 text-xs text-blue-700">
+                  <strong>Форматы дат:</strong> "17.09.2025 13:34:54", "17.09.2025", "24.01" (текущий год)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Выбор байера */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Байер
+                  </label>
+                  <select
+                    value={capsSelectedBuyer}
+                    onChange={(e) => setCapsSelectedBuyer(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">-- Выберите байера --</option>
+                    {allBuyers.map(buyer => (
+                      <option key={buyer.id} value={buyer.id}>
+                        {buyer.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Выбор источника */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Источник
+                  </label>
+                  <select
+                    value={capsSelectedSource}
+                    onChange={(e) => setCapsSelectedSource(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {TRAFFIC_SOURCES.map(source => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
+                  </select>
+                  {capsSelectedBuyer && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Source IDs: {selectedBuyerSourceIds.length > 0 ? selectedBuyerSourceIds.join(', ') : 'не настроены'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Артикулы */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Артикулы (по одному на строку)
+                  </label>
+                  <textarea
+                    value={capsArticlesInput}
+                    onChange={(e) => setCapsArticlesInput(e.target.value)}
+                    placeholder="R00001&#10;R00002&#10;R00003"
+                    className="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Строк: {capsArticlesInput.split('\n').filter(a => a.trim()).length}
+                  </p>
+                </div>
+
+                {/* Даты */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Даты привязки (по одной на строку)
+                  </label>
+                  <textarea
+                    value={capsDatesInput}
+                    onChange={(e) => setCapsDatesInput(e.target.value)}
+                    placeholder="17.09.2025 13:34:54&#10;24.01&#10;15.03.2025"
+                    className="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Строк: {capsDatesInput.split('\n').filter(d => d.trim()).length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Предварительный просмотр */}
+              {capsArticlesInput.trim() && capsDatesInput.trim() && capsSelectedBuyer && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Предварительный просмотр (первые 5):</h4>
+                  <div className="space-y-1 text-sm">
+                    {(() => {
+                      const articles = capsArticlesInput.split('\n').filter(a => a.trim());
+                      const dates = capsDatesInput.split('\n').filter(d => d.trim());
+                      const buyer = allBuyers.find(b => b.id === capsSelectedBuyer);
+                      const preview = [];
+
+                      for (let i = 0; i < Math.min(5, articles.length); i++) {
+                        const article = articles[i]?.trim();
+                        const dateStr = dates[i]?.trim() || '';
+                        const parsedDate = parseDate(dateStr);
+                        const offer = metrics?.find(m => m.article === article);
+
+                        preview.push(
+                          <div key={i} className="flex items-center gap-2">
+                            <span className={`font-mono ${offer ? 'text-gray-600' : 'text-red-500'}`}>
+                              {article}
+                            </span>
+                            <span className="text-gray-400">→</span>
+                            <span className={parsedDate ? 'text-green-600' : 'text-red-500'}>
+                              {parsedDate ? parsedDate.toLocaleString('ru-RU') : `"${dateStr}" (некорректная дата)`}
+                            </span>
+                            {!offer && <span className="text-xs text-red-500">(оффер не найден)</span>}
+                          </div>
+                        );
+                      }
+
+                      return preview;
+                    })()}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
+                    <p>Байер: <strong>{allBuyers.find(b => b.id === capsSelectedBuyer)?.name}</strong></p>
+                    <p>Источник: <strong>{capsSelectedSource}</strong></p>
+                    <p>Будет создано привязок: <strong>{capsArticlesInput.split('\n').filter(a => a.trim()).length}</strong></p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      setError('');
+                      setSuccess('');
+
+                      if (!capsSelectedBuyer) {
+                        setError('Выберите байера');
+                        return;
+                      }
+
+                      const articles = capsArticlesInput.split('\n').filter(a => a.trim());
+                      const dates = capsDatesInput.split('\n').filter(d => d.trim());
+
+                      if (articles.length === 0) {
+                        setError('Введите хотя бы один артикул');
+                        return;
+                      }
+
+                      if (articles.length !== dates.length) {
+                        setError(`Количество артикулов (${articles.length}) не совпадает с количеством дат (${dates.length})`);
+                        return;
+                      }
+
+                      const buyer = allBuyers.find(b => b.id === capsSelectedBuyer);
+                      if (!buyer) {
+                        setError('Байер не найден');
+                        return;
+                      }
+
+                      console.log(`🔄 Начинаем привязку ${articles.length} офферов к байеру ${buyer.name}...`);
+
+                      let successCount = 0;
+                      let errorCount = 0;
+                      const errors = [];
+
+                      for (let i = 0; i < articles.length; i++) {
+                        const article = articles[i].trim();
+                        const dateStr = dates[i].trim();
+                        const parsedDate = parseDate(dateStr);
+
+                        // Находим оффер по артикулу
+                        const offer = metrics?.find(m => m.article === article);
+                        if (!offer) {
+                          errors.push(`${article}: оффер не найден`);
+                          errorCount++;
+                          continue;
+                        }
+
+                        if (!parsedDate) {
+                          errors.push(`${article}: некорректная дата "${dateStr}"`);
+                          errorCount++;
+                          continue;
+                        }
+
+                        try {
+                          // Вставляем напрямую в Supabase с кастомной датой
+                          const { error: insertError } = await supabase
+                            .from('offer_buyers')
+                            .insert({
+                              offer_id: offer.id,
+                              buyer_id: buyer.id,
+                              buyer_name: buyer.name,
+                              source: capsSelectedSource,
+                              source_ids: selectedBuyerSourceIds,
+                              created_at: parsedDate.toISOString()
+                            });
+
+                          if (insertError) throw insertError;
+
+                          console.log(`✅ Привязан ${article} → ${buyer.name} (${capsSelectedSource}) с датой ${parsedDate.toLocaleString('ru-RU')}`);
+                          successCount++;
+                        } catch (err) {
+                          console.error(`❌ Ошибка привязки ${article}:`, err);
+                          errors.push(`${article}: ${err.message}`);
+                          errorCount++;
+                        }
+                      }
+
+                      // Формируем сообщение о результате
+                      let resultMessage = `✅ Успешно привязано: ${successCount}`;
+                      if (errorCount > 0) {
+                        resultMessage += `\n⚠️ Ошибок: ${errorCount}`;
+                        if (errors.length > 0) {
+                          resultMessage += `\n\nДетали:\n${errors.slice(0, 5).join('\n')}`;
+                          if (errors.length > 5) {
+                            resultMessage += `\n... и еще ${errors.length - 5}`;
+                          }
+                        }
+                      }
+
+                      if (successCount > 0) {
+                        setSuccess(resultMessage);
+                        setCapsArticlesInput('');
+                        setCapsDatesInput('');
+
+                        if (onMigrationSuccess) {
+                          onMigrationSuccess();
+                        }
+                      } else {
+                        setError('Не удалось создать ни одной привязки:\n' + errors.join('\n'));
+                      }
+
+                    } catch (err) {
+                      console.error('❌ Критическая ошибка миграции капов:', err);
+                      setError('Критическая ошибка: ' + err.message);
+                    } finally {
+                      setLoading(false);
+                      setTimeout(() => {
+                        setSuccess('');
+                        setError('');
+                      }, 10000);
+                    }
+                  }}
+                  disabled={loading || !capsSelectedBuyer || !capsArticlesInput.trim() || !capsDatesInput.trim()}
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Привязка офферов...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 mr-2" />
+                      Привязать {capsArticlesInput.split('\n').filter(a => a.trim()).length} офферов
                     </>
                   )}
                 </button>
