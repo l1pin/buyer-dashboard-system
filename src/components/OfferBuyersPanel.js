@@ -411,18 +411,20 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                           </div>
                         )}
 
-                        {/* Кнопка удаления */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveBuyer(assignment.id, assignment);
-                          }}
-                          disabled={isRemoving}
-                          className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 bg-white border border-gray-200 p-0.5 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm disabled:opacity-50"
-                          title={isArchived ? "Удалить архивированную запись" : "Удалить привязку"}
-                        >
-                          <X className="w-2.5 h-2.5 text-gray-600 hover:text-red-600" />
-                        </button>
+                        {/* Кнопка удаления - только для активных байеров */}
+                        {!isArchived && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveBuyer(assignment.id, assignment);
+                            }}
+                            disabled={isRemoving}
+                            className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 p-0.5 rounded-full transition-all shadow-sm disabled:opacity-50"
+                            title="Удалить привязку"
+                          >
+                            <X className="w-3 h-3 text-white" />
+                          </button>
+                        )}
                       </div>
 
                       {/* Имя */}
