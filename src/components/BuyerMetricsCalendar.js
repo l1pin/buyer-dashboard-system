@@ -92,6 +92,37 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return Object.keys(data.hierarchy).sort((a, b) => new Date(a) - new Date(b));
   }, [data]);
 
+  // Расчёт метрик за последние 30 АКТИВНЫХ дней (дни с расходом)
+  const last30DaysMetrics = useMemo(() => {
+    if (!data || !data.hierarchy || sortedDates.length === 0) {
+      return { cost: 0, valid: 0, cpl: 0, activeDays: 0 };
+    }
+
+    // Берём последние 30 дат (они уже отсортированы от старых к новым)
+    const last30Dates = sortedDates.slice(-30);
+
+    let totalCost = 0;
+    let totalValid = 0;
+
+    last30Dates.forEach(date => {
+      const dayData = data.hierarchy[date];
+      if (dayData) {
+        // Суммируем метрики по всем байерам за этот день
+        Object.keys(dayData).forEach(buyer => {
+          totalCost += dayData[buyer].cost || 0;
+          totalValid += dayData[buyer].valid || 0;
+        });
+      }
+    });
+
+    return {
+      cost: totalCost,
+      valid: totalValid,
+      cpl: totalValid > 0 ? totalCost / totalValid : 0,
+      activeDays: last30Dates.length
+    };
+  }, [data, sortedDates]);
+
   // Построение плоской структуры иерархии для таблицы (с уровнем байера)
   const buildFlatHierarchy = () => {
     if (!data || !data.hierarchy) return [];
@@ -346,20 +377,47 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
             </button>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
-            <span>•</span>
-            <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
-            <span>•</span>
-            <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
-            {data?.period && (
-              <>
-                <span>•</span>
-                <span>
-                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
-                </span>
-              </>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
+              <span>•</span>
+              <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
+              <span>•</span>
+              <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
+              {data?.period && (
+                <>
+                  <span>•</span>
+                  <span>
+                    {formatDate(data.period.start).day}.{formatDate(data.period.start).month} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Карточка с итогами за последние 30 активных дней */}
+            <div className="bg-gray-900 rounded-lg px-4 py-2 flex items-center gap-4">
+              <div className="text-xs text-gray-400">
+                Данные за {last30DaysMetrics.activeDays} акт. дней
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-[10px] text-gray-400 uppercase">Расход</div>
+                  <div className="text-sm font-semibold text-white">${last30DaysMetrics.cost.toFixed(2)}</div>
+                </div>
+                <div className="w-px h-6 bg-gray-700"></div>
+                <div className="text-center">
+                  <div className="text-[10px] text-gray-400 uppercase">Лиды</div>
+                  <div className="text-sm font-semibold text-white">{last30DaysMetrics.valid}</div>
+                </div>
+                <div className="w-px h-6 bg-gray-700"></div>
+                <div className="text-center">
+                  <div className="text-[10px] text-gray-400 uppercase">CPL</div>
+                  <div className={`text-sm font-semibold ${last30DaysMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                    {last30DaysMetrics.valid > 0 ? `$${last30DaysMetrics.cpl.toFixed(2)}` : '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
