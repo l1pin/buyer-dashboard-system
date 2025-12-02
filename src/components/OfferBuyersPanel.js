@@ -9,6 +9,15 @@ import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
 import { MiniSpinner, LoadingDots } from './LoadingSpinner';
 
+// Константы для фильтров байеров
+const BUYER_FILTERS = [
+  { key: 'all', label: 'Все' },
+  { key: 'archived', label: 'Неактивные' },
+  { key: 'not_in_tracker', label: 'Нет в трекере' },
+  { key: 'not_configured', label: 'Не настроено' },
+  { key: 'active', label: 'Активные' }
+];
+
 const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   offer,
   allBuyers = [],
@@ -29,6 +38,36 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
+  const [selectedFilters, setSelectedFilters] = useState(new Set(['all'])); // Выбранные фильтры
+
+  // Обработчик клика по фильтру
+  const handleFilterClick = useCallback((filterKey) => {
+    setSelectedFilters(prev => {
+      const newFilters = new Set(prev);
+
+      if (filterKey === 'all') {
+        // Если нажали "Все" - сбрасываем все и выбираем только "Все"
+        return new Set(['all']);
+      } else {
+        // Убираем "Все" если выбрали конкретный фильтр
+        newFilters.delete('all');
+
+        if (newFilters.has(filterKey)) {
+          // Если фильтр уже выбран - убираем его
+          newFilters.delete(filterKey);
+          // Если ничего не осталось - возвращаем "Все"
+          if (newFilters.size === 0) {
+            return new Set(['all']);
+          }
+        } else {
+          // Добавляем фильтр
+          newFilters.add(filterKey);
+        }
+      }
+
+      return newFilters;
+    });
+  }, []);
 
   // Преобразуем привязки из БД в формат компонента
   const assignedBuyers = useMemo(() => {
@@ -254,12 +293,34 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setSelectedBuyerForCalendar(null);
   }, []);
 
-  // Группируем байеров по источникам
+  // Функция для получения статуса байера
+  const getBuyerStatus = useCallback((assignment) => {
+    if (assignment.archived) return 'archived';
+    const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+    const statusData = buyerStatuses[statusKey];
+    return statusData?.status || 'active';
+  }, [offer.id, buyerStatuses]);
+
+  // Фильтруем байеров по выбранным фильтрам
+  const filteredBuyers = useMemo(() => {
+    // Если выбрано "Все" - показываем всех
+    if (selectedFilters.has('all')) {
+      return assignedBuyers;
+    }
+
+    // Фильтруем по выбранным статусам
+    return assignedBuyers.filter(assignment => {
+      const status = getBuyerStatus(assignment);
+      return selectedFilters.has(status);
+    });
+  }, [assignedBuyers, selectedFilters, getBuyerStatus]);
+
+  // Группируем отфильтрованных байеров по источникам
   const buyersBySource = useMemo(() => ({
-    Facebook: assignedBuyers.filter(b => b.source === 'Facebook'),
-    Google: assignedBuyers.filter(b => b.source === 'Google'),
-    TikTok: assignedBuyers.filter(b => b.source === 'TikTok')
-  }), [assignedBuyers]);
+    Facebook: filteredBuyers.filter(b => b.source === 'Facebook'),
+    Google: filteredBuyers.filter(b => b.source === 'Google'),
+    TikTok: filteredBuyers.filter(b => b.source === 'TikTok')
+  }), [filteredBuyers]);
 
   // Функция для форматирования даты и расчета дней
   const formatAssignmentDate = useCallback((createdAt) => {
@@ -507,6 +568,25 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   return (
     <>
       <div className="mt-2 bg-white rounded-lg border border-gray-200">
+        {/* Кнопки-фильтры над карточками */}
+        <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5">
+          {BUYER_FILTERS.map(filter => {
+            const isSelected = selectedFilters.has(filter.key);
+            return (
+              <button
+                key={filter.key}
+                onClick={() => handleFilterClick(filter.key)}
+                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors
+                  ${isSelected
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
         <div className="grid grid-cols-3">
           <SourceColumn
             source="Facebook"
