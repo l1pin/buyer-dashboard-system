@@ -17,7 +17,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   buyerMetricsData = {},
   buyerStatuses = {},
   loadingBuyerStatuses = false,
-  loadingBuyerMetrics = false
+  loadingBuyerMetrics = false,
+  loadingBuyerIds = new Set() // ID привязок, которые сейчас загружаются
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
@@ -178,7 +179,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return { date: formattedDate, days: diffDays };
   }, []);
 
-  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar }) => {
+  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds }) => {
     return (
       <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -217,6 +218,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 const offerArticle = offer?.article || '';
                 const metrics = aggregateMetricsBySourceIds(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
+
+                // Проверяем, загружается ли этот конкретный байер
+                const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
 
                 // Вычисляем данные для статуса
                 const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
@@ -314,7 +318,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за 14 дней */}
-                      {loadingBuyerMetrics ? (
+                      {(loadingBuyerMetrics || isThisBuyerLoading) ? (
                         <div className="w-full flex items-center justify-center py-3">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
                         </div>
@@ -343,7 +347,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                     </div>
 
                     {/* Цветная полоска статуса внизу карточки */}
-                    {loadingBuyerStatuses ? (
+                    {(loadingBuyerStatuses || isThisBuyerLoading) ? (
                       <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
                         <LoadingDots className="mx-auto" />
                       </div>
@@ -376,6 +380,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
+            loadingBuyerIds={loadingBuyerIds}
           />
           <SourceColumn
             source="Google"
@@ -385,6 +390,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
+            loadingBuyerIds={loadingBuyerIds}
           />
           <SourceColumn
             source="TikTok"
@@ -394,6 +400,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             onAddBuyer={handleAddBuyer}
             onRemoveBuyer={handleRemoveBuyer}
             onOpenCalendar={handleOpenCalendar}
+            loadingBuyerIds={loadingBuyerIds}
           />
         </div>
       </div>

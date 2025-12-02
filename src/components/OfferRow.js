@@ -89,7 +89,8 @@ const OfferRow = memo(({
   onAssignmentsChange,
   buyerMetricsData,
   buyerStatuses,
-  articleOfferMap
+  articleOfferMap,
+  loadingBuyerIds = new Set() // ID привязок байеров, которые сейчас загружаются
 }) => {
   // Мемоизированные обработчики для этой строки
   const handleStatusHistoryClick = useCallback(async (e) => {
@@ -388,6 +389,7 @@ const OfferRow = memo(({
         buyerStatuses={buyerStatuses}
         loadingBuyerStatuses={loadingBuyerStatuses}
         loadingBuyerMetrics={loadingLeadsData}
+        loadingBuyerIds={loadingBuyerIds}
       />
     </div>
   );
@@ -407,7 +409,8 @@ const OfferRow = memo(({
     prevProps.allBuyers === nextProps.allBuyers &&
     prevProps.initialAssignments === nextProps.initialAssignments &&
     prevProps.buyerMetricsData === nextProps.buyerMetricsData &&
-    prevProps.buyerStatuses === nextProps.buyerStatuses
+    prevProps.buyerStatuses === nextProps.buyerStatuses &&
+    prevProps.loadingBuyerIds === nextProps.loadingBuyerIds
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });
