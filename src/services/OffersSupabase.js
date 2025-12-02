@@ -683,3 +683,185 @@ export const articleOfferMappingService = {
     }
   }
 };
+
+/**
+ * Сервис для работы с сезонами офферов
+ * Сезоны хранятся как массив эмодзи: ['☀️', '🍁', '❄️', '🌱']
+ * ☀️ - лето, 🍁 - осень, ❄️ - зима, 🌱 - весна
+ */
+export const offerSeasonService = {
+  /**
+   * Получить все сезоны офферов
+   * @returns {Promise<Array>} Массив сезонов офферов
+   */
+  async getAllSeasons() {
+    try {
+      console.log('🌿 Загружаем все сезоны офферов...');
+
+      const { data, error } = await supabase
+        .from('offer_seasons')
+        .select('*')
+        .order('article', { ascending: true });
+
+      if (error) throw error;
+
+      console.log(`✅ Загружено ${data?.length || 0} записей сезонов`);
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки сезонов офферов:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить сезон конкретного оффера по артикулу
+   * @param {string} article - Артикул оффера
+   * @returns {Promise<Object|null>} Объект сезона или null
+   */
+  async getSeasonByArticle(article) {
+    try {
+      const { data, error } = await supabase
+        .from('offer_seasons')
+        .select('*')
+        .eq('article', article)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+
+      return data || null;
+
+    } catch (error) {
+      console.error(`❌ Ошибка загрузки сезона для артикула ${article}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Создать или обновить сезон оффера
+   * @param {string} article - Артикул оффера
+   * @param {Array<string>} seasons - Массив эмодзи сезонов ['☀️', '🍁', '❄️', '🌱']
+   * @returns {Promise<Object>} Созданная/обновленная запись
+   */
+  async upsertSeason(article, seasons) {
+    try {
+      console.log(`🌿 Сохраняем сезоны для ${article}:`, seasons);
+
+      const { data, error } = await supabase
+        .from('offer_seasons')
+        .upsert({
+          article,
+          seasons,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'article' })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Сезоны для ${article} сохранены`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка сохранения сезонов для ${article}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Массовое обновление сезонов
+   * @param {Array<{article: string, seasons: Array<string>}>} records - Массив записей
+   * @returns {Promise<Object>} Результат операции
+   */
+  async bulkUpsertSeasons(records) {
+    try {
+      console.log(`🌿 Массовое сохранение сезонов для ${records.length} артикулов...`);
+
+      const { data, error } = await supabase
+        .from('offer_seasons')
+        .upsert(records.map(r => ({
+          article: r.article,
+          seasons: r.seasons,
+          updated_at: new Date().toISOString()
+        })), { onConflict: 'article' })
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Сезоны сохранены для ${data?.length || 0} артикулов`);
+      return { success: true, count: data?.length || 0 };
+
+    } catch (error) {
+      console.error('❌ Ошибка массового сохранения сезонов:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Удалить сезон оффера
+   * @param {string} article - Артикул оффера
+   * @returns {Promise<boolean>} Успех операции
+   */
+  async deleteSeason(article) {
+    try {
+      const { error } = await supabase
+        .from('offer_seasons')
+        .delete()
+        .eq('article', article);
+
+      if (error) throw error;
+
+      console.log(`✅ Сезон для ${article} удален`);
+      return true;
+
+    } catch (error) {
+      console.error(`❌ Ошибка удаления сезона для ${article}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Парсинг строки эмодзи в массив
+   * Пример: "☀️🍁❄️🌱" -> ['☀️', '🍁', '❄️', '🌱']
+   * @param {string} emojiString - Строка с эмодзи
+   * @returns {Array<string>} Массив эмодзи
+   */
+  parseEmojiString(emojiString) {
+    if (!emojiString) return [];
+
+    // Используем регулярное выражение для разбиения на эмодзи
+    // Это работает с эмодзи, которые могут состоять из нескольких code points
+    const emojiRegex = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
+    const matches = emojiString.match(emojiRegex);
+
+    return matches || [];
+  },
+
+  /**
+   * Получить описание сезона по эмодзи
+   * @param {string} emoji - Эмодзи сезона
+   * @returns {string} Описание сезона
+   */
+  getSeasonLabel(emoji) {
+    const seasonLabels = {
+      '☀️': 'Лето',
+      '🍁': 'Осень',
+      '❄️': 'Зима',
+      '🌱': 'Весна'
+    };
+    return seasonLabels[emoji] || emoji;
+  },
+
+  /**
+   * Получить все доступные сезоны
+   * @returns {Array<{emoji: string, label: string}>}
+   */
+  getAvailableSeasons() {
+    return [
+      { emoji: '☀️', label: 'Лето' },
+      { emoji: '🍁', label: 'Осень' },
+      { emoji: '❄️', label: 'Зима' },
+      { emoji: '🌱', label: 'Весна' }
+    ];
+  }
+};

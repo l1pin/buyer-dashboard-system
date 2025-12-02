@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { X, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { offerStatusService } from '../services/OffersSupabase';
+import { offerStatusService, offerSeasonService } from '../services/OffersSupabase';
 import Portal from './Portal';
 
 const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) => {
@@ -11,6 +11,8 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
   const [offerIdsInput, setOfferIdsInput] = useState('');
   const [statusArticlesInput, setStatusArticlesInput] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('Активный');
+  const [seasonArticlesInput, setSeasonArticlesInput] = useState('');
+  const [seasonEmojisInput, setSeasonEmojisInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -398,8 +400,174 @@ const MigrationModal = ({ isOpen, onClose, onMigrationSuccess, user, metrics }) 
 
           {/* Season Tab */}
           {activeTab === 'season' && (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500 text-lg">Раздел "Сезон" в разработке</p>
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Инструкция:</strong> Вставьте артикулы в левое поле (каждый с новой строки),
+                  а соответствующие сезоны (эмодзи) в правое поле. Пустые строки будут пропущены.
+                </p>
+                <div className="mt-2 text-xs text-blue-700">
+                  <strong>Доступные сезоны:</strong> ☀️ - Лето, 🍁 - Осень, ❄️ - Зима, 🌱 - Весна
+                </div>
+                <div className="mt-1 text-xs text-blue-700">
+                  <strong>Пример:</strong> "☀️🍁❄️🌱" → сохранится как массив ['☀️', '🍁', '❄️', '🌱']
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Артикулы */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Артикулы (по одному на строку)
+                  </label>
+                  <textarea
+                    value={seasonArticlesInput}
+                    onChange={(e) => setSeasonArticlesInput(e.target.value)}
+                    placeholder="R00001&#10;R00002&#10;R00003"
+                    className="w-full h-96 px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Строк: {seasonArticlesInput.split('\n').filter(a => a.trim()).length}
+                  </p>
+                </div>
+
+                {/* Сезоны (эмодзи) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Сезоны (эмодзи по одному на строку)
+                  </label>
+                  <textarea
+                    value={seasonEmojisInput}
+                    onChange={(e) => setSeasonEmojisInput(e.target.value)}
+                    placeholder="☀️🍁&#10;❄️🌱&#10;☀️"
+                    className="w-full h-96 px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Строк: {seasonEmojisInput.split('\n').length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Предварительный просмотр */}
+              {seasonArticlesInput.trim() && seasonEmojisInput.trim() && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Предварительный просмотр (первые 5):</h4>
+                  <div className="space-y-1 text-sm">
+                    {(() => {
+                      const articles = seasonArticlesInput.split('\n');
+                      const emojis = seasonEmojisInput.split('\n');
+                      const preview = [];
+                      let articleIdx = 0;
+
+                      for (let i = 0; i < emojis.length && preview.length < 5; i++) {
+                        // Пропускаем пустые строки в артикулах
+                        while (articleIdx < articles.length && !articles[articleIdx].trim()) {
+                          articleIdx++;
+                        }
+
+                        if (articleIdx < articles.length) {
+                          const article = articles[articleIdx].trim();
+                          const emojiStr = emojis[i] || '';
+                          const parsedEmojis = offerSeasonService.parseEmojiString(emojiStr);
+
+                          preview.push(
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="font-mono text-gray-600">{article}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-lg">{emojiStr || '(пусто)'}</span>
+                              <span className="text-gray-400 text-xs">
+                                [{parsedEmojis.map(e => `'${e}'`).join(', ') || 'пустой массив'}]
+                              </span>
+                            </div>
+                          );
+                          articleIdx++;
+                        }
+                      }
+
+                      return preview;
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      setError('');
+                      setSuccess('');
+
+                      const articles = seasonArticlesInput.split('\n');
+                      const emojis = seasonEmojisInput.split('\n');
+
+                      // Фильтруем пустые строки и создаем записи
+                      const records = [];
+                      let articleIdx = 0;
+
+                      for (let i = 0; i < emojis.length; i++) {
+                        // Пропускаем пустые строки в артикулах
+                        while (articleIdx < articles.length && !articles[articleIdx].trim()) {
+                          articleIdx++;
+                        }
+
+                        if (articleIdx < articles.length) {
+                          const article = articles[articleIdx].trim();
+                          const emojiStr = emojis[i] || '';
+                          const parsedEmojis = offerSeasonService.parseEmojiString(emojiStr);
+
+                          records.push({
+                            article,
+                            seasons: parsedEmojis
+                          });
+                          articleIdx++;
+                        }
+                      }
+
+                      if (records.length === 0) {
+                        setError('Нет данных для миграции');
+                        return;
+                      }
+
+                      console.log('🌿 Миграция сезонов:', records);
+
+                      const result = await offerSeasonService.bulkUpsertSeasons(records);
+
+                      setSuccess(`✅ Успешно сохранено сезонов: ${result.count}`);
+                      setSeasonArticlesInput('');
+                      setSeasonEmojisInput('');
+
+                      if (onMigrationSuccess) {
+                        onMigrationSuccess();
+                      }
+
+                    } catch (err) {
+                      console.error('❌ Ошибка миграции сезонов:', err);
+                      setError('Ошибка миграции: ' + err.message);
+                    } finally {
+                      setLoading(false);
+                      setTimeout(() => {
+                        setSuccess('');
+                        setError('');
+                      }, 5000);
+                    }
+                  }}
+                  disabled={loading || !seasonArticlesInput.trim()}
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Сохранение...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 mr-2" />
+                      Сохранить сезоны
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
