@@ -22,7 +22,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const periodOptions = [
     { value: 4, label: '4 дня' },
     { value: 7, label: '7 дней' },
-    { value: 15, label: '15 дней' },
+    { value: 14, label: '14 дней' },
     { value: 30, label: '30 дней' },
     { value: 60, label: '60 дней' },
     { value: 90, label: '90 дней' },
@@ -137,21 +137,47 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return null;
   };
 
-  // Найти период активности для элемента (первый и последний день с расходом)
-  const getActivityPeriodForItem = (item) => {
+  // Найти последний НЕПРЕРЫВНЫЙ период активности (последовательные дни с расходом до перерыва)
+  const getLastContinuousPeriodForItem = (item) => {
     if (!data || !data.hierarchy || sortedDates.length === 0) {
       return { startDate: null, endDate: null, days: 0, isActiveToday: false };
     }
 
-    let startDate = null;
-    let endDate = null;
     const today = new Date().toISOString().split('T')[0];
 
-    for (const date of sortedDates) {
+    // Идём с конца и ищем последний непрерывный период активности
+    let endDate = null;
+    let startDate = null;
+    let days = 0;
+
+    // Сначала находим последний активный день
+    for (let i = sortedDates.length - 1; i >= 0; i--) {
+      const date = sortedDates[i];
       const cellData = getCellDataForItem(data.hierarchy[date], item);
       if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
-        if (!startDate) startDate = date;
         endDate = date;
+        startDate = date;
+        days = 1;
+
+        // Теперь идём назад и ищем начало непрерывного периода
+        for (let j = i - 1; j >= 0; j--) {
+          const prevDate = sortedDates[j];
+          const prevCellData = getCellDataForItem(data.hierarchy[prevDate], item);
+
+          // Проверяем что даты идут последовательно (разница 1 день)
+          const currentDateObj = new Date(sortedDates[j + 1]);
+          const prevDateObj = new Date(prevDate);
+          const daysDiff = Math.floor((currentDateObj - prevDateObj) / (1000 * 60 * 60 * 24));
+
+          // Если разница больше 1 дня или нет активности - прерываем
+          if (daysDiff > 1 || !prevCellData || (prevCellData.cost === 0 && prevCellData.valid === 0)) {
+            break;
+          }
+
+          startDate = prevDate;
+          days++;
+        }
+        break;
       }
     }
 
@@ -159,11 +185,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       return { startDate: null, endDate: null, days: 0, isActiveToday: false };
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
     const isActiveToday = endDate === today;
-
     return { startDate, endDate, days, isActiveToday };
   };
 
@@ -173,37 +195,63 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       return { cost: 0, valid: 0, cpl: 0, activeDays: 0, startDate: null, endDate: null, isActiveToday: false };
     }
 
-    let datesToUse = [];
+    const today = new Date().toISOString().split('T')[0];
+    let totalCost = 0;
+    let totalValid = 0;
+    let activeDays = 0;
     let startDate = null;
     let endDate = null;
     let isActiveToday = false;
 
     if (selectedPeriod === 'all') {
-      datesToUse = sortedDates;
+      // Все время - суммируем все активные дни
+      sortedDates.forEach(date => {
+        const cellData = getCellDataForItem(data.hierarchy[date], item);
+        if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+          totalCost += cellData.cost || 0;
+          totalValid += cellData.valid || 0;
+          activeDays++;
+        }
+      });
     } else if (selectedPeriod === 'lastActivity') {
-      const activity = getActivityPeriodForItem(item);
+      // Последняя активность - последний НЕПРЕРЫВНЫЙ период
+      const activity = getLastContinuousPeriodForItem(item);
       if (activity.startDate && activity.endDate) {
-        datesToUse = sortedDates.filter(d => d >= activity.startDate && d <= activity.endDate);
         startDate = activity.startDate;
         endDate = activity.endDate;
         isActiveToday = activity.isActiveToday;
+
+        // Суммируем метрики за непрерывный период
+        sortedDates.filter(d => d >= activity.startDate && d <= activity.endDate).forEach(date => {
+          const cellData = getCellDataForItem(data.hierarchy[date], item);
+          if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+            totalCost += cellData.cost || 0;
+            totalValid += cellData.valid || 0;
+            activeDays++;
+          }
+        });
       }
     } else {
-      datesToUse = sortedDates.slice(-selectedPeriod);
-    }
+      // Числовой период (4, 7, 14, 30, 60, 90) - ищем последние N АКТИВНЫХ дней
+      // Идём с конца и собираем N дней с расходом (даже если с перерывами)
+      const targetDays = selectedPeriod;
+      const activeDatesList = [];
 
-    let totalCost = 0;
-    let totalValid = 0;
-    let activeDays = 0;
+      for (let i = sortedDates.length - 1; i >= 0 && activeDatesList.length < targetDays; i--) {
+        const date = sortedDates[i];
+        const cellData = getCellDataForItem(data.hierarchy[date], item);
+        if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+          activeDatesList.push({ date, cellData });
+        }
+      }
 
-    datesToUse.forEach(date => {
-      const cellData = getCellDataForItem(data.hierarchy[date], item);
-      if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
+      // Суммируем метрики за найденные активные дни
+      activeDatesList.forEach(({ date, cellData }) => {
         totalCost += cellData.cost || 0;
         totalValid += cellData.valid || 0;
         activeDays++;
-      }
-    });
+      });
+    }
 
     return {
       cost: totalCost,
