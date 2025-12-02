@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Loader2, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
+import { X, Loader2, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 import { getAllBuyersMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 import Portal from './Portal';
 
@@ -16,6 +16,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const [expandedItems, setExpandedItems] = useState({});
   const [selectedPeriod, setSelectedPeriod] = useState(30); // Выбранный период в днях
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const [periodIndexes, setPeriodIndexes] = useState({}); // Индексы выбранных периодов для каждого элемента
   const dropdownRef = useRef(null);
 
   // Варианты периодов
@@ -224,10 +225,63 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return { startDate, endDate, days, isActiveToday };
   };
 
+  // Получить ВСЕ непрерывные периоды активности для элемента (от старых к новым)
+  const getAllActivityPeriodsForItem = (item) => {
+    if (!data || !data.hierarchy || sortedDates.length === 0) {
+      return [];
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const periods = [];
+    let currentPeriod = null;
+
+    for (let i = 0; i < sortedDates.length; i++) {
+      const date = sortedDates[i];
+      const cellData = getCellDataForItem(data.hierarchy[date], item);
+      const hasActivity = cellData && (cellData.cost > 0 || cellData.valid > 0);
+
+      if (hasActivity) {
+        if (!currentPeriod) {
+          // Начинаем новый период
+          currentPeriod = { startDate: date, endDate: date, days: 1 };
+        } else {
+          // Проверяем последовательность
+          const prevDateObj = new Date(currentPeriod.endDate);
+          const currentDateObj = new Date(date);
+          const daysDiff = Math.floor((currentDateObj - prevDateObj) / (1000 * 60 * 60 * 24));
+
+          if (daysDiff === 1) {
+            // Продолжаем текущий период
+            currentPeriod.endDate = date;
+            currentPeriod.days++;
+          } else {
+            // Разрыв - завершаем текущий период и начинаем новый
+            currentPeriod.isActiveToday = currentPeriod.endDate === today;
+            periods.push(currentPeriod);
+            currentPeriod = { startDate: date, endDate: date, days: 1 };
+          }
+        }
+      } else if (currentPeriod) {
+        // День без активности - завершаем текущий период
+        currentPeriod.isActiveToday = currentPeriod.endDate === today;
+        periods.push(currentPeriod);
+        currentPeriod = null;
+      }
+    }
+
+    // Не забываем последний период
+    if (currentPeriod) {
+      currentPeriod.isActiveToday = currentPeriod.endDate === today;
+      periods.push(currentPeriod);
+    }
+
+    return periods;
+  };
+
   // Функция расчёта метрик для выбранного периода
   const getMetricsForItem = (item) => {
     if (!data || !data.hierarchy || sortedDates.length === 0) {
-      return { cost: 0, valid: 0, cpl: 0, activeDays: 0, startDate: null, endDate: null, isActiveToday: false };
+      return { cost: 0, valid: 0, cpl: 0, activeDays: 0, startDate: null, endDate: null, isActiveToday: false, totalPeriods: 0, currentPeriodIndex: 0 };
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -237,6 +291,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     let startDate = null;
     let endDate = null;
     let isActiveToday = false;
+    let totalPeriods = 0;
+    let currentPeriodIndex = 0;
 
     if (selectedPeriod === 'all') {
       // Все время - суммируем все активные дни
@@ -249,14 +305,25 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
         }
       });
     } else if (selectedPeriod === 'lastActivity') {
-      // Последняя активность - последний НЕПРЕРЫВНЫЙ период
-      const activity = getLastContinuousPeriodForItem(item);
-      if (activity.startDate && activity.endDate) {
+      // Последняя активность - выбранный НЕПРЕРЫВНЫЙ период
+      const allPeriods = getAllActivityPeriodsForItem(item);
+      totalPeriods = allPeriods.length;
+
+      if (allPeriods.length > 0) {
+        // По умолчанию последний период (самый новый)
+        currentPeriodIndex = periodIndexes[item.key] !== undefined
+          ? periodIndexes[item.key]
+          : allPeriods.length - 1;
+
+        // Ограничиваем индекс
+        currentPeriodIndex = Math.max(0, Math.min(currentPeriodIndex, allPeriods.length - 1));
+
+        const activity = allPeriods[currentPeriodIndex];
         startDate = activity.startDate;
         endDate = activity.endDate;
         isActiveToday = activity.isActiveToday;
 
-        // Суммируем метрики за непрерывный период
+        // Суммируем метрики за выбранный период
         sortedDates.filter(d => d >= activity.startDate && d <= activity.endDate).forEach(date => {
           const cellData = getCellDataForItem(data.hierarchy[date], item);
           if (cellData && (cellData.cost > 0 || cellData.valid > 0)) {
@@ -295,7 +362,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       activeDays,
       startDate,
       endDate,
-      isActiveToday
+      isActiveToday,
+      totalPeriods,
+      currentPeriodIndex
     };
   };
 
@@ -777,31 +846,67 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         <div className="bg-gray-800 border border-gray-700 rounded-lg p-2">
                           <div className="space-y-1">
                             <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-gray-400">Лиды</span>
+                              <span className="text-white">Лиды</span>
                               <span className="font-semibold text-white">{itemMetrics.valid}</span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-gray-400">CPL</span>
-                              <span className={`font-semibold ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                              <span className="text-white">CPL</span>
+                              <span className={`font-semibold ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-400'}`}>
                                 {itemMetrics.valid > 0 ? formatCurrency(itemMetrics.cpl) : '—'}
                               </span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-gray-400">Расх</span>
+                              <span className="text-white">Расх</span>
                               <span className="font-semibold text-white">{formatCurrency(itemMetrics.cost)}</span>
                             </div>
                             {/* Показать период активности и индикатор для режима lastActivity */}
                             {selectedPeriod === 'lastActivity' && itemMetrics.startDate && (
                               <>
                                 <div className="border-t border-gray-600 pt-1 mt-1">
-                                  <div className="text-[9px] text-gray-400 text-center">
+                                  <div className="text-[9px] text-white text-center">
                                     {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month} - {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month} • {itemMetrics.activeDays} д.
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-center gap-1 text-[9px]">
                                   <span className={`w-2 h-2 rounded-full ${itemMetrics.isActiveToday ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                  <span className="text-gray-400">{itemMetrics.isActiveToday ? 'Активен' : 'Неактивен'}</span>
+                                  <span className="text-white">{itemMetrics.isActiveToday ? 'Активен' : 'Неактивен'}</span>
                                 </div>
+                                {/* Стрелки навигации между периодами */}
+                                {itemMetrics.totalPeriods > 1 && (
+                                  <div className="flex items-center justify-center gap-2 mt-1">
+                                    {itemMetrics.currentPeriodIndex > 0 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPeriodIndexes(prev => ({
+                                            ...prev,
+                                            [item.key]: itemMetrics.currentPeriodIndex - 1
+                                          }));
+                                        }}
+                                        className="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                                      >
+                                        <ChevronLeft className="w-3 h-3 text-white" />
+                                      </button>
+                                    )}
+                                    <span className="text-[8px] text-gray-300">
+                                      {itemMetrics.currentPeriodIndex + 1} / {itemMetrics.totalPeriods}
+                                    </span>
+                                    {itemMetrics.currentPeriodIndex < itemMetrics.totalPeriods - 1 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPeriodIndexes(prev => ({
+                                            ...prev,
+                                            [item.key]: itemMetrics.currentPeriodIndex + 1
+                                          }));
+                                        }}
+                                        className="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                                      >
+                                        <ChevronRight className="w-3 h-3 text-white" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
