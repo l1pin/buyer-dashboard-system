@@ -780,11 +780,11 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   if (item.type === 'separator') {
                     return (
                       <tr key={item.key} className="bg-gray-100 border-y-2 border-gray-300">
-                        <td colSpan={2 + datesWithGaps.length} className="sticky left-0 z-10 px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-px flex-1 bg-gray-400"></div>
+                        <td colSpan={2 + datesWithGaps.length} className="px-4 py-3 relative">
+                          <div className="sticky left-1/2 transform -translate-x-1/2 w-fit flex items-center gap-2 whitespace-nowrap">
+                            <div className="h-px w-16 bg-gray-400"></div>
                             <span className="text-xs font-semibold text-gray-600 uppercase">{item.name}</span>
-                            <div className="h-px flex-1 bg-gray-400"></div>
+                            <div className="h-px w-16 bg-gray-400"></div>
                           </div>
                         </td>
                       </tr>
@@ -811,7 +811,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   const itemMetrics = getMetricsForItem(item);
 
                   return (
-                    <tr key={item.key} className={`hover:bg-gray-50 border-b border-gray-100 ${isArchived ? 'opacity-60' : ''}`}>
+                    <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
                       {/* Колонка иерархии */}
                       <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
