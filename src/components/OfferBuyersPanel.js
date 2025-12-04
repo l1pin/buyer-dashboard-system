@@ -1,9 +1,9 @@
 // src/components/OfferBuyersPanel.js
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X, Loader2, Archive } from 'lucide-react';
+import { Plus, X, Loader2, Archive, AlertTriangle } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
-import { aggregateMetricsBySourceIds, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
+import { aggregateMetricsByActiveDays, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
@@ -374,11 +374,12 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
               {buyers.map((assignment) => {
                 const { date, days } = formatAssignmentDate(assignment.created_at);
-                // Агрегируем метрики по артикулу оффера + source_ids байера за 14 дней
+                // Агрегируем метрики по артикулу оффера + source_ids байера за последние 14 АКТИВНЫХ дней
                 const sourceIds = assignment.source_ids || [];
                 const offerArticle = offer?.article || '';
-                const metrics = aggregateMetricsBySourceIds(offerArticle, sourceIds, buyerMetricsData, 14);
+                const metrics = aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
+                const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
 
                 // Проверяем, загружается ли этот конкретный байер
                 const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
@@ -514,13 +515,22 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         {date} | {days} д
                       </div>
 
-                      {/* Метрики CPL/Lead/Cost за 14 дней */}
+                      {/* Метрики CPL/Lead/Cost за последние 14 активных дней */}
                       {(loadingBuyerMetrics || isThisBuyerLoading) ? (
                         <div className="w-full flex items-center justify-center py-3">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
                         </div>
                       ) : (
-                        <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+                        <div className="w-full text-[9px] text-gray-500 space-y-0.5 relative">
+                          {/* Иконка предупреждения если активных дней < 14 */}
+                          {hasLessActiveDays && (
+                            <div
+                              className="absolute -top-1 -right-0.5 group/warning"
+                              title={`Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`}
+                            >
+                              <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                            </div>
+                          )}
                           <div className="flex justify-between px-1">
                             <span>CPL:</span>
                             <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>

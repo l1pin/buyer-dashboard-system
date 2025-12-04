@@ -301,6 +301,75 @@ export function aggregateMetricsBySourceIds(article, sourceIds, dataBySourceIdAn
 }
 
 /**
+ * Агрегирует метрики за последние N АКТИВНЫХ дней байера (дни с cost > 0)
+ * В отличие от aggregateMetricsBySourceIds, эта функция считает не календарные дни,
+ * а именно дни, когда у байера был расход
+ * @param {string} article - Артикул оффера
+ * @param {Array} sourceIds - Массив source_id байера
+ * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
+ * @param {number} activeDaysCount - Количество активных дней для агрегации (по умолчанию 14)
+ * @returns {Object} - { leads, cost, cpl, activeDays: количество реально использованных активных дней }
+ */
+export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdAndDate, activeDaysCount = 14) {
+  const articleData = dataBySourceIdAndDate[article];
+  if (!articleData) {
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0 };
+  }
+
+  // Собираем все даты с данными для всех source_ids байера
+  // Структура: { dateStr: { leads, cost } }
+  const aggregatedByDate = {};
+
+  sourceIds.forEach(sourceId => {
+    const sourceData = articleData[sourceId];
+    if (!sourceData) return;
+
+    Object.keys(sourceData).forEach(dateStr => {
+      const dayData = sourceData[dateStr];
+      if (!aggregatedByDate[dateStr]) {
+        aggregatedByDate[dateStr] = { leads: 0, cost: 0 };
+      }
+      aggregatedByDate[dateStr].leads += dayData.leads || 0;
+      aggregatedByDate[dateStr].cost += dayData.cost || 0;
+    });
+  });
+
+  // Фильтруем только активные дни (где cost > 0)
+  const activeDatesWithData = Object.entries(aggregatedByDate)
+    .filter(([_, data]) => data.cost > 0)
+    .map(([dateStr, data]) => ({
+      date: new Date(dateStr),
+      dateStr,
+      leads: data.leads,
+      cost: data.cost
+    }));
+
+  // Сортируем по дате от новых к старым
+  activeDatesWithData.sort((a, b) => b.date - a.date);
+
+  // Берём последние N активных дней
+  const selectedDays = activeDatesWithData.slice(0, activeDaysCount);
+
+  // Суммируем метрики
+  let totalLeads = 0;
+  let totalCost = 0;
+
+  selectedDays.forEach(day => {
+    totalLeads += day.leads;
+    totalCost += day.cost;
+  });
+
+  const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+  return {
+    leads: totalLeads,
+    cost: totalCost,
+    cpl: cpl,
+    activeDays: selectedDays.length
+  };
+}
+
+/**
  * Подсчитывает количество дней подряд (с конца) с cost > 0 для байера
  * Считает с сегодняшнего дня назад, пока cost > 0
  * @param {string} article - Артикул оффера
