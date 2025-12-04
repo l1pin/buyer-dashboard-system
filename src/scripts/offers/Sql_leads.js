@@ -815,7 +815,8 @@ export async function fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, arti
 }
 
 /**
- * Загружает метрики байеров за ВСЁ ВРЕМЯ (с 2022 года)
+ * Загружает метрики байеров за ВСЁ ВРЕМЯ (БЕЗ ограничения по датам!)
+ * Просто ищет по offer_id и source_id
  * Используется для расчёта статистики за последние 14 активных дней
  *
  * @param {Object} offerIdArticleMap - Маппинг offer_id_tracker -> article
@@ -829,125 +830,65 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     return {};
   }
 
-  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов...`);
-
-  // Загружаем данные с 2022 года (или с начала данных)
-  const startDate = '2022-01-01';
-  const endDate = formatDate(new Date());
-
-  // Разбиваем на периоды по 3 месяца для параллельной загрузки (как в Calculate_days)
-  const periods = [];
-  let currentStart = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (currentStart < end) {
-    const periodEnd = new Date(currentStart);
-    periodEnd.setMonth(periodEnd.getMonth() + 3); // 3 месяца как в рабочем скрипте
-
-    if (periodEnd > end) {
-      periodEnd.setTime(end.getTime());
-    }
-
-    periods.push({
-      from: formatDate(currentStart),
-      to: formatDate(periodEnd)
-    });
-
-    currentStart = new Date(periodEnd);
-    currentStart.setDate(currentStart.getDate() + 1);
-  }
-
-  console.log(`📅 Разбито на ${periods.length} периодов по 3 месяца`);
+  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ (без ограничения по датам) для ${offerIds.length} офферов...`);
 
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // Запускаем все запросы параллельно (такой же формат как в Calculate_days.js)
-  const promises = periods.map(async (p, i) => {
-    const sql = `
-      SELECT
-        offer_id_tracker,
-        DATE(adv_date) as adv_date,
-        SUM(valid) as total_leads,
-        SUM(cost) as total_cost,
-        source_id_tracker
-      FROM ads_collection
-      WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
-        AND offer_id_tracker IN (${offerIdsList})
-        AND cost > 0
-      GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
-    `;
+  // SQL запрос БЕЗ фильтра по датам - берём ВСЕ данные по offer_id
+  const sql = `
+    SELECT
+      offer_id_tracker,
+      DATE(adv_date) as adv_date,
+      SUM(valid) as total_leads,
+      SUM(cost) as total_cost,
+      source_id_tracker
+    FROM ads_collection
+    WHERE offer_id_tracker IN (${offerIdsList})
+      AND cost > 0
+    GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
+  `;
 
-    console.log(`  📆 [${i + 1}/${periods.length}] ${p.from}..${p.to}`);
+  console.log(`📡 Выполняем запрос без ограничения по датам...`);
 
-    try {
-      const rawData = await getDataBySql(sql);
-      console.log(`    ✅ ${rawData.length} строк`);
+  try {
+    const rawData = await getDataBySql(sql);
+    console.log(`✅ Загружено ${rawData.length} записей за ВСЁ время`);
 
-      // Маппим данные (как в Calculate_days.js)
-      const mapped = rawData.map(row => {
-        const offerId = row.offer_id_tracker || '';
-        const article = offerIdArticleMap[offerId] || '';
+    // Группируем данные по article -> source_id -> date
+    const grouped = {};
 
-        return {
-          article: article,
-          date: row.adv_date ? String(row.adv_date).slice(0, 10) : null,
-          leads: Number(row.total_leads) || 0,
-          cost: Number(row.total_cost) || 0,
-          source_id: row.source_id_tracker || 'unknown'
-        };
-      });
+    rawData.forEach(row => {
+      const offerId = row.offer_id_tracker || '';
+      const article = offerIdArticleMap[offerId] || '';
+      const sourceId = row.source_id_tracker || 'unknown';
+      const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
+      const leads = Number(row.total_leads) || 0;
+      const cost = Number(row.total_cost) || 0;
 
-      return { success: true, data: mapped, period: `${p.from}..${p.to}` };
-    } catch (error) {
-      console.warn(`    ⚠️ Пропуск ${p.from}..${p.to}: ${error.message}`);
-      return { success: false, data: [], period: `${p.from}..${p.to}` };
-    }
-  });
+      if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
 
-  const results = await Promise.all(promises);
+      if (!grouped[article]) {
+        grouped[article] = {};
+      }
 
-  // Собираем все данные
-  let allData = [];
-  let successCount = 0;
-  results.forEach(result => {
-    if (result.success) {
-      allData = allData.concat(result.data);
-      successCount++;
-    }
-  });
+      if (!grouped[article][sourceId]) {
+        grouped[article][sourceId] = {};
+      }
 
-  console.log(`✅ Загружено ${allData.length} записей за всё время (${successCount}/${periods.length} периодов)`);
+      if (!grouped[article][sourceId][dateStr]) {
+        grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
+      }
 
-  // Группируем данные по article -> source_id -> date
-  const grouped = {};
+      grouped[article][sourceId][dateStr].leads += leads;
+      grouped[article][sourceId][dateStr].cost += cost;
+    });
 
-  allData.forEach(row => {
-    // Данные уже замаплены выше: article, date, leads, cost, source_id
-    const article = row.article;
-    const sourceId = row.source_id;
-    const dateStr = row.date;
-    const leads = row.leads || 0;
-    const cost = row.cost || 0;
+    console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
 
-    if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
+    return grouped;
 
-    if (!grouped[article]) {
-      grouped[article] = {};
-    }
-
-    if (!grouped[article][sourceId]) {
-      grouped[article][sourceId] = {};
-    }
-
-    if (!grouped[article][sourceId][dateStr]) {
-      grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
-    }
-
-    grouped[article][sourceId][dateStr].leads += leads;
-    grouped[article][sourceId][dateStr].cost += cost;
-  });
-
-  console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
-
-  return grouped;
+  } catch (error) {
+    console.error('❌ Ошибка загрузки метрик байеров:', error);
+    return {};
+  }
 }
