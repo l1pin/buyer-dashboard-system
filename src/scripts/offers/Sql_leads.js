@@ -819,10 +819,19 @@ export async function fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, arti
  * Просто ищет по offer_id и source_id
  * Используется для расчёта статистики за последние 14 активных дней
  *
- * @param {Object} offerIdArticleMap - Маппинг offer_id_tracker -> article
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id_tracker
  * @returns {Promise<Object>} - Данные в формате { article: { source_id: { date: { leads, cost } } } }
  */
-export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
+export async function fetchBuyerMetricsAllTime(articleOfferMap = {}) {
+  // Создаем обратный маппинг: offer_id -> article (как в updateLeadsFromSql)
+  const offerIdArticleMap = {};
+  Object.keys(articleOfferMap).forEach(article => {
+    const offerId = articleOfferMap[article];
+    if (offerId) {
+      offerIdArticleMap[offerId] = article;
+    }
+  });
+
   const offerIds = Object.keys(offerIdArticleMap);
 
   if (offerIds.length === 0) {
@@ -835,6 +844,9 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
   // Создаем SQL список для IN clause (ВСЕ offer_ids)
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
+  // Логируем примеры offer_id для отладки
+  console.log(`🔍 Примеры offer_id: ${offerIds.slice(0, 3).join(', ')}...`);
+
   // ШАГ 1: Найти MIN/MAX даты для ВСЕХ офферов (БЕЗ ограничения по датам - как в календаре!)
   console.log('🔍 Поиск диапазона дат (MIN/MAX) для всех офферов...');
   const dateRangeSql = `
@@ -846,9 +858,13 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
 
   let firstDate, lastDate;
   try {
+    console.log('📤 Отправляем запрос диапазона дат...');
     const dateRangeData = await getDataBySql(dateRangeSql);
+    console.log('📥 Ответ диапазона дат:', JSON.stringify(dateRangeData));
+
     if (!dateRangeData || dateRangeData.length === 0 || !dateRangeData[0]?.last_date) {
-      console.warn('⚠️ Нет данных о расходах для офферов');
+      console.warn('⚠️ Нет данных о расходах для офферов (last_date пуст)');
+      console.warn('⚠️ Проверьте, что offer_id_tracker в БД совпадает с данными из Supabase');
       return {};
     }
     firstDate = dateRangeData[0].first_date;
