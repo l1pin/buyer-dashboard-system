@@ -847,6 +847,11 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
   const fetchBatch = async (batchOfferIds, batchIndex) => {
     const offerIdsList = batchOfferIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
+    // Широкий диапазон дат - с 2020 года до сегодня (для "всё время")
+    const today = new Date();
+    const toDate = today.toISOString().slice(0, 10);
+    const fromDate = '2020-01-01';
+
     const sql = `
       SELECT
         offer_id_tracker,
@@ -857,6 +862,8 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
       FROM ads_collection
       WHERE offer_id_tracker IN (${offerIdsList})
         AND cost > 0
+        AND adv_date >= '${fromDate}'
+        AND adv_date <= '${toDate}'
       GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
     `;
 
