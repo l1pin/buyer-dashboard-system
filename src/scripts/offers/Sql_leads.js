@@ -830,65 +830,82 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     return {};
   }
 
-  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ (без ограничения по датам) для ${offerIds.length} офферов...`);
+  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов (батчами)...`);
 
-  const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
-
-  // SQL запрос БЕЗ фильтра по датам - берём ВСЕ данные по offer_id
-  const sql = `
-    SELECT
-      offer_id_tracker,
-      DATE(adv_date) as adv_date,
-      SUM(valid) as total_leads,
-      SUM(cost) as total_cost,
-      source_id_tracker
-    FROM ads_collection
-    WHERE offer_id_tracker IN (${offerIdsList})
-      AND cost > 0
-    GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
-  `;
-
-  console.log(`📡 Выполняем запрос без ограничения по датам...`);
-
-  try {
-    const rawData = await getDataBySql(sql);
-    console.log(`✅ Загружено ${rawData.length} записей за ВСЁ время`);
-
-    // Группируем данные по article -> source_id -> date
-    const grouped = {};
-
-    rawData.forEach(row => {
-      const offerId = row.offer_id_tracker || '';
-      const article = offerIdArticleMap[offerId] || '';
-      const sourceId = row.source_id_tracker || 'unknown';
-      const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
-      const leads = Number(row.total_leads) || 0;
-      const cost = Number(row.total_cost) || 0;
-
-      if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
-
-      if (!grouped[article]) {
-        grouped[article] = {};
-      }
-
-      if (!grouped[article][sourceId]) {
-        grouped[article][sourceId] = {};
-      }
-
-      if (!grouped[article][sourceId][dateStr]) {
-        grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
-      }
-
-      grouped[article][sourceId][dateStr].leads += leads;
-      grouped[article][sourceId][dateStr].cost += cost;
-    });
-
-    console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
-
-    return grouped;
-
-  } catch (error) {
-    console.error('❌ Ошибка загрузки метрик байеров:', error);
-    return {};
+  // Разбиваем offer_id на батчи по 10 штук для параллельных запросов
+  const BATCH_SIZE = 10;
+  const batches = [];
+  for (let i = 0; i < offerIds.length; i += BATCH_SIZE) {
+    batches.push(offerIds.slice(i, i + BATCH_SIZE));
   }
+
+  console.log(`📦 Разбито на ${batches.length} батчей по ${BATCH_SIZE} офферов`);
+
+  // Функция для выполнения одного батча
+  const fetchBatch = async (batchOfferIds, batchIndex) => {
+    const offerIdsList = batchOfferIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
+    const sql = `
+      SELECT
+        offer_id_tracker,
+        DATE(adv_date) as adv_date,
+        SUM(valid) as total_leads,
+        SUM(cost) as total_cost,
+        source_id_tracker
+      FROM ads_collection
+      WHERE offer_id_tracker IN (${offerIdsList})
+        AND cost > 0
+      GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
+    `;
+
+    try {
+      const rawData = await getDataBySql(sql);
+      console.log(`  ✅ Батч ${batchIndex + 1}/${batches.length}: ${rawData.length} записей`);
+      return rawData;
+    } catch (error) {
+      console.warn(`  ⚠️ Батч ${batchIndex + 1}/${batches.length} ошибка: ${error.message}`);
+      return [];
+    }
+  };
+
+  // Выполняем все батчи параллельно
+  const batchPromises = batches.map((batch, index) => fetchBatch(batch, index));
+  const batchResults = await Promise.all(batchPromises);
+
+  // Объединяем результаты всех батчей
+  const allData = batchResults.flat();
+  console.log(`✅ Всего загружено ${allData.length} записей за ВСЁ время`);
+
+  // Группируем данные по article -> source_id -> date
+  const grouped = {};
+
+  allData.forEach(row => {
+    const offerId = row.offer_id_tracker || '';
+    const article = offerIdArticleMap[offerId] || '';
+    const sourceId = row.source_id_tracker || 'unknown';
+    const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
+    const leads = Number(row.total_leads) || 0;
+    const cost = Number(row.total_cost) || 0;
+
+    if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
+
+    if (!grouped[article]) {
+      grouped[article] = {};
+    }
+
+    if (!grouped[article][sourceId]) {
+      grouped[article][sourceId] = {};
+    }
+
+    if (!grouped[article][sourceId][dateStr]) {
+      grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
+    }
+
+    grouped[article][sourceId][dateStr].leads += leads;
+    grouped[article][sourceId][dateStr].cost += cost;
+  });
+
+  console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
+
+  return grouped;
 }
