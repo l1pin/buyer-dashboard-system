@@ -39,6 +39,8 @@ function OffersTL({ user }) {
   const [offerStatuses, setOfferStatuses] = useState({});
   const [allAssignments, setAllAssignments] = useState({});
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
+  const [buyerMetricsProgress, setBuyerMetricsProgress] = useState(0); // Прогресс загрузки метрик байеров (0-100)
+  const [loadingBuyerMetrics, setLoadingBuyerMetrics] = useState(false); // Загрузка метрик байеров
   const [buyerStatuses, setBuyerStatuses] = useState({});
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(true);
   const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set()); // ID привязок, которые сейчас загружаются
@@ -434,9 +436,21 @@ function OffersTL({ user }) {
       const currentAssignments = allAssignments;
       const currentArticleOfferMap = articleOfferMap;
 
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
-      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время...');
-      const buyerMetricsPromise = fetchBuyerMetricsAllTime(currentArticleOfferMap);
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
+      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время (с прогрессом)...');
+      setLoadingBuyerMetrics(true);
+      setBuyerMetricsProgress(0);
+
+      // Callback для прогрессивного обновления UI
+      const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
+        setBuyerMetricsProgress(progress);
+        setBuyerMetricsData(partialData); // Обновляем данные порциями
+        if (isComplete) {
+          setLoadingBuyerMetrics(false);
+        }
+      };
+
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(currentArticleOfferMap, onBuyerMetricsProgress);
 
       // ШАГ 1: Запускаем ПАРАЛЛЕЛЬНО остатки и статусы байеров
       console.log('📦 Шаг 1: Параллельное обновление остатков и статусов байеров...');
@@ -518,12 +532,12 @@ function OffersTL({ user }) {
           };
         });
 
-        // 🎯 Ждём завершения загрузки метрик байеров за ВСЁ время
-        const buyerMetricsAllTime = await buyerMetricsPromise;
-        setBuyerMetricsData(buyerMetricsAllTime);
-        console.log(`✅ Метрики байеров за ВСЁ время: ${Object.keys(buyerMetricsAllTime || {}).length} артикулов`);
+        // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+        await buyerMetricsPromise;
+        console.log(`✅ Метрики байеров за ВСЁ время загружены`);
 
         setMetrics(updatedMetrics);
+        setLoadingBuyerMetrics(false);
         console.log('🎉 Автоматическое обновление завершено!');
       } catch (error) {
         console.error('❌ Ошибка обновления дней/CPL:', error);
@@ -544,9 +558,20 @@ function OffersTL({ user }) {
 
       console.log('🚀 Начинаем обновление ВСЕХ метрик...');
 
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
-      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время...');
-      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap);
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
+      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время (с прогрессом)...');
+      setLoadingBuyerMetrics(true);
+      setBuyerMetricsProgress(0);
+
+      const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
+        setBuyerMetricsProgress(progress);
+        setBuyerMetricsData(partialData);
+        if (isComplete) {
+          setLoadingBuyerMetrics(false);
+        }
+      };
+
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap, onBuyerMetricsProgress);
 
       // ШАГ 1: Сначала обновляем остатки (нужны для расчета дней)
       console.log('📦 Шаг 1/3: Обновление остатков из YML...');
@@ -590,12 +615,12 @@ function OffersTL({ user }) {
         };
       });
 
-      // 🎯 Ждём завершения загрузки метрик байеров за ВСЁ время
-      const buyerMetricsAllTime = await buyerMetricsPromise;
-      setBuyerMetricsData(buyerMetricsAllTime);
-      console.log(`✅ Метрики байеров за ВСЁ время: ${Object.keys(buyerMetricsAllTime || {}).length} артикулов`);
+      // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+      await buyerMetricsPromise;
+      console.log(`✅ Метрики байеров за ВСЁ время загружены`);
 
       setMetrics(updatedMetrics);
+      setLoadingBuyerMetrics(false);
       setSuccess(`✅ Все метрики обновлены! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
 
       console.log('🎉 Все метрики успешно обновлены!');
@@ -607,6 +632,7 @@ function OffersTL({ user }) {
       setLoadingStocks(false);
       setLoadingLeadsData(false);
       setLoadingDays(false);
+      setLoadingBuyerMetrics(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -659,19 +685,30 @@ function OffersTL({ user }) {
       setLoadingLeadsData(true);
       setError('');
 
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
-      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap);
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
+      setLoadingBuyerMetrics(true);
+      setBuyerMetricsProgress(0);
+
+      const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
+        setBuyerMetricsProgress(progress);
+        setBuyerMetricsData(partialData);
+        if (isComplete) {
+          setLoadingBuyerMetrics(false);
+        }
+      };
+
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap, onBuyerMetricsProgress);
 
       // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
       const result = await updateLeadsFromSqlScript(metrics, articleOfferMap);
 
       setMetrics(result.metrics);
 
-      // 🎯 Ждём завершения загрузки метрик байеров за ВСЁ время
-      const buyerMetricsAllTime = await buyerMetricsPromise;
-      setBuyerMetricsData(buyerMetricsAllTime);
-      console.log(`📊 Метрики байеров за ВСЁ время: ${Object.keys(buyerMetricsAllTime || {}).length} артикулов`);
+      // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+      await buyerMetricsPromise;
+      console.log(`📊 Метрики байеров за ВСЁ время загружены`);
 
+      setLoadingBuyerMetrics(false);
       setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
 
     } catch (error) {
@@ -679,6 +716,7 @@ function OffersTL({ user }) {
       setError('Ошибка загрузки данных: ' + error.message);
     } finally {
       setLoadingLeadsData(false);
+      setLoadingBuyerMetrics(false);
       setTimeout(() => setSuccess(''), 5000);
     }
   };
@@ -950,12 +988,13 @@ function OffersTL({ user }) {
             buyerStatuses={buyerStatuses}
             articleOfferMap={articleOfferMap}
             loadingBuyerIds={loadingBuyerIds}
+            loadingBuyerMetrics={loadingBuyerMetrics}
             seasons={offerSeasons[metric.article] || []}
           />
         </div>
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
+  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, loadingBuyerMetrics, offerSeasons]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -1041,6 +1080,25 @@ function OffersTL({ user }) {
         <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm flex items-center shadow-sm">
           <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {success}
+        </div>
+      )}
+
+      {/* Прогресс загрузки метрик байеров */}
+      {loadingBuyerMetrics && (
+        <div className="mx-6 mt-4 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-lg text-sm shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 flex-shrink-0 animate-spin" />
+              Загрузка метрик байеров за всё время...
+            </span>
+            <span className="font-semibold">{buyerMetricsProgress}%</span>
+          </div>
+          <div className="w-full bg-purple-200 rounded-full h-1.5">
+            <div
+              className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${buyerMetricsProgress}%` }}
+            ></div>
+          </div>
         </div>
       )}
 
