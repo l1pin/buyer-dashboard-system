@@ -90,8 +90,11 @@ export const updateLeadsFromSql = async (metrics, articleOfferMap = {}, preloade
     const dataByArticleAndDate = groupDataByArticleAndDate(data90Days);
 
     // 3. Группируем данные по source_id для метрик байеров
-    const dataBySourceIdAndDate = groupDataBySourceIdAndDate(data90Days);
-    console.log(`📊 Уникальных source_id: ${Object.keys(dataBySourceIdAndDate).length}`);
+    // 🎯 ВАЖНО: Используем ВСЕ данные (preloadedData), а не только 90 дней
+    // Это нужно для расчёта статистики за последние 14 АКТИВНЫХ дней байера
+    const dataForBuyers = preloadedData && preloadedData.length > 0 ? preloadedData : data90Days;
+    const dataBySourceIdAndDate = groupDataBySourceIdAndDate(dataForBuyers);
+    console.log(`📊 Уникальных source_id: ${Object.keys(dataBySourceIdAndDate).length} (данных за ${preloadedData ? '12 месяцев' : '90 дней'})`);
 
     // 3. Обновляем метрики с данными о лидах, CPL и рейтингах
     let processedCount = 0;
