@@ -334,9 +334,9 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
     });
   });
 
-  // Фильтруем только активные дни (где cost > 0 ИЛИ leads > 0)
+  // Фильтруем только активные дни (где cost > 0)
   const activeDatesWithData = Object.entries(aggregatedByDate)
-    .filter(([_, data]) => data.cost > 0 || data.leads > 0)
+    .filter(([_, data]) => data.cost > 0)
     .map(([dateStr, data]) => ({
       date: new Date(dateStr),
       dateStr,
@@ -809,4 +809,116 @@ export async function fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, arti
       metrics: { leads: 0, cost: 0, cpl: 0 }
     };
   }
+}
+
+/**
+ * Загружает метрики байеров за ВСЁ ВРЕМЯ (с 2022 года)
+ * Используется для расчёта статистики за последние 14 активных дней
+ *
+ * @param {Object} offerIdArticleMap - Маппинг offer_id_tracker -> article
+ * @returns {Promise<Object>} - Данные в формате { article: { source_id: { date: { leads, cost } } } }
+ */
+export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
+  const offerIds = Object.keys(offerIdArticleMap);
+
+  if (offerIds.length === 0) {
+    console.warn('⚠️ fetchBuyerMetricsAllTime: Маппинг пуст!');
+    return {};
+  }
+
+  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов...`);
+
+  // Загружаем данные с 2022 года (или с начала данных)
+  const startDate = '2022-01-01';
+  const endDate = formatDate(new Date());
+
+  // Разбиваем на периоды по 6 месяцев для параллельной загрузки
+  const periods = [];
+  let currentStart = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (currentStart < end) {
+    const periodEnd = new Date(currentStart);
+    periodEnd.setMonth(periodEnd.getMonth() + 6);
+
+    if (periodEnd > end) {
+      periodEnd.setTime(end.getTime());
+    }
+
+    periods.push({
+      from: formatDate(currentStart),
+      to: formatDate(periodEnd)
+    });
+
+    currentStart = new Date(periodEnd);
+    currentStart.setDate(currentStart.getDate() + 1);
+  }
+
+  console.log(`📅 Разбито на ${periods.length} периодов по 6 месяцев`);
+
+  const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
+  // Запускаем все запросы параллельно
+  const promises = periods.map(async (p) => {
+    const sql = `
+      SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker
+      FROM ads_collection
+      WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
+        AND offer_id_tracker IN (${offerIdsList})
+        AND cost > 0
+    `;
+
+    try {
+      const rawData = await getDataBySql(sql);
+      return { success: true, data: rawData, period: `${p.from}..${p.to}` };
+    } catch (error) {
+      console.warn(`⚠️ Пропуск периода ${p.from}..${p.to}: ${error.message}`);
+      return { success: false, data: [], period: `${p.from}..${p.to}` };
+    }
+  });
+
+  const results = await Promise.all(promises);
+
+  // Собираем все данные
+  let allData = [];
+  results.forEach(result => {
+    if (result.success) {
+      allData = allData.concat(result.data);
+    }
+  });
+
+  console.log(`✅ Загружено ${allData.length} записей за всё время`);
+
+  // Группируем данные по article -> source_id -> date
+  const grouped = {};
+
+  allData.forEach(row => {
+    const offerId = row.offer_id_tracker || '';
+    const article = offerIdArticleMap[offerId] || '';
+    const sourceId = row.source_id_tracker;
+    const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
+    const leads = Number(row.valid) || 0;
+    const cost = Number(row.cost) || 0;
+
+    if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
+
+    if (!grouped[article]) {
+      grouped[article] = {};
+    }
+
+    if (!grouped[article][sourceId]) {
+      grouped[article][sourceId] = {};
+    }
+
+    if (!grouped[article][sourceId][dateStr]) {
+      grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
+    }
+
+    grouped[article][sourceId][dateStr].leads += leads;
+    grouped[article][sourceId][dateStr].cost += cost;
+  });
+
+  console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
+
+  return grouped;
 }

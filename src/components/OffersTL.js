@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
-import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer } from '../scripts/offers/Sql_leads';
+import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer, fetchBuyerMetricsAllTime } from '../scripts/offers/Sql_leads';
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
@@ -434,6 +434,10 @@ function OffersTL({ user }) {
       const currentAssignments = allAssignments;
       const currentArticleOfferMap = articleOfferMap;
 
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
+      console.log('📊 Параллельно: Загрузка метрик байеров за всё время...');
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(currentArticleOfferMap);
+
       // ШАГ 1: Запускаем ПАРАЛЛЕЛЬНО остатки и статусы байеров
       console.log('📦 Шаг 1: Параллельное обновление остатков и статусов байеров...');
 
@@ -514,10 +518,10 @@ function OffersTL({ user }) {
           };
         });
 
-        // Сохраняем данные по source_id для метрик байеров
-        if (leadsResult.dataBySourceIdAndDate) {
-          setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
-        }
+        // 🎯 Ждём завершения загрузки метрик байеров за всё время
+        const buyerMetricsAllTime = await buyerMetricsPromise;
+        console.log(`✅ Метрики байеров за всё время загружены`);
+        setBuyerMetricsData(buyerMetricsAllTime);
 
         setMetrics(updatedMetrics);
         console.log('🎉 Автоматическое обновление завершено!');
@@ -539,6 +543,10 @@ function OffersTL({ user }) {
       setSuccess('Обновление метрик...');
 
       console.log('🚀 Начинаем обновление ВСЕХ метрик...');
+
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
+      console.log('📊 Параллельно: Загрузка метрик байеров за всё время...');
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap);
 
       // ШАГ 1: Сначала обновляем остатки (нужны для расчета дней)
       console.log('📦 Шаг 1/3: Обновление остатков из YML...');
@@ -582,10 +590,10 @@ function OffersTL({ user }) {
         };
       });
 
-      // Сохраняем данные по source_id для метрик байеров
-      if (leadsResult.dataBySourceIdAndDate) {
-        setBuyerMetricsData(leadsResult.dataBySourceIdAndDate);
-      }
+      // 🎯 Ждём завершения загрузки метрик байеров за всё время
+      const buyerMetricsAllTime = await buyerMetricsPromise;
+      console.log(`✅ Метрики байеров за всё время загружены`);
+      setBuyerMetricsData(buyerMetricsAllTime);
 
       setMetrics(updatedMetrics);
       setSuccess(`✅ Все метрики обновлены! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
@@ -651,17 +659,19 @@ function OffersTL({ user }) {
       setLoadingLeadsData(true);
       setError('');
 
+      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ параллельно
+      const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap);
+
       // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
       // Передаем маппинг артикулов -> offer_id для получения данных по offer_id_tracker
       const result = await updateLeadsFromSqlScript(metrics, articleOfferMap);
 
       setMetrics(result.metrics);
 
-      // Сохраняем данные по source_id для метрик байеров
-      if (result.dataBySourceIdAndDate) {
-        setBuyerMetricsData(result.dataBySourceIdAndDate);
-        console.log(`📊 Сохранены метрики по ${Object.keys(result.dataBySourceIdAndDate).length} source_id`);
-      }
+      // 🎯 Ждём завершения загрузки метрик байеров за всё время
+      const buyerMetricsAllTime = await buyerMetricsPromise;
+      setBuyerMetricsData(buyerMetricsAllTime);
+      console.log(`📊 Сохранены метрики байеров за всё время`);
 
       setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
 
