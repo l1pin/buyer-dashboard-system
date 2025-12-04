@@ -91,6 +91,7 @@ const OfferRow = memo(({
   buyerStatuses,
   articleOfferMap,
   loadingBuyerIds = new Set(), // ID привязок байеров, которые сейчас загружаются
+  loadingBuyerMetrics = false, // Загрузка метрик байеров за всё время
   seasons = [] // Массив сезонов ['☀️', '🍁', '❄️', '🌱']
 }) => {
   // Мемоизированные обработчики для этой строки
@@ -389,7 +390,7 @@ const OfferRow = memo(({
         buyerMetricsData={buyerMetricsData}
         buyerStatuses={buyerStatuses}
         loadingBuyerStatuses={loadingBuyerStatuses}
-        loadingBuyerMetrics={loadingLeadsData}
+        loadingBuyerMetrics={loadingBuyerMetrics}
         loadingBuyerIds={loadingBuyerIds}
         articleOfferMap={articleOfferMap}
       />
@@ -413,6 +414,7 @@ const OfferRow = memo(({
     prevProps.buyerMetricsData === nextProps.buyerMetricsData &&
     prevProps.buyerStatuses === nextProps.buyerStatuses &&
     prevProps.loadingBuyerIds === nextProps.loadingBuyerIds &&
+    prevProps.loadingBuyerMetrics === nextProps.loadingBuyerMetrics &&
     prevProps.articleOfferMap === nextProps.articleOfferMap &&
     prevProps.seasons === nextProps.seasons
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)

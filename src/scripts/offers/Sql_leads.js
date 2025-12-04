@@ -820,9 +820,10 @@ export async function fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, arti
  * Используется для расчёта статистики за последние 14 активных дней
  *
  * @param {Object} articleOfferMap - Маппинг article -> offer_id_tracker
+ * @param {Function} onProgress - Callback для прогрессивного обновления (получает частичные данные)
  * @returns {Promise<Object>} - Данные в формате { article: { source_id: { date: { leads, cost } } } }
  */
-export async function fetchBuyerMetricsAllTime(articleOfferMap = {}) {
+export async function fetchBuyerMetricsAllTime(articleOfferMap = {}, onProgress = null) {
   // Создаем обратный маппинг: offer_id -> article (как в updateLeadsFromSql)
   const offerIdArticleMap = {};
   Object.keys(articleOfferMap).forEach(article => {
@@ -876,8 +877,9 @@ export async function fetchBuyerMetricsAllTime(articleOfferMap = {}) {
   }
 
   // ШАГ 2: Загружаем данные ЗА ВЕСЬ ПЕРИОД батчами по offer_id
-  const BATCH_SIZE = 50;
-  const CONCURRENT_LIMIT = 5;
+  // 🚀 Оптимизация: увеличиваем батч для меньше запросов, но больше параллельности
+  const BATCH_SIZE = 100; // Увеличен с 50 до 100
+  const CONCURRENT_LIMIT = 8; // Увеличен с 5 до 8
 
   const batches = [];
   for (let i = 0; i < offerIds.length; i += BATCH_SIZE) {
@@ -886,11 +888,42 @@ export async function fetchBuyerMetricsAllTime(articleOfferMap = {}) {
 
   console.log(`📦 Загрузка данных: ${batches.length} батчей по ${BATCH_SIZE} офферов (по ${CONCURRENT_LIMIT} параллельно)`);
 
+  // Накопительный объект для группировки
+  const grouped = {};
+  let totalRecords = 0;
+  let completedBatches = 0;
+
+  // Функция группировки данных батча
+  const groupBatchData = (rawData) => {
+    rawData.forEach(row => {
+      const offerId = row.offer_id_tracker || '';
+      const article = offerIdArticleMap[offerId] || '';
+      const sourceId = row.source_id_tracker || 'unknown';
+      const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
+      const leads = Number(row.total_leads) || 0;
+      const cost = Number(row.total_cost) || 0;
+
+      if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
+
+      if (!grouped[article]) {
+        grouped[article] = {};
+      }
+      if (!grouped[article][sourceId]) {
+        grouped[article][sourceId] = {};
+      }
+      if (!grouped[article][sourceId][dateStr]) {
+        grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
+      }
+
+      grouped[article][sourceId][dateStr].leads += leads;
+      grouped[article][sourceId][dateStr].cost += cost;
+    });
+  };
+
   // Функция для выполнения одного батча
   const fetchBatch = async (batchOfferIds, batchIndex) => {
     const batchOfferIdsList = batchOfferIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-    // Запрос как в календаре - дата ПЕРВОЙ, потом offer_id
     const sql = `
       SELECT
         offer_id_tracker,
@@ -915,51 +948,34 @@ export async function fetchBuyerMetricsAllTime(articleOfferMap = {}) {
     }
   };
 
-  // Выполняем батчи с ограничением параллельности
-  const batchResults = [];
+  // Выполняем батчи с прогрессивным обновлением UI
   for (let i = 0; i < batches.length; i += CONCURRENT_LIMIT) {
     const chunk = batches.slice(i, i + CONCURRENT_LIMIT);
     const chunkPromises = chunk.map((batch, idx) => fetchBatch(batch, i + idx));
     const chunkResults = await Promise.all(chunkPromises);
-    batchResults.push(...chunkResults);
 
+    // Сразу группируем данные каждого батча
+    chunkResults.forEach(batchData => {
+      totalRecords += batchData.length;
+      groupBatchData(batchData);
+    });
+
+    completedBatches += chunk.length;
+
+    // 🚀 Прогрессивное обновление: отправляем данные в UI после каждой группы батчей
+    if (onProgress) {
+      const progress = Math.round((completedBatches / batches.length) * 100);
+      console.log(`📊 Прогресс: ${progress}% (${completedBatches}/${batches.length} батчей, ${Object.keys(grouped).length} артикулов)`);
+      onProgress({ ...grouped }, progress, completedBatches === batches.length);
+    }
+
+    // Небольшая пауза между группами батчей
     if (i + CONCURRENT_LIMIT < batches.length) {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 50)); // Уменьшено с 100мс до 50мс
     }
   }
 
-  // Объединяем результаты всех батчей
-  const allData = batchResults.flat();
-  console.log(`✅ Всего загружено ${allData.length} записей за ВСЁ время`);
-
-  // Группируем данные по article -> source_id -> date
-  const grouped = {};
-
-  allData.forEach(row => {
-    const offerId = row.offer_id_tracker || '';
-    const article = offerIdArticleMap[offerId] || '';
-    const sourceId = row.source_id_tracker || 'unknown';
-    const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
-    const leads = Number(row.total_leads) || 0;
-    const cost = Number(row.total_cost) || 0;
-
-    if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
-
-    if (!grouped[article]) {
-      grouped[article] = {};
-    }
-
-    if (!grouped[article][sourceId]) {
-      grouped[article][sourceId] = {};
-    }
-
-    if (!grouped[article][sourceId][dateStr]) {
-      grouped[article][sourceId][dateStr] = { leads: 0, cost: 0 };
-    }
-
-    grouped[article][sourceId][dateStr].leads += leads;
-    grouped[article][sourceId][dateStr].cost += cost;
-  });
+  console.log(`✅ Всего загружено ${totalRecords} записей за ВСЁ время`);
 
   console.log(`📊 Сгруппировано по ${Object.keys(grouped).length} артикулам`);
 
