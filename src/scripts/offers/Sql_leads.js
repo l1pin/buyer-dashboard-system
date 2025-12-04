@@ -334,9 +334,9 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
     });
   });
 
-  // Фильтруем только активные дни (где cost > 0)
+  // Фильтруем только активные дни (где cost > 0 ИЛИ leads > 0)
   const activeDatesWithData = Object.entries(aggregatedByDate)
-    .filter(([_, data]) => data.cost > 0)
+    .filter(([_, data]) => data.cost > 0 || data.leads > 0)
     .map(([dateStr, data]) => ({
       date: new Date(dateStr),
       dateStr,
