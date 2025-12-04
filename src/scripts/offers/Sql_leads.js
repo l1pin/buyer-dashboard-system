@@ -830,16 +830,18 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     return {};
   }
 
-  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов (батчами)...`);
+  console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов...`);
 
-  // Разбиваем offer_id на батчи по 10 штук для параллельных запросов
-  const BATCH_SIZE = 10;
+  // Разбиваем offer_id на батчи по 50 штук
+  const BATCH_SIZE = 50;
+  const CONCURRENT_LIMIT = 5; // Максимум 5 параллельных запросов
+
   const batches = [];
   for (let i = 0; i < offerIds.length; i += BATCH_SIZE) {
     batches.push(offerIds.slice(i, i + BATCH_SIZE));
   }
 
-  console.log(`📦 Разбито на ${batches.length} батчей по ${BATCH_SIZE} офферов`);
+  console.log(`📦 Разбито на ${batches.length} батчей по ${BATCH_SIZE} офферов (по ${CONCURRENT_LIMIT} параллельно)`);
 
   // Функция для выполнения одного батча
   const fetchBatch = async (batchOfferIds, batchIndex) => {
@@ -868,9 +870,19 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     }
   };
 
-  // Выполняем все батчи параллельно
-  const batchPromises = batches.map((batch, index) => fetchBatch(batch, index));
-  const batchResults = await Promise.all(batchPromises);
+  // Выполняем батчи с ограничением параллельности (по 5 одновременно)
+  const batchResults = [];
+  for (let i = 0; i < batches.length; i += CONCURRENT_LIMIT) {
+    const chunk = batches.slice(i, i + CONCURRENT_LIMIT);
+    const chunkPromises = chunk.map((batch, idx) => fetchBatch(batch, i + idx));
+    const chunkResults = await Promise.all(chunkPromises);
+    batchResults.push(...chunkResults);
+
+    // Пауза 100мс между группами запросов
+    if (i + CONCURRENT_LIMIT < batches.length) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
 
   // Объединяем результаты всех батчей
   const allData = batchResults.flat();
