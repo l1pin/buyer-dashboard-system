@@ -832,14 +832,14 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
   const startDate = '2022-01-01';
   const endDate = formatDate(new Date());
 
-  // Разбиваем на периоды по 6 месяцев для параллельной загрузки
+  // Разбиваем на периоды по 3 месяца для параллельной загрузки (как в Calculate_days)
   const periods = [];
   let currentStart = new Date(startDate);
   const end = new Date(endDate);
 
   while (currentStart < end) {
     const periodEnd = new Date(currentStart);
-    periodEnd.setMonth(periodEnd.getMonth() + 6);
+    periodEnd.setMonth(periodEnd.getMonth() + 3); // 3 месяца как в рабочем скрипте
 
     if (periodEnd > end) {
       periodEnd.setTime(end.getTime());
@@ -854,25 +854,49 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     currentStart.setDate(currentStart.getDate() + 1);
   }
 
-  console.log(`📅 Разбито на ${periods.length} периодов по 6 месяцев`);
+  console.log(`📅 Разбито на ${periods.length} периодов по 3 месяца`);
 
   const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  // Запускаем все запросы параллельно
-  const promises = periods.map(async (p) => {
+  // Запускаем все запросы параллельно (такой же формат как в Calculate_days.js)
+  const promises = periods.map(async (p, i) => {
     const sql = `
-      SELECT offer_id_tracker, adv_date, valid, cost, source_id_tracker
+      SELECT
+        offer_id_tracker,
+        DATE(adv_date) as adv_date,
+        SUM(valid) as total_leads,
+        SUM(cost) as total_cost,
+        source_id_tracker
       FROM ads_collection
       WHERE adv_date BETWEEN '${p.from}' AND '${p.to}'
         AND offer_id_tracker IN (${offerIdsList})
         AND cost > 0
+      GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
     `;
+
+    console.log(`  📆 [${i + 1}/${periods.length}] ${p.from}..${p.to}`);
 
     try {
       const rawData = await getDataBySql(sql);
-      return { success: true, data: rawData, period: `${p.from}..${p.to}` };
+      console.log(`    ✅ ${rawData.length} строк`);
+
+      // Маппим данные (как в Calculate_days.js)
+      const mapped = rawData.map(row => {
+        const offerId = row.offer_id_tracker || '';
+        const article = offerIdArticleMap[offerId] || '';
+
+        return {
+          article: article,
+          date: row.adv_date ? String(row.adv_date).slice(0, 10) : null,
+          leads: Number(row.total_leads) || 0,
+          cost: Number(row.total_cost) || 0,
+          source_id: row.source_id_tracker || 'unknown'
+        };
+      });
+
+      return { success: true, data: mapped, period: `${p.from}..${p.to}` };
     } catch (error) {
-      console.warn(`⚠️ Пропуск периода ${p.from}..${p.to}: ${error.message}`);
+      console.warn(`    ⚠️ Пропуск ${p.from}..${p.to}: ${error.message}`);
       return { success: false, data: [], period: `${p.from}..${p.to}` };
     }
   });
@@ -881,24 +905,26 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
 
   // Собираем все данные
   let allData = [];
+  let successCount = 0;
   results.forEach(result => {
     if (result.success) {
       allData = allData.concat(result.data);
+      successCount++;
     }
   });
 
-  console.log(`✅ Загружено ${allData.length} записей за всё время`);
+  console.log(`✅ Загружено ${allData.length} записей за всё время (${successCount}/${periods.length} периодов)`);
 
   // Группируем данные по article -> source_id -> date
   const grouped = {};
 
   allData.forEach(row => {
-    const offerId = row.offer_id_tracker || '';
-    const article = offerIdArticleMap[offerId] || '';
-    const sourceId = row.source_id_tracker;
-    const dateStr = row.adv_date ? String(row.adv_date).slice(0, 10) : null;
-    const leads = Number(row.valid) || 0;
-    const cost = Number(row.cost) || 0;
+    // Данные уже замаплены выше: article, date, leads, cost, source_id
+    const article = row.article;
+    const sourceId = row.source_id;
+    const dateStr = row.date;
+    const leads = row.leads || 0;
+    const cost = row.cost || 0;
 
     if (!article || !sourceId || sourceId === 'unknown' || !dateStr) return;
 
