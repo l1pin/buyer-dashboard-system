@@ -470,6 +470,16 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                       </div>
                     )}
 
+                    {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
+                    {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
+                      <div
+                        className="absolute top-1 left-1 bg-yellow-100 rounded-full p-0.5 z-10"
+                        title={`Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`}
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 text-yellow-600" />
+                      </div>
+                    )}
+
                     {/* Кнопка удаления - только для активных байеров, в правом верхнем углу карточки */}
                     {!isArchived && (
                       <button
@@ -521,16 +531,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
                         </div>
                       ) : (
-                        <div className="w-full text-[9px] text-gray-500 space-y-0.5 relative">
-                          {/* Иконка предупреждения если активных дней < 14 */}
-                          {hasLessActiveDays && (
-                            <div
-                              className="absolute -top-1 -right-0.5 group/warning"
-                              title={`Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`}
-                            >
-                              <AlertTriangle className="w-3 h-3 text-yellow-500" />
-                            </div>
-                          )}
+                        <div className="w-full text-[9px] text-gray-500 space-y-0.5">
                           <div className="flex justify-between px-1">
                             <span>CPL:</span>
                             <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
