@@ -832,26 +832,49 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
 
   console.log(`📊 Загрузка метрик байеров за ВСЁ ВРЕМЯ для ${offerIds.length} офферов...`);
 
-  // Разбиваем offer_id на батчи по 50 штук
+  // Создаем SQL список для IN clause (ВСЕ offer_ids)
+  const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
+  // ШАГ 1: Найти MIN/MAX даты для ВСЕХ офферов (БЕЗ ограничения по датам - как в календаре!)
+  console.log('🔍 Поиск диапазона дат (MIN/MAX) для всех офферов...');
+  const dateRangeSql = `
+    SELECT MIN(adv_date) as first_date, MAX(adv_date) as last_date
+    FROM ads_collection
+    WHERE offer_id_tracker IN (${offerIdsList})
+      AND cost > 0
+  `;
+
+  let firstDate, lastDate;
+  try {
+    const dateRangeData = await getDataBySql(dateRangeSql);
+    if (!dateRangeData || dateRangeData.length === 0 || !dateRangeData[0]?.last_date) {
+      console.warn('⚠️ Нет данных о расходах для офферов');
+      return {};
+    }
+    firstDate = dateRangeData[0].first_date;
+    lastDate = dateRangeData[0].last_date;
+    console.log(`📅 Найден диапазон дат: ${firstDate} - ${lastDate}`);
+  } catch (error) {
+    console.error('❌ Ошибка поиска диапазона дат:', error);
+    return {};
+  }
+
+  // ШАГ 2: Загружаем данные ЗА ВЕСЬ ПЕРИОД батчами по offer_id
   const BATCH_SIZE = 50;
-  const CONCURRENT_LIMIT = 5; // Максимум 5 параллельных запросов
+  const CONCURRENT_LIMIT = 5;
 
   const batches = [];
   for (let i = 0; i < offerIds.length; i += BATCH_SIZE) {
     batches.push(offerIds.slice(i, i + BATCH_SIZE));
   }
 
-  console.log(`📦 Разбито на ${batches.length} батчей по ${BATCH_SIZE} офферов (по ${CONCURRENT_LIMIT} параллельно)`);
+  console.log(`📦 Загрузка данных: ${batches.length} батчей по ${BATCH_SIZE} офферов (по ${CONCURRENT_LIMIT} параллельно)`);
 
   // Функция для выполнения одного батча
   const fetchBatch = async (batchOfferIds, batchIndex) => {
-    const offerIdsList = batchOfferIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    const batchOfferIdsList = batchOfferIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-    // Широкий диапазон дат - с 2020 года до сегодня (для "всё время")
-    const today = new Date();
-    const toDate = today.toISOString().slice(0, 10);
-    const fromDate = '2020-01-01';
-
+    // Запрос как в календаре - дата ПЕРВОЙ, потом offer_id
     const sql = `
       SELECT
         offer_id_tracker,
@@ -860,10 +883,9 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
         SUM(cost) as total_cost,
         source_id_tracker
       FROM ads_collection
-      WHERE offer_id_tracker IN (${offerIdsList})
+      WHERE adv_date BETWEEN '${firstDate}' AND '${lastDate}'
+        AND offer_id_tracker IN (${batchOfferIdsList})
         AND cost > 0
-        AND adv_date >= '${fromDate}'
-        AND adv_date <= '${toDate}'
       GROUP BY offer_id_tracker, DATE(adv_date), source_id_tracker
     `;
 
@@ -877,7 +899,7 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     }
   };
 
-  // Выполняем батчи с ограничением параллельности (по 5 одновременно)
+  // Выполняем батчи с ограничением параллельности
   const batchResults = [];
   for (let i = 0; i < batches.length; i += CONCURRENT_LIMIT) {
     const chunk = batches.slice(i, i + CONCURRENT_LIMIT);
@@ -885,7 +907,6 @@ export async function fetchBuyerMetricsAllTime(offerIdArticleMap = {}) {
     const chunkResults = await Promise.all(chunkPromises);
     batchResults.push(...chunkResults);
 
-    // Пауза 100мс между группами запросов
     if (i + CONCURRENT_LIMIT < batches.length) {
       await new Promise(r => setTimeout(r, 100));
     }
