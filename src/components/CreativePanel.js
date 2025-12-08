@@ -1607,18 +1607,20 @@ function CreativePanel({ user }) {
       errorMessages.push('Необходимо выбрать креатив из списка');
     }
 
-    // Проверяем ссылки
-    const nonEmptyLinks = addEditCreative.links.filter(link => link.trim());
-    if (nonEmptyLinks.length === 0) {
-      errors.links = true;
-      errorMessages.push('Добавьте хотя бы одну Google Drive ссылку');
-    }
+    // Проверяем ссылки только если выбраны "Новые ссылки"
+    if (addEditLinkType === 'new') {
+      const nonEmptyLinks = addEditCreative.links.filter(link => link.trim());
+      if (nonEmptyLinks.length === 0) {
+        errors.links = true;
+        errorMessages.push('Добавьте хотя бы одну Google Drive ссылку');
+      }
 
-    // Проверяем валидность ссылок Google Drive
-    const invalidLinks = nonEmptyLinks.filter(link => !isGoogleDriveUrl(link));
-    if (invalidLinks.length > 0) {
-      errors.links = true;
-      errorMessages.push('Все ссылки должны быть действительными Google Drive ссылками');
+      // Проверяем валидность ссылок Google Drive
+      const invalidLinks = nonEmptyLinks.filter(link => !isGoogleDriveUrl(link));
+      if (invalidLinks.length > 0) {
+        errors.links = true;
+        errorMessages.push('Все ссылки должны быть действительными Google Drive ссылками');
+      }
     }
 
     // Проверяем типы работ (обязательно для правки)
@@ -1642,33 +1644,44 @@ function CreativePanel({ user }) {
       return;
     }
 
-    const { validLinks, invalidLinks } = validateGoogleDriveLinks(addEditCreative.links);
-
     try {
       setCreatingEdit(true);
       setError('');
       setSuccess('');
 
-      setAuthorizing(true);
-      const authSuccess = await ensureGoogleAuth();
-      setAuthorizing(false);
+      let finalLinks = [];
+      let finalTitles = [];
 
-      if (!authSuccess) {
-        setError('Необходима авторизация Google для извлечения названий файлов');
-        setCreatingEdit(false);
-        return;
+      // Если выбраны "Новые ссылки" - обрабатываем ссылки
+      if (addEditLinkType === 'new') {
+        const { validLinks } = validateGoogleDriveLinks(addEditCreative.links);
+
+        setAuthorizing(true);
+        const authSuccess = await ensureGoogleAuth();
+        setAuthorizing(false);
+
+        if (!authSuccess) {
+          setError('Необходима авторизация Google для извлечения названий файлов');
+          setCreatingEdit(false);
+          return;
+        }
+
+        setExtractingTitles(true);
+        const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+        setExtractingTitles(false);
+
+        const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+        if (extractedTitles.length === 0) {
+          setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive.');
+          setCreatingEdit(false);
+          return;
+        }
+
+        finalLinks = links;
+        finalTitles = titles;
       }
-
-      setExtractingTitles(true);
-      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
-      setExtractingTitles(false);
-
-      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
-      if (extractedTitles.length === 0) {
-        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive.');
-        setCreatingEdit(false);
-        return;
-      }
+      // Если "Перезалил по старым" - пустые ссылки и "—" вместо названий
+      // finalLinks и finalTitles уже пустые []
 
       // Объединяем типы работ родительского креатива с новыми
       const combinedWorkTypes = [
@@ -1686,8 +1699,8 @@ function CreativePanel({ user }) {
         user_id: user.id,
         editor_name: user.name,
         article: selectedCreativeForEdit.article,
-        links: links,
-        link_titles: titles,
+        links: finalLinks,
+        link_titles: finalTitles,
         work_types: combinedWorkTypes,
         cof_rating: cofRating,
         comment: addEditCreative.comment.trim() || null,
@@ -5197,12 +5210,13 @@ function CreativePanel({ user }) {
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Перезалил по "старым"
+                    Перезалил по старым
                   </button>
                 </div>
               </div>
 
-              {/* Google Drive ссылки - сразу после артикула */}
+              {/* Google Drive ссылки - только если выбраны "Новые ссылки" */}
+              {addEditLinkType === 'new' && (
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
                   Google Drive ссылки *
@@ -5244,6 +5258,7 @@ function CreativePanel({ user }) {
                   Используйте только ссылки на Google Drive файлы
                 </p>
               </div>
+              )}
 
               {/* Автозаполненные поля (неактивные) - после ссылок */}
               {selectedCreativeForEdit && (
