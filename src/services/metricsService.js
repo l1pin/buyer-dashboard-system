@@ -48,6 +48,7 @@ SELECT
   'daily' as kind,
   t.video_name,
   t.adv_date,
+  t.source,
   COALESCE(SUM(t.valid), 0) AS leads,
   COALESCE(SUM(t.cost), 0) AS cost,
   COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -59,17 +60,18 @@ FROM ads_collection t
 WHERE t.video_name IN (${inClause})
   AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
   ${dateFilter}
-GROUP BY t.video_name, t.adv_date
-ORDER BY t.video_name, t.adv_date`;
+GROUP BY t.video_name, t.adv_date, t.source
+ORDER BY t.video_name, t.adv_date, t.source`;
   }
 
   static _buildDailyFirst4TotalSQL(inClause, dateFilter) {
     return `
-SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
+SELECT 'daily' as kind, video_name, adv_date, source, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -81,14 +83,15 @@ FROM (
   WHERE t.video_name IN (${inClause})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) daily_data
 UNION ALL
-SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+SELECT 'first4' as kind, video_name, NULL as adv_date, source, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -96,21 +99,22 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
     COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
-    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+    ROW_NUMBER() OVER (PARTITION BY t.video_name, t.source ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
   WHERE t.video_name IN (${inClause})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) ranked_daily
 WHERE rn <= 4
-GROUP BY video_name
+GROUP BY video_name, source
 UNION ALL
-SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+SELECT 'total' as kind, video_name, NULL as adv_date, source, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -122,10 +126,10 @@ FROM (
   WHERE t.video_name IN (${inClause})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) daily_data2
-GROUP BY video_name
-ORDER BY video_name, kind, adv_date`;
+GROUP BY video_name, source
+ORDER BY video_name, kind, adv_date, source`;
   }
 
   // LIKE поиск для видео без расширения (фоллбэк метод)
@@ -153,13 +157,14 @@ ORDER BY video_name, kind, adv_date`;
 
     console.log('📝 LIKE условия сформированы для', videoNames.length, 'названий');
 
-    // Используем тот же формат daily_first4_total
+    // Используем тот же формат daily_first4_total с source
     return `
-SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
+SELECT 'daily' as kind, video_name, adv_date, source, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -171,14 +176,15 @@ FROM (
   WHERE (${likeConditions})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) daily_data
 UNION ALL
-SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+SELECT 'first4' as kind, video_name, NULL as adv_date, source, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -186,21 +192,22 @@ FROM (
     COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
     COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
     COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
-    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+    ROW_NUMBER() OVER (PARTITION BY t.video_name, t.source ORDER BY t.adv_date ASC) as rn
   FROM ads_collection t
   WHERE (${likeConditions})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) ranked_daily
 WHERE rn <= 4
-GROUP BY video_name
+GROUP BY video_name, source
 UNION ALL
-SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+SELECT 'total' as kind, video_name, NULL as adv_date, source, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
 FROM (
   SELECT
     t.video_name,
     t.adv_date,
+    t.source,
     COALESCE(SUM(t.valid), 0) AS leads,
     COALESCE(SUM(t.cost), 0) AS cost,
     COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -212,10 +219,10 @@ FROM (
   WHERE (${likeConditions})
     AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
     ${dateFilter}
-  GROUP BY t.video_name, t.adv_date
+  GROUP BY t.video_name, t.adv_date, t.source
 ) daily_data2
-GROUP BY video_name
-ORDER BY video_name, kind, adv_date`;
+GROUP BY video_name, source
+ORDER BY video_name, kind, adv_date, source`;
   }
 }
 
@@ -474,6 +481,7 @@ export class MetricsService {
           kind: row.kind || 'daily',
           video_name: row.video_name,
           adv_date: row.adv_date || null,
+          source: row.source || null,
           leads: Number(row.leads) || 0,
           cost: Number(row.cost) || 0,
           clicks: Number(row.clicks) || 0,
@@ -525,6 +533,7 @@ export class MetricsService {
           kind: obj.kind || 'daily',
           video_name: obj.video_name,
           adv_date: obj.adv_date || null,
+          source: obj.source || null,
           leads: Number(obj.leads) || 0,
           cost: Number(obj.cost) || 0,
           clicks: Number(obj.clicks) || 0,
@@ -565,6 +574,7 @@ export class MetricsService {
         total: null,
         found: false,
         noData: true,
+        sources: [], // Массив уникальных источников для этого видео
       });
     });
 
@@ -680,6 +690,7 @@ export class MetricsService {
           total: null,
           found: false,
           noData: true,
+          sources: [],
         });
         newVideosAdded++;
       }
@@ -688,6 +699,12 @@ export class MetricsService {
       entry.found = true;
       entry.noData = false;
       processedCount++;
+
+      // Собираем уникальные источники для этого видео
+      const source = row.source;
+      if (source && !entry.sources.includes(source)) {
+        entry.sources.push(source);
+      }
 
       // 🔥🔥🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА ДО создания объекта
       if (index < 3) {

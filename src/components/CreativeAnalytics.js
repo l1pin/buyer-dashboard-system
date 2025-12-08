@@ -3,6 +3,7 @@ import { supabase, creativeService, userService, creativeHistoryService, metrics
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
+import { SourceBadges } from './SourceIcons';
 import {
   BarChart3,
   Users,
@@ -454,16 +455,25 @@ function CreativeAnalytics({ user }) {
 
   const getAggregatedCreativeMetrics = (creative) => {
     const creativeMetrics = getCreativeMetrics(creative.id);
-    
+
     if (!creativeMetrics || creativeMetrics.length === 0) {
       return null;
     }
 
     const validMetrics = creativeMetrics.filter(metric => metric.found && metric.data);
-    
+
     if (validMetrics.length === 0) {
       return null;
     }
+
+    // Собираем уникальные источники из всех метрик
+    const sourcesSet = new Set();
+    validMetrics.forEach(metric => {
+      if (metric.sources && Array.isArray(metric.sources)) {
+        metric.sources.forEach(source => sourcesSet.add(source));
+      }
+    });
+    const sources = Array.from(sourcesSet);
 
     const aggregated = validMetrics.reduce((acc, metric) => {
         const data = metric.data.raw;
@@ -500,6 +510,7 @@ function CreativeAnalytics({ user }) {
       found: true,
       videoCount: validMetrics.length,
       totalVideos: creativeMetrics.length,
+      sources: sources, // Уникальные источники для этого креатива
       data: {
         raw: {
           ...aggregated,
@@ -529,10 +540,10 @@ function CreativeAnalytics({ user }) {
     if (!creative.link_titles || videoIndex >= creative.link_titles.length) {
       return null;
     }
-    
+
     const videoKey = `${creative.id}_${videoIndex}`;
     const metric = batchMetrics.get(videoKey);
-    
+
     if (!metric || !metric.found || !metric.data) {
       return null;
     }
@@ -542,6 +553,7 @@ function CreativeAnalytics({ user }) {
       videoTitle: creative.link_titles[videoIndex] || `Видео ${videoIndex + 1}`,
       videoIndex: videoIndex + 1,
       totalVideos: creative.link_titles.length,
+      sources: metric.sources || [], // Источники для этого видео
       data: metric.data
     };
   };
@@ -3000,6 +3012,9 @@ function CreativeAnalytics({ user }) {
                         Зона
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Источники
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <BarChart3 className="h-4 w-4 mx-auto" />
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -3221,6 +3236,33 @@ function CreativeAnalytics({ user }) {
                                               data: videoMetric.data
                                             }}
                                           />
+                                        ) : (
+                                          <div className="text-center">
+                                            <span className="text-gray-400 text-xs">—</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    <span className="text-gray-400 text-xs">—</span>
+                                  </div>
+                                )
+                              )}
+                            </td>
+
+                            {/* КОЛОНКА ИСТОЧНИКОВ */}
+                            <td className="px-3 py-4 text-sm text-gray-900 text-center">
+                              {currentMode === 'aggregated' ? (
+                                <SourceBadges sources={getAggregatedCreativeMetrics(creative)?.sources || []} />
+                              ) : (
+                                allVideoMetrics.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {allVideoMetrics.map((videoMetric, index) => (
+                                      <div key={index} className="text-center min-h-[24px] flex items-center justify-center">
+                                        {videoMetric.found ? (
+                                          <SourceBadges sources={videoMetric.sources || []} />
                                         ) : (
                                           <div className="text-center">
                                             <span className="text-gray-400 text-xs">—</span>
