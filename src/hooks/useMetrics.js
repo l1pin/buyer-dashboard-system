@@ -769,8 +769,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         }
       }
 
-      // Обновляем время последнего обновления
-      await metricsAnalyticsService.updateMetricsLastUpdate();
+      // НЕ обновляем время "Обновлено:" - оно должно меняться только вручную
       setLastUpdated(new Date());
 
       const successCount = Array.from(rawMetricsMap.values()).filter(m => m.found).length;
@@ -1269,8 +1268,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log(`💾 Сохранено ${metricsToSave.length} метрик нового креатива в кэш (включая LIKE)`);
       }
 
-      // Обновляем время последнего обновления
-      await metricsAnalyticsService.updateMetricsLastUpdate();
+      // НЕ обновляем время "Обновлено:" - оно должно меняться только вручную
       setLastUpdated(new Date());
 
       const foundCount = Array.from(updatedRawMetrics.values()).filter(m =>
