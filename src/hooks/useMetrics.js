@@ -74,16 +74,40 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       if (!forceRefresh) {
         console.log(`📦 Проверка кэша Supabase для периода "all"...`);
         const creativeIds = creatives.map(c => c.id);
+        console.log(`🔍 ДИАГНОСТИКА: Ищем кэш для ${creativeIds.length} креативов`);
+        console.log(`📋 ID креативов:`, creativeIds.slice(0, 10));
 
         try {
           const cachedData = await metricsAnalyticsService.getBatchMetricsCache(creativeIds, 'all');
 
+          console.log(`🔥 КРИТИЧЕСКАЯ ДИАГНОСТИКА cachedData:`, {
+            isNull: cachedData === null,
+            isUndefined: cachedData === undefined,
+            isArray: Array.isArray(cachedData),
+            length: cachedData?.length,
+            type: typeof cachedData
+          });
+
           if (cachedData && cachedData.length > 0) {
             console.log(`📦 Найдено в кэше: ${cachedData.length} записей`);
+            console.log(`📋 Первые 3 записи cachedData:`, cachedData.slice(0, 3));
 
-            cachedData.forEach(cache => {
+            let processedCount = 0;
+            let skippedCount = 0;
+
+            cachedData.forEach((cache, index) => {
+              console.log(`\n🔍 Обработка кэша [${index}]:`, {
+                creative_id: cache?.creative_id,
+                video_index: cache?.video_index,
+                found: cache?.found,
+                hasData: !!cache?.data,
+                dataKeys: cache?.data ? Object.keys(cache.data) : []
+              });
+
               if (cache && cache.found && cache.data) {
                 const videoKey = `${cache.creative_id}_${cache.video_index}`;
+                console.log(`  ✅ Добавляем в rawMetricsMap: ${videoKey}`);
+
                 rawMetricsMap.set(videoKey, {
                   found: true,
                   data: cache.data,
@@ -93,8 +117,21 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   videoIndex: cache.video_index,
                   fromCache: true
                 });
+                processedCount++;
+              } else {
+                console.log(`  ❌ ПРОПУЩЕНО:`, {
+                  cacheExists: !!cache,
+                  found: cache?.found,
+                  hasData: !!cache?.data
+                });
+                skippedCount++;
               }
             });
+
+            console.log(`\n📊 ИТОГО обработки кэша:`);
+            console.log(`  ✅ Обработано: ${processedCount}`);
+            console.log(`  ❌ Пропущено: ${skippedCount}`);
+            console.log(`  📦 rawMetricsMap.size: ${rawMetricsMap.size}`);
 
             // Определяем какие видео НЕ нашлись в кэше
             videoMap.forEach((metadata, videoKey) => {
@@ -107,6 +144,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
             // Если всё в кэше - возвращаемся
             if (videosToLoadFromApi.length === 0) {
+              console.log(`\n🎉 ВСЕ МЕТРИКИ ИЗ КЭША!`);
+              console.log(`📦 Устанавливаем rawBatchMetrics с ${rawMetricsMap.size} записями`);
+              console.log(`📋 Первые 5 ключей rawMetricsMap:`, Array.from(rawMetricsMap.keys()).slice(0, 5));
+              console.log(`📋 Первая запись:`, Array.from(rawMetricsMap.values())[0]);
+
               setRawBatchMetrics(rawMetricsMap);
               setLastUpdated(new Date());
               console.log(`✅ Все ${rawMetricsMap.size} метрик из кэша`);
@@ -860,6 +902,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
    * Мгновенная фильтрация на клиенте при смене периода
    */
   const loadForPeriod = useCallback(async (targetPeriod) => {
+    console.log(`\n⚡ loadForPeriod вызван для периода: "${targetPeriod}"`);
+    console.log(`📦 rawBatchMetrics.size: ${rawBatchMetrics?.size || 0}`);
+
     if (!rawBatchMetrics || rawBatchMetrics.size === 0) {
       console.log('⚠️ Нет сырых данных для смены периода');
       setFilteredBatchMetrics(new Map());
@@ -868,6 +913,7 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
 
     console.log(`⚡ МГНОВЕННАЯ фильтрация на клиенте: период "${targetPeriod}"`);
+    console.log(`📋 Первые 3 ключа rawBatchMetrics:`, Array.from(rawBatchMetrics.keys()).slice(0, 3));
 
     // Попытка загрузить из кэша Supabase для нового периода
     if (targetPeriod === '4days') {
@@ -996,6 +1042,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
       }
     }
 
+    console.log(`\n📦 Устанавливаем filteredBatchMetrics:`);
+    console.log(`  📊 Всего записей: ${filteredMap.size}`);
+    console.log(`  ✅ С данными (found=true): ${successCount}`);
+    console.log(`  ❌ Без данных: ${totalCount - successCount}`);
+    console.log(`  📋 Первые 3 ключа:`, Array.from(filteredMap.keys()).slice(0, 3));
+    console.log(`  📋 Первая запись:`, Array.from(filteredMap.values())[0]);
+
     setFilteredBatchMetrics(filteredMap);
     setStats({
       total: totalCount,
@@ -1019,9 +1072,15 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
 
   // Фильтрация при смене периода
   useEffect(() => {
+    console.log(`\n🔄 useEffect: Смена периода или rawBatchMetrics`);
+    console.log(`📦 rawBatchMetrics.size: ${rawBatchMetrics.size}`);
+    console.log(`📅 period: ${period}`);
+
     if (rawBatchMetrics.size > 0) {
+      console.log(`✅ Вызываем loadForPeriod("${period}")`);
       loadForPeriod(period);
     } else {
+      console.log(`⚠️ rawBatchMetrics пуст, очищаем filteredBatchMetrics`);
       setFilteredBatchMetrics(new Map());
       setStats({ total: 0, found: 0, notFound: 0 });
     }
@@ -1033,11 +1092,20 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   }, [filteredBatchMetrics]);
 
   const getCreativeMetrics = useCallback((creativeId) => {
+    console.log(`\n🔍 getCreativeMetrics для креатива: ${creativeId}`);
+    console.log(`📦 filteredBatchMetrics.size: ${filteredBatchMetrics.size}`);
+
     const creativeMetrics = [];
 
     for (const [videoKey, metrics] of filteredBatchMetrics) {
       if (videoKey.startsWith(`${creativeId}_`)) {
         const videoIndex = parseInt(videoKey.split('_').pop());
+
+        console.log(`  ✅ Найдено видео: ${videoKey}`, {
+          videoIndex,
+          found: metrics?.found,
+          hasData: !!metrics?.data
+        });
 
         if (!isNaN(videoIndex)) {
           creativeMetrics.push({
@@ -1049,6 +1117,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     }
 
     creativeMetrics.sort((a, b) => a.videoIndex - b.videoIndex);
+
+    console.log(`📊 Итого метрик для креатива ${creativeId}: ${creativeMetrics.length}`);
+    console.log(`📋 Метрики:`, creativeMetrics.map(m => ({
+      videoIndex: m.videoIndex,
+      found: m.found,
+      hasData: !!m.data
+    })));
 
     return creativeMetrics.length > 0 ? creativeMetrics : null;
   }, [filteredBatchMetrics]);
