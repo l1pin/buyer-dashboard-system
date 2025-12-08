@@ -127,6 +127,96 @@ FROM (
 GROUP BY video_name
 ORDER BY video_name, kind, adv_date`;
   }
+
+  // LIKE поиск для видео без расширения (фоллбэк метод)
+  static buildLikeSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily_first4_total') {
+    if (!videoNames || videoNames.length === 0) {
+      throw new Error('videoNames не может быть пустым для LIKE поиска');
+    }
+
+    console.log('🔍 Формирование LIKE SQL для', videoNames.length, 'видео');
+
+    // Фильтр по датам
+    let dateFilter = '';
+    if (dateFrom && dateTo) {
+      dateFilter = `AND t.adv_date >= '${this.escapeString(dateFrom)}'
+      AND t.adv_date <= '${this.escapeString(dateTo)}'`;
+    }
+
+    // Убираем расширения и создаем LIKE условия
+    const likeConditions = videoNames.map(name => {
+      // Убираем расширение (.mp4, .mov и т.д.)
+      const nameWithoutExt = name.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
+      const escaped = this.escapeString(nameWithoutExt);
+      return `t.video_name LIKE '%${escaped}%'`;
+    }).join(' OR ');
+
+    console.log('📝 LIKE условия сформированы для', videoNames.length, 'названий');
+
+    // Используем тот же формат daily_first4_total
+    return `
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+UNION ALL
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data2
+GROUP BY video_name
+ORDER BY video_name, kind, adv_date`;
+  }
 }
 
 export class MetricsService {
@@ -137,10 +227,9 @@ export class MetricsService {
     const {
       dateFrom = null,
       dateTo = null,
-      kind = "daily_first4_total", // daily | first4 | total | daily_first4_total
+      kind = "daily_first4_total",
       useCache = true,
-      useLike = false, // 🆕 Режим LIKE поиска
-      timeout = useLike ? 32000 : 15000, // 🆕 Адаптивный таймаут
+      timeout = 15000,
     } = options;
 
     if (!videoNames || videoNames.length === 0) {
@@ -149,43 +238,122 @@ export class MetricsService {
     }
 
     console.log(
-      `🚀 ПРЯМОЙ ЗАПРОС К БД: ${videoNames.length} видео, kind=${kind}, timeout=${timeout}ms`
+      `🚀 ДВУХЭТАПНЫЙ ПОИСК: ${videoNames.length} видео, kind=${kind}`
     );
 
+    const startTime = Date.now();
+
     try {
-      // Генерируем SQL запрос локально
-      const sql = SQLBuilder.buildBatchSQL(videoNames, dateFrom, dateTo, kind);
+      // ============ ЭТАП 1: ТОЧНОЕ СОВПАДЕНИЕ ============
+      console.log('📍 ЭТАП 1: Поиск по точному совпадению...');
 
-      console.log('📝 SQL запрос сформирован, длина:', sql.length, 'байт');
+      const exactSQL = SQLBuilder.buildBatchSQL(videoNames, dateFrom, dateTo, kind);
+      const exactData = await this._executeSQLQuery(exactSQL, timeout);
+      const normalizedExact = this._normalizeApiResponse(exactData);
 
-      const startTime = Date.now();
+      console.log(`✅ ЭТАП 1 завершен: найдено ${normalizedExact.length} записей`);
 
-      // 🆕 Создаем AbortController для таймаута
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      // Группируем результаты точного поиска
+      const exactResults = this._groupBatchResults(normalizedExact, videoNames);
 
-      let response;
-      try {
-        // Отправляем SQL напрямую к API базы данных
-        response = await fetch(METRICS_API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ sql }),
-          signal: controller.signal,
-        });
+      // Определяем, для каких видео НЕ найдены метрики
+      const notFoundVideos = exactResults
+        .filter(result => !result.found || result.noData)
+        .map(result => result.videoName);
 
-        clearTimeout(timeoutId);
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
+      console.log(`📊 Не найдено метрик для ${notFoundVideos.length} из ${videoNames.length} видео`);
 
-        if (fetchError.name === 'AbortError') {
-          throw new Error(`Таймаут ${timeout}ms превышен для ${videoNames.length} видео`);
+      let likeResults = [];
+      let combinedData = normalizedExact;
+
+      // ============ ЭТАП 2: LIKE ПОИСК ============
+      if (notFoundVideos.length > 0) {
+        console.log('📍 ЭТАП 2: LIKE поиск для не найденных видео...');
+        console.log('🔍 Ищем через LIKE:', notFoundVideos);
+
+        try {
+          const likeSQL = SQLBuilder.buildLikeSQL(notFoundVideos, dateFrom, dateTo, kind);
+          const likeData = await this._executeSQLQuery(likeSQL, timeout + 10000); // +10сек для LIKE
+          const normalizedLike = this._normalizeApiResponse(likeData);
+
+          console.log(`✅ ЭТАП 2 завершен: найдено ${normalizedLike.length} записей через LIKE`);
+
+          // Объединяем данные
+          combinedData = [...normalizedExact, ...normalizedLike];
+
+          // Группируем результаты LIKE поиска
+          likeResults = this._groupBatchResults(normalizedLike, notFoundVideos);
+        } catch (likeError) {
+          console.error('⚠️ Ошибка LIKE поиска:', likeError.message);
+          // Продолжаем с результатами точного поиска
         }
-        throw fetchError;
       }
+
+      const elapsed = Date.now() - startTime;
+
+      // Финальная группировка всех результатов
+      const finalResults = this._groupBatchResults(combinedData, videoNames);
+
+      // Статистика
+      const foundCount = finalResults.filter(r => r.found && !r.noData).length;
+      const exactFoundCount = exactResults.filter(r => r.found && !r.noData).length;
+      const likeFoundCount = likeResults.filter(r => r.found && !r.noData).length;
+
+      console.log(`
+📊 ИТОГОВАЯ СТАТИСТИКА:
+  ✅ Найдено всего: ${foundCount}/${videoNames.length}
+  🎯 Точное совпадение: ${exactFoundCount}
+  🔍 LIKE поиск: ${likeFoundCount}
+  ❌ Не найдено: ${videoNames.length - foundCount}
+  ⏱️ Время: ${elapsed}ms
+      `);
+
+      return {
+        success: true,
+        results: finalResults,
+        metadata: {
+          elapsed,
+          total: videoNames.length,
+          found: foundCount,
+          exactMatch: exactFoundCount,
+          likeMatch: likeFoundCount,
+          notFound: videoNames.length - foundCount,
+        },
+      };
+    } catch (error) {
+      const isTimeout = error.message.includes('Таймаут');
+      console.error(`❌ Ошибка загрузки ${isTimeout ? '(TIMEOUT)' : ''}:`, error.message);
+
+      return {
+        success: false,
+        error: error.message,
+        isTimeout: isTimeout,
+        results: [],
+      };
+    }
+  }
+
+  /**
+   * Выполнение SQL запроса к API базы данных
+   */
+  static async _executeSQLQuery(sql, timeout = 15000) {
+    console.log('📝 Выполнение SQL запроса, длина:', sql.length, 'байт');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(METRICS_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ sql }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -194,51 +362,19 @@ export class MetricsService {
 
       const text = await response.text();
 
-      console.log('📨 Получен ответ от БД API, длина:', text?.length);
-
       if (!text || !text.trim()) {
         console.log('⚠️ Пустой ответ от API');
-        return { success: false, results: [], error: 'Пустой ответ от API' };
+        return [];
       }
 
-      const data = JSON.parse(text);
+      return JSON.parse(text);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
 
-      // Нормализуем данные, полученные от API
-      const normalizedData = this._normalizeApiResponse(data);
-
-      console.log(`📥 Получен ответ от БД API:`, {
-        isArray: Array.isArray(normalizedData),
-        length: Array.isArray(normalizedData) ? normalizedData.length : "not array",
-        firstItem: Array.isArray(normalizedData) && normalizedData.length > 0 ? normalizedData[0] : null,
-      });
-      const elapsed = Date.now() - startTime;
-
-      console.log(`✅ ПРЯМОЙ ЗАПРОС К БД завершен за ${elapsed}ms:`, {
-        records: normalizedData.length,
-        videosRequested: videoNames.length,
-      });
-
-      // Группируем результаты по video_name и kind
-      const resultsByVideo = this._groupBatchResults(normalizedData, videoNames);
-
-      return {
-        success: true,
-        results: resultsByVideo,
-        metadata: {
-          elapsed,
-          records: normalizedData.length,
-        },
-      };
-    } catch (error) {
-      const isTimeout = error.message.includes('Таймаут');
-      console.error(`❌ Ошибка батчевой загрузки ${isTimeout ? '(TIMEOUT)' : ''}:`, error.message);
-
-      return {
-        success: false,
-        error: error.message,
-        isTimeout: isTimeout,
-        results: [],
-      };
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`Таймаут ${timeout}ms превышен`);
+      }
+      throw fetchError;
     }
   }
 
