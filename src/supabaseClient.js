@@ -2316,6 +2316,163 @@ export const creativeService = {
       console.error('💥 Ошибка получения креативов с метриками:', error);
       return [];
     }
+  },
+
+  // ==================== ФУНКЦИИ ДЛЯ ПРАВОК КРЕАТИВОВ ====================
+
+  // Создать правку креатива
+  async createCreativeEdit(editData) {
+    console.log('📝 Создание правки креатива:', {
+      creative_id: editData.creative_id,
+      work_types: editData.work_types,
+      linksCount: editData.links?.length || 0
+    });
+
+    const { data, error } = await supabase
+      .from('creative_edits')
+      .insert([{
+        creative_id: editData.creative_id,
+        user_id: editData.user_id,
+        editor_name: editData.editor_name,
+        work_types: editData.work_types || [],
+        links: editData.links || [],
+        link_titles: editData.link_titles || [],
+        comment: editData.comment || null,
+        cof_rating: editData.cof_rating || 0,
+        created_at: getKyivTime()
+      }])
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка создания правки:', error);
+      throw error;
+    }
+
+    console.log('✅ Правка создана:', data[0]);
+    return data[0];
+  },
+
+  // Получить все правки креатива
+  async getCreativeEdits(creativeId) {
+    console.log('📡 Получение правок креатива:', creativeId);
+
+    const { data, error } = await supabase
+      .from('creative_edits')
+      .select('*')
+      .eq('creative_id', creativeId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка получения правок:', error);
+      throw error;
+    }
+
+    console.log('✅ Получено правок:', data?.length || 0);
+    return data || [];
+  },
+
+  // Получить правки для нескольких креативов
+  async getEditsForCreatives(creativeIds) {
+    if (!creativeIds || creativeIds.length === 0) return {};
+
+    console.log('📡 Получение правок для креативов:', creativeIds.length);
+
+    const { data, error } = await supabase
+      .from('creative_edits')
+      .select('*')
+      .in('creative_id', creativeIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка получения правок:', error);
+      return {};
+    }
+
+    // Группируем по creative_id
+    const grouped = {};
+    (data || []).forEach(edit => {
+      if (!grouped[edit.creative_id]) {
+        grouped[edit.creative_id] = [];
+      }
+      grouped[edit.creative_id].push(edit);
+    });
+
+    console.log('✅ Получено правок для креативов:', Object.keys(grouped).length);
+    return grouped;
+  },
+
+  // Обновить родительский креатив при добавлении правки
+  async updateCreativeWithEdit(creativeId, newLinks, newTitles, editId, editDate) {
+    console.log('📝 Обновление креатива с новыми ссылками:', {
+      creativeId,
+      newLinksCount: newLinks?.length || 0
+    });
+
+    // Получаем текущий креатив
+    const { data: creative, error: fetchError } = await supabase
+      .from('creatives')
+      .select('links, link_titles, link_metadata')
+      .eq('id', creativeId)
+      .single();
+
+    if (fetchError) {
+      console.error('❌ Ошибка получения креатива:', fetchError);
+      throw fetchError;
+    }
+
+    // Объединяем ссылки
+    const currentLinks = creative.links || [];
+    const currentTitles = creative.link_titles || [];
+    const currentMetadata = creative.link_metadata || [];
+
+    // Добавляем новые ссылки с метаданными
+    const updatedLinks = [...currentLinks, ...(newLinks || [])];
+    const updatedTitles = [...currentTitles, ...(newTitles || [])];
+
+    // Создаем метаданные для новых ссылок
+    const newMetadata = (newLinks || []).map((link, index) => ({
+      link_index: currentLinks.length + index,
+      edit_id: editId,
+      added_at: editDate,
+      title: newTitles?.[index] || null
+    }));
+    const updatedMetadata = [...currentMetadata, ...newMetadata];
+
+    // Обновляем креатив
+    const { data, error } = await supabase
+      .from('creatives')
+      .update({
+        links: updatedLinks,
+        link_titles: updatedTitles,
+        link_metadata: updatedMetadata,
+        has_edits: true
+      })
+      .eq('id', creativeId)
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка обновления креатива:', error);
+      throw error;
+    }
+
+    console.log('✅ Креатив обновлен с новыми ссылками');
+    return data[0];
+  },
+
+  // Пометить креатив как имеющий правки (без новых ссылок)
+  async markCreativeHasEdits(creativeId) {
+    const { data, error } = await supabase
+      .from('creatives')
+      .update({ has_edits: true })
+      .eq('id', creativeId)
+      .select();
+
+    if (error) {
+      console.error('❌ Ошибка пометки креатива:', error);
+      throw error;
+    }
+
+    return data[0];
   }
 };
 
