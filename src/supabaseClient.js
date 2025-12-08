@@ -2496,29 +2496,69 @@ export const trelloService = {
     try {
       console.log('🔵 getBatchCardStatuses вызван с', creativeIds.length, 'ID');
 
-      const { data, error } = await supabase
-        .from('trello_card_statuses')
-        .select('*')
-        .in('creative_id', creativeIds);
+      // КРИТИЧНО: Разбиваем creativeIds на чанки по 500 штук (ограничение Supabase IN clause)
+      const CHUNK_SIZE = 500;
+      const PAGE_SIZE = 1000;
+      let allData = [];
 
-      if (error) {
-        console.error('❌ Ошибка запроса к trello_card_statuses:', error);
-        throw error;
+      // Разбиваем creativeIds на чанки
+      const chunks = [];
+      for (let i = 0; i < creativeIds.length; i += CHUNK_SIZE) {
+        chunks.push(creativeIds.slice(i, i + CHUNK_SIZE));
       }
 
-      console.log('📦 Получено из БД:', data?.length || 0, 'статусов');
-      if (data && data.length > 0) {
-        console.log('📋 Первый статус:', data[0]);
+      console.log(`📦 Trello статусы: разбито на ${chunks.length} чанков по ${CHUNK_SIZE} ID`);
+
+      // Обрабатываем каждый чанк с пагинацией
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * PAGE_SIZE;
+          const to = from + PAGE_SIZE - 1;
+
+          const { data, error } = await supabase
+            .from('trello_card_statuses')
+            .select('*')
+            .in('creative_id', chunk)
+            .range(from, to);
+
+          if (error) {
+            console.error('❌ Ошибка запроса к trello_card_statuses:', error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+          }
+
+          // Проверяем, есть ли еще данные
+          hasMore = data && data.length === PAGE_SIZE;
+          page++;
+
+          // Защита от бесконечного цикла
+          if (page > 50) {
+            console.warn('⚠️ Trello: Достигнут лимит страниц (50)');
+            break;
+          }
+        }
+      }
+
+      console.log('📦 Получено из БД:', allData.length, 'статусов');
+      if (allData.length > 0) {
+        console.log('📋 Первый статус:', allData[0]);
       }
 
       // Преобразуем в Map для быстрого доступа
       const statusMap = new Map();
-      (data || []).forEach(status => {
+      allData.forEach(status => {
         statusMap.set(status.creative_id, status);
       });
 
       console.log('✅ Map создан, размер:', statusMap.size);
-      console.log('🗺️ Ключи Map (первые 5):', Array.from(statusMap.keys()).slice(0, 5));
 
       return statusMap;
     } catch (error) {
@@ -3711,49 +3751,65 @@ export const metricsAnalyticsService = {
         period
       });
 
-      // КРИТИЧНО: Загружаем ВСЕ данные с пагинацией (не лимит 1000!)
+      // КРИТИЧНО: Разбиваем creativeIds на чанки по 500 штук (ограничение Supabase IN clause)
+      const CHUNK_SIZE = 500;
       const PAGE_SIZE = 1000;
       let allData = [];
-      let page = 0;
-      let hasMore = true;
 
-      while (hasMore) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
+      // Разбиваем creativeIds на чанки
+      const chunks = [];
+      for (let i = 0; i < creativeIds.length; i += CHUNK_SIZE) {
+        chunks.push(creativeIds.slice(i, i + CHUNK_SIZE));
+      }
 
-        console.log(`📄 Загрузка страницы ${page + 1} (записи ${from}-${to})...`);
+      console.log(`📦 Разбито на ${chunks.length} чанков по ${CHUNK_SIZE} ID`);
 
-        const { data, error, count } = await supabase
-          .from('metrics_cache')
-          .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at', { count: 'exact' })
-          .in('creative_id', creativeIds)
-          .eq('period', period)
-          .range(from, to);
+      // Обрабатываем каждый чанк
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+        console.log(`\n🔄 Обработка чанка ${chunkIndex + 1}/${chunks.length} (${chunk.length} ID)...`);
 
-        if (error) {
-          console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
-          throw error;
-        }
+        let page = 0;
+        let hasMore = true;
 
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          console.log(`✅ Загружено ${data.length} записей, всего: ${allData.length}`);
-        }
+        while (hasMore) {
+          const from = page * PAGE_SIZE;
+          const to = from + PAGE_SIZE - 1;
 
-        // Проверяем, есть ли еще данные
-        hasMore = data && data.length === PAGE_SIZE;
-        page++;
+          console.log(`📄 Чанк ${chunkIndex + 1}, страница ${page + 1} (записи ${from}-${to})...`);
 
-        // Защита от бесконечного цикла
-        if (page > 100) {
-          console.warn('⚠️ Достигнут лимит страниц (100), прерываем загрузку');
-          break;
+          const { data, error, count } = await supabase
+            .from('metrics_cache')
+            .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at', { count: 'exact' })
+            .in('creative_id', chunk)
+            .eq('period', period)
+            .range(from, to);
+
+          if (error) {
+            console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            console.log(`✅ Загружено ${data.length} записей, всего: ${allData.length}`);
+          }
+
+          // Проверяем, есть ли еще данные
+          hasMore = data && data.length === PAGE_SIZE;
+          page++;
+
+          // Защита от бесконечного цикла
+          if (page > 100) {
+            console.warn('⚠️ Достигнут лимит страниц (100), прерываем загрузку');
+            break;
+          }
         }
       }
 
       console.log('📦 Все данные загружены из metrics_cache:', {
         totalCount: allData.length,
-        pages: page
+        chunks: chunks.length
       });
 
       // Преобразуем каждую запись из колонок в формат с вычисленными метриками
@@ -3761,20 +3817,25 @@ export const metricsAnalyticsService = {
         console.log(`🔄 Преобразуем ${allData.length} записей кэша через reconstructMetricsFromCache...`);
 
         const reconstructed = allData.map((cache, index) => {
-          console.log(`📋 Преобразование записи ${index + 1}:`, {
-            creative_id: cache.creative_id,
-            video_index: cache.video_index,
-            leads: cache.leads,
-            cost: cache.cost
-          });
+          // Логируем только первые 3 для диагностики
+          if (index < 3) {
+            console.log(`📋 Преобразование записи ${index + 1}:`, {
+              creative_id: cache.creative_id,
+              video_index: cache.video_index,
+              leads: cache.leads,
+              cost: cache.cost
+            });
+          }
 
           const result = this.reconstructMetricsFromCache(cache);
 
-          console.log(`✅ Результат преобразования ${index + 1}:`, {
-            found: result?.found,
-            hasData: !!result?.data,
-            leads: result?.data?.formatted?.leads
-          });
+          if (index < 3) {
+            console.log(`✅ Результат преобразования ${index + 1}:`, {
+              found: result?.found,
+              hasData: !!result?.data,
+              leads: result?.data?.formatted?.leads
+            });
+          }
 
           return result;
         });
@@ -3794,17 +3855,8 @@ export const metricsAnalyticsService = {
   // Восстановление метрик из кэша с вычислением производных метрик
   reconstructMetricsFromCache(cacheData) {
     if (!cacheData) {
-      console.log('⚠️ reconstructMetricsFromCache: cacheData is null');
       return null;
     }
-
-    console.log('📦 Восстановление метрик из кэша:', {
-      creative_id: cacheData.creative_id,
-      video_index: cacheData.video_index,
-      hasLeads: 'leads' in cacheData,
-      leads: cacheData.leads,
-      article: cacheData.article
-    });
 
     // КРИТИЧНО: Проверяем, все ли поля NULL (нет данных)
     const isAllNull = cacheData.leads === null &&
@@ -3813,7 +3865,6 @@ export const metricsAnalyticsService = {
       cacheData.impressions === null;
 
     if (isAllNull) {
-      console.log('⚪ Все метрики NULL - возвращаем found: false');
       // Возвращаем found: false для отображения "—"
       return {
         creative_id: cacheData.creative_id,
@@ -3841,10 +3892,6 @@ export const metricsAnalyticsService = {
     const days_count = Number(cacheData.days_count) || 0;
     const cost_from_sources = Number(cacheData.cost_from_sources) || 0;
     const clicks_on_link = Number(cacheData.clicks_on_link) || 0;
-
-    console.log('📦 Используем НОВЫЙ формат кэша (отдельные колонки):', {
-      leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link
-    });
 
     // Вычисляем производные метрики на клиенте
     const cpl = leads > 0 ? cost / leads : 0;

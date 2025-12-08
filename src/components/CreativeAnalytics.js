@@ -1074,74 +1074,100 @@ function CreativeAnalytics({ user }) {
   const syncMissingTrelloStatuses = async (currentStatusMap) => {
     try {
       console.log('🔄 Проверка пропущенных Trello статусов...');
-      
+
       // Находим креативы с trello_link, но без статуса
       const creativesWithoutStatus = analytics.creatives.filter(creative => {
         const hasLink = !!creative.trello_link;
         const hasStatus = currentStatusMap.has(creative.id);
         return hasLink && !hasStatus;
       });
-      
+
       if (creativesWithoutStatus.length === 0) {
         console.log('✅ Все креативы с Trello ссылками имеют статусы');
         return 0;
       }
-      
+
       console.log(`⚠️ Найдено ${creativesWithoutStatus.length} креативов БЕЗ статуса, но с Trello ссылкой`);
-      console.log('📋 Артикулы:', creativesWithoutStatus.map(c => c.article).join(', '));
-      
-      // Синхронизируем каждый креатив
+
+      // 🚀 ОПТИМИЗАЦИЯ: Параллельная загрузка батчами по 5 креативов
+      const BATCH_SIZE = 5;
       let successCount = 0;
       let errorCount = 0;
       const newStatuses = new Map();
-      
-      for (const creative of creativesWithoutStatus) {
-        try {
-          console.log(`🔄 Синхронизация статуса для ${creative.article}...`);
-          
-          const result = await trelloService.syncSingleCreative(
-            creative.id,
-            creative.trello_link
-          );
-          
-          if (result.success) {
-            console.log(`✅ Статус синхронизирован: ${result.listName}`);
-            
-            // Сохраняем в временный Map
-            newStatuses.set(creative.id, {
-              creative_id: creative.id,
-              list_name: result.listName,
-              list_id: result.listId,
-              trello_card_id: result.cardId,
-              last_updated: new Date().toISOString()
-            });
-            
+
+      // Разбиваем на батчи
+      const batches = [];
+      for (let i = 0; i < creativesWithoutStatus.length; i += BATCH_SIZE) {
+        batches.push(creativesWithoutStatus.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(`📦 Разбито на ${batches.length} батчей по ${BATCH_SIZE} креативов`);
+
+      // Обрабатываем батчи последовательно, но внутри батча - параллельно
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`🔄 Батч ${batchIndex + 1}/${batches.length}: синхронизация ${batch.length} креативов...`);
+
+        // Параллельная обработка внутри батча
+        const results = await Promise.allSettled(
+          batch.map(async (creative) => {
+            try {
+              const result = await trelloService.syncSingleCreative(
+                creative.id,
+                creative.trello_link
+              );
+
+              if (result.success) {
+                return {
+                  success: true,
+                  creativeId: creative.id,
+                  status: {
+                    creative_id: creative.id,
+                    list_name: result.listName,
+                    list_id: result.listId,
+                    trello_card_id: result.cardId,
+                    last_updated: new Date().toISOString()
+                  }
+                };
+              }
+              return { success: false, creativeId: creative.id };
+            } catch (error) {
+              console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
+              return { success: false, creativeId: creative.id, error: error.message };
+            }
+          })
+        );
+
+        // Собираем результаты батча
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.success) {
+            newStatuses.set(result.value.creativeId, result.value.status);
             successCount++;
+          } else {
+            errorCount++;
           }
-        } catch (error) {
-          console.error(`❌ Ошибка синхронизации ${creative.article}:`, error.message);
-          errorCount++;
-        }
-        
-        // Задержка между запросами к API Trello (избегаем rate limit)
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
-      // Обновляем Map одним вызовом
-      if (newStatuses.size > 0) {
-        setTrelloStatuses(prev => {
-          const updated = new Map(prev);
-          newStatuses.forEach((value, key) => {
-            updated.set(key, value);
-          });
-          console.log('🗺️ Map обновлен, новый размер:', updated.size);
-          return updated;
         });
+
+        // Обновляем UI после каждого батча для отзывчивости
+        if (newStatuses.size > 0) {
+          setTrelloStatuses(prev => {
+            const updated = new Map(prev);
+            newStatuses.forEach((value, key) => {
+              updated.set(key, value);
+            });
+            return updated;
+          });
+        }
+
+        // Небольшая задержка между батчами для избежания rate limit
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
       }
-      
+
       console.log(`🎉 Автосинхронизация завершена: успешно ${successCount}, ошибок ${errorCount}`);
       return successCount;
-      
+
     } catch (error) {
       console.error('❌ Ошибка автосинхронизации статусов:', error);
       return 0;
