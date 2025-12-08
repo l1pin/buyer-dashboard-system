@@ -1,6 +1,6 @@
 // netlify/functions/scheduled-metrics-refresh.mjs
-// Scheduled Function для автоматического обновления метрик каждые 15 минут
-// Требует Netlify Pro для scheduled functions
+// Background Scheduled Function для автоматического обновления метрик каждые 15 минут
+// Требует Netlify Pro - background functions работают до 15 минут (вместо 60 сек)
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -16,16 +16,16 @@ const CONFIG = {
   // Батчинг для API запросов
   BATCH_SIZE: 150,
 
-  // LIKE поиск - меньший батч (тяжелые запросы)
-  LIKE_BATCH_SIZE: 15,
+  // LIKE поиск - можно больший батч с background function
+  LIKE_BATCH_SIZE: 50,
 
   // Таймауты
   API_TIMEOUT_MS: 25000,
   RETRY_COUNT: 2,
   RETRY_DELAY_MS: 2000,
 
-  // Максимальное время выполнения функции (50 сек, чтобы успеть завершиться до 60 сек лимита)
-  MAX_EXECUTION_TIME_MS: 50000,
+  // Максимальное время выполнения функции (14 мин, background functions до 15 мин)
+  MAX_EXECUTION_TIME_MS: 840000,
 
   // API метрик
   METRICS_API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php'
@@ -837,7 +837,8 @@ async function refreshAllMetrics() {
 
 // ==================== NETLIFY SCHEDULED FUNCTION CONFIG ====================
 export const config = {
-  schedule: "*/15 * * * *"
+  schedule: "*/15 * * * *",
+  type: "background"  // До 15 минут вместо 60 секунд (требует Netlify Pro)
 };
 
 // ==================== HANDLER ====================
