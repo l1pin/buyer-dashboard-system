@@ -230,8 +230,8 @@ export class MetricsService {
       dateTo = null,
       kind = "daily_first4_total",
       useCache = true,
-      timeout = 30000, // Увеличен базовый таймаут
-      chunkSize = 50, // Размер батча (50 видео за раз)
+      timeout = 15000, // Оптимизированный таймаут 15 секунд
+      chunkSize = 150, // Увеличенный размер батча (150 видео за раз)
     } = options;
 
     if (!videoNames || videoNames.length === 0) {
@@ -279,14 +279,15 @@ export class MetricsService {
       if (notFoundVideos.length > 0) {
         console.log('📍 ЭТАП 2: LIKE поиск для не найденных видео (батчами)...');
 
-        // Разбиваем на чанки для LIKE поиска
-        const likeChunks = this._chunkArray(notFoundVideos, Math.min(chunkSize, 30)); // Меньше для LIKE
-        console.log(`📦 Разбито на ${likeChunks.length} батчей для LIKE поиска`);
+        // Разбиваем на чанки для LIKE поиска (увеличенный размер)
+        const likeChunkSize = Math.min(chunkSize, 100); // Увеличено с 30 до 100
+        const likeChunks = this._chunkArray(notFoundVideos, likeChunkSize);
+        console.log(`📦 Разбито на ${likeChunks.length} батчей для LIKE поиска (по ${likeChunkSize} видео)`);
 
         try {
-          // Параллельные LIKE запросы
+          // Параллельные LIKE запросы с увеличенным таймаутом
           const likePromises = likeChunks.map((chunk, index) =>
-            this._fetchLikeChunk(chunk, dateFrom, dateTo, kind, timeout + 15000, `LIKE-${index + 1}`)
+            this._fetchLikeChunk(chunk, dateFrom, dateTo, kind, timeout + 10000, `LIKE-${index + 1}`)
           );
 
           const likeResults = await Promise.all(likePromises);
