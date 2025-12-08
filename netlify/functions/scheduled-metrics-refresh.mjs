@@ -16,14 +16,30 @@ const CONFIG = {
   // Батчинг для API запросов
   BATCH_SIZE: 150,
 
+  // LIKE поиск - меньший батч (тяжелые запросы)
+  LIKE_BATCH_SIZE: 15,
+
   // Таймауты
   API_TIMEOUT_MS: 25000,
   RETRY_COUNT: 2,
   RETRY_DELAY_MS: 2000,
 
+  // Максимальное время выполнения функции (50 сек, чтобы успеть завершиться до 60 сек лимита)
+  MAX_EXECUTION_TIME_MS: 50000,
+
   // API метрик
   METRICS_API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php'
 };
+
+// Время начала выполнения
+let executionStartTime = null;
+
+// Проверка оставшегося времени
+function hasTimeLeft(minRequiredMs = 5000) {
+  if (!executionStartTime) return true;
+  const elapsed = Date.now() - executionStartTime;
+  return (CONFIG.MAX_EXECUTION_TIME_MS - elapsed) > minRequiredMs;
+}
 
 // ==================== SUPABASE CLIENT ====================
 let supabase = null;
@@ -539,8 +555,12 @@ async function updateMetricsStatus(status, videosUpdated = 0, isAuto = true) {
 
 // ==================== ОСНОВНАЯ ФУНКЦИЯ ====================
 async function refreshAllMetrics() {
+  // Засекаем время начала
+  executionStartTime = Date.now();
+
   console.log('🚀 Запуск автоматического обновления метрик...');
   console.log(`⏰ Время: ${new Date().toISOString()}`);
+  console.log(`⏱️ Лимит времени: ${CONFIG.MAX_EXECUTION_TIME_MS / 1000} сек`);
 
   try {
     // Устанавливаем статус "running"
@@ -605,23 +625,34 @@ async function refreshAllMetrics() {
     console.log(`   Не найдено (all): ${allNotFoundAll.length}`);
 
     // ==================== ШАГ 4: LIKE ПОИСК ====================
-    if (allNotFoundAll.length > 0) {
+    let likeSearchCompleted = false;
+    let likeSearchSkipped = 0;
+    const allLikeMatchedAll = new Set();
+    const allLikeMatched4days = new Set();
+
+    if (allNotFoundAll.length > 0 && hasTimeLeft(15000)) {
       console.log('\n═══════════════════════════════════════════════');
       console.log('🔍 ШАГ 4: LIKE ПОИСК');
       console.log('═══════════════════════════════════════════════');
       console.log(`📊 Видео для LIKE поиска: ${allNotFoundAll.length}`);
+      console.log(`📦 Размер батча LIKE: ${CONFIG.LIKE_BATCH_SIZE}`);
 
-      const LIKE_BATCH_SIZE = 50; // Меньший батч для LIKE (тяжелее для БД)
-      const likeBatches = Math.ceil(allNotFoundAll.length / LIKE_BATCH_SIZE);
-      const allLikeMatchedAll = new Set();
-      const allLikeMatched4days = new Set();
+      const likeBatches = Math.ceil(allNotFoundAll.length / CONFIG.LIKE_BATCH_SIZE);
 
-      for (let i = 0; i < allNotFoundAll.length; i += LIKE_BATCH_SIZE) {
-        const batchNum = Math.floor(i / LIKE_BATCH_SIZE) + 1;
-        const batchAll = allNotFoundAll.slice(i, i + LIKE_BATCH_SIZE);
-        const batch4days = allNotFound4days.slice(i, i + LIKE_BATCH_SIZE);
+      for (let i = 0; i < allNotFoundAll.length; i += CONFIG.LIKE_BATCH_SIZE) {
+        // Проверяем время перед каждым батчем
+        if (!hasTimeLeft(10000)) {
+          likeSearchSkipped = allNotFoundAll.length - i;
+          console.log(`\n⏰ ТАЙМАУТ: Осталось мало времени, пропускаем ${likeSearchSkipped} видео LIKE поиска`);
+          break;
+        }
 
-        console.log(`🔍 LIKE батч ${batchNum}/${likeBatches} (${batchAll.length} видео)...`);
+        const batchNum = Math.floor(i / CONFIG.LIKE_BATCH_SIZE) + 1;
+        const batchAll = allNotFoundAll.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
+        const batch4days = allNotFound4days.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
+
+        const elapsed = Math.round((Date.now() - executionStartTime) / 1000);
+        console.log(`🔍 LIKE батч ${batchNum}/${likeBatches} (${batchAll.length} видео) [${elapsed}с]...`);
 
         // LIKE для периода "all"
         const likeResultAll = await processLikeBatch(batchAll, videoMap, 'all');
@@ -634,30 +665,39 @@ async function refreshAllMetrics() {
         likeResult4days.matchedVideos.forEach(v => allLikeMatched4days.add(v));
 
         // Пауза между LIKE батчами (они тяжелее)
-        if (i + LIKE_BATCH_SIZE < allNotFoundAll.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+        if (i + CONFIG.LIKE_BATCH_SIZE < allNotFoundAll.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
 
+      likeSearchCompleted = likeSearchSkipped === 0;
+
       console.log(`\n📊 Результат LIKE поиска:`);
-      console.log(`   Найдено (all): ${allLikeMatchedAll.size}/${allNotFoundAll.length}`);
-      console.log(`   Найдено (4days): ${allLikeMatched4days.size}/${allNotFound4days.length}`);
-
-      // ==================== ШАГ 5: NULL ЗАПИСИ ====================
-      // Видео которые не нашлись ни точно, ни через LIKE
-      const now = new Date().toISOString();
-      const stillNotFoundAll = allNotFoundAll.filter(v => !allLikeMatchedAll.has(v));
-      const stillNotFound4days = allNotFound4days.filter(v => !allLikeMatched4days.has(v));
-
-      if (stillNotFoundAll.length > 0) {
-        console.log(`\n📝 Создание NULL записей для ${stillNotFoundAll.length} видео без данных...`);
-        const nullEntriesAll = createNullEntries(stillNotFoundAll, videoMap, 'all', now);
-        const nullEntries4days = createNullEntries(stillNotFound4days, videoMap, '4days', now);
-        allCacheEntries.push(...nullEntriesAll);
-        allCacheEntries.push(...nullEntries4days);
+      console.log(`   Найдено (all): ${allLikeMatchedAll.size}/${allNotFoundAll.length - likeSearchSkipped}`);
+      console.log(`   Найдено (4days): ${allLikeMatched4days.size}/${allNotFound4days.length - likeSearchSkipped}`);
+      if (likeSearchSkipped > 0) {
+        console.log(`   ⏰ Пропущено: ${likeSearchSkipped} видео (таймаут)`);
       }
+    } else if (allNotFoundAll.length > 0) {
+      console.log('\n⏰ LIKE поиск пропущен - недостаточно времени');
+      likeSearchSkipped = allNotFoundAll.length;
     } else {
       console.log('\n✅ Все видео найдены точным совпадением, LIKE поиск не требуется');
+      likeSearchCompleted = true;
+    }
+
+    // ==================== ШАГ 5: NULL ЗАПИСИ ====================
+    // Видео которые не нашлись ни точно, ни через LIKE
+    const now = new Date().toISOString();
+    const stillNotFoundAll = allNotFoundAll.filter(v => !allLikeMatchedAll.has(v));
+    const stillNotFound4days = allNotFound4days.filter(v => !allLikeMatched4days.has(v));
+
+    if (stillNotFoundAll.length > 0 && hasTimeLeft(5000)) {
+      console.log(`\n📝 Создание NULL записей для ${stillNotFoundAll.length} видео без данных...`);
+      const nullEntriesAll = createNullEntries(stillNotFoundAll, videoMap, 'all', now);
+      const nullEntries4days = createNullEntries(stillNotFound4days, videoMap, '4days', now);
+      allCacheEntries.push(...nullEntriesAll);
+      allCacheEntries.push(...nullEntries4days);
     }
 
     // ==================== ШАГ 6: СОХРАНЕНИЕ ====================
@@ -670,10 +710,19 @@ async function refreshAllMetrics() {
     // Шаг 7: Обновляем статус
     await updateMetricsStatus('completed', savedCount, true);
 
+    const totalElapsed = Math.round((Date.now() - executionStartTime) / 1000);
+    const exactMatched = videoTitles.length - allNotFoundAll.length;
+    const likeMatched = allLikeMatchedAll.size;
+
     console.log('\n═══════════════════════════════════════════════');
-    console.log(`✅ ОБНОВЛЕНИЕ ЗАВЕРШЕНО!`);
+    console.log(`✅ ОБНОВЛЕНИЕ ЗАВЕРШЕНО за ${totalElapsed} сек!`);
     console.log(`   Креативов: ${creatives.length}`);
     console.log(`   Видео: ${videoTitles.length}`);
+    console.log(`   Точное совпадение: ${exactMatched}`);
+    console.log(`   LIKE совпадение: ${likeMatched}`);
+    if (likeSearchSkipped > 0) {
+      console.log(`   ⏰ LIKE пропущено: ${likeSearchSkipped}`);
+    }
     console.log(`   Сохранено записей: ${savedCount}`);
     console.log('═══════════════════════════════════════════════');
 
@@ -681,7 +730,11 @@ async function refreshAllMetrics() {
       success: true,
       creativesProcessed: creatives.length,
       uniqueVideos: videoTitles.length,
-      cacheEntriesSaved: savedCount
+      exactMatched,
+      likeMatched,
+      likeSearchSkipped,
+      cacheEntriesSaved: savedCount,
+      elapsedSeconds: totalElapsed
     };
 
   } catch (error) {
