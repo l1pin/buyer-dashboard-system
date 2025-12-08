@@ -231,15 +231,16 @@ function CreativeBuyer({ user }) {
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
-  const { 
-    batchMetrics, 
-    loading: metricsLoading, 
+  const {
+    batchMetrics,
+    loading: metricsLoading,
     error: metricsError,
     stats: metricsStats,
     getVideoMetrics,
     getCreativeMetrics,
     refresh: refreshMetrics,
-    loadFromCache
+    loadFromCache,
+    loadMetricsForSingleCreative
   } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 
@@ -1251,7 +1252,8 @@ const loadCreatives = async () => {
       const buyerName = newCreative.buyer_id ? getBuyerName(newCreative.buyer_id) : null;
       const searcherName = newCreative.searcher_id ? getSearcherName(newCreative.searcher_id) : null;
 
-      await creativeService.createCreative({
+      // Создаём креатив и получаем его данные
+      const createdCreative = await creativeService.createCreative({
         user_id: user.id,
         editor_name: user.name,
         article: newCreative.article.trim(),
@@ -1283,24 +1285,26 @@ const loadCreatives = async () => {
 
       // Загружаем креативы
       await loadCreatives();
-      
-      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК И ЗОН ДЛЯ НОВОГО КРЕАТИВА
-      console.log('🚀 Автоматическая загрузка метрик и зон для нового креатива...');
-      setSuccess(`Креатив создан! Загружаем метрики и зональные данные...`);
-      
-      // Загружаем метрики (это обновит все креативы, включая новый)
-      await refreshMetrics();
-      console.log('✅ Метрики загружены');
-      
+
+      // 🔥 АВТОМАТИЧЕСКАЯ ЗАГРУЗКА МЕТРИК ТОЛЬКО ДЛЯ НОВОГО КРЕАТИВА
+      console.log('🚀 Автоматическая загрузка метрик для нового креатива:', createdCreative.article);
+      setSuccess(`Креатив создан! Загружаем метрики...`);
+
+      // Загружаем метрики ТОЛЬКО для нового креатива (не для всех)
+      if (createdCreative && createdCreative.link_titles && createdCreative.link_titles.length > 0) {
+        await loadMetricsForSingleCreative(createdCreative);
+        console.log('✅ Метрики для нового креатива загружены');
+      }
+
       // Загружаем зональные данные
       await refreshZoneData();
       console.log('✅ Зональные данные загружены');
-      
+
       const successCount = extractedTitles.length;
       const totalCount = titles.length;
       const cof = calculateCOF(newCreative.work_types);
       const country = newCreative.is_poland ? 'PL' : 'UA';
-      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики и зоны загружены автоматически`);
+      setSuccess(`Креатив создан! COF: ${formatCOF(cof)} | Страна: ${country} | Названий извлечено: ${successCount}/${totalCount} | Метрики загружены автоматически`);
     } catch (error) {
       setError('Ошибка создания креатива: ' + error.message);
       setExtractingTitles(false);
