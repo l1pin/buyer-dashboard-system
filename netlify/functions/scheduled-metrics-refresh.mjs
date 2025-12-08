@@ -205,19 +205,36 @@ async function fetchWithRetry(sql, retries = CONFIG.RETRY_COUNT) {
 
       const parsed = JSON.parse(text);
 
-      // Логируем первый результат для диагностики
+      // API возвращает массив массивов: первый элемент - заголовки, остальные - данные
+      // Нужно преобразовать в массив объектов
       if (Array.isArray(parsed) && parsed.length > 0) {
-        console.log(`📊 API вернул ${parsed.length} записей. Пример:`, JSON.stringify(parsed[0]));
-      }
+        // Проверяем формат: массив массивов или массив объектов
+        if (Array.isArray(parsed[0])) {
+          // Формат: [[headers], [row1], [row2], ...]
+          const headers = parsed[0];
+          const dataRows = parsed.slice(1);
 
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-      if (parsed && Array.isArray(parsed.data)) {
-        return parsed.data;
-      }
-      if (parsed && Array.isArray(parsed.results)) {
-        return parsed.results;
+          console.log(`📊 API вернул ${dataRows.length} записей данных (+ 1 строка заголовков)`);
+
+          // Преобразуем в массив объектов
+          const objects = dataRows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+              obj[header] = row[index];
+            });
+            return obj;
+          });
+
+          if (objects.length > 0) {
+            console.log(`   Пример данных:`, JSON.stringify(objects[0]));
+          }
+
+          return objects;
+        } else if (typeof parsed[0] === 'object') {
+          // Уже массив объектов
+          console.log(`📊 API вернул ${parsed.length} объектов`);
+          return parsed;
+        }
       }
 
       console.log('⚠️ Неожиданный формат ответа:', typeof parsed);
