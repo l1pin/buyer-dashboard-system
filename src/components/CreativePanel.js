@@ -1515,10 +1515,10 @@ function CreativePanel({ user }) {
     }
 
     try {
-      // Ищем среди существующих креативов (только оригиналы, не правки)
+      // Ищем среди существующих креативов (только оригиналы, не правки, только свои)
       const searchLower = searchText.toLowerCase();
       const filtered = creatives
-        .filter(c => !c.is_edit && c.article.toLowerCase().includes(searchLower))
+        .filter(c => !c.is_edit && c.user_id === user.id && c.article.toLowerCase().includes(searchLower))
         .slice(0, 10); // Ограничиваем 10 результатами
 
       setArticleSuggestions(filtered);
