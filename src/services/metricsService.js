@@ -3,18 +3,131 @@
 
 import { metricsAnalyticsService } from "../supabaseClient";
 
-const getApiUrl = () => {
-  if (
-    process.env.NODE_ENV === "production" ||
-    window.location.hostname !== "localhost"
-  ) {
-    return "/.netlify/functions/metrics-proxy";
-  }
-  return "/.netlify/functions/metrics-proxy";
-};
-
-const METRICS_API_URL = getApiUrl();
+// Прямое подключение к API базы данных (без прокси)
+const METRICS_API_URL = "https://api.trll-notif.com.ua/adsreportcollector/core.php";
 const TIMEZONE = "Europe/Kiev";
+
+// SQL Builder для прямых запросов к БД
+class SQLBuilder {
+  static escapeString(str) {
+    return String(str).replace(/'/g, "''");
+  }
+
+  static buildBatchSQL(videoNames, dateFrom = null, dateTo = null, kind = 'daily') {
+    if (!videoNames || videoNames.length === 0) {
+      throw new Error('videoNames не может быть пустым');
+    }
+
+    console.log('🔨 Формирование SQL для', videoNames.length, 'видео, kind:', kind);
+
+    // Фильтр по датам
+    let dateFilter = '';
+    if (dateFrom && dateTo) {
+      dateFilter = `AND t.adv_date >= '${this.escapeString(dateFrom)}'
+      AND t.adv_date <= '${this.escapeString(dateTo)}'`;
+    }
+
+    // IN clause для видео
+    const inClause = videoNames
+      .map(name => `'${this.escapeString(name)}'`)
+      .join(',');
+
+    // Выбираем шаблон SQL в зависимости от kind
+    if (kind === 'daily_first4_total') {
+      return this._buildDailyFirst4TotalSQL(inClause, dateFilter);
+    } else if (kind === 'daily') {
+      return this._buildDailySQL(inClause, dateFilter);
+    } else {
+      return this._buildDailySQL(inClause, dateFilter);
+    }
+  }
+
+  static _buildDailySQL(inClause, dateFilter) {
+    return `
+SELECT
+  'daily' as kind,
+  t.video_name,
+  t.adv_date,
+  COALESCE(SUM(t.valid), 0) AS leads,
+  COALESCE(SUM(t.cost), 0) AS cost,
+  COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+  COALESCE(SUM(t.showed), 0) AS impressions,
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+  COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+  COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+FROM ads_collection t
+WHERE t.video_name IN (${inClause})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  ${dateFilter}
+GROUP BY t.video_name, t.adv_date
+ORDER BY t.video_name, t.adv_date`;
+  }
+
+  static _buildDailyFirst4TotalSQL(inClause, dateFilter) {
+    return `
+SELECT 'daily' as kind, video_name, adv_date, leads, cost, clicks, impressions, avg_duration, cost_from_sources, clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data
+UNION ALL
+SELECT 'first4' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+UNION ALL
+SELECT 'total' as kind, video_name, NULL as adv_date, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, AVG(avg_duration) as avg_duration, SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+    ${dateFilter}
+  GROUP BY t.video_name, t.adv_date
+) daily_data2
+GROUP BY video_name
+ORDER BY video_name, kind, adv_date`;
+  }
+}
 
 export class MetricsService {
   /**
@@ -36,19 +149,14 @@ export class MetricsService {
     }
 
     console.log(
-      `🚀 БАТЧЕВАЯ загрузка: ${videoNames.length} видео, kind=${kind}, LIKE=${useLike}, timeout=${timeout}ms`
+      `🚀 ПРЯМОЙ ЗАПРОС К БД: ${videoNames.length} видео, kind=${kind}, timeout=${timeout}ms`
     );
 
     try {
-      // Отправляем один запрос с массивом имён
-      const requestBody = {
-        video_names: videoNames,
-        kind: kind,
-        use_like: useLike, // 🆕 Передаем флаг LIKE
-      };
+      // Генерируем SQL запрос локально
+      const sql = SQLBuilder.buildBatchSQL(videoNames, dateFrom, dateTo, kind);
 
-      if (dateFrom) requestBody.date_from = dateFrom;
-      if (dateTo) requestBody.date_to = dateTo;
+      console.log('📝 SQL запрос сформирован, длина:', sql.length, 'байт');
 
       const startTime = Date.now();
 
@@ -58,13 +166,14 @@ export class MetricsService {
 
       let response;
       try {
+        // Отправляем SQL напрямую к API базы данных
         response = await fetch(METRICS_API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify({ sql }),
           signal: controller.signal,
         });
 
@@ -83,29 +192,34 @@ export class MetricsService {
         throw new Error(`API error ${response.status}: ${errorText}`);
       }
 
-      const data = await response.json();
+      const text = await response.text();
 
-      console.log(`📥 Получен ответ от API:`, {
-        isArray: Array.isArray(data),
-        length: Array.isArray(data) ? data.length : "not array",
-        firstItem: Array.isArray(data) && data.length > 0 ? data[0] : null,
+      console.log('📨 Получен ответ от БД API, длина:', text?.length);
+
+      if (!text || !text.trim()) {
+        console.log('⚠️ Пустой ответ от API');
+        return { success: false, results: [], error: 'Пустой ответ от API' };
+      }
+
+      const data = JSON.parse(text);
+
+      // Нормализуем данные, полученные от API
+      const normalizedData = this._normalizeApiResponse(data);
+
+      console.log(`📥 Получен ответ от БД API:`, {
+        isArray: Array.isArray(normalizedData),
+        length: Array.isArray(normalizedData) ? normalizedData.length : "not array",
+        firstItem: Array.isArray(normalizedData) && normalizedData.length > 0 ? normalizedData[0] : null,
       });
       const elapsed = Date.now() - startTime;
 
-      // Логируем метаданные
-      const cacheStatus = response.headers.get("X-Cache");
-      const chunksProcessed = response.headers.get("X-Chunks-Processed");
-      const totalRecords = response.headers.get("X-Total-Records");
-
-      console.log(`✅ БАТЧЕВАЯ загрузка завершена за ${elapsed}ms:`, {
-        cache: cacheStatus,
-        chunks: chunksProcessed,
-        records: totalRecords || data.length,
+      console.log(`✅ ПРЯМОЙ ЗАПРОС К БД завершен за ${elapsed}ms:`, {
+        records: normalizedData.length,
         videosRequested: videoNames.length,
       });
 
       // Группируем результаты по video_name и kind
-      const resultsByVideo = this._groupBatchResults(data, videoNames);
+      const resultsByVideo = this._groupBatchResults(normalizedData, videoNames);
 
       return {
         success: true,
@@ -128,6 +242,108 @@ export class MetricsService {
         results: [],
       };
     }
+  }
+
+  /**
+   * Нормализация ответа от API базы данных
+   */
+  static _normalizeApiResponse(rawData) {
+    const normalized = [];
+
+    console.log('🔄 Нормализация ответа от API:', {
+      rawDataType: typeof rawData,
+      isArray: Array.isArray(rawData),
+      length: Array.isArray(rawData) ? rawData.length : 'not array',
+    });
+
+    if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
+      console.log('⚠️ Пустой ответ от API');
+      return normalized;
+    }
+
+    const firstItem = rawData[0];
+
+    // Случай A: Массив объектов {kind: "daily", video_name: "..."}
+    if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+      console.log('✅ ФОРМАТ A: Массив объектов');
+
+      rawData.forEach((row, index) => {
+        if (!row.video_name) {
+          console.warn(`⚠️ Строка ${index} не содержит video_name:`, row);
+          return;
+        }
+
+        normalized.push({
+          kind: row.kind || 'daily',
+          video_name: row.video_name,
+          adv_date: row.adv_date || null,
+          leads: Number(row.leads) || 0,
+          cost: Number(row.cost) || 0,
+          clicks: Number(row.clicks) || 0,
+          impressions: Number(row.impressions) || 0,
+          avg_duration: Number(row.avg_duration) || 0,
+          cost_from_sources: Number(row.cost_from_sources) || 0,
+          clicks_on_link: Number(row.clicks_on_link) || 0,
+        });
+      });
+
+      console.log(`✅ Нормализовано ${normalized.length} объектов`);
+      return normalized;
+    }
+
+    // Случай B: Массив массивов [[headers], [row1], [row2], ...]
+    if (firstItem && Array.isArray(firstItem)) {
+      console.log('✅ ФОРМАТ B: Массив массивов');
+
+      const headers = rawData[0];
+      console.log('📋 Headers:', headers);
+
+      const hasVideoName = headers.includes('video_name');
+      const hasKind = headers.includes('kind');
+
+      if (!hasVideoName && !hasKind) {
+        console.error('❌ Headers не содержат обязательных полей!');
+        return normalized;
+      }
+
+      const dataRows = rawData.slice(1);
+
+      dataRows.forEach((row, index) => {
+        if (!Array.isArray(row)) {
+          console.warn(`⚠️ Строка ${index} не массив:`, row);
+          return;
+        }
+
+        const obj = {};
+        headers.forEach((header, i) => {
+          obj[header] = row[i];
+        });
+
+        if (!obj.video_name) {
+          console.warn(`⚠️ Строка ${index} не содержит video_name`);
+          return;
+        }
+
+        normalized.push({
+          kind: obj.kind || 'daily',
+          video_name: obj.video_name,
+          adv_date: obj.adv_date || null,
+          leads: Number(obj.leads) || 0,
+          cost: Number(obj.cost) || 0,
+          clicks: Number(obj.clicks) || 0,
+          impressions: Number(obj.impressions) || 0,
+          avg_duration: Number(obj.avg_duration) || 0,
+          cost_from_sources: Number(obj.cost_from_sources) || 0,
+          clicks_on_link: Number(obj.clicks_on_link) || 0,
+        });
+      });
+
+      console.log(`✅ Нормализовано ${normalized.length} строк`);
+      return normalized;
+    }
+
+    console.error('❌ Неизвестный формат данных!');
+    return normalized;
   }
 
   /**
