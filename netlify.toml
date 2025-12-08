@@ -19,6 +19,12 @@
   # Максимальный таймаут (в секундах)
   timeout = 26
 
+# Scheduled Function для автоматического обновления метрик каждые 15 минут
+# ВАЖНО: Требует Netlify Pro!
+[functions."scheduled-metrics-refresh"]
+  # Scheduled functions могут работать до 15 минут
+  schedule = "*/15 * * * *"
+
 # Настройки для SPA
 [[redirects]]
   from = "/api/*"

@@ -3954,14 +3954,18 @@ export const metricsAnalyticsService = {
     };
   },
 
-  async updateMetricsLastUpdate() {
+  // Обновление времени последнего обновления метрик
+  // isAuto = true для автоматического обновления (cron), false для ручного
+  async updateMetricsLastUpdate(isAuto = false) {
     try {
       const { data, error } = await supabase
         .from('metrics_last_update')
         .upsert([
           {
             id: 1,
-            last_updated: new Date().toISOString()
+            last_updated: new Date().toISOString(),
+            is_auto: isAuto,
+            status: 'completed'
           }
         ], {
           onConflict: 'id'
@@ -3977,19 +3981,55 @@ export const metricsAnalyticsService = {
     }
   },
 
+  // Получение информации о последнем обновлении метрик
+  // Возвращает объект с полями: last_updated, is_auto, status, videos_updated
   async getMetricsLastUpdate() {
     try {
       const { data, error } = await supabase
         .from('metrics_last_update')
-        .select('last_updated')
+        .select('last_updated, is_auto, status, videos_updated')
         .eq('id', 1)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      return data?.last_updated || null;
+
+      // Возвращаем полный объект для поддержки нового функционала
+      // При этом сохраняем обратную совместимость
+      return data || null;
     } catch (error) {
       console.error('Ошибка получения времени последнего обновления метрик:', error);
       return null;
+    }
+  },
+
+  // Подписка на изменения в таблице metrics_last_update (Realtime)
+  subscribeToMetricsLastUpdate(callback) {
+    const channel = supabase
+      .channel('metrics-last-update-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'metrics_last_update',
+          filter: 'id=eq.1'
+        },
+        (payload) => {
+          console.log('📡 Realtime: metrics_last_update изменилась', payload);
+          if (callback && typeof callback === 'function') {
+            callback(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  },
+
+  // Отписка от канала Realtime
+  unsubscribeFromMetricsLastUpdate(channel) {
+    if (channel) {
+      supabase.removeChannel(channel);
     }
   },
 

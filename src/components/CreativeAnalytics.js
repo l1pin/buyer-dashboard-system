@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
+import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
 import {
@@ -2041,23 +2042,8 @@ function CreativeAnalytics({ user }) {
       {/* Информационная панель с временем обновления и статусом API */}
       <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {metricsLastUpdate && (
-              <>
-                <Clock className="h-3 w-3 text-gray-400" />
-                <span className="text-xs text-gray-500">
-                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </>
-            )}
-          </div>
-          
+          <MetricsLastUpdateBadge />
+
           <div className="flex items-center space-x-2">
             <Globe className="h-3 w-3 text-gray-400" />
             <span className="text-xs text-gray-500">API:</span>
