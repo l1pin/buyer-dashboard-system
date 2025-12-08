@@ -468,7 +468,7 @@ async function processLikeBatch(videoNames, videoMap, period = 'all') {
 }
 
 // ==================== СОЗДАНИЕ NULL ЗАПИСЕЙ ====================
-function createNullEntries(videoNames, videoMap, period, now, likeSearched = false) {
+function createNullEntries(videoNames, videoMap, period, now) {
   const entries = [];
 
   for (const videoName of videoNames) {
@@ -490,60 +490,12 @@ function createNullEntries(videoNames, videoMap, period, now, likeSearched = fal
         days_count: null,
         cost_from_sources: null,
         clicks_on_link: null,
-        cached_at: now,
-        like_searched: likeSearched // Флаг: был ли LIKE поиск
+        cached_at: now
       });
     }
   }
 
   return entries;
-}
-
-// ==================== ПОЛУЧЕНИЕ ВИДЕО ДЛЯ LIKE ПОИСКА ====================
-// Возвращает видео которые имеют NULL в кэше и ещё не были проверены через LIKE
-async function getVideosNeedingLikeSearch(videoTitles, period = 'all') {
-  const client = getSupabaseClient();
-
-  // Получаем видео которые уже проверены LIKE (like_searched = true или имеют данные)
-  const { data: checkedVideos, error } = await client
-    .from('metrics_cache')
-    .select('video_title')
-    .eq('period', period)
-    .or('like_searched.eq.true,leads.not.is.null');
-
-  if (error) {
-    console.error('❌ Ошибка получения проверенных видео:', error);
-    return videoTitles; // При ошибке проверяем все
-  }
-
-  const checkedSet = new Set(checkedVideos?.map(v => v.video_title) || []);
-
-  // Фильтруем - оставляем только непроверенные
-  const needsCheck = videoTitles.filter(title => !checkedSet.has(title));
-
-  console.log(`📊 Видео для LIKE: ${needsCheck.length} из ${videoTitles.length} (уже проверено: ${checkedSet.size})`);
-
-  return needsCheck;
-}
-
-// ==================== ПОМЕТКА ВИДЕО КАК LIKE-ПРОВЕРЕННЫХ ====================
-async function markVideosAsLikeSearched(videoTitles, period = 'all') {
-  if (videoTitles.length === 0) return;
-
-  const client = getSupabaseClient();
-
-  // Обновляем like_searched = true для всех проверенных видео
-  const { error } = await client
-    .from('metrics_cache')
-    .update({ like_searched: true })
-    .eq('period', period)
-    .in('video_title', videoTitles);
-
-  if (error) {
-    console.error('❌ Ошибка пометки видео:', error);
-  } else {
-    console.log(`✅ Помечено ${videoTitles.length} видео как LIKE-проверенные`);
-  }
 }
 
 // ==================== СОХРАНЕНИЕ В КЭШ ====================
@@ -673,111 +625,59 @@ async function refreshAllMetrics() {
     console.log(`   Найдено (4days): ${videoTitles.length - allNotFound4days.length}/${videoTitles.length}`);
     console.log(`   Не найдено (all): ${allNotFoundAll.length}`);
 
-    // ==================== ШАГ 4: LIKE ПОИСК (ИНКРЕМЕНТАЛЬНЫЙ) ====================
-    let likeSearchCompleted = false;
-    let likeSearchSkipped = 0;
-    let likeSearchedInThisRun = 0;
+    // ==================== ШАГ 4: LIKE ПОИСК ====================
     const allLikeMatchedAll = new Set();
     const allLikeMatched4days = new Set();
-    const processedInThisRun = []; // Видео обработанные в этом запуске
 
-    if (allNotFoundAll.length > 0 && hasTimeLeft(15000)) {
+    if (allNotFoundAll.length > 0) {
       console.log('\n═══════════════════════════════════════════════');
-      console.log('🔍 ШАГ 4: LIKE ПОИСК (ИНКРЕМЕНТАЛЬНЫЙ)');
+      console.log('🔍 ШАГ 4: LIKE ПОИСК');
       console.log('═══════════════════════════════════════════════');
+      console.log(`📊 Видео для LIKE поиска: ${allNotFoundAll.length}`);
+      console.log(`📦 Размер батча LIKE: ${CONFIG.LIKE_BATCH_SIZE}`);
 
-      // Получаем только видео которые ещё НЕ были проверены через LIKE
-      const needsLikeSearch = await getVideosNeedingLikeSearch(allNotFoundAll, 'all');
+      const likeBatches = Math.ceil(allNotFoundAll.length / CONFIG.LIKE_BATCH_SIZE);
 
-      if (needsLikeSearch.length === 0) {
-        console.log('✅ Все видео уже проверены через LIKE в предыдущих запусках');
-        likeSearchCompleted = true;
-      } else {
-        console.log(`📊 Всего не найдено точно: ${allNotFoundAll.length}`);
-        console.log(`📊 Ещё не проверено LIKE: ${needsLikeSearch.length}`);
-        console.log(`📊 Уже проверено ранее: ${allNotFoundAll.length - needsLikeSearch.length}`);
-        console.log(`📦 Размер батча LIKE: ${CONFIG.LIKE_BATCH_SIZE}`);
+      for (let i = 0; i < allNotFoundAll.length; i += CONFIG.LIKE_BATCH_SIZE) {
+        const batchNum = Math.floor(i / CONFIG.LIKE_BATCH_SIZE) + 1;
+        const batchAll = allNotFoundAll.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
+        const batch4days = allNotFound4days.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
 
-        // Создаём Set для быстрого поиска
-        const needsLikeSet = new Set(needsLikeSearch);
-        // Фильтруем 4days список аналогично
-        const needsLike4days = allNotFound4days.filter(v => needsLikeSet.has(v));
+        const elapsed = Math.round((Date.now() - executionStartTime) / 1000);
+        console.log(`🔍 LIKE батч ${batchNum}/${likeBatches} (${batchAll.length} видео) [${elapsed}с]...`);
 
-        const likeBatches = Math.ceil(needsLikeSearch.length / CONFIG.LIKE_BATCH_SIZE);
+        // LIKE для периода "all"
+        const likeResultAll = await processLikeBatch(batchAll, videoMap, 'all');
+        allCacheEntries.push(...likeResultAll.entries);
+        likeResultAll.matchedVideos.forEach(v => allLikeMatchedAll.add(v));
 
-        for (let i = 0; i < needsLikeSearch.length; i += CONFIG.LIKE_BATCH_SIZE) {
-          // Проверяем время перед каждым батчем
-          if (!hasTimeLeft(10000)) {
-            likeSearchSkipped = needsLikeSearch.length - i;
-            console.log(`\n⏰ ТАЙМАУТ: Осталось мало времени, пропускаем ${likeSearchSkipped} видео`);
-            console.log(`📊 В следующем запуске продолжим с этого места`);
-            break;
-          }
+        // LIKE для периода "4days"
+        const likeResult4days = await processLikeBatch(batch4days, videoMap, '4days');
+        allCacheEntries.push(...likeResult4days.entries);
+        likeResult4days.matchedVideos.forEach(v => allLikeMatched4days.add(v));
 
-          const batchNum = Math.floor(i / CONFIG.LIKE_BATCH_SIZE) + 1;
-          const batchAll = needsLikeSearch.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
-          const batch4days = needsLike4days.slice(i, i + CONFIG.LIKE_BATCH_SIZE);
-
-          const elapsed = Math.round((Date.now() - executionStartTime) / 1000);
-          console.log(`🔍 LIKE батч ${batchNum}/${likeBatches} (${batchAll.length} видео) [${elapsed}с]...`);
-
-          // LIKE для периода "all"
-          const likeResultAll = await processLikeBatch(batchAll, videoMap, 'all');
-          allCacheEntries.push(...likeResultAll.entries);
-          likeResultAll.matchedVideos.forEach(v => allLikeMatchedAll.add(v));
-
-          // LIKE для периода "4days"
-          const likeResult4days = await processLikeBatch(batch4days, videoMap, '4days');
-          allCacheEntries.push(...likeResult4days.entries);
-          likeResult4days.matchedVideos.forEach(v => allLikeMatched4days.add(v));
-
-          // Запоминаем обработанные видео
-          processedInThisRun.push(...batchAll);
-          likeSearchedInThisRun += batchAll.length;
-
-          // Пауза между LIKE батчами (они тяжелее)
-          if (i + CONFIG.LIKE_BATCH_SIZE < needsLikeSearch.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        }
-
-        likeSearchCompleted = likeSearchSkipped === 0;
-
-        console.log(`\n📊 Результат LIKE поиска (этот запуск):`);
-        console.log(`   Обработано: ${likeSearchedInThisRun}/${needsLikeSearch.length}`);
-        console.log(`   Найдено (all): ${allLikeMatchedAll.size}`);
-        console.log(`   Найдено (4days): ${allLikeMatched4days.size}`);
-        if (likeSearchSkipped > 0) {
-          console.log(`   ⏰ Осталось на следующий запуск: ${likeSearchSkipped}`);
+        // Пауза между LIKE батчами
+        if (i + CONFIG.LIKE_BATCH_SIZE < allNotFoundAll.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
-    } else if (allNotFoundAll.length > 0) {
-      console.log('\n⏰ LIKE поиск пропущен - недостаточно времени');
-      console.log(`📊 В следующем запуске обработаем ${allNotFoundAll.length} видео`);
-      likeSearchSkipped = allNotFoundAll.length;
+
+      console.log(`\n📊 Результат LIKE поиска:`);
+      console.log(`   Найдено (all): ${allLikeMatchedAll.size}/${allNotFoundAll.length}`);
+      console.log(`   Найдено (4days): ${allLikeMatched4days.size}/${allNotFound4days.length}`);
     } else {
       console.log('\n✅ Все видео найдены точным совпадением, LIKE поиск не требуется');
-      likeSearchCompleted = true;
     }
 
-    // ==================== ШАГ 5: NULL ЗАПИСИ (ТОЛЬКО ДЛЯ LIKE-ПРОВЕРЕННЫХ) ====================
-    // Создаём NULL записи только для видео которые были LIKE-проверены в этом запуске и не нашлись
+    // ==================== ШАГ 5: NULL ЗАПИСИ ====================
     const now = new Date().toISOString();
+    const stillNotFoundAll = allNotFoundAll.filter(v => !allLikeMatchedAll.has(v));
+    const stillNotFound4days = allNotFound4days.filter(v => !allLikeMatched4days.has(v));
 
-    // Видео которые были проверены через LIKE в этом запуске и НЕ найдены
-    const processedSet = new Set(processedInThisRun);
-    const likeCheckedNotFoundAll = allNotFoundAll.filter(v =>
-      processedSet.has(v) && !allLikeMatchedAll.has(v)
-    );
-    const likeCheckedNotFound4days = allNotFound4days.filter(v =>
-      processedSet.has(v) && !allLikeMatched4days.has(v)
-    );
-
-    if (likeCheckedNotFoundAll.length > 0 && hasTimeLeft(5000)) {
-      console.log(`\n📝 Создание NULL записей для ${likeCheckedNotFoundAll.length} видео (LIKE-проверены, не найдены)...`);
-      // like_searched = true - эти видео уже проверены через LIKE
-      const nullEntriesAll = createNullEntries(likeCheckedNotFoundAll, videoMap, 'all', now, true);
-      const nullEntries4days = createNullEntries(likeCheckedNotFound4days, videoMap, '4days', now, true);
+    if (stillNotFoundAll.length > 0) {
+      console.log(`\n📝 Создание NULL записей для ${stillNotFoundAll.length} видео без данных...`);
+      const nullEntriesAll = createNullEntries(stillNotFoundAll, videoMap, 'all', now);
+      const nullEntries4days = createNullEntries(stillNotFound4days, videoMap, '4days', now);
       allCacheEntries.push(...nullEntriesAll);
       allCacheEntries.push(...nullEntries4days);
     }
@@ -801,14 +701,8 @@ async function refreshAllMetrics() {
     console.log(`   Креативов: ${creatives.length}`);
     console.log(`   Видео: ${videoTitles.length}`);
     console.log(`   Точное совпадение: ${exactMatched}`);
-    console.log(`   LIKE обработано в этом запуске: ${likeSearchedInThisRun}`);
     console.log(`   LIKE найдено: ${likeMatched}`);
-    if (likeSearchSkipped > 0) {
-      console.log(`   ⏰ LIKE осталось на следующий запуск: ${likeSearchSkipped}`);
-    }
-    if (likeSearchCompleted) {
-      console.log(`   ✅ Все видео проверены через LIKE`);
-    }
+    console.log(`   Не найдено: ${stillNotFoundAll.length}`);
     console.log(`   Сохранено записей: ${savedCount}`);
     console.log('═══════════════════════════════════════════════');
 
@@ -818,9 +712,7 @@ async function refreshAllMetrics() {
       uniqueVideos: videoTitles.length,
       exactMatched,
       likeMatched,
-      likeSearchedInThisRun,
-      likeSearchSkipped,
-      likeSearchCompleted,
+      notFound: stillNotFoundAll.length,
       cacheEntriesSaved: savedCount,
       elapsedSeconds: totalElapsed
     };
