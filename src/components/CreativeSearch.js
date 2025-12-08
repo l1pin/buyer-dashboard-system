@@ -2852,6 +2852,9 @@ function CreativeSearch({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
+                        Тип
+                      </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
@@ -2943,7 +2946,21 @@ function CreativeSearch({ user }) {
                                 <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                               </div>
                             </td>
-                            
+
+                            {/* Колонка "Тип" с бейджем E для правок */}
+                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
+                              <div className="flex items-center justify-center">
+                                {creative.is_edit && (
+                                  <div
+                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                  >
+                                    <span className="tracking-wide">E</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
                             <td className="px-3 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -2960,7 +2977,7 @@ function CreativeSearch({ user }) {
                                     </button>
                                   )}
                                 </div>
-                                
+
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {creativesWithHistory.has(creative.id) && (
                                     <button
@@ -2979,7 +2996,7 @@ function CreativeSearch({ user }) {
                                     </button>
                                   )}
                                 </div>
-                                
+
                                 {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
                                 
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
