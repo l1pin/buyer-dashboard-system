@@ -457,8 +457,7 @@ async function processLikeBatch(videoNames, videoMap, period = 'all') {
         days_count: Number(row.days_count) || 0,
         cost_from_sources: Number(row.cost_from_sources) || 0,
         clicks_on_link: Number(row.clicks_on_link) || 0,
-        cached_at: now,
-        found_via_like: true // Маркер LIKE поиска
+        cached_at: now
       });
     }
   }
@@ -855,9 +854,5 @@ export default async function handler(event, context) {
   console.log('📊 РЕЗУЛЬТАТ:', JSON.stringify(result, null, 2));
   console.log('========================================');
 
-  // Background functions возвращают результат (но клиент его не ждёт)
-  return {
-    statusCode: 200,
-    body: JSON.stringify(result)
-  };
+  // Background functions должны возвращать undefined
 }
