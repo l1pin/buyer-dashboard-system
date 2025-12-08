@@ -5011,112 +5011,109 @@ function CreativePanel({ user }) {
             )}
 
             <div className="space-y-4">
-              {/* Поиск артикула */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
-                  Артикул *
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchingArticle}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSearchingArticle(value);
-                      clearFieldError('article');
+              {/* Артикул + Страна в одной строке */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Поиск артикула */}
+                <div className="col-span-2">
+                  <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
+                    Артикул *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchingArticle}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSearchingArticle(value);
+                        clearFieldError('article');
 
-                      // Сбрасываем выбор при изменении
-                      if (selectedCreativeForEdit) {
-                        setSelectedCreativeForEdit(null);
-                        setAddEditCreative({
-                          ...addEditCreative,
-                          article: '',
-                          buyer_id: null,
-                          searcher_id: null,
-                          trello_link: '',
-                          is_poland: false,
-                          work_types: []
-                        });
-                      }
+                        // Сбрасываем выбор при изменении
+                        if (selectedCreativeForEdit) {
+                          setSelectedCreativeForEdit(null);
+                          setAddEditCreative({
+                            ...addEditCreative,
+                            article: '',
+                            buyer_id: null,
+                            searcher_id: null,
+                            trello_link: '',
+                            is_poland: false,
+                            work_types: []
+                          });
+                        }
 
-                      // Запускаем поиск
-                      if (value.length >= 2) {
-                        searchCreativesByArticle(value);
-                      } else {
-                        setArticleSuggestions([]);
-                        setShowArticleSuggestions(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (searchingArticle.length >= 2) {
-                        searchCreativesByArticle(searchingArticle);
-                      }
-                    }}
-                    disabled={!!selectedCreativeForEdit}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                      selectedCreativeForEdit
-                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
-                        : fieldErrors.article
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
-                        : 'border-yellow-300 focus:ring-yellow-500 focus:border-transparent bg-white'
-                    }`}
-                    placeholder="Введите артикул для поиска"
-                  />
+                        // Запускаем поиск
+                        if (value.length >= 2) {
+                          searchCreativesByArticle(value);
+                        } else {
+                          setArticleSuggestions([]);
+                          setShowArticleSuggestions(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (searchingArticle.length >= 2) {
+                          searchCreativesByArticle(searchingArticle);
+                        }
+                      }}
+                      disabled={!!selectedCreativeForEdit}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        selectedCreativeForEdit
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          : fieldErrors.article
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                          : 'border-yellow-300 focus:ring-yellow-500 focus:border-transparent bg-white'
+                      }`}
+                      placeholder="Введите артикул для поиска"
+                    />
 
-                  {/* Dropdown с результатами поиска */}
-                  {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length > 0 && (
-                    <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                      {articleSuggestions.map((creative) => (
-                        <button
-                          key={creative.id}
-                          type="button"
-                          onClick={() => selectCreativeForEdit(creative)}
-                          className="w-full px-3 py-2 text-left hover:bg-yellow-50 flex items-center justify-between border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 flex items-center">
-                              {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                              <span className="ml-2">{creative.article}</span>
+                    {/* Dropdown с результатами поиска */}
+                    {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length > 0 && (
+                      <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {articleSuggestions.map((creative) => (
+                          <button
+                            key={creative.id}
+                            type="button"
+                            onClick={() => selectCreativeForEdit(creative)}
+                            className="w-full px-3 py-2 text-left hover:bg-yellow-50 flex items-center justify-between border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 flex items-center">
+                                {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                                <span className="ml-2">{creative.article}</span>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                <div>Дата: {new Date(creative.created_at).toLocaleDateString('ru-RU')}</div>
+                                <div className="mt-0.5">Видео: {creative.link_titles?.join(', ') || '—'}</div>
+                                {creative.trello_link && (
+                                  <a
+                                    href={creative.trello_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-blue-600 hover:underline mt-0.5 inline-block"
+                                  >
+                                    Trello карточка
+                                  </a>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              <div>Дата: {new Date(creative.created_at).toLocaleDateString('ru-RU')}</div>
-                              <div className="mt-0.5">Видео: {creative.link_titles?.join(', ') || '—'}</div>
-                              {creative.trello_link && (
-                                <a
-                                  href={creative.trello_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-blue-600 hover:underline mt-0.5 inline-block"
-                                >
-                                  Trello карточка
-                                </a>
-                              )}
+                            <div className="text-xs text-gray-400 ml-2 text-right">
+                              {creative.buyer || '—'}
                             </div>
-                          </div>
-                          <div className="text-xs text-gray-400 ml-2 text-right">
-                            {creative.buyer || '—'}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Показываем если нет результатов */}
-                  {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length === 0 && searchingArticle.length >= 2 && (
-                    <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
-                      <div className="px-3 py-4 text-center text-sm text-gray-500">
-                        Креативы не найдены
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                  )}
-                </div>
-                {selectedCreativeForEdit && (
-                  <div className="mt-2 flex items-center justify-between">
-                    <p className="text-xs text-green-600 flex items-center">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Выбран: {selectedCreativeForEdit.article}
-                    </p>
+                    )}
+
+                    {/* Показываем если нет результатов */}
+                    {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length === 0 && searchingArticle.length >= 2 && (
+                      <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                        <div className="px-3 py-4 text-center text-sm text-gray-500">
+                          Креативы не найдены
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {selectedCreativeForEdit && (
                     <button
                       type="button"
                       onClick={() => {
@@ -5134,92 +5131,36 @@ function CreativePanel({ user }) {
                           searcher_id: null
                         });
                       }}
-                      className="text-xs text-red-600 hover:text-red-800"
+                      className="mt-1 text-xs text-red-600 hover:text-red-800"
                     >
                       Сбросить выбор
                     </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Автозаполненные поля (неактивные) */}
-              {selectedCreativeForEdit && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Карточка Trello */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-2">
-                        Карточка Trello
-                      </label>
-                      <input
-                        type="url"
-                        value={selectedCreativeForEdit.trello_link || '—'}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
-                      />
-                    </div>
-
-                    {/* Страна */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-2">
-                        Страна
-                      </label>
-                      <div className="flex items-center px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed">
+                {/* Страна */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Страна
+                  </label>
+                  <div className={`flex items-center px-3 py-2 border rounded-md h-[42px] ${
+                    selectedCreativeForEdit
+                      ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'border-gray-200 bg-gray-50 text-gray-400'
+                  }`}>
+                    {selectedCreativeForEdit ? (
+                      <>
                         {selectedCreativeForEdit.is_poland ? <PolandFlag /> : <UkraineFlag />}
                         <span className="ml-2">{selectedCreativeForEdit.is_poland ? 'Poland' : 'Ukraine'}</span>
-                      </div>
-                    </div>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </div>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Buyer */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-2">
-                        Buyer
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedCreativeForEdit.buyer || getBuyerName(selectedCreativeForEdit.buyer_id) || '—'}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
-                      />
-                    </div>
-
-                    {/* Searcher */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-2">
-                        Searcher
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedCreativeForEdit.searcher || getSearcherName(selectedCreativeForEdit.searcher_id) || '—'}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Типы работ из оригинала */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Типы работ (из оригинала)
-                    </label>
-                    <div className="flex flex-wrap gap-1 px-3 py-2 border border-gray-200 rounded-md bg-gray-100">
-                      {selectedCreativeForEdit.work_types && selectedCreativeForEdit.work_types.length > 0 ? (
-                        selectedCreativeForEdit.work_types.map((type, index) => (
-                          <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-200 text-gray-700">
-                            {type} ({formatCOF(workTypeValues[type] || 0)})
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400">Нет типов работ</span>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Google Drive ссылки */}
+              {/* Google Drive ссылки - сразу после артикула */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
                   Google Drive ссылки *
@@ -5262,7 +5203,66 @@ function CreativePanel({ user }) {
                 </p>
               </div>
 
-              {/* Дополнительные типы работ (обязательные) */}
+              {/* Автозаполненные поля (неактивные) - после ссылок */}
+              {selectedCreativeForEdit && (
+                <>
+                  {/* Карточка Trello */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Карточка Trello
+                    </label>
+                    <div className="flex items-center">
+                      <input
+                        type="url"
+                        value={selectedCreativeForEdit.trello_link || '—'}
+                        disabled
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                      {selectedCreativeForEdit.trello_link && (
+                        <a
+                          href={selectedCreativeForEdit.trello_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors"
+                          title="Открыть карточку Trello"
+                        >
+                          <ExternalLink className="h-5 w-5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Buyer */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Buyer
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedCreativeForEdit.buyer || getBuyerName(selectedCreativeForEdit.buyer_id) || '—'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Searcher */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Searcher
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedCreativeForEdit.searcher || getSearcherName(selectedCreativeForEdit.searcher_id) || '—'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Дополнительные типы работ (обязательные) - с предвыбранными из оригинала */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
                   Дополнительные типы работ *
@@ -5271,22 +5271,46 @@ function CreativePanel({ user }) {
                   fieldErrors.work_types ? 'border-red-300 bg-red-50' : 'border-yellow-300 bg-gray-50'
                 }`}>
                   <div className="grid grid-cols-1 gap-2">
-                    {workTypes.map((type) => (
-                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={addEditCreative.work_types.includes(type)}
-                            onChange={(e) => handleAddEditWorkTypeChange(type, e.target.checked)}
-                            className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-                          />
-                          <span className="text-sm text-gray-700 select-none">{type}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 font-medium">
-                          {formatCOF(workTypeValues[type] || 0)}
-                        </span>
-                      </label>
-                    ))}
+                    {workTypes.map((type) => {
+                      const isFromParent = selectedCreativeForEdit?.work_types?.includes(type);
+                      const isNewlySelected = addEditCreative.work_types.includes(type);
+
+                      return (
+                        <label
+                          key={type}
+                          className={`flex items-center justify-between p-2 rounded ${
+                            isFromParent
+                              ? 'bg-gray-200 cursor-not-allowed'
+                              : 'hover:bg-white cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={isFromParent || isNewlySelected}
+                              disabled={isFromParent}
+                              onChange={(e) => {
+                                if (!isFromParent) {
+                                  handleAddEditWorkTypeChange(type, e.target.checked);
+                                }
+                              }}
+                              className={`h-4 w-4 border-gray-300 rounded ${
+                                isFromParent
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : 'text-yellow-600 focus:ring-yellow-500'
+                              }`}
+                            />
+                            <span className={`text-sm select-none ${isFromParent ? 'text-gray-500' : 'text-gray-700'}`}>
+                              {type}
+                              {isFromParent && <span className="ml-1 text-xs text-gray-400">(из оригинала)</span>}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-medium ${isFromParent ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {formatCOF(workTypeValues[type] || 0)}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 {addEditCreative.work_types.length > 0 && (
