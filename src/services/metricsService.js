@@ -226,9 +226,7 @@ export class MetricsService {
         results: resultsByVideo,
         metadata: {
           elapsed,
-          cache: cacheStatus,
-          chunks: chunksProcessed,
-          records: data.length,
+          records: normalizedData.length,
         },
       };
     } catch (error) {
