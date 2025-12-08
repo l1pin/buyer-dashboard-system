@@ -1711,8 +1711,7 @@ function CreativePanel({ user }) {
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null,
         is_edit: true,
-        parent_creative_id: selectedCreativeForEdit.id,
-        link_type: addEditLinkType // 'new' или 'reupload'
+        parent_creative_id: selectedCreativeForEdit.id
       });
 
       console.log('✅ Правка креатива создана:', newEditData);
