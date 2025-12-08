@@ -4983,7 +4983,7 @@ function CreativePanel({ user }) {
       {/* Add Edit Modal - Модальное окно для добавления правки */}
       {showAddEditModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-5 border-2 border-yellow-400 w-full max-w-2xl shadow-lg rounded-md bg-yellow-50 my-5">
+          <div className="relative top-5 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-900 flex items-center">
                 <Pencil className="h-5 w-5 mr-2 text-yellow-600" />
@@ -5251,12 +5251,12 @@ function CreativePanel({ user }) {
                 </div>
                 <button
                   onClick={addEditLinkField}
-                  className="mt-2 inline-flex items-center px-3 py-2 border border-yellow-300 text-sm font-medium rounded-md text-gray-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                  className="mt-2 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Добавить ссылку
                 </button>
-                <p className="mt-2 text-xs text-yellow-700 flex items-center">
+                <p className="mt-2 text-xs text-blue-600 flex items-center">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   Используйте только ссылки на Google Drive файлы
                 </p>
@@ -5268,11 +5268,11 @@ function CreativePanel({ user }) {
                   Дополнительные типы работ *
                 </label>
                 <div className={`max-h-72 overflow-y-auto border rounded-md p-3 ${
-                  fieldErrors.work_types ? 'border-red-300 bg-red-50' : 'border-yellow-300 bg-yellow-50'
+                  fieldErrors.work_types ? 'border-red-300 bg-red-50' : 'border-yellow-300 bg-gray-50'
                 }`}>
                   <div className="grid grid-cols-1 gap-2">
                     {workTypes.map((type) => (
-                      <label key={type} className="flex items-center justify-between p-2 hover:bg-yellow-100 rounded cursor-pointer">
+                      <label key={type} className="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer">
                         <div className="flex items-center space-x-2">
                           <input
                             type="checkbox"
@@ -5316,14 +5316,14 @@ function CreativePanel({ user }) {
                   value={addEditCreative.comment}
                   onChange={(e) => setAddEditCreative({ ...addEditCreative, comment: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-yellow-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white resize-none"
                   placeholder="Добавьте комментарий к правке..."
                 />
               </div>
             </div>
 
             {/* Кнопки действий */}
-            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-yellow-200">
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={resetAddEditModal}
                 disabled={creatingEdit}
