@@ -156,6 +156,7 @@ function CreativePanel({ user }) {
   const [showAddEditSearcherDropdown, setShowAddEditSearcherDropdown] = useState(false);
   const [showAddEditWorkTypesDropdown, setShowAddEditWorkTypesDropdown] = useState(false);
   const [creatingEdit, setCreatingEdit] = useState(false);
+  const [addEditLinkType, setAddEditLinkType] = useState('new'); // 'new' или 'reupload'
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
@@ -1697,7 +1698,8 @@ function CreativePanel({ user }) {
         buyer: buyerName !== '—' ? buyerName : null,
         searcher: searcherName !== '—' ? searcherName : null,
         is_edit: true,
-        parent_creative_id: selectedCreativeForEdit.id
+        parent_creative_id: selectedCreativeForEdit.id,
+        link_type: addEditLinkType // 'new' или 'reupload'
       });
 
       console.log('✅ Правка креатива создана:', newEditData);
@@ -1788,6 +1790,7 @@ function CreativePanel({ user }) {
     setShowAddEditBuyerDropdown(false);
     setShowAddEditSearcherDropdown(false);
     setShowAddEditWorkTypesDropdown(false);
+    setAddEditLinkType('new');
     clearMessages();
   };
 
@@ -5165,6 +5168,37 @@ function CreativePanel({ user }) {
                       <span className="text-gray-400">—</span>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Слайдер выбора типа ссылок */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Тип ссылок
+                </label>
+                <div className="flex items-center justify-between bg-gray-100 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAddEditLinkType('new')}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      addEditLinkType === 'new'
+                        ? 'bg-white text-yellow-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Новые ссылки
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddEditLinkType('reupload')}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      addEditLinkType === 'reupload'
+                        ? 'bg-white text-yellow-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Перезалил по "старым"
+                  </button>
                 </div>
               </div>
 

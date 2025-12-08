@@ -1973,7 +1973,8 @@ export const creativeService = {
       buyer_id: creativeData.buyer_id,
       searcher_id: creativeData.searcher_id,
       is_edit: creativeData.is_edit,
-      parent_creative_id: creativeData.parent_creative_id
+      parent_creative_id: creativeData.parent_creative_id,
+      link_type: creativeData.link_type
     });
 
     const { data, error } = await supabase
@@ -1996,6 +1997,7 @@ export const creativeService = {
           searcher: creativeData.searcher || null,
           is_edit: creativeData.is_edit || false,
           parent_creative_id: creativeData.parent_creative_id || null,
+          link_type: creativeData.link_type || null,
           created_at: getKyivTime() // 🕐 Киевское время
         }
       ])
