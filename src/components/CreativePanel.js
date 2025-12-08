@@ -14,9 +14,9 @@ import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
-import { 
-  Plus, 
-  X, 
+import {
+  Plus,
+  X,
   Link as LinkIcon,
   Calendar,
   Eye,
@@ -37,6 +37,7 @@ import {
   Clock,
   MoreHorizontal,
   Edit,
+  Pencil,
   Users,
   Target,
   DollarSign,
@@ -133,6 +134,28 @@ function CreativePanel({ user }) {
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+
+  // Состояния для модального окна "Добавить правку"
+  const [showAddEditModal, setShowAddEditModal] = useState(false);
+  const [searchingArticle, setSearchingArticle] = useState('');
+  const [articleSuggestions, setArticleSuggestions] = useState([]);
+  const [showArticleSuggestions, setShowArticleSuggestions] = useState(false);
+  const [selectedCreativeForEdit, setSelectedCreativeForEdit] = useState(null);
+  const [addEditCreative, setAddEditCreative] = useState({
+    article: '',
+    links: [''],
+    work_types: [],
+    link_titles: [],
+    comment: '',
+    is_poland: false,
+    trello_link: '',
+    buyer_id: null,
+    searcher_id: null
+  });
+  const [showAddEditBuyerDropdown, setShowAddEditBuyerDropdown] = useState(false);
+  const [showAddEditSearcherDropdown, setShowAddEditSearcherDropdown] = useState(false);
+  const [showAddEditWorkTypesDropdown, setShowAddEditWorkTypesDropdown] = useState(false);
+  const [creatingEdit, setCreatingEdit] = useState(false);
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
@@ -1481,6 +1504,294 @@ function CreativePanel({ user }) {
     }
   };
 
+  // ==================== ФУНКЦИИ ДЛЯ "ДОБАВИТЬ ПРАВКУ" ====================
+
+  // Поиск креативов по артикулу
+  const searchCreativesByArticle = async (searchText) => {
+    if (!searchText || searchText.length < 2) {
+      setArticleSuggestions([]);
+      setShowArticleSuggestions(false);
+      return;
+    }
+
+    try {
+      // Ищем среди существующих креативов (только оригиналы, не правки)
+      const searchLower = searchText.toLowerCase();
+      const filtered = creatives
+        .filter(c => !c.is_edit && c.article.toLowerCase().includes(searchLower))
+        .slice(0, 10); // Ограничиваем 10 результатами
+
+      setArticleSuggestions(filtered);
+      setShowArticleSuggestions(true);
+    } catch (error) {
+      console.error('Ошибка поиска креативов:', error);
+      setArticleSuggestions([]);
+      setShowArticleSuggestions(false);
+    }
+  };
+
+  // Выбор креатива для правки
+  const selectCreativeForEdit = (creative) => {
+    console.log('📝 Выбран креатив для правки:', creative);
+    setSelectedCreativeForEdit(creative);
+    setSearchingArticle(creative.article);
+
+    // Автозаполнение полей из родительского креатива
+    setAddEditCreative({
+      article: creative.article,
+      links: [''], // Новые ссылки для правки
+      work_types: [], // Пользователь должен выбрать дополнительные типы работ
+      link_titles: [],
+      comment: '',
+      is_poland: creative.is_poland,
+      trello_link: creative.trello_link || '',
+      buyer_id: creative.buyer_id,
+      searcher_id: creative.searcher_id
+    });
+
+    setShowArticleSuggestions(false);
+  };
+
+  // Добавление поля ссылки в модальном окне правки
+  const addEditLinkField = () => {
+    setAddEditCreative({
+      ...addEditCreative,
+      links: [...addEditCreative.links, '']
+    });
+  };
+
+  // Удаление поля ссылки в модальном окне правки
+  const removeEditLinkField = (index) => {
+    const newLinks = addEditCreative.links.filter((_, i) => i !== index);
+    setAddEditCreative({
+      ...addEditCreative,
+      links: newLinks.length === 0 ? [''] : newLinks
+    });
+  };
+
+  // Обновление ссылки в модальном окне правки
+  const updateEditLink = (index, value) => {
+    const newLinks = [...addEditCreative.links];
+    newLinks[index] = value;
+    setAddEditCreative({
+      ...addEditCreative,
+      links: newLinks
+    });
+    clearFieldError('links');
+  };
+
+  // Обработка изменения типа работ для правки
+  const handleAddEditWorkTypeChange = (workType, isChecked) => {
+    let updatedWorkTypes;
+    if (isChecked) {
+      updatedWorkTypes = [...addEditCreative.work_types, workType];
+    } else {
+      updatedWorkTypes = addEditCreative.work_types.filter(type => type !== workType);
+    }
+
+    setAddEditCreative({
+      ...addEditCreative,
+      work_types: updatedWorkTypes
+    });
+    clearFieldError('work_types');
+  };
+
+  // Валидация полей для правки
+  const validateAddEditFields = () => {
+    const errors = {};
+    const errorMessages = [];
+
+    if (!selectedCreativeForEdit) {
+      errors.article = true;
+      errorMessages.push('Необходимо выбрать креатив из списка');
+    }
+
+    // Проверяем ссылки
+    const nonEmptyLinks = addEditCreative.links.filter(link => link.trim());
+    if (nonEmptyLinks.length === 0) {
+      errors.links = true;
+      errorMessages.push('Добавьте хотя бы одну Google Drive ссылку');
+    }
+
+    // Проверяем валидность ссылок Google Drive
+    const invalidLinks = nonEmptyLinks.filter(link => !isGoogleDriveUrl(link));
+    if (invalidLinks.length > 0) {
+      errors.links = true;
+      errorMessages.push('Все ссылки должны быть действительными Google Drive ссылками');
+    }
+
+    // Проверяем типы работ (обязательно для правки)
+    if (addEditCreative.work_types.length === 0) {
+      errors.work_types = true;
+      errorMessages.push('Необходимо выбрать хотя бы один дополнительный тип работы');
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError(errorMessages.join('. '));
+      return false;
+    }
+
+    return true;
+  };
+
+  // Создание правки креатива
+  const handleCreateAddEdit = async () => {
+    if (!validateAddEditFields()) {
+      return;
+    }
+
+    const { validLinks, invalidLinks } = validateGoogleDriveLinks(addEditCreative.links);
+
+    try {
+      setCreatingEdit(true);
+      setError('');
+      setSuccess('');
+
+      setAuthorizing(true);
+      const authSuccess = await ensureGoogleAuth();
+      setAuthorizing(false);
+
+      if (!authSuccess) {
+        setError('Необходима авторизация Google для извлечения названий файлов');
+        setCreatingEdit(false);
+        return;
+      }
+
+      setExtractingTitles(true);
+      const { links, titles } = await processLinksAndExtractTitles(validLinks, true);
+      setExtractingTitles(false);
+
+      const extractedTitles = titles.filter(title => !title.startsWith('Видео '));
+      if (extractedTitles.length === 0) {
+        setError('Не удалось извлечь названия из ваших ссылок. Проверьте что ссылки ведут на доступные файлы Google Drive.');
+        setCreatingEdit(false);
+        return;
+      }
+
+      // Объединяем типы работ родительского креатива с новыми
+      const combinedWorkTypes = [
+        ...(selectedCreativeForEdit.work_types || []),
+        ...addEditCreative.work_types
+      ];
+      const cofRating = calculateCOF(combinedWorkTypes);
+
+      // Получаем имена байера и серчера
+      const buyerName = selectedCreativeForEdit.buyer_id ? getBuyerName(selectedCreativeForEdit.buyer_id) : null;
+      const searcherName = selectedCreativeForEdit.searcher_id ? getSearcherName(selectedCreativeForEdit.searcher_id) : null;
+
+      const newEditData = await creativeService.createCreative({
+        user_id: user.id,
+        editor_name: user.name,
+        article: selectedCreativeForEdit.article,
+        links: links,
+        link_titles: titles,
+        work_types: combinedWorkTypes,
+        cof_rating: cofRating,
+        comment: addEditCreative.comment.trim() || null,
+        is_poland: selectedCreativeForEdit.is_poland,
+        trello_link: selectedCreativeForEdit.trello_link || '',
+        buyer_id: selectedCreativeForEdit.buyer_id,
+        searcher_id: selectedCreativeForEdit.searcher_id,
+        buyer: buyerName !== '—' ? buyerName : null,
+        searcher: searcherName !== '—' ? searcherName : null,
+        is_edit: true,
+        parent_creative_id: selectedCreativeForEdit.id
+      });
+
+      console.log('✅ Правка креатива создана:', newEditData);
+
+      // Синхронизация Trello если есть ссылка
+      if (newEditData.trello_link) {
+        try {
+          const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creativeId: newEditData.id,
+              trelloLink: newEditData.trello_link
+            })
+          });
+
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            setTrelloStatuses(prev => {
+              const updated = new Map(prev);
+              updated.set(newEditData.id, {
+                creative_id: newEditData.id,
+                list_name: syncResult.listName,
+                list_id: syncResult.listId,
+                trello_card_id: syncResult.cardId,
+                last_updated: new Date().toISOString()
+              });
+              return updated;
+            });
+          }
+        } catch (syncError) {
+          console.error('Ошибка синхронизации Trello:', syncError);
+        }
+      }
+
+      // Добавляем правку в список
+      setCreatives(prevCreatives => [newEditData, ...prevCreatives]);
+
+      // Сбрасываем форму
+      setAddEditCreative({
+        article: '',
+        links: [''],
+        work_types: [],
+        link_titles: [],
+        comment: '',
+        is_poland: false,
+        trello_link: '',
+        buyer_id: null,
+        searcher_id: null
+      });
+      setSelectedCreativeForEdit(null);
+      setSearchingArticle('');
+      setShowAddEditModal(false);
+
+      // Загружаем метрики для нового креатива
+      await loadMetricsForSingleCreative(newEditData);
+
+      const country = selectedCreativeForEdit.is_poland ? 'PL' : 'UA';
+      setSuccess(`Правка создана! COF: ${formatCOF(cofRating)} | Страна: ${country} | Видео: ${extractedTitles.length}`);
+
+    } catch (error) {
+      setError('Ошибка создания правки: ' + error.message);
+      setExtractingTitles(false);
+      setAuthorizing(false);
+    } finally {
+      setCreatingEdit(false);
+    }
+  };
+
+  // Сброс модального окна правки
+  const resetAddEditModal = () => {
+    setShowAddEditModal(false);
+    setSelectedCreativeForEdit(null);
+    setSearchingArticle('');
+    setArticleSuggestions([]);
+    setShowArticleSuggestions(false);
+    setAddEditCreative({
+      article: '',
+      links: [''],
+      work_types: [],
+      link_titles: [],
+      comment: '',
+      is_poland: false,
+      trello_link: '',
+      buyer_id: null,
+      searcher_id: null
+    });
+    setShowAddEditBuyerDropdown(false);
+    setShowAddEditSearcherDropdown(false);
+    setShowAddEditWorkTypesDropdown(false);
+    clearMessages();
+  };
+
+  // ==================== КОНЕЦ ФУНКЦИЙ ДЛЯ "ДОБАВИТЬ ПРАВКУ" ====================
+
   const addLinkField = () => {
     setNewCreative({
       ...newCreative,
@@ -2225,6 +2536,15 @@ function CreativePanel({ user }) {
               Обновить метрики
             </button>
 
+            {/* Кнопка "Добавить правку" - желтая с иконкой карандаша */}
+            <button
+              onClick={() => setShowAddEditModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Добавить правку
+            </button>
+
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -2858,13 +3178,22 @@ function CreativePanel({ user }) {
             <p className="text-gray-600 mb-4">
               Создайте свой первый креатив с Google Drive ссылками
             </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
+            <div className="flex items-center justify-center space-x-3">
+              <button
+                onClick={() => setShowAddEditModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Добавить правку
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Создать креатив
+              </button>
+            </div>
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -3024,15 +3353,25 @@ function CreativePanel({ user }) {
                                     </button>
                                   )}
                                 </div>
-                                
+
+                                {/* Бейдж "E" для правок креативов */}
+                                {creative.is_edit && (
+                                  <div
+                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 shadow-md border border-yellow-500 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                  >
+                                    <span className="tracking-wide">E</span>
+                                  </div>
+                                )}
+
                                 {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
-                                
+
                                 <div className="text-sm font-medium text-gray-900 cursor-text select-text">
                                   {creative.article}
                                 </div>
                               </div>
                             </td>
-                            
+
                             <td className="px-3 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
@@ -4633,6 +4972,386 @@ function CreativePanel({ user }) {
                     <div className="ml-2">
                       {editCreative.is_poland ? <PolandFlag /> : <UkraineFlag />}
                     </div>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Edit Modal - Модальное окно для добавления правки */}
+      {showAddEditModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-5 border-2 border-yellow-400 w-full max-w-2xl shadow-lg rounded-md bg-yellow-50 my-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Pencil className="h-5 w-5 mr-2 text-yellow-600" />
+                Добавить правку креатива
+              </h3>
+              <button
+                onClick={resetAddEditModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Индикатор режима правки */}
+            <div className="mb-4 bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+              Создание правки для существующего креатива
+            </div>
+
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Поиск артикула */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.article ? 'text-red-600' : 'text-gray-700'}`}>
+                  Артикул *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchingArticle}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearchingArticle(value);
+                      clearFieldError('article');
+
+                      // Сбрасываем выбор при изменении
+                      if (selectedCreativeForEdit) {
+                        setSelectedCreativeForEdit(null);
+                        setAddEditCreative({
+                          ...addEditCreative,
+                          article: '',
+                          buyer_id: null,
+                          searcher_id: null,
+                          trello_link: '',
+                          is_poland: false,
+                          work_types: []
+                        });
+                      }
+
+                      // Запускаем поиск
+                      if (value.length >= 2) {
+                        searchCreativesByArticle(value);
+                      } else {
+                        setArticleSuggestions([]);
+                        setShowArticleSuggestions(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (searchingArticle.length >= 2) {
+                        searchCreativesByArticle(searchingArticle);
+                      }
+                    }}
+                    disabled={!!selectedCreativeForEdit}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      selectedCreativeForEdit
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                        : fieldErrors.article
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                        : 'border-yellow-300 focus:ring-yellow-500 focus:border-transparent bg-white'
+                    }`}
+                    placeholder="Введите артикул для поиска"
+                  />
+
+                  {/* Dropdown с результатами поиска */}
+                  {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length > 0 && (
+                    <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {articleSuggestions.map((creative) => (
+                        <button
+                          key={creative.id}
+                          type="button"
+                          onClick={() => selectCreativeForEdit(creative)}
+                          className="w-full px-3 py-2 text-left hover:bg-yellow-50 flex items-center justify-between border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 flex items-center">
+                              {creative.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                              <span className="ml-2">{creative.article}</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div>Дата: {new Date(creative.created_at).toLocaleDateString('ru-RU')}</div>
+                              <div className="mt-0.5">Видео: {creative.link_titles?.join(', ') || '—'}</div>
+                              {creative.trello_link && (
+                                <a
+                                  href={creative.trello_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-blue-600 hover:underline mt-0.5 inline-block"
+                                >
+                                  Trello карточка
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-400 ml-2 text-right">
+                            {creative.buyer || '—'}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Показываем если нет результатов */}
+                  {!selectedCreativeForEdit && showArticleSuggestions && articleSuggestions.length === 0 && searchingArticle.length >= 2 && (
+                    <div className="article-suggestions absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                      <div className="px-3 py-4 text-center text-sm text-gray-500">
+                        Креативы не найдены
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {selectedCreativeForEdit && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-green-600 flex items-center">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Выбран: {selectedCreativeForEdit.article}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCreativeForEdit(null);
+                        setSearchingArticle('');
+                        setAddEditCreative({
+                          article: '',
+                          links: [''],
+                          work_types: [],
+                          link_titles: [],
+                          comment: '',
+                          is_poland: false,
+                          trello_link: '',
+                          buyer_id: null,
+                          searcher_id: null
+                        });
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Сбросить выбор
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Автозаполненные поля (неактивные) */}
+              {selectedCreativeForEdit && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Карточка Trello */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Карточка Trello
+                      </label>
+                      <input
+                        type="url"
+                        value={selectedCreativeForEdit.trello_link || '—'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Страна */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Страна
+                      </label>
+                      <div className="flex items-center px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed">
+                        {selectedCreativeForEdit.is_poland ? <PolandFlag /> : <UkraineFlag />}
+                        <span className="ml-2">{selectedCreativeForEdit.is_poland ? 'Poland' : 'Ukraine'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Buyer */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Buyer
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedCreativeForEdit.buyer || getBuyerName(selectedCreativeForEdit.buyer_id) || '—'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Searcher */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-2">
+                        Searcher
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedCreativeForEdit.searcher || getSearcherName(selectedCreativeForEdit.searcher_id) || '—'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Типы работ из оригинала */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Типы работ (из оригинала)
+                    </label>
+                    <div className="flex flex-wrap gap-1 px-3 py-2 border border-gray-200 rounded-md bg-gray-100">
+                      {selectedCreativeForEdit.work_types && selectedCreativeForEdit.work_types.length > 0 ? (
+                        selectedCreativeForEdit.work_types.map((type, index) => (
+                          <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-200 text-gray-700">
+                            {type} ({formatCOF(workTypeValues[type] || 0)})
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400">Нет типов работ</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Google Drive ссылки */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.links ? 'text-red-600' : 'text-gray-700'}`}>
+                  Google Drive ссылки *
+                </label>
+                <div className="space-y-2">
+                  {addEditCreative.links.map((link, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input
+                        type="url"
+                        value={link}
+                        onChange={(e) => updateEditLink(index, e.target.value)}
+                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                          fieldErrors.links
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500 text-red-900 placeholder-red-400'
+                            : 'border-yellow-300 focus:ring-yellow-500 focus:border-yellow-500 bg-white'
+                        }`}
+                        placeholder="https://drive.google.com/file/d/..."
+                      />
+                      {addEditCreative.links.length > 1 && (
+                        <button
+                          onClick={() => removeEditLinkField(index)}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={addEditLinkField}
+                  className="mt-2 inline-flex items-center px-3 py-2 border border-yellow-300 text-sm font-medium rounded-md text-gray-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить ссылку
+                </button>
+                <p className="mt-2 text-xs text-yellow-700 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Используйте только ссылки на Google Drive файлы
+                </p>
+              </div>
+
+              {/* Дополнительные типы работ (обязательные) */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${fieldErrors.work_types ? 'text-red-600' : 'text-gray-700'}`}>
+                  Дополнительные типы работ *
+                </label>
+                <div className={`max-h-72 overflow-y-auto border rounded-md p-3 ${
+                  fieldErrors.work_types ? 'border-red-300 bg-red-50' : 'border-yellow-300 bg-yellow-50'
+                }`}>
+                  <div className="grid grid-cols-1 gap-2">
+                    {workTypes.map((type) => (
+                      <label key={type} className="flex items-center justify-between p-2 hover:bg-yellow-100 rounded cursor-pointer">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={addEditCreative.work_types.includes(type)}
+                            onChange={(e) => handleAddEditWorkTypeChange(type, e.target.checked)}
+                            className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700 select-none">{type}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatCOF(workTypeValues[type] || 0)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {addEditCreative.work_types.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {addEditCreative.work_types.map((type, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs bg-yellow-200 text-yellow-800">
+                        {type} ({formatCOF(workTypeValues[type] || 0)})
+                        <button
+                          type="button"
+                          onClick={() => handleAddEditWorkTypeChange(type, false)}
+                          className="ml-1 text-yellow-600 hover:text-yellow-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Комментарий */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Комментарий
+                </label>
+                <textarea
+                  value={addEditCreative.comment}
+                  onChange={(e) => setAddEditCreative({ ...addEditCreative, comment: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-yellow-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white resize-none"
+                  placeholder="Добавьте комментарий к правке..."
+                />
+              </div>
+            </div>
+
+            {/* Кнопки действий */}
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-yellow-200">
+              <button
+                onClick={resetAddEditModal}
+                disabled={creatingEdit}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+              >
+                Отменить
+              </button>
+              <button
+                onClick={handleCreateAddEdit}
+                disabled={creatingEdit || !selectedCreativeForEdit}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+              >
+                {creatingEdit ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                    {authorizing ? 'Авторизация Google...' :
+                     extractingTitles ? 'Извлечение названий...' :
+                     'Создание правки...'}
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    <span>Внести правку</span>
+                    {addEditCreative.work_types.length > 0 && selectedCreativeForEdit && (
+                      <span className="ml-2 text-xs opacity-75">
+                        (COF: {formatCOF(calculateCOF([...(selectedCreativeForEdit.work_types || []), ...addEditCreative.work_types]))})
+                      </span>
+                    )}
                   </div>
                 )}
               </button>

@@ -1971,7 +1971,9 @@ export const creativeService = {
       is_poland: creativeData.is_poland,
       trello_link: creativeData.trello_link,
       buyer_id: creativeData.buyer_id,
-      searcher_id: creativeData.searcher_id
+      searcher_id: creativeData.searcher_id,
+      is_edit: creativeData.is_edit,
+      parent_creative_id: creativeData.parent_creative_id
     });
 
     const { data, error } = await supabase
@@ -1992,6 +1994,8 @@ export const creativeService = {
           searcher_id: creativeData.searcher_id || null,
           buyer: creativeData.buyer || null,
           searcher: creativeData.searcher || null,
+          is_edit: creativeData.is_edit || false,
+          parent_creative_id: creativeData.parent_creative_id || null,
           created_at: getKyivTime() // 🕐 Киевское время
         }
       ])
