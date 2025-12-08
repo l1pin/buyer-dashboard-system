@@ -3711,30 +3711,56 @@ export const metricsAnalyticsService = {
         period
       });
 
-      // КРИТИЧНО: НЕ используем select('*') из-за JSONB поля metrics_data
-      const { data, error } = await supabase
-        .from('metrics_cache')
-        .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at')
-        .in('creative_id', creativeIds)
-        .eq('period', period); // Загружаем для ЗАПРОШЕННОГО периода
+      // КРИТИЧНО: Загружаем ВСЕ данные с пагинацией (не лимит 1000!)
+      const PAGE_SIZE = 1000;
+      let allData = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) {
-        console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
-        throw error;
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        console.log(`📄 Загрузка страницы ${page + 1} (записи ${from}-${to})...`);
+
+        const { data, error, count } = await supabase
+          .from('metrics_cache')
+          .select('creative_id, article, video_index, video_title, period, leads, cost, clicks, impressions, avg_duration, days_count, cost_from_sources, clicks_on_link, cached_at', { count: 'exact' })
+          .in('creative_id', creativeIds)
+          .eq('period', period)
+          .range(from, to);
+
+        if (error) {
+          console.error('❌ Ошибка батчевого запроса к metrics_cache:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          console.log(`✅ Загружено ${data.length} записей, всего: ${allData.length}`);
+        }
+
+        // Проверяем, есть ли еще данные
+        hasMore = data && data.length === PAGE_SIZE;
+        page++;
+
+        // Защита от бесконечного цикла
+        if (page > 100) {
+          console.warn('⚠️ Достигнут лимит страниц (100), прерываем загрузку');
+          break;
+        }
       }
 
-      console.log('📦 Получены данные из metrics_cache:', {
-        isArray: Array.isArray(data),
-        count: data?.length || 0,
-        firstItemKeys: data?.[0] ? Object.keys(data[0]) : [],
-        firstItem: data?.[0]
+      console.log('📦 Все данные загружены из metrics_cache:', {
+        totalCount: allData.length,
+        pages: page
       });
 
       // Преобразуем каждую запись из колонок в формат с вычисленными метриками
-      if (data && data.length > 0) {
-        console.log(`🔄 Преобразуем ${data.length} записей кэша через reconstructMetricsFromCache...`);
+      if (allData && allData.length > 0) {
+        console.log(`🔄 Преобразуем ${allData.length} записей кэша через reconstructMetricsFromCache...`);
 
-        const reconstructed = data.map((cache, index) => {
+        const reconstructed = allData.map((cache, index) => {
           console.log(`📋 Преобразование записи ${index + 1}:`, {
             creative_id: cache.creative_id,
             video_index: cache.video_index,
