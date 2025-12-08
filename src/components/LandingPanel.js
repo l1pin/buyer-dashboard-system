@@ -6,6 +6,7 @@ import IntegrationChecker from './IntegrationChecker';
 import { supabase, landingService, userService, landingHistoryService, metricsAnalyticsService, trelloLandingService, landingTemplatesService, landingTagsService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useLandingMetrics } from '../hooks/useLandingMetrics';
+import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
 import { useZoneData } from '../hooks/useZoneData';
 import {
   Plus,
@@ -2338,22 +2339,7 @@ data-rt-sub16="${selectedLandingUuid}"
       {/* Информационная панель с временем обновления */}
       <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {metricsLastUpdate && (
-              <>
-                <Clock className="h-3 w-3 text-gray-400" />
-                <span className="text-xs text-gray-500">
-                  Обновлено: {new Date(metricsLastUpdate).toLocaleString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </>
-            )}
-          </div>
+          <MetricsLastUpdateBadge />
         </div>
       </div>
 
