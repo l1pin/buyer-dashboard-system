@@ -2849,11 +2849,11 @@ function CreativeSearch({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Дата
-                      </th>
                       <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         Тип
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Дата
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
@@ -2936,18 +2936,11 @@ function CreativeSearch({ user }) {
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
-                          <tr 
+                          <tr
                             key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              <div className="cursor-text select-text">
-                                <div className="font-medium">{formattedDateTime.date}</div>
-                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                              </div>
-                            </td>
-
-                            {/* Колонка "Тип" с бейджем E для правок */}
+                            {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
                               <div className="flex items-center justify-center">
                                 {creative.is_edit && (
@@ -2958,6 +2951,13 @@ function CreativeSearch({ user }) {
                                     <span className="tracking-wide">E</span>
                                   </div>
                                 )}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="cursor-text select-text">
+                                <div className="font-medium">{formattedDateTime.date}</div>
+                                <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
                               </div>
                             </td>
 
