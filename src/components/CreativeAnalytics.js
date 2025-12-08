@@ -2997,11 +2997,11 @@ function CreativeAnalytics({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
-                        Дата
-                      </th>
                       <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         Тип
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                        Дата
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
@@ -3095,10 +3095,24 @@ function CreativeAnalytics({ user }) {
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
                         return (
-                          <tr 
+                          <tr
                             key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
+                            {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
+                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
+                              <div className="flex items-center justify-center">
+                                {creative.is_edit && (
+                                  <div
+                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                  >
+                                    <span className="tracking-wide">E</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <div className="cursor-text select-text">
@@ -3116,20 +3130,6 @@ function CreativeAnalytics({ user }) {
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Колонка "Тип" с бейджем E для правок */}
-                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                              <div className="flex items-center justify-center">
-                                {creative.is_edit && (
-                                  <div
-                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
-                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
-                                  >
-                                    <span className="tracking-wide">E</span>
-                                  </div>
                                 )}
                               </div>
                             </td>
