@@ -91,7 +91,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   videoName: cache.video_title,
                   creativeId: cache.creative_id,
                   videoIndex: cache.video_index,
-                  fromCache: true
+                  fromCache: true,
+                  sources: cache.sources || [] // Источники из кэша
                 });
               }
             });
@@ -270,7 +271,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                     creativeId: metadata.creativeId,
                     videoIndex: metadata.videoIndex,
                     fromCache: false,
-                    noData: false
+                    noData: false,
+                    sources: videoResult.sources || [] // Источники для этого видео
                   });
                 } else {
                   // КРИТИЧНО: Добавляем запись даже для видео без метрик
@@ -651,7 +653,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   videoIndex: matchedMetadata.videoIndex,
                   fromCache: false,
                   noData: false,
-                  foundViaLike: true // 🏷️ Маркер LIKE поиска
+                  foundViaLike: true, // 🏷️ Маркер LIKE поиска
+                  sources: videoResult.sources || [] // Источники для этого видео
                 });
 
                 console.log(`🎯 LIKE метрика добавлена для: ${matchedMetadata.videoTitle}`);
@@ -704,7 +707,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
           videoTitle: m.videoName,
           metricsData: m.data,
           period: 'all',
-          hasData: true
+          hasData: true,
+          sources: m.sources || [] // Сохраняем источники
         }));
 
         // Метрики БЕЗ ДАННЫХ для периода "all" (с NULL)
@@ -813,7 +817,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               videoTitle: m.videoName,
               metricsData: data4Days,
               period: '4days',
-              hasData: true
+              hasData: true,
+              sources: m.sources || [] // Сохраняем источники
             });
           }
         });
@@ -895,7 +900,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 period: '4days',
                 creativeId: cache.creative_id,
                 videoIndex: cache.video_index,
-                fromCache: true
+                fromCache: true,
+                sources: cache.sources || [] // Источники из кэша
               });
             }
           });
@@ -1153,7 +1159,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             creativeId: creative.id,
             videoIndex: videoIndex,
             fromCache: false,
-            noData: false
+            noData: false,
+            sources: videoResult.sources || [] // Источники для этого видео
           });
         } else {
           // Метрики не найдены
@@ -1273,7 +1280,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 videoIndex: matchedInfo.videoIndex,
                 fromCache: false,
                 noData: false,
-                foundViaLike: true
+                foundViaLike: true,
+                sources: videoResult.sources || [] // Источники для этого видео
               });
             });
 
@@ -1306,7 +1314,8 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
             videoTitle: metric.videoName,
             metricsData: metric.data,
             period: 'all',
-            hasData: true
+            hasData: true,
+            sources: metric.sources || [] // Сохраняем источники
           });
         }
       });
