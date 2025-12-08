@@ -11,14 +11,13 @@ const CONFIG = {
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY,
 
   // Пагинация Supabase
-  PAGE_SIZE: 1000,  // Supabase возвращает максимум 1000 записей
+  PAGE_SIZE: 1000,
 
   // Батчинг для API запросов
-  BATCH_SIZE: 150,  // Видео за один запрос к API
-  PARALLEL_REQUESTS: 3,  // Параллельные запросы к API
+  BATCH_SIZE: 150,
 
   // Таймауты
-  API_TIMEOUT_MS: 25000,  // 25 секунд на запрос
+  API_TIMEOUT_MS: 25000,
   RETRY_COUNT: 2,
   RETRY_DELAY_MS: 2000,
 
@@ -32,7 +31,7 @@ let supabase = null;
 function getSupabaseClient() {
   if (!supabase) {
     if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_SERVICE_KEY) {
-      throw new Error('Supabase credentials not configured');
+      throw new Error('Supabase credentials not configured. SUPABASE_URL=' + CONFIG.SUPABASE_URL + ', KEY=' + (CONFIG.SUPABASE_SERVICE_KEY ? 'SET' : 'NOT SET'));
     }
 
     supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_SERVICE_KEY, {
@@ -82,13 +81,12 @@ async function getAllCreativesWithPagination() {
 
 // ==================== СБОР УНИКАЛЬНЫХ ВИДЕО ====================
 function collectUniqueVideos(creatives) {
-  const videoMap = new Map(); // videoTitle -> [{creativeId, article, videoIndex}]
+  const videoMap = new Map();
 
   for (const creative of creatives) {
     if (!creative.link_titles || !Array.isArray(creative.link_titles)) continue;
 
     creative.link_titles.forEach((title, index) => {
-      // Пропускаем плейсхолдеры
       if (!title || title.startsWith('Видео ')) return;
 
       if (!videoMap.has(title)) {
@@ -112,16 +110,15 @@ function escapeSQL(str) {
   return String(str).replace(/'/g, "''");
 }
 
-function buildBatchSQL(videoNames) {
+// SQL для периода "all" (все данные)
+function buildAllPeriodSQL(videoNames) {
   const inClause = videoNames
     .map(name => `'${escapeSQL(name)}'`)
     .join(',');
 
   return `
 SELECT
-  'total' as kind,
   t.video_name,
-  NULL as adv_date,
   COALESCE(SUM(t.valid), 0) AS leads,
   COALESCE(SUM(t.cost), 0) AS cost,
   COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
@@ -135,6 +132,39 @@ WHERE t.video_name IN (${inClause})
   AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
 GROUP BY t.video_name
 ORDER BY t.video_name`;
+}
+
+// SQL для периода "4days" (первые 4 дня)
+function build4DaysPeriodSQL(videoNames) {
+  const inClause = videoNames
+    .map(name => `'${escapeSQL(name)}'`)
+    .join(',');
+
+  return `
+SELECT video_name, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks,
+       SUM(impressions) as impressions, AVG(avg_duration) as avg_duration,
+       SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link,
+       COUNT(*) as days_count
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE t.video_name IN (${inClause})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+ORDER BY video_name`;
 }
 
 // ==================== FETCH С РЕТРАЯМИ ====================
@@ -169,10 +199,16 @@ async function fetchWithRetry(sql, retries = CONFIG.RETRY_COUNT) {
 
       const text = await response.text();
       if (!text || !text.trim()) {
+        console.log('⚠️ Пустой ответ от API');
         return [];
       }
 
       const parsed = JSON.parse(text);
+
+      // Логируем первый результат для диагностики
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        console.log(`📊 API вернул ${parsed.length} записей. Пример:`, JSON.stringify(parsed[0]));
+      }
 
       if (Array.isArray(parsed)) {
         return parsed;
@@ -184,6 +220,7 @@ async function fetchWithRetry(sql, retries = CONFIG.RETRY_COUNT) {
         return parsed.results;
       }
 
+      console.log('⚠️ Неожиданный формат ответа:', typeof parsed);
       return [];
 
     } catch (error) {
@@ -206,14 +243,18 @@ async function fetchWithRetry(sql, retries = CONFIG.RETRY_COUNT) {
 }
 
 // ==================== ОБРАБОТКА БАТЧА ====================
-async function processBatch(videoNames, videoMap) {
+async function processBatch(videoNames, videoMap, period = 'all') {
   if (videoNames.length === 0) return [];
 
-  const sql = buildBatchSQL(videoNames);
+  const sql = period === '4days'
+    ? build4DaysPeriodSQL(videoNames)
+    : buildAllPeriodSQL(videoNames);
+
   const results = await fetchWithRetry(sql);
 
   const cacheEntries = [];
   const now = new Date().toISOString();
+  let foundCount = 0;
 
   // Обрабатываем результаты
   for (const row of results) {
@@ -222,14 +263,15 @@ async function processBatch(videoNames, videoMap) {
     const creatives = videoMap.get(row.video_name);
     if (!creatives) continue;
 
-    // Создаём запись для каждого креатива, использующего это видео
+    foundCount++;
+
     for (const creative of creatives) {
       cacheEntries.push({
         creative_id: creative.creativeId,
         article: creative.article,
         video_index: creative.videoIndex,
         video_title: row.video_name,
-        period: 'all',
+        period: period,
         leads: Number(row.leads) || 0,
         cost: Number(row.cost) || 0,
         clicks: Number(row.clicks) || 0,
@@ -257,7 +299,7 @@ async function processBatch(videoNames, videoMap) {
         article: creative.article,
         video_index: creative.videoIndex,
         video_title: videoName,
-        period: 'all',
+        period: period,
         leads: null,
         cost: null,
         clicks: null,
@@ -271,6 +313,8 @@ async function processBatch(videoNames, videoMap) {
     }
   }
 
+  console.log(`   → Период ${period}: найдено ${foundCount} видео с данными из ${videoNames.length}`);
+
   return cacheEntries;
 }
 
@@ -281,22 +325,29 @@ async function saveBatchToCache(entries) {
   const client = getSupabaseClient();
   const SAVE_BATCH_SIZE = 100;
   let totalSaved = 0;
+  let totalErrors = 0;
 
   for (let i = 0; i < entries.length; i += SAVE_BATCH_SIZE) {
     const batch = entries.slice(i, i + SAVE_BATCH_SIZE);
 
-    const { error } = await client
+    const { data, error } = await client
       .from('metrics_cache')
       .upsert(batch, {
         onConflict: 'creative_id,video_index,period'
-      });
+      })
+      .select();
 
     if (error) {
       console.error(`❌ Ошибка сохранения батча ${i}-${i + batch.length}:`, error.message);
+      totalErrors++;
       continue;
     }
 
     totalSaved += batch.length;
+  }
+
+  if (totalErrors > 0) {
+    console.log(`⚠️ Ошибок при сохранении: ${totalErrors}`);
   }
 
   return totalSaved;
@@ -353,7 +404,7 @@ async function refreshAllMetrics() {
 
     console.log(`📊 Всего уникальных видео: ${videoTitles.length}`);
 
-    // Шаг 3: Обрабатываем батчами
+    // Шаг 3: Обрабатываем батчами для ОБОИХ периодов
     const allCacheEntries = [];
     const totalBatches = Math.ceil(videoTitles.length / CONFIG.BATCH_SIZE);
 
@@ -363,12 +414,17 @@ async function refreshAllMetrics() {
 
       console.log(`📦 Обработка батча ${batchNum}/${totalBatches} (${batch.length} видео)...`);
 
-      const entries = await processBatch(batch, videoMap);
-      allCacheEntries.push(...entries);
+      // Загружаем для периода "all"
+      const entriesAll = await processBatch(batch, videoMap, 'all');
+      allCacheEntries.push(...entriesAll);
 
-      // Небольшая пауза между батчами для снижения нагрузки на API
+      // Загружаем для периода "4days"
+      const entries4days = await processBatch(batch, videoMap, '4days');
+      allCacheEntries.push(...entries4days);
+
+      // Пауза между батчами
       if (i + CONFIG.BATCH_SIZE < videoTitles.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 
@@ -400,12 +456,12 @@ async function refreshAllMetrics() {
 }
 
 // ==================== NETLIFY SCHEDULED FUNCTION CONFIG ====================
-// Запуск каждые 15 минут
 export const config = {
-  schedule: "*/15 * * * *"  // Каждые 15 минут
+  schedule: "*/15 * * * *"
 };
 
 // ==================== HANDLER ====================
+// Scheduled functions должны возвращать undefined или Response
 export default async function handler(event, context) {
   console.log('========================================');
   console.log('🕐 SCHEDULED METRICS REFRESH TRIGGERED');
@@ -417,8 +473,6 @@ export default async function handler(event, context) {
   console.log('📊 РЕЗУЛЬТАТ:', JSON.stringify(result, null, 2));
   console.log('========================================');
 
-  return {
-    statusCode: result.success ? 200 : 500,
-    body: JSON.stringify(result)
-  };
+  // Scheduled functions должны возвращать undefined
+  // НЕ возвращаем объект { statusCode, body }
 }
