@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MetricsService } from '../services/metricsService';
 import { metricsAnalyticsService } from '../supabaseClient';
+import { useGlobalMetricsStatus } from './useGlobalMetricsStatus';
 
 /**
  * Хук для батчевой загрузки метрик (оптимизированный)
@@ -17,6 +18,13 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
   const [stats, setStats] = useState({ total: 0, found: 0, notFound: 0 });
   const [loadingCreativeIds, setLoadingCreativeIds] = useState(new Set()); // 🆕 Креативы, для которых идет загрузка
   const loadingCancelRef = useRef(false);
+
+  // 🔄 Realtime: Получаем глобальный статус обновления метрик
+  const {
+    shouldRefreshMetrics,
+    isRefreshing: globalIsRefreshing,
+    resetRefreshFlag
+  } = useGlobalMetricsStatus();
 
   /**
    * ОПТИМИЗИРОВАННАЯ батчевая загрузка - ОДИН запрос для всех видео
@@ -969,6 +977,23 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     };
   }, [creatives, autoLoad, loadRawBatchMetrics]);
 
+  // 🔄 Realtime: Автообновление при изменении метрик в фоне (scheduled function)
+  useEffect(() => {
+    if (shouldRefreshMetrics && creatives && creatives.length > 0) {
+      console.log('🔄 Realtime: Обнаружено автообновление метрик, перезагружаем из кэша...');
+
+      // Перезагружаем метрики из кэша Supabase (без обращения к API)
+      loadRawBatchMetrics(false, period).then(() => {
+        console.log('✅ Realtime: Метрики успешно обновлены из кэша');
+        // Сбрасываем флаг после обновления
+        resetRefreshFlag();
+      }).catch((err) => {
+        console.error('❌ Realtime: Ошибка обновления метрик из кэша:', err);
+        resetRefreshFlag();
+      });
+    }
+  }, [shouldRefreshMetrics, creatives, period, loadRawBatchMetrics, resetRefreshFlag]);
+
   // Фильтрация при смене периода
   useEffect(() => {
     if (rawBatchMetrics.size > 0) {
@@ -1305,7 +1330,9 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
     getCreativeMetrics,
     hasVideoMetrics,
     getSuccessRate,
-    currentPeriod: period
+    currentPeriod: period,
+    // 🔄 Realtime: Флаг для спиннера при автообновлении
+    isAutoRefreshing: globalIsRefreshing
   };
 }
 

@@ -339,14 +339,15 @@ function CreativeAnalytics({ user }) {
     setShowCalendar(false);
   };
 
-  const { 
-    batchMetrics, 
-    loading: metricsLoading, 
+  const {
+    batchMetrics,
+    loading: metricsLoading,
     error: metricsError,
     stats: metricsStats,
     getCreativeMetrics,
     refresh: refreshMetrics,
-    loadFromCache
+    loadFromCache,
+    isAutoRefreshing // 🔄 Realtime: Флаг автообновления метрик
   } = useBatchMetrics(filteredCreativesByMonth, true, metricsPeriod);
   
   const { 
