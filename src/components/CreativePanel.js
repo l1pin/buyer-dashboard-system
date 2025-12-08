@@ -79,7 +79,11 @@ function CreativePanel({ user }) {
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
   const [syncingCreatives, setSyncingCreatives] = useState(new Set()); // Отслеживание синхронизирующихся креативов
-  
+
+  // Правки креативов
+  const [creativeEdits, setCreativeEdits] = useState(new Map()); // Map<creative_id, Edit[]>
+  const [expandedEdits, setExpandedEdits] = useState(new Set()); // Set<creative_id> - раскрытые правки
+
   // Новая система фильтрации по периоду (как в CreativeAnalytics)
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [customDateFrom, setCustomDateFrom] = useState(null);
@@ -1172,16 +1176,27 @@ function CreativePanel({ user }) {
       setError('');
       console.log('📡 Загрузка креативов пользователя...');
       const data = await creativeService.getUserCreatives(user.id);
-      setCreatives(data);
-      console.log(`✅ Загружено ${data.length} креативов`);
+
+      // Фильтруем: показываем только оригиналы (не is_edit)
+      const originalsOnly = data.filter(c => !c.is_edit);
+      setCreatives(originalsOnly);
+      console.log(`✅ Загружено ${originalsOnly.length} креативов (из ${data.length} всего)`);
 
       // Батчевая проверка истории для всех креативов одним запросом
-      const creativeIds = data.map(c => c.id);
+      const creativeIds = originalsOnly.map(c => c.id);
       const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
-      
+
+      // Загружаем правки для креативов с has_edits = true
+      const creativesWithEdits = originalsOnly.filter(c => c.has_edits).map(c => c.id);
+      if (creativesWithEdits.length > 0) {
+        const editsMap = await creativeService.getEditsForCreatives(creativesWithEdits);
+        setCreativeEdits(new Map(Object.entries(editsMap)));
+        console.log(`✅ Загружено правок для ${Object.keys(editsMap).length} креативов`);
+      }
+
       // Возвращаем загруженные креативы для дальнейшего использования
-      return data;
+      return originalsOnly;
     } catch (error) {
       console.error('❌ Ошибка загрузки креативов:', error);
       setError('Ошибка загрузки креативов: ' + error.message);
@@ -1680,75 +1695,57 @@ function CreativePanel({ user }) {
         finalLinks = links;
         finalTitles = titles;
       }
-      // Если "Перезалил по старым" - пустые ссылки и "—" вместо названий
-      // finalLinks и finalTitles уже пустые []
 
-      // Объединяем типы работ родительского креатива с новыми
-      const combinedWorkTypes = [
-        ...(selectedCreativeForEdit.work_types || []),
-        ...addEditCreative.work_types
-      ];
-      // COF считаем только из ДОПОЛНИТЕЛЬНЫХ типов работ (не из оригинала)
+      // COF считаем только из ДОПОЛНИТЕЛЬНЫХ типов работ
       const cofRating = calculateCOF(addEditCreative.work_types);
+      const editDate = new Date().toISOString();
 
-      // Получаем имена байера и серчера
-      const buyerName = selectedCreativeForEdit.buyer_id ? getBuyerName(selectedCreativeForEdit.buyer_id) : null;
-      const searcherName = selectedCreativeForEdit.searcher_id ? getSearcherName(selectedCreativeForEdit.searcher_id) : null;
-
-      const newEditData = await creativeService.createCreative({
+      // 1. Создаем запись в creative_edits
+      const editData = await creativeService.createCreativeEdit({
+        creative_id: selectedCreativeForEdit.id,
         user_id: user.id,
         editor_name: user.name,
-        article: selectedCreativeForEdit.article,
+        work_types: addEditCreative.work_types,
         links: finalLinks,
         link_titles: finalTitles,
-        work_types: combinedWorkTypes,
-        cof_rating: cofRating,
         comment: addEditCreative.comment.trim() || null,
-        is_poland: selectedCreativeForEdit.is_poland,
-        trello_link: selectedCreativeForEdit.trello_link || '',
-        buyer_id: selectedCreativeForEdit.buyer_id,
-        searcher_id: selectedCreativeForEdit.searcher_id,
-        buyer: buyerName !== '—' ? buyerName : null,
-        searcher: searcherName !== '—' ? searcherName : null,
-        is_edit: true,
-        parent_creative_id: selectedCreativeForEdit.id
+        cof_rating: cofRating
       });
 
-      console.log('✅ Правка креатива создана:', newEditData);
+      console.log('✅ Правка создана в creative_edits:', editData);
 
-      // Синхронизация Trello если есть ссылка
-      if (newEditData.trello_link) {
-        try {
-          const syncResponse = await fetch('/.netlify/functions/trello-sync-single', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              creativeId: newEditData.id,
-              trelloLink: newEditData.trello_link
-            })
-          });
-
-          if (syncResponse.ok) {
-            const syncResult = await syncResponse.json();
-            setTrelloStatuses(prev => {
-              const updated = new Map(prev);
-              updated.set(newEditData.id, {
-                creative_id: newEditData.id,
-                list_name: syncResult.listName,
-                list_id: syncResult.listId,
-                trello_card_id: syncResult.cardId,
-                last_updated: new Date().toISOString()
-              });
-              return updated;
-            });
-          }
-        } catch (syncError) {
-          console.error('Ошибка синхронизации Trello:', syncError);
-        }
+      // 2. Обновляем родительский креатив
+      let updatedParent;
+      if (finalLinks.length > 0) {
+        // Если есть новые ссылки - добавляем их к родителю
+        updatedParent = await creativeService.updateCreativeWithEdit(
+          selectedCreativeForEdit.id,
+          finalLinks,
+          finalTitles,
+          editData.id,
+          editDate
+        );
+      } else {
+        // Просто помечаем что есть правки
+        updatedParent = await creativeService.markCreativeHasEdits(selectedCreativeForEdit.id);
       }
 
-      // Добавляем правку в список
-      setCreatives(prevCreatives => [newEditData, ...prevCreatives]);
+      console.log('✅ Родительский креатив обновлен:', updatedParent);
+
+      // 3. Обновляем локальное состояние - обновляем родительский креатив
+      setCreatives(prevCreatives =>
+        prevCreatives.map(c =>
+          c.id === selectedCreativeForEdit.id ? { ...c, ...updatedParent } : c
+        )
+      );
+
+      // 4. Добавляем правку в кэш правок
+      setCreativeEdits(prev => {
+        const updated = new Map(prev);
+        const existingEdits = updated.get(selectedCreativeForEdit.id) || [];
+        updated.set(selectedCreativeForEdit.id, [editData, ...existingEdits]);
+        return updated;
+      });
 
       // Сбрасываем форму
       setAddEditCreative({
@@ -1766,12 +1763,9 @@ function CreativePanel({ user }) {
       setSearchingArticle('');
       setShowAddEditModal(false);
 
-      // Загружаем метрики для нового креатива
-      await loadMetricsForSingleCreative(newEditData);
-
       const country = selectedCreativeForEdit.is_poland ? 'PL' : 'UA';
       const videoCount = finalTitles.length > 0 ? finalTitles.length : '—';
-      setSuccess(`Правка создана! COF: ${formatCOF(cofRating)} | Страна: ${country} | Видео: ${videoCount}`);
+      setSuccess(`Правка добавлена! COF: ${formatCOF(cofRating)} | Страна: ${country} | Новых видео: ${videoCount}`);
 
     } catch (error) {
       setError('Ошибка создания правки: ' + error.message);
@@ -3313,21 +3307,44 @@ function CreativePanel({ user }) {
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
+                        const hasEdits = creative.has_edits || creativeEdits.has(creative.id);
+                        const editsCount = creativeEdits.get(creative.id)?.length || 0;
+                        const isEditsExpanded = expandedEdits.has(creative.id);
+
                         return (
+                          <React.Fragment key={creative.id}>
                           <tr
-                            key={creative.id}
                             className="transition-colors duration-200 hover:bg-gray-50"
                           >
-                            {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
+                            {/* Колонка "Тип" с бейджем E и стрелкой - ПЕРВАЯ */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                              <div className="flex items-center justify-center">
-                                {creative.is_edit && (
-                                  <div
-                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
-                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
-                                  >
-                                    <span className="tracking-wide">E</span>
-                                  </div>
+                              <div className="flex items-center justify-center gap-1">
+                                {hasEdits && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setExpandedEdits(prev => {
+                                          const updated = new Set(prev);
+                                          if (updated.has(creative.id)) {
+                                            updated.delete(creative.id);
+                                          } else {
+                                            updated.add(creative.id);
+                                          }
+                                          return updated;
+                                        });
+                                      }}
+                                      className="text-purple-500 hover:text-purple-700 transition-colors p-0.5"
+                                      title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
+                                    >
+                                      <ChevronDown className={`h-4 w-4 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <div
+                                      title={`${editsCount} правок`}
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                    >
+                                      <span className="tracking-wide">E</span>
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -3399,25 +3416,49 @@ function CreativePanel({ user }) {
                             <td className="px-3 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
-                                  creative.link_titles.map((title, index) => (
-                                    <div key={index} className="flex items-center min-h-[24px]">
-                                      <span 
-                                        className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
-                                        title={title}
-                                      >
-                                        {title}
-                                      </span>
-                                      <a
-                                        href={creative.links[index]}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        title="Открыть в Google Drive"
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    </div>
-                                  ))
+                                  creative.link_titles.map((title, index) => {
+                                    // Check if this video was added from an edit
+                                    const linkMeta = creative.link_metadata?.[index];
+                                    const isFromEdit = linkMeta && linkMeta.edit_id;
+                                    const editDate = linkMeta?.added_at
+                                      ? new Date(linkMeta.added_at).toLocaleDateString('uk-UA', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric'
+                                        })
+                                      : null;
+
+                                    return (
+                                      <div key={index} className="flex items-center min-h-[24px]">
+                                        <span
+                                          className={`block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden relative group ${
+                                            isFromEdit ? 'text-purple-600 font-medium' : ''
+                                          }`}
+                                          title={isFromEdit && editDate ? `Добавлено: ${editDate}` : title}
+                                        >
+                                          {title}
+                                          {isFromEdit && editDate && (
+                                            <span className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-purple-700 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                              Добавлено: {editDate}
+                                            </span>
+                                          )}
+                                        </span>
+                                        <a
+                                          href={creative.links[index]}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`flex-shrink-0 ${
+                                            isFromEdit
+                                              ? 'text-purple-600 hover:text-purple-800'
+                                              : 'text-blue-600 hover:text-blue-800'
+                                          }`}
+                                          title="Открыть в Google Drive"
+                                        >
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      </div>
+                                    );
+                                  })
                                 ) : (
                                   <div className="text-center">
                                     <span className="text-gray-400 cursor-text select-text">Нет видео</span>
@@ -4030,6 +4071,118 @@ function CreativePanel({ user }) {
                             </td>
 
                           </tr>
+
+                          {/* Expandable Edit History Rows */}
+                          {isEditsExpanded && creativeEdits.get(creative.id)?.map((edit, editIndex) => {
+                            const editDate = new Date(edit.created_at);
+                            const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            });
+                            const formattedEditTime = editDate.toLocaleTimeString('uk-UA', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+
+                            return (
+                              <tr
+                                key={edit.id || editIndex}
+                                className="bg-purple-50 border-l-4 border-purple-400 hover:bg-purple-100 transition-colors"
+                              >
+                                {/* Tree structure indicator */}
+                                <td className="px-1 py-2 whitespace-nowrap text-sm">
+                                  <div className="flex items-center justify-center pl-4">
+                                    <span className="text-purple-400 text-lg">└─</span>
+                                  </div>
+                                </td>
+
+                                {/* Empty cell for edit button column */}
+                                <td className="px-3 py-2"></td>
+
+                                {/* Date of edit */}
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-purple-700">
+                                  <div className="cursor-text select-text">
+                                    <div className="font-medium">{formattedEditDate}</div>
+                                    <div className="text-xs text-purple-500">{formattedEditTime}</div>
+                                  </div>
+                                </td>
+
+                                {/* Empty cell for article column */}
+                                <td className="px-3 py-2">
+                                  <span className="text-purple-600 text-xs font-medium">Правка #{editIndex + 1}</span>
+                                </td>
+
+                                {/* Video titles from this edit */}
+                                <td className="px-3 py-2 text-sm text-purple-700">
+                                  <div className="space-y-1">
+                                    {edit.link_titles && edit.link_titles.length > 0 ? (
+                                      edit.link_titles.map((title, idx) => (
+                                        <div key={idx} className="flex items-center min-h-[24px]">
+                                          <span
+                                            className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-purple-700"
+                                            title={title}
+                                          >
+                                            {title}
+                                          </span>
+                                          {edit.links && edit.links[idx] && (
+                                            <a
+                                              href={edit.links[idx]}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-purple-600 hover:text-purple-800 flex-shrink-0"
+                                              title="Открыть в Google Drive"
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <span className="text-purple-400">Перезалив</span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Empty cells for metrics columns */}
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+
+                                {/* Work types from this edit with COF */}
+                                <td className="px-3 py-2 whitespace-nowrap text-center">
+                                  {edit.work_types && edit.work_types.length > 0 ? (
+                                    <div className="space-y-1">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                        <span className="text-xs font-bold mr-1">+COF</span>
+                                        {formatCOF(edit.cof_rating || 0)}
+                                      </span>
+                                      <div className="text-xs text-purple-600 mt-1">
+                                        {edit.work_types.join(', ')}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-purple-400">—</span>
+                                  )}
+                                </td>
+
+                                {/* Empty cells for remaining columns */}
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                                <td className="px-3 py-2"></td>
+                              </tr>
+                            );
+                          })}
+                          </React.Fragment>
                         );
                       })}
                   </tbody>
