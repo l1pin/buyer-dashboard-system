@@ -19,7 +19,8 @@ function MetricsLastUpdateBadge({ showIcon = true, className = '' }) {
     isAuto,
     status,
     formattedLastUpdate,
-    loading
+    loading,
+    isRefreshing // 🔄 Realtime: Флаг обновления данных
   } = useGlobalMetricsStatus();
 
   // Если нет данных
@@ -27,13 +28,25 @@ function MetricsLastUpdateBadge({ showIcon = true, className = '' }) {
     return null;
   }
 
-  // Если идет обновление
+  // Если идет обновление (scheduled function работает)
   if (status === 'running') {
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
         <RefreshCw className="h-3 w-3 text-blue-500 animate-spin" />
         <span className="text-xs text-blue-500">
           Обновление метрик...
+        </span>
+      </div>
+    );
+  }
+
+  // 🔄 Realtime: Если данные обновились и идет загрузка из кэша
+  if (isRefreshing) {
+    return (
+      <div className={`flex items-center space-x-2 ${className}`}>
+        <RefreshCw className="h-3 w-3 text-green-500 animate-spin" />
+        <span className="text-xs text-green-500">
+          Загрузка обновленных данных...
         </span>
       </div>
     );

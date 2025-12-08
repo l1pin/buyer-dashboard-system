@@ -244,7 +244,8 @@ function CreativeSearch({ user }) {
     getCreativeMetrics,
     refresh: refreshMetrics,
     loadFromCache,
-    loadMetricsForSingleCreative
+    loadMetricsForSingleCreative,
+    isAutoRefreshing // 🔄 Realtime: Флаг автообновления метрик
   } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 

@@ -230,9 +230,9 @@ function CreativePanel({ user }) {
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
-  const { 
-    batchMetrics, 
-    loading: metricsLoading, 
+  const {
+    batchMetrics,
+    loading: metricsLoading,
     error: metricsError,
     stats: metricsStats,
     getVideoMetrics,
@@ -240,7 +240,8 @@ function CreativePanel({ user }) {
     refresh: refreshMetrics,
     loadFromCache,
     loadMetricsForSingleCreative,
-    loadingCreativeIds // 🆕 Set с ID креативов, для которых идет загрузка
+    loadingCreativeIds, // 🆕 Set с ID креативов, для которых идет загрузка
+    isAutoRefreshing // 🔄 Realtime: Флаг автообновления метрик
   } = useBatchMetrics(filteredCreatives, true, metricsPeriod);
 
   const { 

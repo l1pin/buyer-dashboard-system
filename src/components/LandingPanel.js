@@ -270,7 +270,8 @@ function LandingPanel({ user }) {
     refresh: refreshMetrics,
     loadFromCache,
     loadMetricsForSingleCreative,
-    loadingCreativeIds
+    loadingCreativeIds,
+    isAutoRefreshing // 🔄 Realtime: Флаг автообновления метрик
   } = useBatchMetrics(filteredLandings, true, metricsPeriod);
 
   // Хук для метрик лендингов
