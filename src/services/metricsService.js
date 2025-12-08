@@ -222,6 +222,7 @@ ORDER BY video_name, kind, adv_date`;
 export class MetricsService {
   /**
    * НОВЫЙ БАТЧЕВЫЙ МЕТОД: Загрузка метрик для множества видео одним запросом
+   * С поддержкой чанкинга и параллельных запросов
    */
   static async getBatchVideoMetrics(videoNames, options = {}) {
     const {
@@ -229,7 +230,8 @@ export class MetricsService {
       dateTo = null,
       kind = "daily_first4_total",
       useCache = true,
-      timeout = 15000,
+      timeout = 30000, // Увеличен базовый таймаут
+      chunkSize = 50, // Размер батча (50 видео за раз)
     } = options;
 
     if (!videoNames || videoNames.length === 0) {
@@ -238,51 +240,62 @@ export class MetricsService {
     }
 
     console.log(
-      `🚀 ДВУХЭТАПНЫЙ ПОИСК: ${videoNames.length} видео, kind=${kind}`
+      `🚀 ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА: ${videoNames.length} видео, батчи по ${chunkSize}`
     );
 
     const startTime = Date.now();
 
     try {
-      // ============ ЭТАП 1: ТОЧНОЕ СОВПАДЕНИЕ ============
-      console.log('📍 ЭТАП 1: Поиск по точному совпадению...');
+      // ============ ЭТАП 1: ТОЧНОЕ СОВПАДЕНИЕ (БАТЧАМИ) ============
+      console.log('📍 ЭТАП 1: Поиск по точному совпадению (батчами)...');
 
-      const exactSQL = SQLBuilder.buildBatchSQL(videoNames, dateFrom, dateTo, kind);
-      const exactData = await this._executeSQLQuery(exactSQL, timeout);
-      const normalizedExact = this._normalizeApiResponse(exactData);
+      // Разбиваем на чанки
+      const exactChunks = this._chunkArray(videoNames, chunkSize);
+      console.log(`📦 Разбито на ${exactChunks.length} батчей для точного поиска`);
+
+      // Параллельные запросы для всех чанков
+      const exactPromises = exactChunks.map((chunk, index) =>
+        this._fetchChunk(chunk, dateFrom, dateTo, kind, timeout, `Exact-${index + 1}`)
+      );
+
+      const exactResults = await Promise.all(exactPromises);
+      const normalizedExact = exactResults.flat();
 
       console.log(`✅ ЭТАП 1 завершен: найдено ${normalizedExact.length} записей`);
 
       // Группируем результаты точного поиска
-      const exactResults = this._groupBatchResults(normalizedExact, videoNames);
+      const exactGrouped = this._groupBatchResults(normalizedExact, videoNames);
 
       // Определяем, для каких видео НЕ найдены метрики
-      const notFoundVideos = exactResults
+      const notFoundVideos = exactGrouped
         .filter(result => !result.found || result.noData)
         .map(result => result.videoName);
 
       console.log(`📊 Не найдено метрик для ${notFoundVideos.length} из ${videoNames.length} видео`);
 
-      let likeResults = [];
       let combinedData = normalizedExact;
 
-      // ============ ЭТАП 2: LIKE ПОИСК ============
+      // ============ ЭТАП 2: LIKE ПОИСК (БАТЧАМИ) ============
       if (notFoundVideos.length > 0) {
-        console.log('📍 ЭТАП 2: LIKE поиск для не найденных видео...');
-        console.log('🔍 Ищем через LIKE:', notFoundVideos);
+        console.log('📍 ЭТАП 2: LIKE поиск для не найденных видео (батчами)...');
+
+        // Разбиваем на чанки для LIKE поиска
+        const likeChunks = this._chunkArray(notFoundVideos, Math.min(chunkSize, 30)); // Меньше для LIKE
+        console.log(`📦 Разбито на ${likeChunks.length} батчей для LIKE поиска`);
 
         try {
-          const likeSQL = SQLBuilder.buildLikeSQL(notFoundVideos, dateFrom, dateTo, kind);
-          const likeData = await this._executeSQLQuery(likeSQL, timeout + 10000); // +10сек для LIKE
-          const normalizedLike = this._normalizeApiResponse(likeData);
+          // Параллельные LIKE запросы
+          const likePromises = likeChunks.map((chunk, index) =>
+            this._fetchLikeChunk(chunk, dateFrom, dateTo, kind, timeout + 15000, `LIKE-${index + 1}`)
+          );
+
+          const likeResults = await Promise.all(likePromises);
+          const normalizedLike = likeResults.flat();
 
           console.log(`✅ ЭТАП 2 завершен: найдено ${normalizedLike.length} записей через LIKE`);
 
           // Объединяем данные
           combinedData = [...normalizedExact, ...normalizedLike];
-
-          // Группируем результаты LIKE поиска
-          likeResults = this._groupBatchResults(normalizedLike, notFoundVideos);
         } catch (likeError) {
           console.error('⚠️ Ошибка LIKE поиска:', likeError.message);
           // Продолжаем с результатами точного поиска
@@ -296,15 +309,15 @@ export class MetricsService {
 
       // Статистика
       const foundCount = finalResults.filter(r => r.found && !r.noData).length;
-      const exactFoundCount = exactResults.filter(r => r.found && !r.noData).length;
-      const likeFoundCount = likeResults.filter(r => r.found && !r.noData).length;
+      const exactFoundCount = exactGrouped.filter(r => r.found && !r.noData).length;
 
       console.log(`
 📊 ИТОГОВАЯ СТАТИСТИКА:
   ✅ Найдено всего: ${foundCount}/${videoNames.length}
   🎯 Точное совпадение: ${exactFoundCount}
-  🔍 LIKE поиск: ${likeFoundCount}
+  🔍 LIKE поиск: ${foundCount - exactFoundCount}
   ❌ Не найдено: ${videoNames.length - foundCount}
+  📦 Батчей обработано: ${exactChunks.length}
   ⏱️ Время: ${elapsed}ms
       `);
 
@@ -316,8 +329,9 @@ export class MetricsService {
           total: videoNames.length,
           found: foundCount,
           exactMatch: exactFoundCount,
-          likeMatch: likeFoundCount,
+          likeMatch: foundCount - exactFoundCount,
           notFound: videoNames.length - foundCount,
+          chunksProcessed: exactChunks.length,
         },
       };
     } catch (error) {
@@ -334,9 +348,58 @@ export class MetricsService {
   }
 
   /**
+   * Разбивка массива на чанки
+   */
+  static _chunkArray(array, chunkSize) {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+
+  /**
+   * Получение чанка с точным поиском
+   */
+  static async _fetchChunk(videoNames, dateFrom, dateTo, kind, timeout, label) {
+    try {
+      console.log(`🔄 ${label}: Загрузка ${videoNames.length} видео...`);
+
+      const sql = SQLBuilder.buildBatchSQL(videoNames, dateFrom, dateTo, kind);
+      const data = await this._executeSQLQuery(sql, timeout);
+      const normalized = this._normalizeApiResponse(data);
+
+      console.log(`✅ ${label}: Получено ${normalized.length} записей`);
+      return normalized;
+    } catch (error) {
+      console.error(`❌ ${label}: Ошибка -`, error.message);
+      return []; // Возвращаем пустой массив при ошибке
+    }
+  }
+
+  /**
+   * Получение чанка с LIKE поиском
+   */
+  static async _fetchLikeChunk(videoNames, dateFrom, dateTo, kind, timeout, label) {
+    try {
+      console.log(`🔍 ${label}: LIKE поиск ${videoNames.length} видео...`);
+
+      const sql = SQLBuilder.buildLikeSQL(videoNames, dateFrom, dateTo, kind);
+      const data = await this._executeSQLQuery(sql, timeout);
+      const normalized = this._normalizeApiResponse(data);
+
+      console.log(`✅ ${label}: Получено ${normalized.length} записей`);
+      return normalized;
+    } catch (error) {
+      console.error(`❌ ${label}: Ошибка -`, error.message);
+      return []; // Возвращаем пустой массив при ошибке
+    }
+  }
+
+  /**
    * Выполнение SQL запроса к API базы данных
    */
-  static async _executeSQLQuery(sql, timeout = 15000) {
+  static async _executeSQLQuery(sql, timeout = 30000) {
     console.log('📝 Выполнение SQL запроса, длина:', sql.length, 'байт');
 
     const controller = new AbortController();
