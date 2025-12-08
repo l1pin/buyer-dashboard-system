@@ -345,70 +345,35 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
         console.log('📊 Анализируем videoMap, размер:', videoMap.size);
         console.log('📊 Анализируем rawMetricsMap, размер:', rawMetricsMap.size);
 
-        // 🎯 Группируем видео по креативам
-        const creativeGroups = new Map(); // creativeId -> { hasMetrics: boolean, videos: [] }
+        // 🎯 ИСПРАВЛЕНО: Проверяем КАЖДОЕ видео индивидуально (а не по креативам)
+        let videosWithMetricsCount = 0;
+        let videosWithoutMetricsCount = 0;
 
         videoMap.forEach((metadata, videoKey) => {
-          const creativeId = metadata.creativeId;
-
-          if (!creativeGroups.has(creativeId)) {
-            creativeGroups.set(creativeId, {
-              hasMetrics: false,
-              videos: []
-            });
-          }
-
-          const group = creativeGroups.get(creativeId);
           const existingMetric = rawMetricsMap.get(videoKey);
+          const hasMetrics = existingMetric && existingMetric.found && !existingMetric.noData;
 
-          // Если хотя бы одно видео из креатива имеет метрики - помечаем креатив
-          if (existingMetric && existingMetric.found && !existingMetric.noData) {
-            group.hasMetrics = true;
-          }
-
-          group.videos.push({
-            videoKey,
-            videoTitle: metadata.videoTitle,
-            metadata,
-            hasMetrics: existingMetric && existingMetric.found && !existingMetric.noData
-          });
-        });
-
-        console.log(`📦 Сгруппировано по креативам: ${creativeGroups.size} креативов`);
-
-        // 🎯 Добавляем в LIKE поиск только видео из креативов БЕЗ метрик
-        let creativesNeedingLike = 0;
-        let creativesSkipped = 0;
-
-        creativeGroups.forEach((group, creativeId) => {
-          if (group.hasMetrics) {
-            // Пропускаем креатив - хотя бы одно видео нашлось
-            creativesSkipped++;
-            console.log(`✅ Креатив ${creativeId}: ${group.videos.filter(v => v.hasMetrics).length}/${group.videos.length} видео найдено, LIKE не нужен`);
+          if (hasMetrics) {
+            // Видео уже имеет метрики - пропускаем
+            videosWithMetricsCount++;
           } else {
-            // Добавляем ВСЕ видео креатива в LIKE поиск
-            creativesNeedingLike++;
-            console.log(`❌ Креатив ${creativeId}: 0/${group.videos.length} видео найдено, добавляем в LIKE`);
+            // Видео БЕЗ метрик - добавляем в LIKE поиск
+            videosWithoutMetricsCount++;
+            const videoTitle = metadata.videoTitle;
+            const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
 
-            group.videos.forEach(video => {
-              const videoTitle = video.videoTitle;
-              const nameWithoutExt = videoTitle.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
-
-              videosWithoutMetrics.push(nameWithoutExt);
-              videosWithoutMetricsMap.set(nameWithoutExt, {
-                videoKey: video.videoKey,
-                originalTitle: videoTitle,
-                metadata: video.metadata
-              });
+            videosWithoutMetrics.push(nameWithoutExt);
+            videosWithoutMetricsMap.set(nameWithoutExt, {
+              videoKey: videoKey,
+              originalTitle: videoTitle,
+              metadata: metadata
             });
           }
         });
 
         console.log(`📊 ИТОГОВАЯ СТАТИСТИКА:`);
-        console.log(`  ✅ Креативов с метриками (пропущено): ${creativesSkipped}`);
-        console.log(`  ❌ Креативов БЕЗ метрик (LIKE поиск): ${creativesNeedingLike}`);
-        console.log(`  📋 Видео для LIKE поиска: ${videosWithoutMetrics.length}`);
-
+        console.log(`  ✅ Видео С метриками (пропущено): ${videosWithMetricsCount}`);
+        console.log(`  ❌ Видео БЕЗ метрик (LIKE поиск): ${videosWithoutMetricsCount}`);
         console.log(`📋 ИТОГО для LIKE поиска: ${videosWithoutMetrics.length} видео`);
 
         if (videosWithoutMetrics.length > 0) {
@@ -552,40 +517,17 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
               remainingVideos = remainingVideos.slice(processedCount);
             }
 
-            console.log('═══════════════════════════════════════════════');
             console.log(`🎯 LIKE поиск завершен: всего найдено ${allLikeResults.length} результатов`);
-            console.log('═══════════════════════════════════════════════');
 
             if (allLikeResults.length > 0) {
-              console.log('═══════════════════════════════════════════════');
-              console.log(`✅ Обработка ${allLikeResults.length} результатов LIKE поиска`);
-              console.log('═══════════════════════════════════════════════');
-
-              // Выводим ВСЕ найденные результаты
-              console.log('📋 ВСЕ результаты LIKE поиска:');
-              allLikeResults.forEach((result, idx) => {
-                console.log(`  [${idx}]:`, {
-                  videoName: result.videoName,
-                  found: result.found,
-                  dailyCount: result.daily?.length || 0
-                });
-              });
+              console.log(`✅ Обработка ${allLikeResults.length} результатов LIKE поиска...`);
 
               // Обрабатываем результаты LIKE поиска
               let matchedCount = 0;
               let notMatchedCount = 0;
 
-              allLikeResults.forEach((videoResult, resultIdx) => {
-                console.log('─────────────────────────────────────────────');
-                console.log(`🔍 Обработка результата [${resultIdx}]: "${videoResult.videoName}"`);
-                console.log('  📊 Проверка данных:', {
-                  found: videoResult.found,
-                  hasDailyData: !!videoResult.daily,
-                  dailyLength: videoResult.daily?.length || 0
-                });
-
+              allLikeResults.forEach((videoResult) => {
                 if (!videoResult.found || !videoResult.daily || videoResult.daily.length === 0) {
-                  console.log('  ⚠️ Пропускаем: нет данных');
                   notMatchedCount++;
                   return;
                 }
@@ -594,47 +536,25 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                 let matchedVideoKey = null;
                 let matchedMetadata = null;
 
-                console.log('  🔎 Ищем совпадение среди', videosWithoutMetricsMap.size, 'названий без метрик...');
-
                 for (const [nameWithoutExt, info] of videosWithoutMetricsMap.entries()) {
                   // Проверяем оба направления совпадения
                   const dbIncludesOurs = videoResult.videoName.includes(nameWithoutExt);
                   const oursIncludesDb = nameWithoutExt.includes(videoResult.videoName);
 
-                  console.log(`    🔍 Сравнение:`, {
-                    nameWithoutExt: nameWithoutExt,
-                    videoResultName: videoResult.videoName,
-                    dbIncludesOurs: dbIncludesOurs,
-                    oursIncludesDb: oursIncludesDb
-                  });
-
                   if (dbIncludesOurs || oursIncludesDb) {
                     matchedVideoKey = info.videoKey;
                     matchedMetadata = info.metadata;
-                    console.log(`    ✅ НАЙДЕНО СОВПАДЕНИЕ!`);
-                    console.log(`    📌 Оригинальное название: "${info.originalTitle}"`);
-                    console.log(`    📌 Название из БД: "${videoResult.videoName}"`);
-                    console.log(`    📌 videoKey: ${matchedVideoKey}`);
+                    // Удаляем найденное из Map чтобы не находить повторно
+                    videosWithoutMetricsMap.delete(nameWithoutExt);
                     break;
                   }
                 }
 
                 if (!matchedVideoKey) {
-                  console.log(`  ❌ НЕ НАЙДЕНО совпадение для: "${videoResult.videoName}"`);
-                  console.log('  📋 Доступные названия для сопоставления:');
-                  let counter = 0;
-                  for (const [nameWithoutExt, info] of videosWithoutMetricsMap.entries()) {
-                    console.log(`    [${counter++}]: "${nameWithoutExt}"`);
-                    if (counter >= 5) {
-                      console.log(`    ... и еще ${videosWithoutMetricsMap.size - counter} названий`);
-                      break;
-                    }
-                  }
                   notMatchedCount++;
                   return;
                 }
 
-                console.log(`  🎯 Совпадение найдено! Обрабатываем метрики...`);
                 matchedCount++;
 
                 // Преобразуем к формату rawMetrics
@@ -673,20 +593,11 @@ export function useBatchMetrics(creatives, autoLoad = false, period = 'all') {
                   noData: false,
                   foundViaLike: true // 🏷️ Маркер LIKE поиска
                 });
-
-                console.log(`🎯 LIKE метрика добавлена для: ${matchedMetadata.videoTitle}`);
               });
 
-              console.log('═══════════════════════════════════════════════');
-              console.log('🎉 LIKE поиск завершен:');
-              console.log(`  ✅ Совпадений найдено: ${matchedCount}`);
-              console.log(`  ❌ Без совпадений: ${notMatchedCount}`);
-              console.log(`  📦 Всего результатов: ${allLikeResults.length}`);
-              console.log('═══════════════════════════════════════════════');
+              console.log(`🎉 LIKE поиск: ✅ ${matchedCount} найдено, ❌ ${notMatchedCount} не найдено`);
             } else {
-              console.log('═══════════════════════════════════════════════');
-              console.log('⚠️ LIKE поиск не дал результатов (все батчи пустые)');
-              console.log('═══════════════════════════════════════════════');
+              console.log('⚠️ LIKE поиск не дал результатов');
             }
           } catch (likeError) {
             console.error('❌ Ошибка LIKE поиска:', likeError);
