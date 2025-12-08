@@ -17,7 +17,7 @@ export default async function handler(event, context) {
   try {
     // Получаем URL сайта из контекста или env
     const siteUrl = process.env.URL || process.env.DEPLOY_URL || 'http://localhost:8888';
-    const backgroundUrl = `${siteUrl}/.netlify/functions/background-metrics-refresh`;
+    const backgroundUrl = `${siteUrl}/.netlify/functions/metrics-refresh-background`;
 
     console.log(`📡 Вызываем: ${backgroundUrl}`);
 

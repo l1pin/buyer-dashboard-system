@@ -1,5 +1,6 @@
-// netlify/functions/background-metrics-refresh.mjs
+// netlify/functions/metrics-refresh-background.mjs
 // Background Function для обновления метрик (до 15 минут)
+// ВАЖНО: суффикс "-background" в названии файла = background function
 // Вызывается из scheduled-metrics-refresh.mjs
 // Требует Netlify Pro
 
