@@ -110,7 +110,7 @@ function escapeSQL(str) {
   return String(str).replace(/'/g, "''");
 }
 
-// SQL для периода "all" (все данные)
+// SQL для периода "all" (все данные) - ТОЧНОЕ СОВПАДЕНИЕ
 function buildAllPeriodSQL(videoNames) {
   const inClause = videoNames
     .map(name => `'${escapeSQL(name)}'`)
@@ -134,7 +134,7 @@ GROUP BY t.video_name
 ORDER BY t.video_name`;
 }
 
-// SQL для периода "4days" (первые 4 дня)
+// SQL для периода "4days" (первые 4 дня) - ТОЧНОЕ СОВПАДЕНИЕ
 function build4DaysPeriodSQL(videoNames) {
   const inClause = videoNames
     .map(name => `'${escapeSQL(name)}'`)
@@ -165,6 +165,70 @@ FROM (
 WHERE rn <= 4
 GROUP BY video_name
 ORDER BY video_name`;
+}
+
+// ==================== LIKE SQL BUILDER ====================
+// SQL для LIKE поиска (период "all")
+function buildLikeAllPeriodSQL(videoNamesWithoutExt) {
+  // Строим OR условия для каждого видео
+  const likeConditions = videoNamesWithoutExt
+    .map(name => `t.video_name LIKE '%${escapeSQL(name)}%'`)
+    .join(' OR ');
+
+  return `
+SELECT
+  t.video_name,
+  COALESCE(SUM(t.valid), 0) AS leads,
+  COALESCE(SUM(t.cost), 0) AS cost,
+  COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+  COALESCE(SUM(t.showed), 0) AS impressions,
+  COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+  COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+  COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
+  COUNT(DISTINCT t.adv_date) as days_count
+FROM ads_collection t
+WHERE (${likeConditions})
+  AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+GROUP BY t.video_name
+ORDER BY t.video_name`;
+}
+
+// SQL для LIKE поиска (период "4days")
+function buildLike4DaysPeriodSQL(videoNamesWithoutExt) {
+  const likeConditions = videoNamesWithoutExt
+    .map(name => `t.video_name LIKE '%${escapeSQL(name)}%'`)
+    .join(' OR ');
+
+  return `
+SELECT video_name, SUM(leads) as leads, SUM(cost) as cost, SUM(clicks) as clicks,
+       SUM(impressions) as impressions, AVG(avg_duration) as avg_duration,
+       SUM(cost_from_sources) as cost_from_sources, SUM(clicks_on_link) as clicks_on_link,
+       COUNT(*) as days_count
+FROM (
+  SELECT
+    t.video_name,
+    t.adv_date,
+    COALESCE(SUM(t.valid), 0) AS leads,
+    COALESCE(SUM(t.cost), 0) AS cost,
+    COALESCE(SUM(t.clicks_on_link_tracker), 0) AS clicks,
+    COALESCE(SUM(t.showed), 0) AS impressions,
+    COALESCE(AVG(t.average_time_on_video), 0) AS avg_duration,
+    COALESCE(SUM(t.cost_from_sources), 0) AS cost_from_sources,
+    COALESCE(SUM(t.clicks_on_link), 0) AS clicks_on_link,
+    ROW_NUMBER() OVER (PARTITION BY t.video_name ORDER BY t.adv_date ASC) as rn
+  FROM ads_collection t
+  WHERE (${likeConditions})
+    AND (t.cost > 0 OR t.valid > 0 OR t.showed > 0 OR t.clicks_on_link_tracker > 0)
+  GROUP BY t.video_name, t.adv_date
+) ranked_daily
+WHERE rn <= 4
+GROUP BY video_name
+ORDER BY video_name`;
+}
+
+// Убираем расширение из названия видео
+function removeExtension(videoName) {
+  return videoName.replace(/\.(mp4|avi|mov|mkv|webm|m4v)$/i, '');
 }
 
 // ==================== FETCH С РЕТРАЯМИ ====================
@@ -259,9 +323,9 @@ async function fetchWithRetry(sql, retries = CONFIG.RETRY_COUNT) {
   return [];
 }
 
-// ==================== ОБРАБОТКА БАТЧА ====================
+// ==================== ОБРАБОТКА БАТЧА (ТОЧНОЕ СОВПАДЕНИЕ) ====================
 async function processBatch(videoNames, videoMap, period = 'all') {
-  if (videoNames.length === 0) return [];
+  if (videoNames.length === 0) return { entries: [], foundVideos: new Set(), notFoundVideos: [] };
 
   const sql = period === '4days'
     ? build4DaysPeriodSQL(videoNames)
@@ -271,7 +335,7 @@ async function processBatch(videoNames, videoMap, period = 'all') {
 
   const cacheEntries = [];
   const now = new Date().toISOString();
-  let foundCount = 0;
+  const foundVideos = new Set();
 
   // Обрабатываем результаты
   for (const row of results) {
@@ -280,7 +344,7 @@ async function processBatch(videoNames, videoMap, period = 'all') {
     const creatives = videoMap.get(row.video_name);
     if (!creatives) continue;
 
-    foundCount++;
+    foundVideos.add(row.video_name);
 
     for (const creative of creatives) {
       cacheEntries.push({
@@ -302,16 +366,100 @@ async function processBatch(videoNames, videoMap, period = 'all') {
     }
   }
 
-  // Для видео без данных - создаём записи с NULL
-  const foundVideos = new Set(results.map(r => r.video_name));
-  for (const videoName of videoNames) {
-    if (foundVideos.has(videoName)) continue;
+  // Собираем НЕ найденные видео (НЕ создаём NULL записи - они будут созданы после LIKE)
+  const notFoundVideos = videoNames.filter(name => !foundVideos.has(name));
 
+  console.log(`   → Период ${period}: точное совпадение ${foundVideos.size}/${videoNames.length}`);
+
+  return { entries: cacheEntries, foundVideos, notFoundVideos };
+}
+
+// ==================== ОБРАБОТКА БАТЧА (LIKE ПОИСК) ====================
+async function processLikeBatch(videoNames, videoMap, period = 'all') {
+  if (videoNames.length === 0) return { entries: [], matchedVideos: new Set() };
+
+  // Строим маппинг: название без расширения -> оригинальное название
+  const nameWithoutExtMap = new Map();
+  const namesWithoutExt = [];
+
+  for (const videoName of videoNames) {
+    const nameWithoutExt = removeExtension(videoName);
+    nameWithoutExtMap.set(nameWithoutExt.toLowerCase(), videoName);
+    namesWithoutExt.push(nameWithoutExt);
+  }
+
+  const sql = period === '4days'
+    ? buildLike4DaysPeriodSQL(namesWithoutExt)
+    : buildLikeAllPeriodSQL(namesWithoutExt);
+
+  const results = await fetchWithRetry(sql);
+
+  const cacheEntries = [];
+  const now = new Date().toISOString();
+  const matchedVideos = new Set();
+
+  // Обрабатываем результаты LIKE
+  for (const row of results) {
+    if (!row.video_name) continue;
+
+    // Ищем соответствие по частичному совпадению
+    let matchedOriginalName = null;
+
+    for (const [nameWithoutExtLower, originalName] of nameWithoutExtMap.entries()) {
+      const dbNameLower = row.video_name.toLowerCase();
+
+      // Проверяем оба направления
+      if (dbNameLower.includes(nameWithoutExtLower) || nameWithoutExtLower.includes(dbNameLower)) {
+        matchedOriginalName = originalName;
+        // Удаляем из маппинга чтобы не находить повторно
+        nameWithoutExtMap.delete(nameWithoutExtLower);
+        break;
+      }
+    }
+
+    if (!matchedOriginalName) continue;
+
+    const creatives = videoMap.get(matchedOriginalName);
+    if (!creatives) continue;
+
+    matchedVideos.add(matchedOriginalName);
+
+    for (const creative of creatives) {
+      cacheEntries.push({
+        creative_id: creative.creativeId,
+        article: creative.article,
+        video_index: creative.videoIndex,
+        video_title: matchedOriginalName, // Сохраняем оригинальное название
+        period: period,
+        leads: Number(row.leads) || 0,
+        cost: Number(row.cost) || 0,
+        clicks: Number(row.clicks) || 0,
+        impressions: Number(row.impressions) || 0,
+        avg_duration: Number(row.avg_duration) || 0,
+        days_count: Number(row.days_count) || 0,
+        cost_from_sources: Number(row.cost_from_sources) || 0,
+        clicks_on_link: Number(row.clicks_on_link) || 0,
+        cached_at: now,
+        found_via_like: true // Маркер LIKE поиска
+      });
+    }
+  }
+
+  console.log(`   → Период ${period}: LIKE совпадение ${matchedVideos.size}/${videoNames.length}`);
+
+  return { entries: cacheEntries, matchedVideos };
+}
+
+// ==================== СОЗДАНИЕ NULL ЗАПИСЕЙ ====================
+function createNullEntries(videoNames, videoMap, period, now) {
+  const entries = [];
+
+  for (const videoName of videoNames) {
     const creatives = videoMap.get(videoName);
     if (!creatives) continue;
 
     for (const creative of creatives) {
-      cacheEntries.push({
+      entries.push({
         creative_id: creative.creativeId,
         article: creative.article,
         video_index: creative.videoIndex,
@@ -330,9 +478,7 @@ async function processBatch(videoNames, videoMap, period = 'all') {
     }
   }
 
-  console.log(`   → Период ${period}: найдено ${foundCount} видео с данными из ${videoNames.length}`);
-
-  return cacheEntries;
+  return entries;
 }
 
 // ==================== СОХРАНЕНИЕ В КЭШ ====================
@@ -421,23 +567,31 @@ async function refreshAllMetrics() {
 
     console.log(`📊 Всего уникальных видео: ${videoTitles.length}`);
 
-    // Шаг 3: Обрабатываем батчами для ОБОИХ периодов
+    // ==================== ШАГ 3: ТОЧНОЕ СОВПАДЕНИЕ ====================
+    console.log('\n═══════════════════════════════════════════════');
+    console.log('📍 ШАГ 3: ТОЧНОЕ СОВПАДЕНИЕ');
+    console.log('═══════════════════════════════════════════════');
+
     const allCacheEntries = [];
+    const allNotFoundAll = []; // Не найденные для периода "all"
+    const allNotFound4days = []; // Не найденные для периода "4days"
     const totalBatches = Math.ceil(videoTitles.length / CONFIG.BATCH_SIZE);
 
     for (let i = 0; i < videoTitles.length; i += CONFIG.BATCH_SIZE) {
       const batchNum = Math.floor(i / CONFIG.BATCH_SIZE) + 1;
       const batch = videoTitles.slice(i, i + CONFIG.BATCH_SIZE);
 
-      console.log(`📦 Обработка батча ${batchNum}/${totalBatches} (${batch.length} видео)...`);
+      console.log(`📦 Батч ${batchNum}/${totalBatches} (${batch.length} видео)...`);
 
-      // Загружаем для периода "all"
-      const entriesAll = await processBatch(batch, videoMap, 'all');
-      allCacheEntries.push(...entriesAll);
+      // Точное совпадение для периода "all"
+      const resultAll = await processBatch(batch, videoMap, 'all');
+      allCacheEntries.push(...resultAll.entries);
+      allNotFoundAll.push(...resultAll.notFoundVideos);
 
-      // Загружаем для периода "4days"
-      const entries4days = await processBatch(batch, videoMap, '4days');
-      allCacheEntries.push(...entries4days);
+      // Точное совпадение для периода "4days"
+      const result4days = await processBatch(batch, videoMap, '4days');
+      allCacheEntries.push(...result4days.entries);
+      allNotFound4days.push(...result4days.notFoundVideos);
 
       // Пауза между батчами
       if (i + CONFIG.BATCH_SIZE < videoTitles.length) {
@@ -445,14 +599,83 @@ async function refreshAllMetrics() {
       }
     }
 
-    // Шаг 4: Сохраняем в кэш
+    console.log(`\n📊 Результат точного совпадения:`);
+    console.log(`   Найдено (all): ${videoTitles.length - allNotFoundAll.length}/${videoTitles.length}`);
+    console.log(`   Найдено (4days): ${videoTitles.length - allNotFound4days.length}/${videoTitles.length}`);
+    console.log(`   Не найдено (all): ${allNotFoundAll.length}`);
+
+    // ==================== ШАГ 4: LIKE ПОИСК ====================
+    if (allNotFoundAll.length > 0) {
+      console.log('\n═══════════════════════════════════════════════');
+      console.log('🔍 ШАГ 4: LIKE ПОИСК');
+      console.log('═══════════════════════════════════════════════');
+      console.log(`📊 Видео для LIKE поиска: ${allNotFoundAll.length}`);
+
+      const LIKE_BATCH_SIZE = 50; // Меньший батч для LIKE (тяжелее для БД)
+      const likeBatches = Math.ceil(allNotFoundAll.length / LIKE_BATCH_SIZE);
+      const allLikeMatchedAll = new Set();
+      const allLikeMatched4days = new Set();
+
+      for (let i = 0; i < allNotFoundAll.length; i += LIKE_BATCH_SIZE) {
+        const batchNum = Math.floor(i / LIKE_BATCH_SIZE) + 1;
+        const batchAll = allNotFoundAll.slice(i, i + LIKE_BATCH_SIZE);
+        const batch4days = allNotFound4days.slice(i, i + LIKE_BATCH_SIZE);
+
+        console.log(`🔍 LIKE батч ${batchNum}/${likeBatches} (${batchAll.length} видео)...`);
+
+        // LIKE для периода "all"
+        const likeResultAll = await processLikeBatch(batchAll, videoMap, 'all');
+        allCacheEntries.push(...likeResultAll.entries);
+        likeResultAll.matchedVideos.forEach(v => allLikeMatchedAll.add(v));
+
+        // LIKE для периода "4days"
+        const likeResult4days = await processLikeBatch(batch4days, videoMap, '4days');
+        allCacheEntries.push(...likeResult4days.entries);
+        likeResult4days.matchedVideos.forEach(v => allLikeMatched4days.add(v));
+
+        // Пауза между LIKE батчами (они тяжелее)
+        if (i + LIKE_BATCH_SIZE < allNotFoundAll.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      console.log(`\n📊 Результат LIKE поиска:`);
+      console.log(`   Найдено (all): ${allLikeMatchedAll.size}/${allNotFoundAll.length}`);
+      console.log(`   Найдено (4days): ${allLikeMatched4days.size}/${allNotFound4days.length}`);
+
+      // ==================== ШАГ 5: NULL ЗАПИСИ ====================
+      // Видео которые не нашлись ни точно, ни через LIKE
+      const now = new Date().toISOString();
+      const stillNotFoundAll = allNotFoundAll.filter(v => !allLikeMatchedAll.has(v));
+      const stillNotFound4days = allNotFound4days.filter(v => !allLikeMatched4days.has(v));
+
+      if (stillNotFoundAll.length > 0) {
+        console.log(`\n📝 Создание NULL записей для ${stillNotFoundAll.length} видео без данных...`);
+        const nullEntriesAll = createNullEntries(stillNotFoundAll, videoMap, 'all', now);
+        const nullEntries4days = createNullEntries(stillNotFound4days, videoMap, '4days', now);
+        allCacheEntries.push(...nullEntriesAll);
+        allCacheEntries.push(...nullEntries4days);
+      }
+    } else {
+      console.log('\n✅ Все видео найдены точным совпадением, LIKE поиск не требуется');
+    }
+
+    // ==================== ШАГ 6: СОХРАНЕНИЕ ====================
+    console.log('\n═══════════════════════════════════════════════');
+    console.log('💾 ШАГ 6: СОХРАНЕНИЕ В КЭШ');
+    console.log('═══════════════════════════════════════════════');
     console.log(`💾 Сохранение ${allCacheEntries.length} записей в кэш...`);
     const savedCount = await saveBatchToCache(allCacheEntries);
 
-    // Шаг 5: Обновляем статус
+    // Шаг 7: Обновляем статус
     await updateMetricsStatus('completed', savedCount, true);
 
-    console.log(`✅ Обновление завершено! Сохранено: ${savedCount} записей`);
+    console.log('\n═══════════════════════════════════════════════');
+    console.log(`✅ ОБНОВЛЕНИЕ ЗАВЕРШЕНО!`);
+    console.log(`   Креативов: ${creatives.length}`);
+    console.log(`   Видео: ${videoTitles.length}`);
+    console.log(`   Сохранено записей: ${savedCount}`);
+    console.log('═══════════════════════════════════════════════');
 
     return {
       success: true,
