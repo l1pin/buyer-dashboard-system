@@ -1771,7 +1771,8 @@ function CreativePanel({ user }) {
       await loadMetricsForSingleCreative(newEditData);
 
       const country = selectedCreativeForEdit.is_poland ? 'PL' : 'UA';
-      setSuccess(`Правка создана! COF: ${formatCOF(cofRating)} | Страна: ${country} | Видео: ${extractedTitles.length}`);
+      const videoCount = finalTitles.length > 0 ? finalTitles.length : '—';
+      setSuccess(`Правка создана! COF: ${formatCOF(cofRating)} | Страна: ${country} | Видео: ${videoCount}`);
 
     } catch (error) {
       setError('Ошибка создания правки: ' + error.message);
