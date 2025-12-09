@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
@@ -107,6 +107,24 @@ function CreativeAnalytics({ user }) {
   const [dateEditError, setDateEditError] = useState('');
   const [dateEditCalendarMonth, setDateEditCalendarMonth] = useState(new Date());
 
+  // Правки креативов
+  const [creativeEdits, setCreativeEdits] = useState(new Map()); // Map<creative_id, Edit[]>
+  const [expandedEdits, setExpandedEdits] = useState(new Set()); // Set<creative_id> - раскрытые правки
+
+  // Состояние для подсветки креатива при переходе от правки
+  const [highlightedCreativeId, setHighlightedCreativeId] = useState(null);
+  const creativeRefs = useRef(new Map()); // Map<creative_id, HTMLTableRowElement>
+
+  // Функция для скролла к креативу и его подсветки
+  const scrollToCreative = useCallback((creativeId) => {
+    const row = creativeRefs.current.get(creativeId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedCreativeId(creativeId);
+      setTimeout(() => setHighlightedCreativeId(null), 2000);
+    }
+  }, []);
+
   // Месячная фильтрация ОТКЛЮЧЕНА
   // const [selectedMonth, setSelectedMonth] = useState(null);
   // const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -118,6 +136,71 @@ function CreativeAnalytics({ user }) {
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Вычисляем диапазон дат для текущего фильтра
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    switch (selectedPeriod) {
+      case 'today':
+        return { start: todayStart, end: todayEnd };
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return {
+          start: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()),
+          end: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59)
+        };
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59);
+        return { start: weekStart, end: weekEnd };
+      }
+      case 'last_7_days': {
+        const last7Start = new Date(now);
+        last7Start.setDate(now.getDate() - 6);
+        last7Start.setHours(0, 0, 0, 0);
+        return { start: last7Start, end: todayEnd };
+      }
+      case 'this_month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth(), 1),
+          end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+        };
+      case 'last_month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+        };
+      case 'custom':
+        if (customDateFrom && customDateTo) {
+          const customFrom = new Date(customDateFrom);
+          customFrom.setHours(0, 0, 0, 0);
+          const customTo = new Date(customDateTo);
+          customTo.setHours(23, 59, 59);
+          return { start: customFrom, end: customTo };
+        }
+        return null;
+      default:
+        return null;
+    }
+  }, [selectedPeriod, customDateFrom, customDateTo]);
+
+  // Хелпер для проверки даты в диапазоне фильтра
+  const isDateInFilterRange = useCallback((dateStr, range) => {
+    if (!range) return true;
+    const date = new Date(dateStr);
+    return date >= range.start && date <= range.end;
+  }, []);
 
   const filteredCreativesByMonth = useMemo(() => {
     let creativesToFilter = analytics.creatives;
@@ -167,50 +250,94 @@ function CreativeAnalytics({ user }) {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
+    // Функция для проверки, есть ли у креатива правки в заданном диапазоне дат
+    const hasEditsInRange = (creativeId, startDate, endDate) => {
+      const edits = creativeEdits.get(creativeId) || [];
+      return edits.some(edit => {
+        const editDate = new Date(edit.created_at);
+        return editDate >= startDate && editDate <= endDate;
+      });
+    };
+
     if (selectedPeriod === 'today') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= todayStart && createdDate <= todayEnd;
+        const inRange = createdDate >= todayStart && createdDate <= todayEnd;
+        return inRange || hasEditsInRange(c.id, todayStart, todayEnd);
       });
     } else if (selectedPeriod === 'yesterday') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
+        const inRange = createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
+        return inRange || hasEditsInRange(c.id, yesterdayStart, yesterdayEnd);
       });
     } else if (selectedPeriod === 'this_week') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
+        const inRange = createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
+        return inRange || hasEditsInRange(c.id, thisWeekStart, thisWeekEnd);
       });
     } else if (selectedPeriod === 'last_7_days') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= last7DaysStart && createdDate <= todayEnd;
+        const inRange = createdDate >= last7DaysStart && createdDate <= todayEnd;
+        return inRange || hasEditsInRange(c.id, last7DaysStart, todayEnd);
       });
     } else if (selectedPeriod === 'this_month') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
+        const inRange = createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
+        return inRange || hasEditsInRange(c.id, thisMonthStart, thisMonthEnd);
       });
     } else if (selectedPeriod === 'last_month') {
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
+        const inRange = createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
+        return inRange || hasEditsInRange(c.id, lastMonthStart, lastMonthEnd);
       });
     } else if (selectedPeriod === 'custom' && customDateFrom && customDateTo) {
       const customFrom = new Date(customDateFrom);
       customFrom.setHours(0, 0, 0, 0);
       const customTo = new Date(customDateTo);
       customTo.setHours(23, 59, 59);
-      
+
       creativesToFilter = creativesToFilter.filter(c => {
         const createdDate = new Date(c.created_at);
-        return createdDate >= customFrom && createdDate <= customTo;
+        const inRange = createdDate >= customFrom && createdDate <= customTo;
+        return inRange || hasEditsInRange(c.id, customFrom, customTo);
       });
     }
-    
+
     return creativesToFilter;
-  }, [analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, creativeEdits]);
+
+  // Отдельные правки для отображения как самостоятельные строки (в пределах выбранного периода)
+  const standaloneEdits = useMemo(() => {
+    if (!dateRange) return [];
+
+    const edits = [];
+    creativeEdits.forEach((editList, creativeId) => {
+      const creative = analytics.creatives.find(c => c.id === creativeId);
+      if (!creative) return;
+
+      // Проверяем, проходит ли креатив через фильтры пользователей
+      if (selectedEditor !== 'all' && creative.user_id !== selectedEditor) return;
+      if (selectedBuyer !== 'all' && creative.buyer_id !== selectedBuyer) return;
+      if (selectedSearcher !== 'all' && creative.searcher_id !== selectedSearcher) return;
+
+      editList.forEach(edit => {
+        if (isDateInFilterRange(edit.created_at, dateRange)) {
+          edits.push({
+            ...edit,
+            creative
+          });
+        }
+      });
+    });
+
+    // Сортируем по дате создания правки (новые сверху)
+    return edits.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [creativeEdits, dateRange, analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, isDateInFilterRange]);
 
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
@@ -1303,6 +1430,30 @@ function CreativeAnalytics({ user }) {
       const creativeIds = safeCreatives.map(c => c.id);
       const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
+
+      // Загружаем правки для всех креативов
+      if (creativeIds.length > 0) {
+        const { data: editsData, error: editsError } = await supabase
+          .from('creative_edits')
+          .select('*')
+          .in('creative_id', creativeIds)
+          .order('created_at', { ascending: false });
+
+        if (editsError) {
+          console.error('Ошибка загрузки правок:', editsError);
+        } else if (editsData) {
+          // Группируем правки по creative_id
+          const editsMap = new Map();
+          editsData.forEach(edit => {
+            if (!editsMap.has(edit.creative_id)) {
+              editsMap.set(edit.creative_id, []);
+            }
+            editsMap.get(edit.creative_id).push(edit);
+          });
+          setCreativeEdits(editsMap);
+          console.log('📝 Загружено правок:', editsData.length);
+        }
+      }
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3003,6 +3154,9 @@ function CreativeAnalytics({ user }) {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
+                      <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
+                        Правки
+                      </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
@@ -3072,17 +3226,99 @@ function CreativeAnalytics({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
+                    {/* Отдельные строки с правками */}
+                    {standaloneEdits.map((edit) => {
+                      const editDateTime = formatKyivTime(edit.created_at);
+                      return (
+                        <tr
+                          key={`edit-${edit.id}`}
+                          className="transition-colors duration-200 hover:bg-gray-50"
+                          style={{ backgroundColor: '#fffffe66' }}
+                        >
+                          {/* Тип */}
+                          <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 shadow-sm border border-amber-300">
+                              ПРАВКА
+                            </span>
+                          </td>
+                          {/* Дата правки */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="font-medium text-base">{editDateTime.date}</span>
+                              <span className="text-xs text-center" style={{ color: '#a16207' }}>{editDateTime.time}</span>
+                            </div>
+                          </td>
+                          {/* Правки колонка - пустая для standalone */}
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-center"></td>
+                          {/* Артикул */}
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{edit.creative?.article || '—'}</div>
+                          </td>
+                          {/* Монтажер */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {edit.creative?.editor_name || '—'}
+                          </td>
+                          {/* Видео - пустые ячейки */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Зона */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* BarChart3 */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Лиды */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* CPL */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Расходы */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Клики */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* CPC */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* CTR */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* CPM */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Показы */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Время */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Дней */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Зоны */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* COF */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Trello */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Статус */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
+                          {/* Buyer */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
+                          {/* Searcher */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
+                          {/* Действия - кнопка Показать */}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                            <button
+                              onClick={() => scrollToCreative(edit.creative_id)}
+                              className="px-2 py-1 text-xs font-medium rounded transition-all duration-200 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 hover:from-amber-500 hover:to-yellow-500 shadow-sm border border-amber-300"
+                            >
+                              Показать
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {filteredCreativesByMonth
                       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                       .map((creative) => {
-                        const cof = typeof creative.cof_rating === 'number' 
-                          ? creative.cof_rating 
+                        const cof = typeof creative.cof_rating === 'number'
+                          ? creative.cof_rating
                           : calculateCOF(creative.work_types || []);
-                        
+
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
                         const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const allVideoMetrics = getAllVideoMetrics(creative);
-                        
+
                         // 🔥 ДИАГНОСТИКА БЕЗ УСЛОВИЯ
                         console.log('🔥🔥🔥 КРЕАТИВ:', creative.article, {
                           'currentDisplayData': currentDisplayData,
@@ -3093,11 +3329,21 @@ function CreativeAnalytics({ user }) {
                         });
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
-                        
+                        const edits = creativeEdits.get(creative.id) || [];
+                        const hasEdits = edits.length > 0;
+                        const isEditsExpanded = expandedEdits.has(creative.id);
+
                         return (
+                          <React.Fragment key={creative.id}>
                           <tr
-                            key={creative.id}
-                            className="transition-colors duration-200 hover:bg-gray-50"
+                            ref={(el) => {
+                              if (el) creativeRefs.current.set(creative.id, el);
+                            }}
+                            className={`transition-all duration-500 ease-in-out hover:bg-gray-50 ${
+                              highlightedCreativeId === creative.id
+                                ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-[1.002]'
+                                : ''
+                            }`}
                           >
                             {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
@@ -3132,6 +3378,36 @@ function CreativeAnalytics({ user }) {
                                   </button>
                                 )}
                               </div>
+                            </td>
+
+                            {/* Колонка "Правки" с бейджем РЕД */}
+                            <td className="px-2 py-4 whitespace-nowrap text-sm text-center">
+                              {hasEdits ? (
+                                <button
+                                  onClick={() => {
+                                    setExpandedEdits(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(creative.id)) {
+                                        next.delete(creative.id);
+                                      } else {
+                                        next.add(creative.id);
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                >
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-blue-400 to-violet-400 text-white shadow-sm border border-blue-300">
+                                    РЕД
+                                  </span>
+                                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1 py-0.5 rounded min-w-[18px]">
+                                    {edits.length}
+                                  </span>
+                                  <span className={`transition-transform duration-200 ${isEditsExpanded ? 'rotate-180' : ''}`}>
+                                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                                  </span>
+                                </button>
+                              ) : null}
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap">
@@ -3852,6 +4128,42 @@ function CreativeAnalytics({ user }) {
                             </td>
 
                           </tr>
+                          {/* Раскрытые правки */}
+                          {isEditsExpanded && edits.map((edit, editIndex) => {
+                            const editDateTime = formatKyivTime(edit.created_at);
+                            return (
+                              <tr
+                                key={`edit-expanded-${edit.id}`}
+                                className="transition-colors duration-200"
+                                style={{ backgroundColor: '#fffffe66' }}
+                              >
+                                {/* Тип - индикатор дерева */}
+                                <td className="px-1 py-3 whitespace-nowrap text-sm text-center">
+                                  <div className="flex items-center justify-center">
+                                    <div className="w-4 h-4 border-l-2 border-b-2 border-amber-400 rounded-bl-md ml-2"></div>
+                                  </div>
+                                </td>
+                                {/* Дата правки */}
+                                <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-medium text-base">{editDateTime.date}</span>
+                                    <span className="text-xs text-center" style={{ color: '#a16207' }}>{editDateTime.time}</span>
+                                  </div>
+                                </td>
+                                {/* Правки - бейдж */}
+                                <td className="px-2 py-3 whitespace-nowrap text-sm text-center">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 shadow-sm border border-amber-300">
+                                    ПРАВКА
+                                  </span>
+                                </td>
+                                {/* Пустые ячейки для остальных колонок */}
+                                <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-400 text-center" colSpan="22">
+                                  —
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          </React.Fragment>
                         );
                       })}
                   </tbody>
