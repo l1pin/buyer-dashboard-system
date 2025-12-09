@@ -3223,23 +3223,24 @@ function CreativeAnalytics({ user }) {
                           className="hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Колонка Правки - бейдж ПРАВКА */}
+                          {/* Колонка Правки - бейдж ПРАВКА - кликабельный */}
                           <td className="px-2 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex flex-col items-center justify-center">
-                              <div
-                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
-                                title="Правка"
+                              <button
+                                onClick={() => scrollToCreative(edit.creative_id)}
+                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+                                title="Показать материнский креатив"
                               >
                                 <span className="tracking-wide">ПРАВКА</span>
-                              </div>
+                              </button>
                             </div>
                           </td>
                           {/* Дата правки - как у обычных креативов с местом для карандаша */}
-                          <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                          <td className="px-3 py-3 whitespace-nowrap text-sm text-center text-gray-900" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex items-center justify-center gap-1">
                               <div className="cursor-text select-text">
-                                <div className="font-medium" style={{ color: '#a16207' }}>{editDateTime.date}</div>
-                                <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                                <div className="font-medium">{editDateTime.date}</div>
+                                <div className="text-xs text-gray-500">{editDateTime.time}</div>
                               </div>
                               {/* Placeholder для карандаша - как у обычных креативов */}
                               <div className="ml-1 p-1 w-[22px] h-[22px]"></div>
@@ -3261,8 +3262,7 @@ function CreativeAnalytics({ user }) {
                                       });
                                       setShowCommentModal(true);
                                     }}
-                                    className="hover:opacity-70 transition-opacity p-1 rounded-full"
-                                    style={{ color: '#a16207' }}
+                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
                                     title={edit.comment}
                                   >
                                     <MessageCircle className="h-4 w-4" />
@@ -3270,7 +3270,7 @@ function CreativeAnalytics({ user }) {
                                 )}
                               </div>
                               <div className="w-6 h-6 flex-shrink-0"></div>
-                              <span style={{ color: '#a16207' }} className="text-sm font-medium">
+                              <span className="text-sm font-medium text-gray-900">
                                 {edit.creative?.article} → Правка #{editNumber}
                               </span>
                             </div>
@@ -3294,20 +3294,19 @@ function CreativeAnalytics({ user }) {
                                   <User className="h-3 w-3 text-gray-400" />
                                 </div>
                               </div>
-                              <span className="text-sm" style={{ color: '#a16207' }}>
+                              <span className="text-sm text-gray-900">
                                 {edit.creative?.editor_name || getEditorName(edit.creative?.user_id) || '—'}
                               </span>
                             </div>
                           </td>
                           {/* Видео из правки */}
-                          <td className="px-3 py-3 text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                          <td className="px-3 py-3 text-sm text-gray-900" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="space-y-1">
                               {edit.link_titles && edit.link_titles.length > 0 ? (
                                 edit.link_titles.map((title, idx) => (
                                   <div key={idx} className="flex items-center min-h-[24px]">
                                     <span
                                       className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
-                                      style={{ color: '#a16207' }}
                                       title={title}
                                     >
                                       {title}
@@ -3317,8 +3316,7 @@ function CreativeAnalytics({ user }) {
                                         href={edit.links[idx]}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex-shrink-0 hover:opacity-70"
-                                        style={{ color: '#a16207' }}
+                                        className="flex-shrink-0 hover:opacity-70 text-blue-600 hover:text-blue-800"
                                         title="Открыть в Google Drive"
                                       >
                                         <ExternalLink className="h-3 w-3" />
@@ -3327,20 +3325,9 @@ function CreativeAnalytics({ user }) {
                                   </div>
                                 ))
                               ) : (
-                                <span style={{ color: '#a16207' }}>Перезалив</span>
+                                <span className="text-gray-500">Перезалив</span>
                               )}
                             </div>
-                          </td>
-                          {/* Зона - кнопка Показать */}
-                          <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffffe66' }}>
-                            <button
-                              onClick={() => scrollToCreative(edit.creative_id)}
-                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
-                              title="Показать материнский креатив"
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              Показать
-                            </button>
                           </td>
                           {/* Пустые ячейки для метрик - без "—" */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -3364,7 +3351,7 @@ function CreativeAnalytics({ user }) {
                                   <span className="text-xs font-bold mr-1">+COF</span>
                                   {formatCOF(edit.cof_rating || 0)}
                                 </span>
-                                <div className="text-xs mt-1" style={{ color: '#a16207' }}>
+                                <div className="text-xs mt-1 text-gray-600">
                                   {edit.work_types.join(', ')}
                                 </div>
                               </div>
