@@ -2257,7 +2257,7 @@ function CreativeAnalytics({ user }) {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
+      <div className="bg-white border-b border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -2548,7 +2548,7 @@ function CreativeAnalytics({ user }) {
 
       {/* Statistics Cards */}
       {filteredCreativesByMonth.length > 0 && (
-        <div className="bg-gray-50 px-6 py-4">
+        <div className="bg-gray-50 px-6 py-2">
           {/* ПЕРВАЯ СТРОКА */}
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-4 mb-4">
             <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
@@ -3179,7 +3179,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="px-6 pt-1 pb-6">
+      <div className="px-6 pt-0 pb-6">
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
