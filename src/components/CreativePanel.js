@@ -3361,7 +3361,7 @@ function CreativePanel({ user }) {
                       return (
                         <tr
                           key={`standalone-edit-${edit.id}`}
-                          className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
+                          className="hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
                           {/* Желтый бейдж ПРАВКА для правки */}
