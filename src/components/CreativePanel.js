@@ -1,7 +1,7 @@
 // CreativePanel.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
 // Замените содержимое src/components/CreativePanel.js
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
@@ -162,32 +162,33 @@ function CreativePanel({ user }) {
   const [creatingEdit, setCreatingEdit] = useState(false);
   const [addEditLinkType, setAddEditLinkType] = useState('new'); // 'new' или 'reupload'
 
-  // Используем useMemo для оптимизации фильтрации креативов
-  const filteredCreatives = useMemo(() => {
-    let creativesToFilter = creatives;
-    
-    // Фильтрация по байеру
-    if (selectedBuyer !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+  // Состояние для подсветки креатива при переходе от правки
+  const [highlightedCreativeId, setHighlightedCreativeId] = useState(null);
+  const creativeRefs = useRef(new Map()); // Map<creative_id, HTMLTableRowElement>
+
+  // Функция для скролла к креативу и его подсветки
+  const scrollToCreative = useCallback((creativeId) => {
+    const row = creativeRefs.current.get(creativeId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedCreativeId(creativeId);
+      // Убираем подсветку через 1.5 секунды
+      setTimeout(() => setHighlightedCreativeId(null), 1500);
     }
-    
-    // Фильтрация по серчеру
-    if (selectedSearcher !== 'all') {
-      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
-    }
-    
+  }, []);
+
+  // Вычисляем диапазон дат для текущего фильтра
+  const dateRange = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    
-    // Вчера
+
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
     const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
-    
-    // Эта неделя (понедельник - воскресенье)
-    const dayOfWeek = now.getDay(); // 0 = воскресенье, 1 = понедельник, ...
+
+    const dayOfWeek = now.getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const thisWeekStart = new Date(now);
     thisWeekStart.setDate(now.getDate() - daysToMonday);
@@ -195,65 +196,102 @@ function CreativePanel({ user }) {
     const thisWeekEnd = new Date(thisWeekStart);
     thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
     thisWeekEnd.setHours(23, 59, 59);
-    
-    // Последние 7 дней (включая сегодня)
+
     const last7DaysStart = new Date(now);
     last7DaysStart.setDate(now.getDate() - 6);
     last7DaysStart.setHours(0, 0, 0, 0);
-    
-    // Этот месяц
+
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    
-    // Последний месяц (предыдущий)
+
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-    if (selectedPeriod === 'today') {
+    switch (selectedPeriod) {
+      case 'today': return { start: todayStart, end: todayEnd };
+      case 'yesterday': return { start: yesterdayStart, end: yesterdayEnd };
+      case 'this_week': return { start: thisWeekStart, end: thisWeekEnd };
+      case 'last_7_days': return { start: last7DaysStart, end: todayEnd };
+      case 'this_month': return { start: thisMonthStart, end: thisMonthEnd };
+      case 'last_month': return { start: lastMonthStart, end: lastMonthEnd };
+      case 'custom':
+        if (customDateFrom && customDateTo) {
+          const customFrom = new Date(customDateFrom);
+          customFrom.setHours(0, 0, 0, 0);
+          const customTo = new Date(customDateTo);
+          customTo.setHours(23, 59, 59);
+          return { start: customFrom, end: customTo };
+        }
+        return null;
+      default: return null; // 'all' - без фильтрации
+    }
+  }, [selectedPeriod, customDateFrom, customDateTo]);
+
+  // Хелпер для проверки попадания даты в диапазон
+  const isDateInRange = useCallback((dateStr, range) => {
+    if (!range) return true;
+    const date = new Date(dateStr);
+    return date >= range.start && date <= range.end;
+  }, []);
+
+  // Используем useMemo для оптимизации фильтрации креативов
+  const filteredCreatives = useMemo(() => {
+    let creativesToFilter = creatives;
+
+    // Фильтрация по байеру
+    if (selectedBuyer !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.buyer_id === selectedBuyer);
+    }
+
+    // Фильтрация по серчеру
+    if (selectedSearcher !== 'all') {
+      creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
+    }
+
+    // Фильтрация по дате: креатив показывается, если его дата ИЛИ дата правки попадает в диапазон
+    if (dateRange) {
       creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= todayStart && createdDate <= todayEnd;
-      });
-    } else if (selectedPeriod === 'yesterday') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
-      });
-    } else if (selectedPeriod === 'this_week') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= thisWeekStart && createdDate <= thisWeekEnd;
-      });
-    } else if (selectedPeriod === 'last_7_days') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= last7DaysStart && createdDate <= todayEnd;
-      });
-    } else if (selectedPeriod === 'this_month') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= thisMonthStart && createdDate <= thisMonthEnd;
-      });
-    } else if (selectedPeriod === 'last_month') {
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
-      });
-    } else if (selectedPeriod === 'custom' && customDateFrom && customDateTo) {
-      const customFrom = new Date(customDateFrom);
-      customFrom.setHours(0, 0, 0, 0);
-      const customTo = new Date(customDateTo);
-      customTo.setHours(23, 59, 59);
-      
-      creativesToFilter = creativesToFilter.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= customFrom && createdDate <= customTo;
+        // Проверяем дату создания креатива
+        const creativeInRange = isDateInRange(c.created_at, dateRange);
+
+        // Проверяем даты правок этого креатива
+        const edits = creativeEdits.get(c.id) || [];
+        const hasEditInRange = edits.some(edit => isDateInRange(edit.created_at, dateRange));
+
+        return creativeInRange || hasEditInRange;
       });
     }
-    // Если selectedPeriod === 'all', то не фильтруем по дате
-    
+
     return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [creatives, selectedBuyer, selectedSearcher, dateRange, isDateInRange, creativeEdits]);
+
+  // Список отдельных правок для отображения (когда правка попадает в фильтр, но материнский креатив тоже показан)
+  const standaloneEdits = useMemo(() => {
+    if (!dateRange) return [];
+
+    const result = [];
+
+    filteredCreatives.forEach(creative => {
+      const creativeInRange = isDateInRange(creative.created_at, dateRange);
+      const edits = creativeEdits.get(creative.id) || [];
+
+      // Если материнский креатив попал в диапазон И есть правки в диапазоне - показываем правки отдельно
+      if (creativeInRange) {
+        edits.forEach(edit => {
+          if (isDateInRange(edit.created_at, dateRange)) {
+            result.push({
+              ...edit,
+              parentCreative: creative,
+              parentCreativeId: creative.id
+            });
+          }
+        });
+      }
+    });
+
+    // Сортируем по дате (новые сверху)
+    return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [filteredCreatives, creativeEdits, dateRange, isDateInRange]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -3293,6 +3331,160 @@ function CreativePanel({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
+                    {/* Отдельные строки правок, попавших в фильтр дат */}
+                    {standaloneEdits.map((edit) => {
+                      const editDate = new Date(edit.created_at);
+                      const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      });
+                      const formattedEditTime = editDate.toLocaleTimeString('uk-UA', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      const edits = creativeEdits.get(edit.parentCreativeId) || [];
+                      const editIndex = edits.findIndex(e => e.id === edit.id);
+                      const editNumber = edits.length - editIndex;
+
+                      return (
+                        <tr
+                          key={`standalone-edit-${edit.id}`}
+                          className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
+                          style={{ backgroundColor: '#fffde466' }}
+                        >
+                          {/* Кнопка показать */}
+                          <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffde466' }}>
+                            <button
+                              onClick={() => scrollToCreative(edit.parentCreativeId)}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-yellow-500 text-white hover:bg-yellow-600 transition-colors shadow-sm"
+                              title="Показать материнский креатив"
+                            >
+                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Показать
+                            </button>
+                          </td>
+
+                          {/* Пустая ячейка для редактирования */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+
+                          {/* Дата правки */}
+                          <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
+                            <div className="cursor-text select-text">
+                              <div className="font-medium">{formattedEditDate}</div>
+                              <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
+                            </div>
+                          </td>
+
+                          {/* Артикул + Правка #N */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                {edit.comment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedComment({
+                                        article: `Правка #${editNumber}`,
+                                        comment: edit.comment,
+                                        createdAt: edit.created_at,
+                                        editorName: edit.editor_name
+                                      });
+                                      setShowCommentModal(true);
+                                    }}
+                                    className="hover:opacity-70 transition-opacity p-1 rounded-full"
+                                    style={{ color: '#a16207' }}
+                                    title={edit.comment}
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="w-6 h-6 flex-shrink-0"></div>
+                              <span style={{ color: '#a16207' }} className="text-sm font-medium">
+                                {edit.parentCreative?.article} → Правка #{editNumber}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Видео из правки */}
+                          <td className="px-3 py-3 text-sm" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
+                            <div className="space-y-1">
+                              {edit.link_titles && edit.link_titles.length > 0 ? (
+                                edit.link_titles.map((title, idx) => (
+                                  <div key={idx} className="flex items-center min-h-[24px]">
+                                    <span
+                                      className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                      style={{ color: '#a16207' }}
+                                      title={title}
+                                    >
+                                      {title}
+                                    </span>
+                                    {edit.links && edit.links[idx] && (
+                                      <a
+                                        href={edit.links[idx]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-shrink-0 hover:opacity-70"
+                                        style={{ color: '#a16207' }}
+                                        title="Открыть в Google Drive"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#a16207' }}>Перезалив</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Пустые ячейки для метрик */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+
+                          {/* COF */}
+                          <td className="px-3 py-3 whitespace-nowrap text-center" style={{ backgroundColor: '#fffde466' }}>
+                            {edit.work_types && edit.work_types.length > 0 ? (
+                              <div className="space-y-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                  <span className="text-xs font-bold mr-1">+COF</span>
+                                  {formatCOF(edit.cof_rating || 0)}
+                                </span>
+                                <div className="text-xs mt-1" style={{ color: '#a16207' }}>
+                                  {edit.work_types.join(', ')}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#a16207' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* Trello, Status, Buyer, Searcher */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Креативы */}
                     {filteredCreatives
                       .sort((a, b) => b.created_at.localeCompare(a.created_at))
                       .map((creative) => {
@@ -3314,7 +3506,14 @@ function CreativePanel({ user }) {
                         return (
                           <React.Fragment key={creative.id}>
                           <tr
-                            className="transition-colors duration-200 hover:bg-gray-50"
+                            ref={(el) => {
+                              if (el) creativeRefs.current.set(creative.id, el);
+                            }}
+                            className={`transition-all duration-300 hover:bg-gray-50 ${
+                              highlightedCreativeId === creative.id
+                                ? 'ring-2 ring-yellow-400 bg-yellow-100 animate-pulse'
+                                : ''
+                            }`}
                           >
                             {/* Колонка "Тип" с бейджем E и стрелкой - ПЕРВАЯ */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
