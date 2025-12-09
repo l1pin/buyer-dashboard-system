@@ -3193,7 +3193,7 @@ function CreativeAnalytics({ user }) {
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-0 py-0">
-              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 280px)', overflowY: 'auto'}}>
+              <div className="overflow-x-auto" style={{maxHeight: 'calc(100vh - 200px)', overflowY: 'auto'}}>
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
