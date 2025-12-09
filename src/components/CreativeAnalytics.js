@@ -3234,11 +3234,15 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </div>
                           </td>
-                          {/* Дата правки - как у обычных креативов */}
+                          {/* Дата правки - как у обычных креативов с местом для карандаша */}
                           <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
-                            <div className="cursor-text select-text">
-                              <div className="font-medium" style={{ color: '#a16207' }}>{editDateTime.date}</div>
-                              <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                            <div className="flex items-center justify-center gap-1">
+                              <div className="cursor-text select-text">
+                                <div className="font-medium" style={{ color: '#a16207' }}>{editDateTime.date}</div>
+                                <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                              </div>
+                              {/* Placeholder для карандаша - как у обычных креативов */}
+                              <div className="ml-1 p-1 w-[22px] h-[22px]"></div>
                             </div>
                           </td>
                           {/* Артикул → Правка #N */}
@@ -3349,6 +3353,8 @@ function CreativeAnalytics({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Пустая ячейка для колонки Зоны */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           {/* COF с типами работ */}
                           <td className="px-3 py-3 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
@@ -4218,11 +4224,15 @@ function CreativeAnalytics({ user }) {
                                       <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
                                   </td>
-                                  {/* Дата правки - отцентрировано как у креативов */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
-                                    <div className="cursor-text select-text">
-                                      <div className="font-medium">{editDateTime.date}</div>
-                                      <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                                  {/* Дата правки - как у обычных креативов с местом для карандаша */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <div className="cursor-text select-text">
+                                        <div className="font-medium" style={{ color: '#a16207' }}>{editDateTime.date}</div>
+                                        <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                                      </div>
+                                      {/* Placeholder для карандаша - как у обычных креативов */}
+                                      <div className="ml-1 p-1 w-[22px] h-[22px]"></div>
                                     </div>
                                   </td>
                                   {/* Артикул - "Правка #N" с иконкой комментария */}
@@ -4321,6 +4331,8 @@ function CreativeAnalytics({ user }) {
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* Пустая ячейка для колонки Зоны */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   {/* COF с типами работ */}
                                   <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
