@@ -275,10 +275,14 @@ function CreativePanel({ user }) {
       const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
       const edits = creativeEdits.get(creative.id) || [];
 
+      console.log(`🔍 Creative ${creative.article}: inRange=${creativeInRange}, edits=${edits.length}, creativeEdits.size=${creativeEdits.size}`);
+
       // Если материнский креатив попал в диапазон И есть правки в диапазоне - показываем правки отдельно
-      if (creativeInRange) {
+      if (creativeInRange && edits.length > 0) {
         edits.forEach(edit => {
-          if (isDateInFilterRange(edit.created_at, dateRange)) {
+          const editInRange = isDateInFilterRange(edit.created_at, dateRange);
+          console.log(`  📝 Edit ${edit.id}: inRange=${editInRange}, date=${edit.created_at}`);
+          if (editInRange) {
             result.push({
               ...edit,
               parentCreative: creative,
@@ -289,6 +293,7 @@ function CreativePanel({ user }) {
       }
     });
 
+    console.log(`✅ standaloneEdits count: ${result.length}`);
     // Сортируем по дате (новые сверху)
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange]);
