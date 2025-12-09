@@ -227,8 +227,8 @@ function CreativePanel({ user }) {
     }
   }, [selectedPeriod, customDateFrom, customDateTo]);
 
-  // Хелпер для проверки попадания даты в диапазон
-  const isDateInRange = useCallback((dateStr, range) => {
+  // Хелпер для проверки попадания даты в диапазон фильтра
+  const isDateInFilterRange = useCallback((dateStr, range) => {
     if (!range) return true;
     const date = new Date(dateStr);
     return date >= range.start && date <= range.end;
@@ -252,18 +252,18 @@ function CreativePanel({ user }) {
     if (dateRange) {
       creativesToFilter = creativesToFilter.filter(c => {
         // Проверяем дату создания креатива
-        const creativeInRange = isDateInRange(c.created_at, dateRange);
+        const creativeInRange = isDateInFilterRange(c.created_at, dateRange);
 
         // Проверяем даты правок этого креатива
         const edits = creativeEdits.get(c.id) || [];
-        const hasEditInRange = edits.some(edit => isDateInRange(edit.created_at, dateRange));
+        const hasEditInRange = edits.some(edit => isDateInFilterRange(edit.created_at, dateRange));
 
         return creativeInRange || hasEditInRange;
       });
     }
 
     return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, dateRange, isDateInRange, creativeEdits]);
+  }, [creatives, selectedBuyer, selectedSearcher, dateRange, isDateInFilterRange, creativeEdits]);
 
   // Список отдельных правок для отображения (когда правка попадает в фильтр, но материнский креатив тоже показан)
   const standaloneEdits = useMemo(() => {
@@ -272,13 +272,13 @@ function CreativePanel({ user }) {
     const result = [];
 
     filteredCreatives.forEach(creative => {
-      const creativeInRange = isDateInRange(creative.created_at, dateRange);
+      const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
       const edits = creativeEdits.get(creative.id) || [];
 
       // Если материнский креатив попал в диапазон И есть правки в диапазоне - показываем правки отдельно
       if (creativeInRange) {
         edits.forEach(edit => {
-          if (isDateInRange(edit.created_at, dateRange)) {
+          if (isDateInFilterRange(edit.created_at, dateRange)) {
             result.push({
               ...edit,
               parentCreative: creative,
@@ -291,7 +291,7 @@ function CreativePanel({ user }) {
 
     // Сортируем по дате (новые сверху)
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [filteredCreatives, creativeEdits, dateRange, isDateInRange]);
+  }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
