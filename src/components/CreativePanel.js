@@ -106,7 +106,8 @@ function CreativePanel({ user }) {
   
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
-  
+  const [skuSearch, setSkuSearch] = useState('');
+
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
@@ -248,6 +249,14 @@ function CreativePanel({ user }) {
       creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
     }
 
+    // Фильтрация по SKU (артикулу)
+    if (skuSearch.trim()) {
+      const searchTerm = skuSearch.trim().toLowerCase();
+      creativesToFilter = creativesToFilter.filter(c =>
+        c.article && c.article.toLowerCase().includes(searchTerm)
+      );
+    }
+
     // Фильтрация по дате: креатив показывается, если его дата ИЛИ дата правки попадает в диапазон
     if (dateRange) {
       creativesToFilter = creativesToFilter.filter(c => {
@@ -263,7 +272,7 @@ function CreativePanel({ user }) {
     }
 
     return creativesToFilter;
-  }, [creatives, selectedBuyer, selectedSearcher, dateRange, isDateInFilterRange, creativeEdits]);
+  }, [creatives, selectedBuyer, selectedSearcher, skuSearch, dateRange, isDateInFilterRange, creativeEdits]);
 
   // Список отдельных правок для отображения
   const standaloneEdits = useMemo(() => {
@@ -2799,6 +2808,26 @@ function CreativePanel({ user }) {
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Поиск по SKU */}
+            <div className="relative">
+              <input
+                type="text"
+                value={skuSearch}
+                onChange={(e) => setSkuSearch(e.target.value)}
+                placeholder="Поиск по артикулу..."
+                className="w-48 pl-8 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {skuSearch && (
+                <button
+                  onClick={() => setSkuSearch('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               )}
             </div>
           </div>
