@@ -172,8 +172,8 @@ function CreativePanel({ user }) {
     if (row) {
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedCreativeId(creativeId);
-      // Убираем подсветку через 1.5 секунды
-      setTimeout(() => setHighlightedCreativeId(null), 1500);
+      // Убираем подсветку через 2 секунды
+      setTimeout(() => setHighlightedCreativeId(null), 2000);
     }
   }, []);
 
@@ -3527,9 +3527,9 @@ function CreativePanel({ user }) {
                             ref={(el) => {
                               if (el) creativeRefs.current.set(creative.id, el);
                             }}
-                            className={`transition-all duration-300 hover:bg-gray-50 ${
+                            className={`transition-all duration-500 ease-in-out hover:bg-gray-50 ${
                               highlightedCreativeId === creative.id
-                                ? 'ring-2 ring-yellow-400 bg-yellow-100 animate-pulse'
+                                ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-[1.002]'
                                 : ''
                             }`}
                           >
