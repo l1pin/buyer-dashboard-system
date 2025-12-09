@@ -3234,11 +3234,16 @@ function CreativeAnalytics({ user }) {
                           className="transition-colors duration-200 hover:bg-gray-50"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Тип */}
-                          <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 shadow-sm border border-amber-300">
-                              ПРАВКА
-                            </span>
+                          {/* Тип - желтый бейдж ПРАВКА как в CreativePanel */}
+                          <td className="px-1 py-4 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex flex-col items-center justify-center">
+                              <div
+                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                title="Правка"
+                              >
+                                <span className="tracking-wide">ПРАВКА</span>
+                              </div>
+                            </div>
                           </td>
                           {/* Дата правки */}
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
@@ -3370,34 +3375,59 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </td>
 
-                            {/* Колонка "Правки" с бейджем РЕД */}
+                            {/* Колонка "Правки" с бейджем РЕД - стиль как в CreativePanel */}
                             <td className="px-2 py-4 whitespace-nowrap text-sm text-center">
-                              {hasEdits ? (
-                                <button
-                                  onClick={() => {
-                                    setExpandedEdits(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(creative.id)) {
-                                        next.delete(creative.id);
-                                      } else {
-                                        next.add(creative.id);
-                                      }
-                                      return next;
-                                    });
-                                  }}
-                                  className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                                >
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-blue-400 to-violet-400 text-white shadow-sm border border-blue-300">
-                                    РЕД
-                                  </span>
-                                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1 py-0.5 rounded min-w-[18px]">
-                                    {edits.length}
-                                  </span>
-                                  <span className={`transition-transform duration-200 ${isEditsExpanded ? 'rotate-180' : ''}`}>
-                                    <ChevronDown className="h-3 w-3 text-gray-400" />
-                                  </span>
-                                </button>
-                              ) : null}
+                              <div className="flex flex-col items-center justify-center">
+                                {hasEdits && (() => {
+                                  const editsCount = edits.length;
+                                  // Get the last edit date
+                                  const lastEdit = edits.length > 0 ? edits[0] : null; // First is newest after sorting
+                                  const lastEditDate = lastEdit?.created_at
+                                    ? new Date(lastEdit.created_at).toLocaleDateString('uk-UA', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit'
+                                      })
+                                    : null;
+
+                                  return (
+                                    <>
+                                      {/* РЕД Badge - blue-violet gradient for parent creative */}
+                                      <div
+                                        title={`${editsCount} правок`}
+                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-sm border border-blue-400 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                      >
+                                        <span className="tracking-wide">РЕД</span>
+                                      </div>
+
+                                      {/* Last edit date */}
+                                      {lastEditDate && (
+                                        <span className="text-sm text-black font-semibold mt-1.5">{lastEditDate}</span>
+                                      )}
+
+                                      {/* Arrow + counter */}
+                                      <button
+                                        onClick={() => {
+                                          setExpandedEdits(prev => {
+                                            const updated = new Set(prev);
+                                            if (updated.has(creative.id)) {
+                                              updated.delete(creative.id);
+                                            } else {
+                                              updated.add(creative.id);
+                                            }
+                                            return updated;
+                                          });
+                                        }}
+                                        className="flex items-center text-black hover:text-gray-700 transition-colors mt-1"
+                                        title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
+                                      >
+                                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                        <span className="text-xs ml-0.5 font-bold">{editsCount}</span>
+                                      </button>
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap">
@@ -4118,41 +4148,54 @@ function CreativeAnalytics({ user }) {
                             </td>
 
                           </tr>
-                          {/* Раскрытые правки */}
-                          {isEditsExpanded && edits.map((edit, editIndex) => {
-                            const editDateTime = formatKyivTime(edit.created_at);
-                            return (
-                              <tr
-                                key={`edit-expanded-${edit.id}`}
-                                className="transition-colors duration-200"
-                                style={{ backgroundColor: '#fffffe66' }}
-                              >
-                                {/* Тип - индикатор дерева */}
-                                <td className="px-1 py-3 whitespace-nowrap text-sm text-center">
-                                  <div className="flex items-center justify-center">
-                                    <div className="w-4 h-4 border-l-2 border-b-2 border-amber-400 rounded-bl-md ml-2"></div>
-                                  </div>
-                                </td>
-                                {/* Дата правки */}
-                                <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-medium text-base">{editDateTime.date}</span>
-                                    <span className="text-xs text-center" style={{ color: '#a16207' }}>{editDateTime.time}</span>
-                                  </div>
-                                </td>
-                                {/* Правки - бейдж */}
-                                <td className="px-2 py-3 whitespace-nowrap text-sm text-center">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 shadow-sm border border-amber-300">
-                                    ПРАВКА
-                                  </span>
-                                </td>
-                                {/* Пустые ячейки для остальных колонок */}
-                                <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-400 text-center" colSpan="22">
-                                  —
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {/* Раскрытые правки - стиль как в CreativePanel */}
+                          {isEditsExpanded && (() => {
+                            const totalEdits = edits.length;
+                            return edits.map((edit, editIndex) => {
+                              const editDateTime = formatKyivTime(edit.created_at);
+                              // Numbering: newest first, so #totalEdits, #totalEdits-1, ..., #1
+                              const editNumber = totalEdits - editIndex;
+
+                              return (
+                                <tr
+                                  key={`edit-expanded-${edit.id}`}
+                                  className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
+                                  style={{ backgroundColor: '#fffffe66' }}
+                                >
+                                  {/* Tree structure indicator - текстовый └─ как в CreativePanel */}
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center justify-center pl-4">
+                                      <span className="text-yellow-500 text-lg">└─</span>
+                                    </div>
+                                  </td>
+                                  {/* Дата правки */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
+                                    <div className="cursor-text select-text">
+                                      <div className="font-medium">{editDateTime.date}</div>
+                                      <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
+                                    </div>
+                                  </td>
+                                  {/* Правки - бейдж ПРАВКА желто-оранжевый как в CreativePanel */}
+                                  <td className="px-2 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div
+                                      className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                      title={`Правка #${editNumber}`}
+                                    >
+                                      <span className="tracking-wide">ПРАВКА</span>
+                                    </div>
+                                  </td>
+                                  {/* Артикул + Правка #N */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
+                                    <span style={{ color: '#a16207' }} className="text-sm font-medium">Правка #{editNumber}</span>
+                                  </td>
+                                  {/* Пустые ячейки для остальных колонок */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }} colSpan="21">
+                                    <span className="text-yellow-500">—</span>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
                           </React.Fragment>
                         );
                       })}
