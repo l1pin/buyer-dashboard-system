@@ -313,8 +313,6 @@ function CreativeAnalytics({ user }) {
 
   // Отдельные правки для отображения как самостоятельные строки (в пределах выбранного периода)
   const standaloneEdits = useMemo(() => {
-    if (!dateRange) return [];
-
     const edits = [];
     creativeEdits.forEach((editList, creativeId) => {
       const creative = analytics.creatives.find(c => c.id === creativeId);
@@ -326,7 +324,8 @@ function CreativeAnalytics({ user }) {
       if (selectedSearcher !== 'all' && creative.searcher_id !== selectedSearcher) return;
 
       editList.forEach(edit => {
-        if (isDateInFilterRange(edit.created_at, dateRange)) {
+        // Если dateRange есть - фильтруем по дате, если нет - показываем все
+        if (!dateRange || isDateInFilterRange(edit.created_at, dateRange)) {
           edits.push({
             ...edit,
             creative
