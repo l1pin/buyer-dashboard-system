@@ -3209,17 +3209,22 @@ function CreativeAnalytics({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {/* Отдельные строки с правками */}
+                    {/* Отдельные строки с правками - стиль как в CreativePanel */}
                     {standaloneEdits.map((edit) => {
                       const editDateTime = formatKyivTime(edit.created_at);
+                      // Вычисляем номер правки
+                      const allEdits = creativeEdits.get(String(edit.creative_id)) || [];
+                      const editIndex = allEdits.findIndex(e => e.id === edit.id);
+                      const editNumber = allEdits.length - editIndex;
+
                       return (
                         <tr
                           key={`edit-${edit.id}`}
-                          className="transition-colors duration-200 hover:bg-gray-50"
+                          className="hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Колонка Правки - бейдж ПРАВКА для standalone */}
-                          <td className="px-2 py-4 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                          {/* Колонка Правки - бейдж ПРАВКА */}
+                          <td className="px-2 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex flex-col items-center justify-center">
                               <div
                                 className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
@@ -3229,68 +3234,143 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </div>
                           </td>
-                          {/* Дата правки */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            <div className="flex flex-col items-center">
-                              <span className="font-medium text-base">{editDateTime.date}</span>
-                              <span className="text-xs text-center" style={{ color: '#a16207' }}>{editDateTime.time}</span>
+                          {/* Дата правки - как у обычных креативов */}
+                          <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="cursor-text select-text">
+                              <div className="font-medium" style={{ color: '#a16207' }}>{editDateTime.date}</div>
+                              <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
                             </div>
                           </td>
-                          {/* Артикул */}
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{edit.creative?.article || '—'}</div>
+                          {/* Артикул → Правка #N */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                {edit.comment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedComment({
+                                        article: `Правка #${editNumber}`,
+                                        comment: edit.comment,
+                                        createdAt: edit.created_at,
+                                        editorName: edit.editor_name
+                                      });
+                                      setShowCommentModal(true);
+                                    }}
+                                    className="hover:opacity-70 transition-opacity p-1 rounded-full"
+                                    style={{ color: '#a16207' }}
+                                    title={edit.comment}
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="w-6 h-6 flex-shrink-0"></div>
+                              <span style={{ color: '#a16207' }} className="text-sm font-medium">
+                                {edit.creative?.article} → Правка #{editNumber}
+                              </span>
+                            </div>
                           </td>
-                          {/* Монтажер */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {edit.creative?.editor_name || '—'}
+                          {/* Монтажер с аватаркой */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                {getEditorAvatar(edit.creative?.user_id) ? (
+                                  <img
+                                    src={getEditorAvatar(edit.creative?.user_id)}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.creative?.user_id) ? 'hidden' : ''}`}>
+                                  <User className="h-3 w-3 text-gray-400" />
+                                </div>
+                              </div>
+                              <span className="text-sm" style={{ color: '#a16207' }}>
+                                {edit.creative?.editor_name || getEditorName(edit.creative?.user_id) || '—'}
+                              </span>
+                            </div>
                           </td>
-                          {/* Видео - пустые ячейки */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Зона */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* BarChart3 */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Лиды */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* CPL */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Расходы */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Клики */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* CPC */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* CTR */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* CPM */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Показы */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Время */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Дней */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Зоны */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* COF */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Trello */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Статус */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-400">—</td>
-                          {/* Buyer */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
-                          {/* Searcher */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
-                          {/* Действия - кнопка Показать */}
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                          {/* Видео из правки */}
+                          <td className="px-3 py-3 text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="space-y-1">
+                              {edit.link_titles && edit.link_titles.length > 0 ? (
+                                edit.link_titles.map((title, idx) => (
+                                  <div key={idx} className="flex items-center min-h-[24px]">
+                                    <span
+                                      className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                      style={{ color: '#a16207' }}
+                                      title={title}
+                                    >
+                                      {title}
+                                    </span>
+                                    {edit.links && edit.links[idx] && (
+                                      <a
+                                        href={edit.links[idx]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-shrink-0 hover:opacity-70"
+                                        style={{ color: '#a16207' }}
+                                        title="Открыть в Google Drive"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#a16207' }}>Перезалив</span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Зона - кнопка Показать */}
+                          <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffffe66' }}>
                             <button
                               onClick={() => scrollToCreative(edit.creative_id)}
-                              className="px-2 py-1 text-xs font-medium rounded transition-all duration-200 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 hover:from-amber-500 hover:to-yellow-500 shadow-sm border border-amber-300"
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+                              title="Показать материнский креатив"
                             >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
                               Показать
                             </button>
                           </td>
+                          {/* Пустые ячейки для метрик - без "—" */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* COF с типами работ */}
+                          <td className="px-3 py-3 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            {edit.work_types && edit.work_types.length > 0 ? (
+                              <div className="space-y-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                  <span className="text-xs font-bold mr-1">+COF</span>
+                                  {formatCOF(edit.cof_rating || 0)}
+                                </span>
+                                <div className="text-xs mt-1" style={{ color: '#a16207' }}>
+                                  {edit.work_types.join(', ')}
+                                </div>
+                              </div>
+                            ) : null}
+                          </td>
+                          {/* Trello, Статус, Buyer, Searcher - пустые */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Действия - пустая */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                         </tr>
                       );
                     })}
@@ -4132,33 +4212,136 @@ function CreativeAnalytics({ user }) {
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                                   style={{ backgroundColor: '#fffffe66' }}
                                 >
-                                  {/* Колонка "Правки" - ПЕРВАЯ. Бейдж ПРАВКА + индикатор дерева */}
-                                  <td className="px-2 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
-                                    <div className="flex flex-col items-center justify-center">
-                                      <div
-                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
-                                        title={`Правка #${editNumber}`}
-                                      >
-                                        <span className="tracking-wide">ПРАВКА</span>
-                                      </div>
-                                      <span className="text-yellow-500 text-sm mt-1">└─</span>
+                                  {/* Колонка "Правки" - индикатор дерева └─ */}
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center justify-center pl-4">
+                                      <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
                                   </td>
-                                  {/* Дата правки */}
+                                  {/* Дата правки - отцентрировано как у креативов */}
                                   <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
                                     <div className="cursor-text select-text">
                                       <div className="font-medium">{editDateTime.date}</div>
                                       <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
                                     </div>
                                   </td>
-                                  {/* Артикул + Правка #N */}
+                                  {/* Артикул - "Правка #N" с иконкой комментария */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
-                                    <span style={{ color: '#a16207' }} className="text-sm font-medium">Правка #{editNumber}</span>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                        {edit.comment && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedComment({
+                                                article: `Правка #${editNumber}`,
+                                                comment: edit.comment,
+                                                createdAt: edit.created_at,
+                                                editorName: edit.editor_name
+                                              });
+                                              setShowCommentModal(true);
+                                            }}
+                                            className="hover:opacity-70 transition-opacity p-1 rounded-full"
+                                            style={{ color: '#a16207' }}
+                                            title={edit.comment}
+                                          >
+                                            <MessageCircle className="h-4 w-4" />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="w-6 h-6 flex-shrink-0"></div>
+                                      <span style={{ color: '#a16207' }} className="text-sm font-medium">Правка #{editNumber}</span>
+                                    </div>
                                   </td>
-                                  {/* Пустые ячейки для остальных колонок */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }} colSpan="20">
-                                    <span className="text-yellow-500">—</span>
+                                  {/* Монтажер с аватаркой */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                        {getEditorAvatar(creative.user_id) ? (
+                                          <img
+                                            src={getEditorAvatar(creative.user_id)}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                              e.target.style.display = 'none';
+                                              e.target.nextSibling.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null}
+                                        <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(creative.user_id) ? 'hidden' : ''}`}>
+                                          <User className="h-3 w-3 text-gray-400" />
+                                        </div>
+                                      </div>
+                                      <span className="text-sm" style={{ color: '#a16207' }}>
+                                        {edit.editor_name || creative.editor_name || getEditorName(creative.user_id) || '—'}
+                                      </span>
+                                    </div>
                                   </td>
+                                  {/* Видео из правки */}
+                                  <td className="px-3 py-2 text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="space-y-1">
+                                      {edit.link_titles && edit.link_titles.length > 0 ? (
+                                        edit.link_titles.map((title, idx) => (
+                                          <div key={idx} className="flex items-center min-h-[24px]">
+                                            <span
+                                              className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                              style={{ color: '#a16207' }}
+                                              title={title}
+                                            >
+                                              {title}
+                                            </span>
+                                            {edit.links && edit.links[idx] && (
+                                              <a
+                                                href={edit.links[idx]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-shrink-0 hover:opacity-70"
+                                                style={{ color: '#a16207' }}
+                                                title="Открыть в Google Drive"
+                                              >
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            )}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span style={{ color: '#a16207' }}>Перезалив</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {/* Пустые ячейки для метрик */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* COF с типами работ */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    {edit.work_types && edit.work_types.length > 0 ? (
+                                      <div className="space-y-1">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                          <span className="text-xs font-bold mr-1">+COF</span>
+                                          {formatCOF(edit.cof_rating || 0)}
+                                        </span>
+                                        <div className="text-xs text-yellow-700 mt-1">
+                                          {edit.work_types.join(', ')}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </td>
+                                  {/* Trello, Статус, Buyer, Searcher, Действия - пустые */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                 </tr>
                               );
                             });
