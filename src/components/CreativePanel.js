@@ -3537,9 +3537,53 @@ function CreativePanel({ user }) {
                                   <span className="text-xs font-bold mr-1">+COF</span>
                                   {formatCOF(edit.cof_rating || 0)}
                                 </span>
-                                <div className="text-xs mt-1 text-gray-600">
-                                  {edit.work_types.join(', ')}
-                                </div>
+                                {(() => {
+                                  const isExpanded = expandedWorkTypes.has(`edit-${edit.id}`);
+                                  const workTypes = edit.work_types || [];
+                                  if (workTypes.length === 0) return null;
+                                  if (workTypes.length <= 2) {
+                                    return (
+                                      <div className="text-xs mt-1 text-gray-600">
+                                        {workTypes.join(', ')}
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div className="text-xs mt-1">
+                                      {isExpanded ? (
+                                        <>
+                                          <div className="text-gray-600">{workTypes.join(', ')}</div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setExpandedWorkTypes(prev => {
+                                                const next = new Set(prev);
+                                                next.delete(`edit-${edit.id}`);
+                                                return next;
+                                              });
+                                            }}
+                                            className="text-blue-600 hover:text-blue-800 text-xs mt-1"
+                                          >
+                                            Скрыть
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-gray-600">{workTypes.slice(0, 2).join(', ')}</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setExpandedWorkTypes(prev => new Set(prev).add(`edit-${edit.id}`));
+                                            }}
+                                            className="text-blue-600 hover:text-blue-800 text-xs ml-1"
+                                          >
+                                            +{workTypes.length - 2}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             ) : null}
                           </td>
@@ -4495,9 +4539,53 @@ function CreativePanel({ user }) {
                                           <span className="text-xs font-bold mr-1">+COF</span>
                                           {formatCOF(edit.cof_rating || 0)}
                                         </span>
-                                        <div className="text-xs text-yellow-700 mt-1">
-                                          {edit.work_types.join(', ')}
-                                        </div>
+                                        {(() => {
+                                          const isExpanded = expandedWorkTypes.has(`edit-${edit.id}`);
+                                          const workTypes = edit.work_types || [];
+                                          if (workTypes.length === 0) return null;
+                                          if (workTypes.length <= 2) {
+                                            return (
+                                              <div className="text-xs text-yellow-700 mt-1">
+                                                {workTypes.join(', ')}
+                                              </div>
+                                            );
+                                          }
+                                          return (
+                                            <div className="text-xs mt-1">
+                                              {isExpanded ? (
+                                                <>
+                                                  <div className="text-yellow-700">{workTypes.join(', ')}</div>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedWorkTypes(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(`edit-${edit.id}`);
+                                                        return next;
+                                                      });
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800 text-xs mt-1"
+                                                  >
+                                                    Скрыть
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <span className="text-yellow-700">{workTypes.slice(0, 2).join(', ')}</span>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedWorkTypes(prev => new Set(prev).add(`edit-${edit.id}`));
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800 text-xs ml-1"
+                                                  >
+                                                    +{workTypes.length - 2}
+                                                  </button>
+                                                </>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     ) : (
                                       <span className="text-yellow-500">—</span>
