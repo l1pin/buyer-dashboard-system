@@ -4199,19 +4199,34 @@ function CreativePanel({ user }) {
                                   </td>
 
                                   {/* Empty cells for metrics columns - with light yellow bg */}
+                                  {/* Зона */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* BarChart3 */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Лиды */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* CPL */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Расходы */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Клики */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* CPC */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* CTR */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* CPM */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Показы */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Время */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Дней */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  {/* Зоны */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
 
-                                  {/* Work types from this edit with COF */}
+                                  {/* Work types from this edit with COF - in COF column */}
                                   <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffde466' }}>
                                     {edit.work_types && edit.work_types.length > 0 ? (
                                       <div className="space-y-1">
