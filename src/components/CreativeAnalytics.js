@@ -252,7 +252,7 @@ function CreativeAnalytics({ user }) {
 
     // Функция для проверки, есть ли у креатива правки в заданном диапазоне дат
     const hasEditsInRange = (creativeId, startDate, endDate) => {
-      const edits = creativeEdits.get(creativeId) || [];
+      const edits = creativeEdits.get(String(creativeId)) || [];
       return edits.some(edit => {
         const editDate = new Date(edit.created_at);
         return editDate >= startDate && editDate <= endDate;
@@ -315,7 +315,7 @@ function CreativeAnalytics({ user }) {
   const standaloneEdits = useMemo(() => {
     const edits = [];
     creativeEdits.forEach((editList, creativeId) => {
-      const creative = analytics.creatives.find(c => c.id === creativeId);
+      const creative = analytics.creatives.find(c => String(c.id) === String(creativeId));
       if (!creative) return;
 
       // Проверяем, проходит ли креатив через фильтры пользователей
@@ -1430,28 +1430,15 @@ function CreativeAnalytics({ user }) {
       const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
 
-      // Загружаем правки для всех креативов
-      if (creativeIds.length > 0) {
-        const { data: editsData, error: editsError } = await supabase
-          .from('creative_edits')
-          .select('*')
-          .in('creative_id', creativeIds)
-          .order('created_at', { ascending: false });
-
-        if (editsError) {
-          console.error('Ошибка загрузки правок:', editsError);
-        } else if (editsData) {
-          // Группируем правки по creative_id
-          const editsMap = new Map();
-          editsData.forEach(edit => {
-            if (!editsMap.has(edit.creative_id)) {
-              editsMap.set(edit.creative_id, []);
-            }
-            editsMap.get(edit.creative_id).push(edit);
-          });
-          setCreativeEdits(editsMap);
-          console.log('📝 Загружено правок:', editsData.length);
-        }
+      // Загружаем правки для креативов с has_edits = true (как в CreativePanel)
+      const creativesWithEdits = safeCreatives.filter(c => c.has_edits).map(c => c.id);
+      if (creativesWithEdits.length > 0) {
+        const editsMap = await creativeService.getEditsForCreatives(creativesWithEdits);
+        setCreativeEdits(new Map(Object.entries(editsMap)));
+        console.log(`✅ Загружено правок для ${Object.keys(editsMap).length} креативов`);
+      } else {
+        setCreativeEdits(new Map());
+        console.log('📝 Нет креативов с правками');
       }
 
       const now = new Date();
@@ -3319,7 +3306,7 @@ function CreativeAnalytics({ user }) {
                         const allVideoMetrics = getAllVideoMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
-                        const edits = creativeEdits.get(creative.id) || [];
+                        const edits = creativeEdits.get(String(creative.id)) || [];
                         const hasEdits = edits.length > 0;
                         const isEditsExpanded = expandedEdits.has(creative.id);
 
