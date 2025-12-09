@@ -3557,25 +3557,40 @@ function CreativeAnalytics({ user }) {
                             <td className="px-3 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
-                                  creative.link_titles.map((title, index) => (
-                                    <div key={index} className="flex items-center min-h-[24px]">
-                                      <span 
-                                        className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
-                                        title={title}
-                                      >
-                                        {title}
-                                      </span>
-                                      <a
-                                        href={creative.links[index]}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        title="Открыть в Google Drive"
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    </div>
-                                  ))
+                                  (() => {
+                                    // Собираем все названия видео из правок
+                                    const editVideoTitles = new Set();
+                                    edits.forEach(edit => {
+                                      if (edit.link_titles && edit.link_titles.length > 0) {
+                                        edit.link_titles.forEach(t => editVideoTitles.add(t));
+                                      }
+                                    });
+
+                                    return creative.link_titles.map((title, index) => {
+                                      const isFromEdit = editVideoTitles.has(title);
+                                      return (
+                                        <div key={index} className="flex items-center min-h-[24px]">
+                                          <span
+                                            className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                            style={isFromEdit ? { color: '#a16207' } : {}}
+                                            title={title}
+                                          >
+                                            {title}
+                                          </span>
+                                          <a
+                                            href={creative.links[index]}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`flex-shrink-0 hover:opacity-70 ${isFromEdit ? '' : 'text-blue-600 hover:text-blue-800'}`}
+                                            style={isFromEdit ? { color: '#a16207' } : {}}
+                                            title="Открыть в Google Drive"
+                                          >
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        </div>
+                                      );
+                                    });
+                                  })()
                                 ) : (
                                   <div className="text-center">
                                     <span className="text-gray-400 cursor-text select-text">Нет видео</span>
