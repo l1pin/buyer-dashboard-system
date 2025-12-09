@@ -3439,17 +3439,12 @@ function CreativePanel({ user }) {
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
                                   creative.link_titles.map((title, index) => {
-                                    // Check if this video was added from an edit
-                                    const linkMeta = creative.link_metadata?.[index];
-                                    const isFromEditMeta = linkMeta && linkMeta.edit_id;
-
-                                    // Also check if this title exists in any of the creative's edits
-                                    const edits = creativeEdits.get(creative.id) || [];
-                                    const isFromEditTitle = edits.some(edit =>
-                                      edit.link_titles && edit.link_titles.includes(title)
-                                    );
-
-                                    const isFromEdit = isFromEditMeta || isFromEditTitle;
+                                    // Check if this video was added from an edit by finding matching entry in link_metadata
+                                    // link_metadata is an array of objects with link_index or title fields
+                                    const linkMeta = Array.isArray(creative.link_metadata)
+                                      ? creative.link_metadata.find(meta => meta && (meta.link_index === index || meta.title === title))
+                                      : null;
+                                    const isFromEdit = linkMeta && linkMeta.edit_id;
 
                                     const editDate = linkMeta?.added_at
                                       ? new Date(linkMeta.added_at).toLocaleDateString('uk-UA', {
