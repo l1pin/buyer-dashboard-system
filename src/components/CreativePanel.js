@@ -3217,8 +3217,8 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
-                        Тип
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '60px' }}>
+                        E
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -3343,7 +3343,7 @@ function CreativePanel({ user }) {
 
                                       {/* Last edit date */}
                                       {lastEditDate && (
-                                        <span className="text-[10px] text-yellow-600 mt-0.5">{lastEditDate}</span>
+                                        <span className="text-xs text-black font-medium mt-0.5">{lastEditDate}</span>
                                       )}
 
                                       {/* Arrow + counter */}
@@ -3359,11 +3359,11 @@ function CreativePanel({ user }) {
                                             return updated;
                                           });
                                         }}
-                                        className="flex items-center text-yellow-500 hover:text-yellow-700 transition-colors mt-0.5"
+                                        className="flex items-center text-black hover:text-gray-700 transition-colors mt-0.5"
                                         title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
                                       >
-                                        <ChevronDown className={`h-3 w-3 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
-                                        <span className="text-[10px] ml-0.5 font-medium">{editsCount}</span>
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                        <span className="text-sm ml-0.5 font-bold">{editsCount}</span>
                                       </button>
                                     </>
                                   );
@@ -3453,25 +3453,21 @@ function CreativePanel({ user }) {
                                     return (
                                       <div key={index} className="flex items-center min-h-[24px]">
                                         <span
-                                          className={`block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden ${
-                                            isFromEdit ? 'text-yellow-600' : ''
-                                          }`}
+                                          className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                          style={isFromEdit ? { color: '#a16207' } : {}}
                                           title={title}
                                         >
                                           {title}
                                           {isFromEdit && editDate && (
-                                            <span className="italic text-yellow-500 ml-1">({editDate})</span>
+                                            <span className="italic ml-1" style={{ color: '#a16207' }}>({editDate})</span>
                                           )}
                                         </span>
                                         <a
                                           href={creative.links[index]}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className={`flex-shrink-0 ${
-                                            isFromEdit
-                                              ? 'text-yellow-600 hover:text-yellow-800'
-                                              : 'text-blue-600 hover:text-blue-800'
-                                          }`}
+                                          className="flex-shrink-0 hover:opacity-70"
+                                          style={isFromEdit ? { color: '#a16207' } : { color: '#2563eb' }}
                                           title="Открыть в Google Drive"
                                         >
                                           <ExternalLink className="h-3 w-3" />
@@ -4115,39 +4111,61 @@ function CreativePanel({ user }) {
                                 <tr
                                   key={edit.id || editIndex}
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
-                                  style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}
+                                  style={{ backgroundColor: '#fffde466' }}
                                 >
                                   {/* Tree structure indicator */}
-                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffde466' }}>
                                     <div className="flex items-center justify-center pl-4">
                                       <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
                                   </td>
 
                                   {/* Empty cell for edit button column */}
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
 
                                   {/* Date of edit */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700" style={{ backgroundColor: '#fffde466' }}>
                                     <div className="cursor-text select-text">
                                       <div className="font-medium">{formattedEditDate}</div>
                                       <div className="text-xs text-yellow-600">{formattedEditTime}</div>
                                     </div>
                                   </td>
 
-                                  {/* Edit number column */}
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
-                                    <span className="text-yellow-700 text-xs font-medium">Правка #{editNumber}</span>
+                                  {/* Edit number column (Article column) - Правка #N with comment icon */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}>
+                                    <div className="flex items-center space-x-2">
+                                      <span style={{ color: '#a16207' }} className="text-xs font-medium">Правка #{editNumber}</span>
+                                      {edit.comment && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedComment({
+                                              article: `Правка #${editNumber}`,
+                                              comment: edit.comment,
+                                              createdAt: edit.created_at,
+                                              editorName: edit.editor_name
+                                            });
+                                            setShowCommentModal(true);
+                                          }}
+                                          className="hover:opacity-70 transition-opacity"
+                                          style={{ color: '#a16207' }}
+                                          title={edit.comment}
+                                        >
+                                          <MessageCircle className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
 
                                   {/* Video titles from this edit */}
-                                  <td className="px-3 py-2 text-sm text-yellow-700" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                  <td className="px-3 py-2 text-sm" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
                                     <div className="space-y-1">
                                       {edit.link_titles && edit.link_titles.length > 0 ? (
                                         edit.link_titles.map((title, idx) => (
                                           <div key={idx} className="flex items-center min-h-[24px]">
                                             <span
-                                              className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-yellow-700"
+                                              className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                              style={{ color: '#a16207' }}
                                               title={title}
                                             >
                                               {title}
@@ -4157,7 +4175,8 @@ function CreativePanel({ user }) {
                                                 href={edit.links[idx]}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-yellow-600 hover:text-yellow-800 flex-shrink-0"
+                                                className="flex-shrink-0 hover:opacity-70"
+                                                style={{ color: '#a16207' }}
                                                 title="Открыть в Google Drive"
                                               >
                                                 <ExternalLink className="h-3 w-3" />
@@ -4166,26 +4185,26 @@ function CreativePanel({ user }) {
                                           </div>
                                         ))
                                       ) : (
-                                        <span className="text-yellow-500">Перезалив</span>
+                                        <span style={{ color: '#a16207' }}>Перезалив</span>
                                       )}
                                     </div>
                                   </td>
 
                                   {/* Empty cells for metrics columns - with light yellow bg */}
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
 
                                   {/* Work types from this edit with COF */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                  <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffde466' }}>
                                     {edit.work_types && edit.work_types.length > 0 ? (
                                       <div className="space-y-1">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
@@ -4202,12 +4221,12 @@ function CreativePanel({ user }) {
                                   </td>
 
                                   {/* Trello and Status columns - with light yellow bg */}
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
 
-                                  {/* Buyer and Searcher columns - NO yellow background */}
-                                  <td className="px-3 py-2 bg-white"></td>
-                                  <td className="px-3 py-2 bg-white"></td>
+                                  {/* Buyer and Searcher columns - with yellow background */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
                                 </tr>
                               );
                             });
