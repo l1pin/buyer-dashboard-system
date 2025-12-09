@@ -4131,29 +4131,37 @@ function CreativePanel({ user }) {
                                     </div>
                                   </td>
 
-                                  {/* Edit number column (Article column) - Правка #N with comment icon */}
+                                  {/* Edit number column (Article column) - comment icon first, then Правка #N */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}>
                                     <div className="flex items-center space-x-2">
-                                      <span style={{ color: '#a16207' }} className="text-xs font-medium">Правка #{editNumber}</span>
-                                      {edit.comment && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedComment({
-                                              article: `Правка #${editNumber}`,
-                                              comment: edit.comment,
-                                              createdAt: edit.created_at,
-                                              editorName: edit.editor_name
-                                            });
-                                            setShowCommentModal(true);
-                                          }}
-                                          className="hover:opacity-70 transition-opacity"
-                                          style={{ color: '#a16207' }}
-                                          title={edit.comment}
-                                        >
-                                          <MessageCircle className="h-4 w-4" />
-                                        </button>
-                                      )}
+                                      {/* Comment icon - same position as parent creative */}
+                                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                        {edit.comment && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedComment({
+                                                article: `Правка #${editNumber}`,
+                                                comment: edit.comment,
+                                                createdAt: edit.created_at,
+                                                editorName: edit.editor_name
+                                              });
+                                              setShowCommentModal(true);
+                                            }}
+                                            className="hover:opacity-70 transition-opacity p-1 rounded-full"
+                                            style={{ color: '#a16207' }}
+                                            title={edit.comment}
+                                          >
+                                            <MessageCircle className="h-4 w-4" />
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {/* Empty space for history icon alignment */}
+                                      <div className="w-6 h-6 flex-shrink-0"></div>
+
+                                      {/* Edit number text */}
+                                      <span style={{ color: '#a16207' }} className="text-sm font-medium">Правка #{editNumber}</span>
                                     </div>
                                   </td>
 
