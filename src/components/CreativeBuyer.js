@@ -345,12 +345,41 @@ function CreativeBuyer({ user }) {
       });
     }
 
-    return creativesToFilter;
+    // Сортировка от новых к старым
+    // Для каждого креатива берём максимальную дату (его дату или дату последней правки)
+    return creativesToFilter.sort((a, b) => {
+      const editsA = creativeEdits.get(a.id) || [];
+      const editsB = creativeEdits.get(b.id) || [];
+
+      let maxDateA = new Date(a.created_at);
+      editsA.forEach(edit => {
+        const editDate = new Date(edit.created_at);
+        if (editDate > maxDateA) maxDateA = editDate;
+      });
+
+      let maxDateB = new Date(b.created_at);
+      editsB.forEach(edit => {
+        const editDate = new Date(edit.created_at);
+        if (editDate > maxDateB) maxDateB = editDate;
+      });
+
+      return maxDateB - maxDateA;
+    });
   }, [creatives, selectedEditor, selectedSearcher, skuSearch, selectedPeriod, customDateFrom, customDateTo, dateRange, creativeEdits, isDateInFilterRange, user.id]);
 
   // Отдельные строки правок для отображения в таблице
+  // Показываем standalone правки только когда:
+  // 1. Нет фильтра по дате - показываем все
+  // 2. Есть фильтр и (материнский креатив в диапазоне И правка в диапазоне)
+  // 3. Есть фильтр и несколько правок в диапазоне
   const standaloneEdits = useMemo(() => {
     const result = [];
+
+    // При поиске по SKU не показываем standalone правки
+    if (skuSearch.trim()) {
+      return result;
+    }
+
     filteredCreatives.forEach(creative => {
       const edits = creativeEdits.get(creative.id) || [];
       if (edits.length > 0) {
@@ -360,20 +389,22 @@ function CreativeBuyer({ user }) {
             result.push({ ...edit, parentCreative: creative, parentCreativeId: creative.id });
           });
         } else {
-          // Показываем правки только когда и креатив и правка в диапазоне
           const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
-          if (creativeInRange) {
-            edits.forEach(edit => {
-              if (isDateInFilterRange(edit.created_at, dateRange)) {
-                result.push({ ...edit, parentCreative: creative, parentCreativeId: creative.id });
-              }
+          const editsInRange = edits.filter(edit => isDateInFilterRange(edit.created_at, dateRange));
+
+          // Показываем standalone правки если:
+          // - Материнский креатив в диапазоне И есть правка в диапазоне
+          // - ИЛИ 2+ правки в диапазоне (даже если материнский не в диапазоне)
+          if ((creativeInRange && editsInRange.length > 0) || editsInRange.length >= 2) {
+            editsInRange.forEach(edit => {
+              result.push({ ...edit, parentCreative: creative, parentCreativeId: creative.id });
             });
           }
         }
       }
     });
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange]);
+  }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange, skuSearch]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
