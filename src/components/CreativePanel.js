@@ -3380,7 +3380,7 @@ function CreativePanel({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
 
                           {/* Дата правки */}
-                          <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
+                          <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
                             <div className="cursor-text select-text">
                               <div className="font-medium">{formattedEditDate}</div>
                               <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
@@ -4348,10 +4348,10 @@ function CreativePanel({ user }) {
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffde466' }}></td>
 
                                   {/* Date of edit */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700" style={{ backgroundColor: '#fffde466' }}>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffde466', color: '#a16207' }}>
                                     <div className="cursor-text select-text">
                                       <div className="font-medium">{formattedEditDate}</div>
-                                      <div className="text-xs text-yellow-600">{formattedEditTime}</div>
+                                      <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
                                     </div>
                                   </td>
 
