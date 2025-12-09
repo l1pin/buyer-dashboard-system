@@ -3138,10 +3138,10 @@ function CreativeSearch({ user }) {
                           {/* Монтажер - аватар и имя редактора */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex items-center space-x-2">
-                              <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300 overflow-hidden">
-                                {getEditorAvatar(edit.editor_id) ? (
+                              <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                {getEditorAvatar(edit.user_id) ? (
                                   <img
-                                    src={getEditorAvatar(edit.editor_id)}
+                                    src={getEditorAvatar(edit.user_id)}
                                     alt="Editor"
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -3150,10 +3150,8 @@ function CreativeSearch({ user }) {
                                     }}
                                   />
                                 ) : null}
-                                <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.editor_id) ? 'hidden' : ''}`}>
-                                  <span className="text-xs font-medium" style={{ color: '#a16207' }}>
-                                    {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
-                                  </span>
+                                <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.user_id) ? 'hidden' : ''}`}>
+                                  <User className="h-3 w-3 text-gray-400" />
                                 </div>
                               </div>
                               <span className="text-sm font-medium" style={{ color: '#a16207' }}>
@@ -4089,10 +4087,10 @@ function CreativeSearch({ user }) {
                                   {/* Монтажер - аватар и имя редактора */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
                                     <div className="flex items-center space-x-2">
-                                      <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300 overflow-hidden">
-                                        {getEditorAvatar(edit.editor_id) ? (
+                                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                        {getEditorAvatar(edit.user_id) ? (
                                           <img
-                                            src={getEditorAvatar(edit.editor_id)}
+                                            src={getEditorAvatar(edit.user_id)}
                                             alt="Editor"
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
@@ -4101,10 +4099,8 @@ function CreativeSearch({ user }) {
                                             }}
                                           />
                                         ) : null}
-                                        <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.editor_id) ? 'hidden' : ''}`}>
-                                          <span className="text-xs font-medium" style={{ color: '#a16207' }}>
-                                            {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
-                                          </span>
+                                        <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.user_id) ? 'hidden' : ''}`}>
+                                          <User className="h-3 w-3 text-gray-400" />
                                         </div>
                                       </div>
                                       <span className="text-sm font-medium" style={{ color: '#a16207' }}>
