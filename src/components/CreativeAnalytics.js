@@ -3179,7 +3179,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="px-6 pt-0 pb-6">
+      <div className="px-6 pt-0 pb-6" style={{marginBottom: '200px'}}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
