@@ -3266,8 +3266,8 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '60px' }}>
-                        E
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '70px' }}>
+                        Правки
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         <svg className="h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -3364,19 +3364,16 @@ function CreativePanel({ user }) {
                           className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffde466' }}
                         >
-                          {/* Кнопка показать */}
+                          {/* Желтый бейдж E для правки */}
                           <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffde466' }}>
-                            <button
-                              onClick={() => scrollToCreative(edit.parentCreativeId)}
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-yellow-500 text-white hover:bg-yellow-600 transition-colors shadow-sm"
-                              title="Показать материнский креатив"
-                            >
-                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              Показать
-                            </button>
+                            <div className="flex flex-col items-center justify-center">
+                              <div
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-yellow-300"
+                                title="Правка"
+                              >
+                                <span className="tracking-wide">E</span>
+                              </div>
+                            </div>
                           </td>
 
                           {/* Пустая ячейка для редактирования */}
@@ -3454,8 +3451,21 @@ function CreativePanel({ user }) {
                             </div>
                           </td>
 
+                          {/* Зона - кнопка Показать */}
+                          <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffde466' }}>
+                            <button
+                              onClick={() => scrollToCreative(edit.parentCreativeId)}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-yellow-500 text-white hover:bg-yellow-600 transition-colors shadow-sm"
+                              title="Показать материнский креатив"
+                            >
+                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Показать
+                            </button>
+                          </td>
                           {/* Пустые ячейки для метрик */}
-                          <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffde466' }}></td>
@@ -3543,10 +3553,10 @@ function CreativePanel({ user }) {
 
                                   return (
                                     <>
-                                      {/* E Badge - yellow-orange gradient */}
+                                      {/* E Badge - blue-violet gradient for parent creative */}
                                       <div
                                         title={`${editsCount} правок`}
-                                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-yellow-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-md border border-blue-400 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
                                       >
                                         <span className="tracking-wide">E</span>
                                       </div>
