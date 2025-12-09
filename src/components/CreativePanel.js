@@ -265,35 +265,41 @@ function CreativePanel({ user }) {
     return creativesToFilter;
   }, [creatives, selectedBuyer, selectedSearcher, dateRange, isDateInFilterRange, creativeEdits]);
 
-  // Список отдельных правок для отображения (когда правка попадает в фильтр, но материнский креатив тоже показан)
+  // Список отдельных правок для отображения
   const standaloneEdits = useMemo(() => {
-    if (!dateRange) return [];
-
     const result = [];
 
     filteredCreatives.forEach(creative => {
-      const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
       const edits = creativeEdits.get(creative.id) || [];
 
-      console.log(`🔍 Creative ${creative.article}: inRange=${creativeInRange}, edits=${edits.length}, creativeEdits.size=${creativeEdits.size}`);
-
-      // Если материнский креатив попал в диапазон И есть правки в диапазоне - показываем правки отдельно
-      if (creativeInRange && edits.length > 0) {
-        edits.forEach(edit => {
-          const editInRange = isDateInFilterRange(edit.created_at, dateRange);
-          console.log(`  📝 Edit ${edit.id}: inRange=${editInRange}, date=${edit.created_at}`);
-          if (editInRange) {
+      if (edits.length > 0) {
+        // Если нет фильтра по дате - показываем все правки
+        if (!dateRange) {
+          edits.forEach(edit => {
             result.push({
               ...edit,
               parentCreative: creative,
               parentCreativeId: creative.id
             });
+          });
+        } else {
+          // Если есть фильтр - показываем правки только когда И креатив И правка в диапазоне
+          const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
+          if (creativeInRange) {
+            edits.forEach(edit => {
+              if (isDateInFilterRange(edit.created_at, dateRange)) {
+                result.push({
+                  ...edit,
+                  parentCreative: creative,
+                  parentCreativeId: creative.id
+                });
+              }
+            });
           }
-        });
+        }
       }
     });
 
-    console.log(`✅ standaloneEdits count: ${result.length}`);
     // Сортируем по дате (новые сверху)
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange]);
