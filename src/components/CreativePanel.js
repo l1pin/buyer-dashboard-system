@@ -3432,13 +3432,13 @@ function CreativePanel({ user }) {
                                       <div key={index} className="flex items-center min-h-[24px]">
                                         <span
                                           className={`block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden relative group ${
-                                            isFromEdit ? 'text-purple-600 font-medium' : ''
+                                            isFromEdit ? 'text-yellow-600 font-medium' : ''
                                           }`}
                                           title={isFromEdit && editDate ? `Добавлено: ${editDate}` : title}
                                         >
                                           {title}
                                           {isFromEdit && editDate && (
-                                            <span className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-purple-700 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                            <span className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-yellow-600 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                                               Добавлено: {editDate}
                                             </span>
                                           )}
@@ -3449,7 +3449,7 @@ function CreativePanel({ user }) {
                                           rel="noopener noreferrer"
                                           className={`flex-shrink-0 ${
                                             isFromEdit
-                                              ? 'text-purple-600 hover:text-purple-800'
+                                              ? 'text-yellow-600 hover:text-yellow-800'
                                               : 'text-blue-600 hover:text-blue-800'
                                           }`}
                                           title="Открыть в Google Drive"
@@ -4088,12 +4088,12 @@ function CreativePanel({ user }) {
                             return (
                               <tr
                                 key={edit.id || editIndex}
-                                className="bg-purple-50 border-l-4 border-purple-400 hover:bg-purple-100 transition-colors"
+                                className="bg-yellow-50 border-l-4 border-yellow-400 hover:bg-yellow-100 transition-colors"
                               >
                                 {/* Tree structure indicator */}
                                 <td className="px-1 py-2 whitespace-nowrap text-sm">
                                   <div className="flex items-center justify-center pl-4">
-                                    <span className="text-purple-400 text-lg">└─</span>
+                                    <span className="text-yellow-500 text-lg">└─</span>
                                   </div>
                                 </td>
 
@@ -4101,26 +4101,26 @@ function CreativePanel({ user }) {
                                 <td className="px-3 py-2"></td>
 
                                 {/* Date of edit */}
-                                <td className="px-3 py-2 whitespace-nowrap text-sm text-purple-700">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700">
                                   <div className="cursor-text select-text">
                                     <div className="font-medium">{formattedEditDate}</div>
-                                    <div className="text-xs text-purple-500">{formattedEditTime}</div>
+                                    <div className="text-xs text-yellow-600">{formattedEditTime}</div>
                                   </div>
                                 </td>
 
                                 {/* Empty cell for article column */}
                                 <td className="px-3 py-2">
-                                  <span className="text-purple-600 text-xs font-medium">Правка #{editIndex + 1}</span>
+                                  <span className="text-yellow-700 text-xs font-medium">Правка #{editIndex + 1}</span>
                                 </td>
 
                                 {/* Video titles from this edit */}
-                                <td className="px-3 py-2 text-sm text-purple-700">
+                                <td className="px-3 py-2 text-sm text-yellow-700">
                                   <div className="space-y-1">
                                     {edit.link_titles && edit.link_titles.length > 0 ? (
                                       edit.link_titles.map((title, idx) => (
                                         <div key={idx} className="flex items-center min-h-[24px]">
                                           <span
-                                            className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-purple-700"
+                                            className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-yellow-700"
                                             title={title}
                                           >
                                             {title}
@@ -4130,7 +4130,7 @@ function CreativePanel({ user }) {
                                               href={edit.links[idx]}
                                               target="_blank"
                                               rel="noopener noreferrer"
-                                              className="text-purple-600 hover:text-purple-800 flex-shrink-0"
+                                              className="text-yellow-600 hover:text-yellow-800 flex-shrink-0"
                                               title="Открыть в Google Drive"
                                             >
                                               <ExternalLink className="h-3 w-3" />
@@ -4139,7 +4139,7 @@ function CreativePanel({ user }) {
                                         </div>
                                       ))
                                     ) : (
-                                      <span className="text-purple-400">Перезалив</span>
+                                      <span className="text-yellow-500">Перезалив</span>
                                     )}
                                   </div>
                                 </td>
@@ -4165,12 +4165,12 @@ function CreativePanel({ user }) {
                                         <span className="text-xs font-bold mr-1">+COF</span>
                                         {formatCOF(edit.cof_rating || 0)}
                                       </span>
-                                      <div className="text-xs text-purple-600 mt-1">
+                                      <div className="text-xs text-yellow-700 mt-1">
                                         {edit.work_types.join(', ')}
                                       </div>
                                     </div>
                                   ) : (
-                                    <span className="text-purple-400">—</span>
+                                    <span className="text-yellow-500">—</span>
                                   )}
                                 </td>
 
