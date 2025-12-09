@@ -4058,15 +4058,10 @@ function CreativeSearch({ user }) {
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                                   style={{ backgroundColor: '#fffffe66' }}
                                 >
-                                  {/* Колонка Правки - бейдж ПРАВКА */}
-                                  <td className="px-1 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
-                                    <div className="flex flex-col items-center justify-center">
-                                      <div
-                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
-                                        title="Правка"
-                                      >
-                                        <span className="tracking-wide">ПРАВКА</span>
-                                      </div>
+                                  {/* Колонка Правки - индикатор дерева */}
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center justify-center pl-4">
+                                      <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
                                   </td>
                                   {/* Дата */}
