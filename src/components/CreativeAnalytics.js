@@ -3147,14 +3147,11 @@ function CreativeAnalytics({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
-                        Тип
+                      <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
+                        Правки
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
-                      </th>
-                      <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
-                        Правки
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
@@ -3234,8 +3231,8 @@ function CreativeAnalytics({ user }) {
                           className="transition-colors duration-200 hover:bg-gray-50"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Тип - желтый бейдж ПРАВКА как в CreativePanel */}
-                          <td className="px-1 py-4 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                          {/* Колонка Правки - бейдж ПРАВКА для standalone */}
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex flex-col items-center justify-center">
                               <div
                                 className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
@@ -3252,8 +3249,6 @@ function CreativeAnalytics({ user }) {
                               <span className="text-xs text-center" style={{ color: '#a16207' }}>{editDateTime.time}</span>
                             </div>
                           </td>
-                          {/* Правки колонка - пустая для standalone */}
-                          <td className="px-2 py-4 whitespace-nowrap text-sm text-center"></td>
                           {/* Артикул */}
                           <td className="px-3 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{edit.creative?.article || '—'}</div>
@@ -3340,42 +3335,7 @@ function CreativeAnalytics({ user }) {
                                 : ''
                             }`}
                           >
-                            {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
-                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                              <div className="flex items-center justify-center">
-                                {creative.is_edit && (
-                                  <div
-                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
-                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
-                                  >
-                                    <span className="tracking-wide">E</span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <div className="cursor-text select-text">
-                                  <div className="font-medium">{formattedDateTime.date}</div>
-                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
-                                </div>
-                                {user?.role === 'teamlead' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openDateEditModal(creative);
-                                    }}
-                                    className="ml-1 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
-                                    title="Редактировать дату"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Колонка "Правки" с бейджем РЕД - стиль как в CreativePanel */}
+                            {/* Колонка "Правки" - ПЕРВАЯ. Бейдж РЕД для материнского креатива */}
                             <td className="px-2 py-4 whitespace-nowrap text-sm text-center">
                               <div className="flex flex-col items-center justify-center">
                                 {hasEdits && (() => {
@@ -3430,6 +3390,29 @@ function CreativeAnalytics({ user }) {
                               </div>
                             </td>
 
+                            {/* Колонка "Дата" */}
+                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <div className="cursor-text select-text">
+                                  <div className="font-medium">{formattedDateTime.date}</div>
+                                  <div className="text-xs text-gray-500">{formattedDateTime.time}</div>
+                                </div>
+                                {user?.role === 'teamlead' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDateEditModal(creative);
+                                    }}
+                                    className="ml-1 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                                    title="Редактировать дату"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Колонка "Артикул" */}
                             <td className="px-3 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -4162,10 +4145,16 @@ function CreativeAnalytics({ user }) {
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                                   style={{ backgroundColor: '#fffffe66' }}
                                 >
-                                  {/* Tree structure indicator - текстовый └─ как в CreativePanel */}
-                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
-                                    <div className="flex items-center justify-center pl-4">
-                                      <span className="text-yellow-500 text-lg">└─</span>
+                                  {/* Колонка "Правки" - ПЕРВАЯ. Бейдж ПРАВКА + индикатор дерева */}
+                                  <td className="px-2 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex flex-col items-center justify-center">
+                                      <div
+                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                        title={`Правка #${editNumber}`}
+                                      >
+                                        <span className="tracking-wide">ПРАВКА</span>
+                                      </div>
+                                      <span className="text-yellow-500 text-sm mt-1">└─</span>
                                     </div>
                                   </td>
                                   {/* Дата правки */}
@@ -4175,21 +4164,12 @@ function CreativeAnalytics({ user }) {
                                       <div className="text-xs" style={{ color: '#a16207' }}>{editDateTime.time}</div>
                                     </div>
                                   </td>
-                                  {/* Правки - бейдж ПРАВКА желто-оранжевый как в CreativePanel */}
-                                  <td className="px-2 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
-                                    <div
-                                      className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
-                                      title={`Правка #${editNumber}`}
-                                    >
-                                      <span className="tracking-wide">ПРАВКА</span>
-                                    </div>
-                                  </td>
                                   {/* Артикул + Правка #N */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
                                     <span style={{ color: '#a16207' }} className="text-sm font-medium">Правка #{editNumber}</span>
                                   </td>
                                   {/* Пустые ячейки для остальных колонок */}
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }} colSpan="21">
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }} colSpan="20">
                                     <span className="text-yellow-500">—</span>
                                   </td>
                                 </tr>
