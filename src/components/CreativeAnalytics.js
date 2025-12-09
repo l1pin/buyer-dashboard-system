@@ -67,6 +67,7 @@ function CreativeAnalytics({ user }) {
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  const [skuSearch, setSkuSearch] = useState('');
   const [customDateFrom, setCustomDateFrom] = useState(null);
   const [customDateTo, setCustomDateTo] = useState(null);
   const [tempCustomDateFrom, setTempCustomDateFrom] = useState(null);
@@ -216,7 +217,15 @@ function CreativeAnalytics({ user }) {
     if (selectedSearcher !== 'all') {
       creativesToFilter = creativesToFilter.filter(c => c.searcher_id === selectedSearcher);
     }
-    
+
+    // Фильтрация по SKU (артикулу)
+    if (skuSearch.trim()) {
+      const searchTerm = skuSearch.trim().toLowerCase();
+      creativesToFilter = creativesToFilter.filter(c =>
+        c.article && c.article.toLowerCase().includes(searchTerm)
+      );
+    }
+
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -309,7 +318,7 @@ function CreativeAnalytics({ user }) {
     }
 
     return creativesToFilter;
-  }, [analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, creativeEdits]);
+  }, [analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, skuSearch, selectedPeriod, customDateFrom, customDateTo, creativeEdits]);
 
   // Отдельные правки для отображения как самостоятельные строки (в пределах выбранного периода)
   const standaloneEdits = useMemo(() => {
@@ -2469,11 +2478,31 @@ function CreativeAnalytics({ user }) {
                 </div>
               )}
             </div>
+
+            {/* Поиск по SKU */}
+            <div className="relative">
+              <input
+                type="text"
+                value={skuSearch}
+                onChange={(e) => setSkuSearch(e.target.value)}
+                placeholder="Поиск по артикулу..."
+                className="w-48 pl-8 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {skuSearch && (
+                <button
+                  onClick={() => setSkuSearch('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
 
-          
+
         </div>
-        
+
       </div>
 
       {/* Scrollable Content Area */}
