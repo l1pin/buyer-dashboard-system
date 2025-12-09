@@ -3011,9 +3011,6 @@ const loadCreatives = async () => {
                       <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
                         Правки
                       </th>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
-                        Тип
-                      </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Дата
                       </th>
@@ -3105,11 +3102,17 @@ const loadCreatives = async () => {
                           className="hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Колонка Правки - пустая */}
-                          <td className="px-1 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
-
-                          {/* Тип - пустая */}
-                          <td className="px-1 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Желтый бейдж ПРАВКА */}
+                          <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex flex-col items-center justify-center">
+                              <div
+                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                title="Правка"
+                              >
+                                <span className="tracking-wide">ПРАВКА</span>
+                              </div>
+                            </div>
+                          </td>
 
                           {/* Дата правки */}
                           <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
@@ -3340,20 +3343,6 @@ const loadCreatives = async () => {
                               </div>
                             </td>
 
-                            {/* Колонка "Тип" с бейджем E для правок */}
-                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                              <div className="flex items-center justify-center">
-                                {creative.is_edit && (
-                                  <div
-                                    title={`Правка креатива${creative.editor_name ? ` (${creative.editor_name})` : ''}`}
-                                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
-                                  >
-                                    <span className="tracking-wide">E</span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
                                 <div className="font-medium">{formattedDateTime.date}</div>
@@ -3432,25 +3421,46 @@ const loadCreatives = async () => {
                             <td className="px-3 py-4 text-sm text-gray-900">
                               <div className="space-y-1">
                                 {creative.link_titles && creative.link_titles.length > 0 ? (
-                                  creative.link_titles.map((title, index) => (
-                                    <div key={index} className="flex items-center min-h-[24px]">
-                                      <span 
-                                        className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
-                                        title={title}
-                                      >
-                                        {title}
-                                      </span>
-                                      <a
-                                        href={creative.links[index]}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        title="Открыть в Google Drive"
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    </div>
-                                  ))
+                                  creative.link_titles.map((title, index) => {
+                                    // Check if this video was added from an edit
+                                    const linkMeta = Array.isArray(creative.link_metadata)
+                                      ? creative.link_metadata.find(meta => meta && (meta.link_index === index || meta.title === title))
+                                      : null;
+                                    const isFromEdit = linkMeta && linkMeta.edit_id;
+
+                                    const editDate = linkMeta?.added_at
+                                      ? new Date(linkMeta.added_at).toLocaleDateString('uk-UA', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: '2-digit'
+                                        })
+                                      : null;
+
+                                    return (
+                                      <div key={index} className="flex items-center min-h-[24px]">
+                                        <span
+                                          className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                          style={isFromEdit ? { color: '#a16207' } : {}}
+                                          title={title}
+                                        >
+                                          {title}
+                                          {isFromEdit && editDate && (
+                                            <span className="italic ml-1" style={{ color: '#a16207' }}>({editDate})</span>
+                                          )}
+                                        </span>
+                                        <a
+                                          href={creative.links[index]}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex-shrink-0 hover:opacity-70"
+                                          style={isFromEdit ? { color: '#a16207' } : { color: '#2563eb' }}
+                                          title="Открыть в Google Drive"
+                                        >
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      </div>
+                                    );
+                                  })
                                 ) : (
                                   <div className="text-center">
                                     <span className="text-gray-400 cursor-text select-text">Нет видео</span>
@@ -4081,15 +4091,17 @@ const loadCreatives = async () => {
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                                   style={{ backgroundColor: '#fffffe66' }}
                                 >
-                                  {/* Колонка Правки - индикатор дерева */}
-                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
-                                    <div className="flex items-center justify-center pl-4">
-                                      <span className="text-yellow-500 text-lg">└─</span>
+                                  {/* Колонка Правки - бейдж ПРАВКА */}
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex flex-col items-center justify-center">
+                                      <div
+                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                        title="Правка"
+                                      >
+                                        <span className="tracking-wide">ПРАВКА</span>
+                                      </div>
                                     </div>
                                   </td>
-
-                                  {/* Тип - пусто */}
-                                  <td className="px-1 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
 
                                   {/* Дата */}
                                   <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
