@@ -3402,14 +3402,6 @@ function CreativeSearch({ user }) {
                                       : null;
                                     const isFromEdit = linkMeta && linkMeta.edit_id;
 
-                                    const editDate = linkMeta?.added_at
-                                      ? new Date(linkMeta.added_at).toLocaleDateString('uk-UA', {
-                                          day: '2-digit',
-                                          month: '2-digit',
-                                          year: '2-digit'
-                                        })
-                                      : null;
-
                                     return (
                                       <div key={index} className="flex items-center min-h-[24px]">
                                         <span
@@ -3418,9 +3410,6 @@ function CreativeSearch({ user }) {
                                           title={title}
                                         >
                                           {title}
-                                          {isFromEdit && editDate && (
-                                            <span className="italic ml-1" style={{ color: '#a16207' }}>({editDate})</span>
-                                          )}
                                         </span>
                                         <a
                                           href={creative.links[index]}
