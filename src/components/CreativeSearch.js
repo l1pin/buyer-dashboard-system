@@ -3100,24 +3100,18 @@ function CreativeSearch({ user }) {
                           className="hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffffe66' }}
                         >
-                          {/* Желтый бейдж ПРАВКА */}
-                          <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
-                            <div className="flex flex-col items-center justify-center">
-                              <div
-                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
-                                title="Правка"
-                              >
-                                <span className="tracking-wide">ПРАВКА</span>
-                              </div>
-                            </div>
-                          </td>
+                          {/* Колонка Правки - пустая */}
                           <td className="px-1 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Тип - пустая */}
+                          <td className="px-1 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Дата */}
                           <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
                             <div className="cursor-text select-text">
                               <div className="font-medium">{formattedEditDate}</div>
                               <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
                             </div>
                           </td>
+                          {/* Артикул + Правка #N */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex items-center space-x-2">
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -3135,22 +3129,58 @@ function CreativeSearch({ user }) {
                                   </button>
                                 )}
                               </div>
-                              <span className="text-sm font-medium" style={{ color: '#a16207' }}>Правка #{editNumber}</span>
+                              <div className="w-6 h-6 flex-shrink-0"></div>
+                              <span className="text-sm font-medium" style={{ color: '#a16207' }}>
+                                {edit.parentCreative?.article} → Правка #{editNumber}
+                              </span>
                             </div>
                           </td>
-                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Монтажер - аватар и имя редактора */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
-                            {edit.link_metadata && edit.link_metadata.length > 0 && (
-                              <div className="space-y-1">
-                                {edit.link_metadata.map((link, idx) => (
-                                  <div key={idx} className="text-xs" style={{ color: '#a16207' }}>
-                                    {link.title || `Видео ${idx + 1}`}
-                                    {link.type === 'reupload' && <span className="ml-1 text-[10px]" style={{ color: '#a16207' }}>(Перезалив)</span>}
-                                  </div>
-                                ))}
+                            <div className="flex items-center space-x-2">
+                              <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300">
+                                <span className="text-xs font-medium" style={{ color: '#a16207' }}>
+                                  {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
+                                </span>
                               </div>
-                            )}
+                              <span className="text-sm font-medium" style={{ color: '#a16207' }}>
+                                {edit.editor_name || 'Неизвестно'}
+                              </span>
+                            </div>
                           </td>
+                          {/* Видео */}
+                          <td className="px-3 py-3 text-sm" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
+                            <div className="space-y-1">
+                              {edit.link_titles && edit.link_titles.length > 0 ? (
+                                edit.link_titles.map((title, idx) => (
+                                  <div key={idx} className="flex items-center min-h-[24px]">
+                                    <span
+                                      className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                      style={{ color: '#a16207' }}
+                                      title={title}
+                                    >
+                                      {title}
+                                    </span>
+                                    {edit.links && edit.links[idx] && (
+                                      <a
+                                        href={edit.links[idx]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-shrink-0 hover:opacity-70"
+                                        style={{ color: '#a16207' }}
+                                        title="Открыть в Google Drive"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#a16207' }}>Перезалив</span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Зона - кнопка Показать */}
                           <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffffe66' }}>
                             <button
                               onClick={() => scrollToCreative(edit.parentCreativeId)}
@@ -3161,6 +3191,7 @@ function CreativeSearch({ user }) {
                               Показать
                             </button>
                           </td>
+                          {/* Пустые ячейки для метрик */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -3172,6 +3203,24 @@ function CreativeSearch({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* COF */}
+                          <td className="px-3 py-3 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            {edit.work_types && edit.work_types.length > 0 ? (
+                              <div className="space-y-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                  <span className="text-xs font-bold mr-1">+COF</span>
+                                  {formatCOF(edit.cof_rating || 0)}
+                                </span>
+                                <div className="text-xs mt-1" style={{ color: '#a16207' }}>
+                                  {edit.work_types.join(', ')}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#a16207' }}>—</span>
+                            )}
+                          </td>
+                          {/* Trello, Статус, Buyer, Searcher */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -3988,18 +4037,22 @@ function CreativeSearch({ user }) {
                                   className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                                   style={{ backgroundColor: '#fffffe66' }}
                                 >
+                                  {/* Колонка Правки - индикатор дерева */}
                                   <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
                                     <div className="flex items-center justify-center pl-4">
                                       <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
                                   </td>
+                                  {/* Тип - пусто */}
                                   <td className="px-1 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* Дата */}
                                   <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
                                     <div className="cursor-text select-text">
                                       <div className="font-medium">{formattedEditDate}</div>
                                       <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
                                     </div>
                                   </td>
+                                  {/* Артикул - Правка #N */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
                                     <div className="flex items-center space-x-2">
                                       <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -4017,34 +4070,85 @@ function CreativeSearch({ user }) {
                                           </button>
                                         )}
                                       </div>
+                                      <div className="w-6 h-6 flex-shrink-0"></div>
                                       <span className="text-sm font-medium" style={{ color: '#a16207' }}>Правка #{editNumber}</span>
                                     </div>
                                   </td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* Монтажер - аватар и имя редактора */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
-                                    {edit.link_metadata && edit.link_metadata.length > 0 && (
-                                      <div className="space-y-1">
-                                        {edit.link_metadata.map((link, idx) => (
-                                          <div key={idx} className="text-xs" style={{ color: '#a16207' }}>
-                                            {link.title || `Видео ${idx + 1}`}
-                                            {link.type === 'reupload' && <span className="ml-1 text-[10px]" style={{ color: '#a16207' }}>(Перезалив)</span>}
-                                          </div>
-                                        ))}
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300">
+                                        <span className="text-xs font-medium" style={{ color: '#a16207' }}>
+                                          {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
+                                        </span>
                                       </div>
+                                      <span className="text-sm font-medium" style={{ color: '#a16207' }}>
+                                        {edit.editor_name || 'Неизвестно'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  {/* Видео */}
+                                  <td className="px-3 py-2 text-sm" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
+                                    <div className="space-y-1">
+                                      {edit.link_titles && edit.link_titles.length > 0 ? (
+                                        edit.link_titles.map((title, idx) => (
+                                          <div key={idx} className="flex items-center min-h-[24px]">
+                                            <span
+                                              className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden"
+                                              style={{ color: '#a16207' }}
+                                              title={title}
+                                            >
+                                              {title}
+                                            </span>
+                                            {edit.links && edit.links[idx] && (
+                                              <a
+                                                href={edit.links[idx]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-shrink-0 hover:opacity-70"
+                                                style={{ color: '#a16207' }}
+                                                title="Открыть в Google Drive"
+                                              >
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            )}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span style={{ color: '#a16207' }}>Перезалив</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {/* Пустые ячейки для метрик */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* COF */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    {edit.work_types && edit.work_types.length > 0 ? (
+                                      <div className="space-y-1">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                          <span className="text-xs font-bold mr-1">+COF</span>
+                                          {formatCOF(edit.cof_rating || 0)}
+                                        </span>
+                                        <div className="text-xs mt-1" style={{ color: '#a16207' }}>
+                                          {edit.work_types.join(', ')}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#a16207' }}>—</span>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* Trello, Статус, Buyer, Searcher */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
