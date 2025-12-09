@@ -3318,34 +3318,56 @@ function CreativePanel({ user }) {
                           >
                             {/* Колонка "Тип" с бейджем E и стрелкой - ПЕРВАЯ */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {hasEdits && (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setExpandedEdits(prev => {
-                                          const updated = new Set(prev);
-                                          if (updated.has(creative.id)) {
-                                            updated.delete(creative.id);
-                                          } else {
-                                            updated.add(creative.id);
-                                          }
-                                          return updated;
-                                        });
-                                      }}
-                                      className="text-purple-500 hover:text-purple-700 transition-colors p-0.5"
-                                      title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
-                                    >
-                                      <ChevronDown className={`h-4 w-4 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    <div
-                                      title={`${editsCount} правок`}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-white shadow-md border border-purple-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
-                                    >
-                                      <span className="tracking-wide">E</span>
-                                    </div>
-                                  </>
-                                )}
+                              <div className="flex flex-col items-center justify-center">
+                                {hasEdits && (() => {
+                                  // Get the last edit date
+                                  const edits = creativeEdits.get(creative.id) || [];
+                                  const lastEdit = edits.length > 0 ? edits[0] : null; // First is newest after sorting
+                                  const lastEditDate = lastEdit?.created_at
+                                    ? new Date(lastEdit.created_at).toLocaleDateString('uk-UA', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit'
+                                      })
+                                    : null;
+
+                                  return (
+                                    <>
+                                      {/* E Badge - yellow-orange gradient */}
+                                      <div
+                                        title={`${editsCount} правок`}
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-yellow-300 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                      >
+                                        <span className="tracking-wide">E</span>
+                                      </div>
+
+                                      {/* Last edit date */}
+                                      {lastEditDate && (
+                                        <span className="text-[10px] text-yellow-600 mt-0.5">{lastEditDate}</span>
+                                      )}
+
+                                      {/* Arrow + counter */}
+                                      <button
+                                        onClick={() => {
+                                          setExpandedEdits(prev => {
+                                            const updated = new Set(prev);
+                                            if (updated.has(creative.id)) {
+                                              updated.delete(creative.id);
+                                            } else {
+                                              updated.add(creative.id);
+                                            }
+                                            return updated;
+                                          });
+                                        }}
+                                        className="flex items-center text-yellow-500 hover:text-yellow-700 transition-colors mt-0.5"
+                                        title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
+                                      >
+                                        <ChevronDown className={`h-3 w-3 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                        <span className="text-[10px] ml-0.5 font-medium">{editsCount}</span>
+                                      </button>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </td>
 
@@ -3424,23 +3446,21 @@ function CreativePanel({ user }) {
                                       ? new Date(linkMeta.added_at).toLocaleDateString('uk-UA', {
                                           day: '2-digit',
                                           month: '2-digit',
-                                          year: 'numeric'
+                                          year: '2-digit'
                                         })
                                       : null;
 
                                     return (
                                       <div key={index} className="flex items-center min-h-[24px]">
                                         <span
-                                          className={`block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden relative group ${
-                                            isFromEdit ? 'text-yellow-600 font-medium' : ''
+                                          className={`block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden ${
+                                            isFromEdit ? 'text-yellow-600' : ''
                                           }`}
-                                          title={isFromEdit && editDate ? `Добавлено: ${editDate}` : title}
+                                          title={title}
                                         >
                                           {title}
                                           {isFromEdit && editDate && (
-                                            <span className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-yellow-600 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                              Добавлено: {editDate}
-                                            </span>
+                                            <span className="italic text-yellow-500 ml-1">({editDate})</span>
                                           )}
                                         </span>
                                         <a
@@ -4073,115 +4093,125 @@ function CreativePanel({ user }) {
                           </tr>
 
                           {/* Expandable Edit History Rows */}
-                          {isEditsExpanded && creativeEdits.get(creative.id)?.map((edit, editIndex) => {
-                            const editDate = new Date(edit.created_at);
-                            const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            });
-                            const formattedEditTime = editDate.toLocaleTimeString('uk-UA', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            });
+                          {isEditsExpanded && (() => {
+                            const edits = creativeEdits.get(creative.id) || [];
+                            const totalEdits = edits.length;
 
-                            return (
-                              <tr
-                                key={edit.id || editIndex}
-                                className="bg-yellow-50 border-l-4 border-yellow-400 hover:bg-yellow-100 transition-colors"
-                              >
-                                {/* Tree structure indicator */}
-                                <td className="px-1 py-2 whitespace-nowrap text-sm">
-                                  <div className="flex items-center justify-center pl-4">
-                                    <span className="text-yellow-500 text-lg">└─</span>
-                                  </div>
-                                </td>
+                            return edits.map((edit, editIndex) => {
+                              const editDate = new Date(edit.created_at);
+                              const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              });
+                              const formattedEditTime = editDate.toLocaleTimeString('uk-UA', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+                              // Numbering: newest first, so #totalEdits, #totalEdits-1, ..., #1
+                              const editNumber = totalEdits - editIndex;
 
-                                {/* Empty cell for edit button column */}
-                                <td className="px-3 py-2"></td>
-
-                                {/* Date of edit */}
-                                <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700">
-                                  <div className="cursor-text select-text">
-                                    <div className="font-medium">{formattedEditDate}</div>
-                                    <div className="text-xs text-yellow-600">{formattedEditTime}</div>
-                                  </div>
-                                </td>
-
-                                {/* Empty cell for article column */}
-                                <td className="px-3 py-2">
-                                  <span className="text-yellow-700 text-xs font-medium">Правка #{editIndex + 1}</span>
-                                </td>
-
-                                {/* Video titles from this edit */}
-                                <td className="px-3 py-2 text-sm text-yellow-700">
-                                  <div className="space-y-1">
-                                    {edit.link_titles && edit.link_titles.length > 0 ? (
-                                      edit.link_titles.map((title, idx) => (
-                                        <div key={idx} className="flex items-center min-h-[24px]">
-                                          <span
-                                            className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-yellow-700"
-                                            title={title}
-                                          >
-                                            {title}
-                                          </span>
-                                          {edit.links && edit.links[idx] && (
-                                            <a
-                                              href={edit.links[idx]}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-yellow-600 hover:text-yellow-800 flex-shrink-0"
-                                              title="Открыть в Google Drive"
-                                            >
-                                              <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                          )}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <span className="text-yellow-500">Перезалив</span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Empty cells for metrics columns */}
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-
-                                {/* Work types from this edit with COF */}
-                                <td className="px-3 py-2 whitespace-nowrap text-center">
-                                  {edit.work_types && edit.work_types.length > 0 ? (
-                                    <div className="space-y-1">
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
-                                        <span className="text-xs font-bold mr-1">+COF</span>
-                                        {formatCOF(edit.cof_rating || 0)}
-                                      </span>
-                                      <div className="text-xs text-yellow-700 mt-1">
-                                        {edit.work_types.join(', ')}
-                                      </div>
+                              return (
+                                <tr
+                                  key={edit.id || editIndex}
+                                  className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
+                                  style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}
+                                >
+                                  {/* Tree structure indicator */}
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                    <div className="flex items-center justify-center pl-4">
+                                      <span className="text-yellow-500 text-lg">└─</span>
                                     </div>
-                                  ) : (
-                                    <span className="text-yellow-500">—</span>
-                                  )}
-                                </td>
+                                  </td>
 
-                                {/* Empty cells for remaining columns */}
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                                <td className="px-3 py-2"></td>
-                              </tr>
-                            );
-                          })}
+                                  {/* Empty cell for edit button column */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+
+                                  {/* Date of edit */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-yellow-700" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                    <div className="cursor-text select-text">
+                                      <div className="font-medium">{formattedEditDate}</div>
+                                      <div className="text-xs text-yellow-600">{formattedEditTime}</div>
+                                    </div>
+                                  </td>
+
+                                  {/* Edit number column */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                    <span className="text-yellow-700 text-xs font-medium">Правка #{editNumber}</span>
+                                  </td>
+
+                                  {/* Video titles from this edit */}
+                                  <td className="px-3 py-2 text-sm text-yellow-700" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                    <div className="space-y-1">
+                                      {edit.link_titles && edit.link_titles.length > 0 ? (
+                                        edit.link_titles.map((title, idx) => (
+                                          <div key={idx} className="flex items-center min-h-[24px]">
+                                            <span
+                                              className="block text-left flex-1 mr-2 cursor-text select-text truncate whitespace-nowrap overflow-hidden text-yellow-700"
+                                              title={title}
+                                            >
+                                              {title}
+                                            </span>
+                                            {edit.links && edit.links[idx] && (
+                                              <a
+                                                href={edit.links[idx]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-yellow-600 hover:text-yellow-800 flex-shrink-0"
+                                                title="Открыть в Google Drive"
+                                              >
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            )}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span className="text-yellow-500">Перезалив</span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Empty cells for metrics columns - with light yellow bg */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+
+                                  {/* Work types from this edit with COF */}
+                                  <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}>
+                                    {edit.work_types && edit.work_types.length > 0 ? (
+                                      <div className="space-y-1">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCOFBadgeColor(edit.cof_rating || 0)} cursor-text select-text`}>
+                                          <span className="text-xs font-bold mr-1">+COF</span>
+                                          {formatCOF(edit.cof_rating || 0)}
+                                        </span>
+                                        <div className="text-xs text-yellow-700 mt-1">
+                                          {edit.work_types.join(', ')}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-yellow-500">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Trello and Status columns - with light yellow bg */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: 'rgba(254, 249, 195, 0.4)' }}></td>
+
+                                  {/* Buyer and Searcher columns - NO yellow background */}
+                                  <td className="px-3 py-2 bg-white"></td>
+                                  <td className="px-3 py-2 bg-white"></td>
+                                </tr>
+                              );
+                            });
+                          })()}
                           </React.Fragment>
                         );
                       })}
