@@ -3020,7 +3020,7 @@ const loadCreatives = async () => {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
                         Артикул
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 min-w-[140px]">
                         Монтажер
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -3149,7 +3149,7 @@ const loadCreatives = async () => {
                           </td>
 
                           {/* Монтажер - аватар и имя редактора */}
-                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
+                          <td className="px-3 py-3 whitespace-nowrap" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex items-center space-x-2">
                               <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                 {getEditorAvatar(edit.user_id) ? (
@@ -3167,7 +3167,7 @@ const loadCreatives = async () => {
                                   <User className="h-3 w-3 text-gray-400" />
                                 </div>
                               </div>
-                              <span className="text-sm font-medium" style={{ color: '#a16207' }}>
+                              <span className="text-sm font-medium whitespace-nowrap" style={{ color: '#a16207' }}>
                                 {edit.editor_name || 'Неизвестно'}
                               </span>
                             </div>
@@ -4129,7 +4129,7 @@ const loadCreatives = async () => {
                                   </td>
 
                                   {/* Монтажер - аватар и имя редактора */}
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
+                                  <td className="px-3 py-2 whitespace-nowrap" style={{ backgroundColor: '#fffffe66' }}>
                                     <div className="flex items-center space-x-2">
                                       <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
                                         {getEditorAvatar(edit.user_id) ? (
@@ -4147,7 +4147,7 @@ const loadCreatives = async () => {
                                           <User className="h-3 w-3 text-gray-400" />
                                         </div>
                                       </div>
-                                      <span className="text-sm font-medium" style={{ color: '#a16207' }}>
+                                      <span className="text-sm font-medium whitespace-nowrap" style={{ color: '#a16207' }}>
                                         {edit.editor_name || 'Неизвестно'}
                                       </span>
                                     </div>
