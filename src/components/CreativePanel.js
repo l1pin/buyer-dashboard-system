@@ -3266,7 +3266,7 @@ function CreativePanel({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '70px' }}>
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
                         Правки
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
@@ -3364,14 +3364,14 @@ function CreativePanel({ user }) {
                           className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
                           style={{ backgroundColor: '#fffde466' }}
                         >
-                          {/* Желтый бейдж E для правки */}
+                          {/* Желтый бейдж ПРАВКА для правки */}
                           <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffde466' }}>
                             <div className="flex flex-col items-center justify-center">
                               <div
-                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-yellow-300"
+                                className="inline-flex items-center justify-center px-1.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md border border-yellow-300"
                                 title="Правка"
                               >
-                                <span className="tracking-wide">E</span>
+                                <span className="tracking-wide">ПРАВКА</span>
                               </div>
                             </div>
                           </td>
@@ -3553,17 +3553,17 @@ function CreativePanel({ user }) {
 
                                   return (
                                     <>
-                                      {/* E Badge - blue-violet gradient for parent creative */}
+                                      {/* РЕД Badge - blue-violet gradient for parent creative */}
                                       <div
                                         title={`${editsCount} правок`}
-                                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-md border border-blue-400 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                        className="inline-flex items-center justify-center px-1.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-md border border-blue-400 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
                                       >
-                                        <span className="tracking-wide">E</span>
+                                        <span className="tracking-wide">РЕД</span>
                                       </div>
 
                                       {/* Last edit date */}
                                       {lastEditDate && (
-                                        <span className="text-xs text-black font-medium mt-0.5">{lastEditDate}</span>
+                                        <span className="text-sm text-black font-semibold mt-1.5">{lastEditDate}</span>
                                       )}
 
                                       {/* Arrow + counter */}
@@ -3579,11 +3579,11 @@ function CreativePanel({ user }) {
                                             return updated;
                                           });
                                         }}
-                                        className="flex items-center text-black hover:text-gray-700 transition-colors mt-0.5"
+                                        className="flex items-center text-black hover:text-gray-700 transition-colors mt-1"
                                         title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
                                       >
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
-                                        <span className="text-sm ml-0.5 font-bold">{editsCount}</span>
+                                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                        <span className="text-xs ml-0.5 font-bold">{editsCount}</span>
                                       </button>
                                     </>
                                   );
