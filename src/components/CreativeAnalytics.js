@@ -3082,15 +3082,6 @@ function CreativeAnalytics({ user }) {
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
                         const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const allVideoMetrics = getAllVideoMetrics(creative);
-                        
-                        // 🔥 ДИАГНОСТИКА БЕЗ УСЛОВИЯ
-                        console.log('🔥🔥🔥 КРЕАТИВ:', creative.article, {
-                          'currentDisplayData': currentDisplayData,
-                          'metrics': currentDisplayData.metrics,
-                          'found': currentDisplayData.metrics?.found,
-                          'data': currentDisplayData.metrics?.data,
-                          'raw': currentDisplayData.metrics?.data?.raw
-                        });
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
                         
