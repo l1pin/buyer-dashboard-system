@@ -3138,10 +3138,23 @@ function CreativeSearch({ user }) {
                           {/* Монтажер - аватар и имя редактора */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
                             <div className="flex items-center space-x-2">
-                              <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300">
-                                <span className="text-xs font-medium" style={{ color: '#a16207' }}>
-                                  {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
-                                </span>
+                              <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300 overflow-hidden">
+                                {getEditorAvatar(edit.editor_id) ? (
+                                  <img
+                                    src={getEditorAvatar(edit.editor_id)}
+                                    alt="Editor"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.editor_id) ? 'hidden' : ''}`}>
+                                  <span className="text-xs font-medium" style={{ color: '#a16207' }}>
+                                    {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
+                                  </span>
+                                </div>
                               </div>
                               <span className="text-sm font-medium" style={{ color: '#a16207' }}>
                                 {edit.editor_name || 'Неизвестно'}
@@ -3191,7 +3204,7 @@ function CreativeSearch({ user }) {
                               Показать
                             </button>
                           </td>
-                          {/* Пустые ячейки для метрик */}
+                          {/* Пустые ячейки: BarChart3, Лиды, CPL, Расходы, Клики, CPC, CTR, CPM, Показы, Время, Дней, Зоны (12) */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -3220,8 +3233,7 @@ function CreativeSearch({ user }) {
                               <span style={{ color: '#a16207' }}>—</span>
                             )}
                           </td>
-                          {/* Trello, Статус, Buyer, Searcher */}
-                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Trello, Статус, Buyer, Searcher (4) */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -4077,10 +4089,23 @@ function CreativeSearch({ user }) {
                                   {/* Монтажер - аватар и имя редактора */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
                                     <div className="flex items-center space-x-2">
-                                      <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300">
-                                        <span className="text-xs font-medium" style={{ color: '#a16207' }}>
-                                          {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
-                                        </span>
+                                      <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 border border-yellow-300 overflow-hidden">
+                                        {getEditorAvatar(edit.editor_id) ? (
+                                          <img
+                                            src={getEditorAvatar(edit.editor_id)}
+                                            alt="Editor"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                              e.target.style.display = 'none';
+                                              e.target.nextSibling.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null}
+                                        <div className={`w-full h-full flex items-center justify-center ${getEditorAvatar(edit.editor_id) ? 'hidden' : ''}`}>
+                                          <span className="text-xs font-medium" style={{ color: '#a16207' }}>
+                                            {edit.editor_name ? edit.editor_name.charAt(0).toUpperCase() : '?'}
+                                          </span>
+                                        </div>
                                       </div>
                                       <span className="text-sm font-medium" style={{ color: '#a16207' }}>
                                         {edit.editor_name || 'Неизвестно'}
@@ -4119,7 +4144,8 @@ function CreativeSearch({ user }) {
                                       )}
                                     </div>
                                   </td>
-                                  {/* Пустые ячейки для метрик */}
+                                  {/* Пустые ячейки: Зона, BarChart3, Лиды, CPL, Расходы, Клики, CPC, CTR, CPM, Показы, Время, Дней, Зоны (13) */}
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
@@ -4148,7 +4174,7 @@ function CreativeSearch({ user }) {
                                       <span style={{ color: '#a16207' }}>—</span>
                                     )}
                                   </td>
-                                  {/* Trello, Статус, Buyer, Searcher */}
+                                  {/* Trello, Статус, Buyer, Searcher (4) */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
