@@ -1,7 +1,7 @@
 // CreativeSearch.js - ОБНОВЛЕННАЯ ВЕРСИЯ с переключением метрик в той же строке
 // Замените содержимое src/components/CreativeSearch.js
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { 
   processLinksAndExtractTitles, 
@@ -101,7 +101,26 @@ function CreativeSearch({ user }) {
   const [selectedEditor, setSelectedEditor] = useState('all');
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
-  
+
+  // Правки креативов
+  const [creativeEdits, setCreativeEdits] = useState(new Map()); // Map<creative_id, Edit[]>
+  const [expandedEdits, setExpandedEdits] = useState(new Set()); // Set<creative_id> - раскрытые правки
+
+  // Состояние для подсветки креатива при переходе от правки
+  const [highlightedCreativeId, setHighlightedCreativeId] = useState(null);
+  const creativeRefs = useRef(new Map()); // Map<creative_id, HTMLTableRowElement>
+
+  // Функция для скролла к креативу и его подсветки
+  const scrollToCreative = useCallback((creativeId) => {
+    const row = creativeRefs.current.get(creativeId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedCreativeId(creativeId);
+      // Убираем подсветку через 2 секунды
+      setTimeout(() => setHighlightedCreativeId(null), 2000);
+    }
+  }, []);
+
   const [newCreative, setNewCreative] = useState({
     article: '',
     links: [''],
@@ -135,6 +154,71 @@ function CreativeSearch({ user }) {
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+
+  // Вычисляем диапазон дат для текущего фильтра
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    switch (selectedPeriod) {
+      case 'today':
+        return { start: todayStart, end: todayEnd };
+      case 'yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return {
+          start: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()),
+          end: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59)
+        };
+      }
+      case 'this_week': {
+        const dayOfWeek = now.getDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59);
+        return { start: weekStart, end: weekEnd };
+      }
+      case 'last_7_days': {
+        const last7Start = new Date(now);
+        last7Start.setDate(now.getDate() - 6);
+        last7Start.setHours(0, 0, 0, 0);
+        return { start: last7Start, end: todayEnd };
+      }
+      case 'this_month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth(), 1),
+          end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+        };
+      case 'last_month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+        };
+      case 'custom':
+        if (customDateFrom && customDateTo) {
+          const customFrom = new Date(customDateFrom);
+          customFrom.setHours(0, 0, 0, 0);
+          const customTo = new Date(customDateTo);
+          customTo.setHours(23, 59, 59);
+          return { start: customFrom, end: customTo };
+        }
+        return null;
+      default:
+        return null; // 'all' - без фильтрации
+    }
+  }, [selectedPeriod, customDateFrom, customDateTo]);
+
+  // Хелпер для проверки даты в диапазоне фильтра
+  const isDateInFilterRange = useCallback((dateStr, range) => {
+    if (!range) return true;
+    const date = new Date(dateStr);
+    return date >= range.start && date <= range.end;
+  }, []);
 
   // Используем useMemo для оптимизации фильтрации креативов
   const filteredCreatives = useMemo(() => {
@@ -228,9 +312,58 @@ function CreativeSearch({ user }) {
       });
     }
     // Если selectedPeriod === 'all', то не фильтруем по дате
-    
+
+    // Добавляем креативы, у которых есть правки в диапазоне дат
+    if (dateRange) {
+      const baseCreatives = creatives.filter(c => c.searcher_id === user.id);
+      let creativesWithEditsInRange = baseCreatives;
+      if (selectedEditor !== 'all') {
+        creativesWithEditsInRange = creativesWithEditsInRange.filter(c => c.user_id === selectedEditor);
+      }
+      if (selectedBuyer !== 'all') {
+        creativesWithEditsInRange = creativesWithEditsInRange.filter(c => c.buyer_id === selectedBuyer);
+      }
+
+      creativesWithEditsInRange = creativesWithEditsInRange.filter(c => {
+        const edits = creativeEdits.get(c.id) || [];
+        return edits.some(edit => isDateInFilterRange(edit.created_at, dateRange));
+      });
+
+      const existingIds = new Set(creativesToFilter.map(c => c.id));
+      creativesWithEditsInRange.forEach(c => {
+        if (!existingIds.has(c.id)) {
+          creativesToFilter.push(c);
+        }
+      });
+    }
+
     return creativesToFilter;
-  }, [creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [creatives, selectedEditor, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo, dateRange, creativeEdits, isDateInFilterRange, user.id]);
+
+  // Отдельные строки правок для отображения в таблице
+  const standaloneEdits = useMemo(() => {
+    const result = [];
+    filteredCreatives.forEach(creative => {
+      const edits = creativeEdits.get(creative.id) || [];
+      if (edits.length > 0) {
+        if (!dateRange) {
+          edits.forEach(edit => {
+            result.push({ ...edit, parentCreative: creative, parentCreativeId: creative.id });
+          });
+        } else {
+          const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
+          if (creativeInRange) {
+            edits.forEach(edit => {
+              if (isDateInFilterRange(edit.created_at, dateRange)) {
+                result.push({ ...edit, parentCreative: creative, parentCreativeId: creative.id });
+              }
+            });
+          }
+        }
+      }
+    });
+    return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange]);
 
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1150,23 +1283,44 @@ function CreativeSearch({ user }) {
       setLoading(true);
       setError('');
       console.log('📡 Загрузка креативов для Search Manager...');
-      
+
       // Загружаем креативы через прямой запрос
       const { data: directData, error: directError } = await supabase
         .from('creatives')
         .select('*')
         .eq('searcher_id', user.id);
-      
+
       if (directError) {
         throw directError;
       }
-      
+
       console.log(`✅ Загружено ${directData.length} креативов для Search Manager`);
 
       setCreatives(directData);
 
-      // Батчевая проверка истории для всех креативов одним запросом
+      // Загружаем правки для всех креативов
       const creativeIds = directData.map(c => c.id);
+      if (creativeIds.length > 0) {
+        const { data: editsData, error: editsError } = await supabase
+          .from('creative_edits')
+          .select('*')
+          .in('creative_id', creativeIds)
+          .order('created_at', { ascending: false });
+
+        if (!editsError && editsData) {
+          const editsMap = new Map();
+          editsData.forEach(edit => {
+            if (!editsMap.has(edit.creative_id)) {
+              editsMap.set(edit.creative_id, []);
+            }
+            editsMap.get(edit.creative_id).push(edit);
+          });
+          setCreativeEdits(editsMap);
+          console.log(`✅ Загружено ${editsData.length} правок для ${editsMap.size} креативов`);
+        }
+      }
+
+      // Батчевая проверка истории для всех креативов одним запросом
       const creativesWithHistorySet = await creativeHistoryService.checkHistoryBatch(creativeIds);
       setCreativesWithHistory(creativesWithHistorySet);
     } catch (error) {
@@ -2849,6 +3003,9 @@ function CreativeSearch({ user }) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
+                      <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '90px' }}>
+                        Правки
+                      </th>
                       <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50" style={{ width: '40px' }}>
                         Тип
                       </th>
@@ -2921,26 +3078,183 @@ function CreativeSearch({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
+                    {/* Отдельные строки правок */}
+                    {standaloneEdits.map((edit) => {
+                      const editDate = new Date(edit.created_at);
+                      const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      });
+                      const formattedEditTime = editDate.toLocaleTimeString('uk-UA', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      const edits = creativeEdits.get(edit.parentCreativeId) || [];
+                      const editIndex = edits.findIndex(e => e.id === edit.id);
+                      const editNumber = edits.length - editIndex;
+
+                      return (
+                        <tr
+                          key={`standalone-edit-${edit.id}`}
+                          className="hover:bg-yellow-100/50 transition-colors"
+                          style={{ backgroundColor: '#fffffe66' }}
+                        >
+                          {/* Желтый бейдж ПРАВКА */}
+                          <td className="px-1 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex flex-col items-center justify-center">
+                              <div
+                                className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-sm border border-yellow-300"
+                                title="Правка"
+                              >
+                                <span className="tracking-wide">ПРАВКА</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-1 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
+                            <div className="cursor-text select-text">
+                              <div className="font-medium">{formattedEditDate}</div>
+                              <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                {edit.comment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedComment({ article: `Правка #${editNumber}`, comment: edit.comment, type: 'edit' });
+                                      setShowCommentModal(true);
+                                    }}
+                                    className="p-1 rounded-full transition-colors duration-200"
+                                    title="Комментарий к правке"
+                                  >
+                                    <MessageCircle className="h-4 w-4" style={{ color: '#a16207' }} />
+                                  </button>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium" style={{ color: '#a16207' }}>Правка #{editNumber}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}>
+                            {edit.link_metadata && edit.link_metadata.length > 0 && (
+                              <div className="space-y-1">
+                                {edit.link_metadata.map((link, idx) => (
+                                  <div key={idx} className="text-xs" style={{ color: '#a16207' }}>
+                                    {link.title || `Видео ${idx + 1}`}
+                                    {link.type === 'reupload' && <span className="ml-1 text-[10px]" style={{ color: '#a16207' }}>(Перезалив)</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <button
+                              onClick={() => scrollToCreative(edit.parentCreativeId)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+                              title="Показать материнский креатив"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Показать
+                            </button>
+                          </td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Креативы */}
                     {filteredCreatives
                       .sort((a, b) => b.created_at.localeCompare(a.created_at))
                       .map((creative) => {
-                        const cof = typeof creative.cof_rating === 'number' 
-                          ? creative.cof_rating 
+                        const cof = typeof creative.cof_rating === 'number'
+                          ? creative.cof_rating
                           : calculateCOF(creative.work_types || []);
-                        
+
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
                         const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const allVideoMetrics = getAllVideoMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
-                        
+                        const hasEdits = creativeEdits.has(creative.id) && creativeEdits.get(creative.id).length > 0;
+                        const editsCount = creativeEdits.get(creative.id)?.length || 0;
+                        const isEditsExpanded = expandedEdits.has(creative.id);
+
                         return (
+                          <React.Fragment key={creative.id}>
                           <tr
-                            key={creative.id}
-                            className="transition-colors duration-200 hover:bg-gray-50"
+                            ref={(el) => {
+                              if (el) creativeRefs.current.set(creative.id, el);
+                            }}
+                            className={`transition-all duration-500 ease-in-out hover:bg-gray-50 ${
+                              highlightedCreativeId === creative.id
+                                ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-[1.002]'
+                                : ''
+                            }`}
                           >
-                            {/* Колонка "Тип" с бейджем E для правок - ПЕРВАЯ */}
+                            {/* Колонка "Правки" с бейджем РЕД */}
+                            <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
+                              <div className="flex flex-col items-center justify-center">
+                                {hasEdits && (() => {
+                                  const edits = creativeEdits.get(creative.id) || [];
+                                  const lastEdit = edits.length > 0 ? edits[0] : null;
+                                  const lastEditDate = lastEdit?.created_at
+                                    ? new Date(lastEdit.created_at).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                                    : null;
+
+                                  return (
+                                    <>
+                                      <div
+                                        title={`${editsCount} правок`}
+                                        className="inline-flex items-center justify-center px-1 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-violet-500 text-white shadow-sm border border-blue-400 flex-shrink-0 hover:shadow-lg transition-shadow duration-200"
+                                      >
+                                        <span className="tracking-wide">РЕД</span>
+                                      </div>
+                                      {lastEditDate && <span className="text-sm text-black font-semibold mt-1.5">{lastEditDate}</span>}
+                                      <button
+                                        onClick={() => {
+                                          setExpandedEdits(prev => {
+                                            const updated = new Set(prev);
+                                            if (updated.has(creative.id)) {
+                                              updated.delete(creative.id);
+                                            } else {
+                                              updated.add(creative.id);
+                                            }
+                                            return updated;
+                                          });
+                                        }}
+                                        className="flex items-center text-black hover:text-gray-700 transition-colors mt-1"
+                                        title={isEditsExpanded ? 'Скрыть правки' : 'Показать правки'}
+                                      >
+                                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isEditsExpanded ? 'rotate-180' : ''}`} />
+                                        <span className="text-xs ml-0.5 font-bold">{editsCount}</span>
+                                      </button>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+
+                            {/* Колонка "Тип" с бейджем E для правок */}
                             <td className="px-1 py-4 whitespace-nowrap text-sm text-center">
                               <div className="flex items-center justify-center">
                                 {creative.is_edit && (
@@ -3656,6 +3970,90 @@ function CreativeSearch({ user }) {
                             </td>
 
                           </tr>
+
+                          {/* Expanded Edit Rows */}
+                          {isEditsExpanded && (() => {
+                            const edits = creativeEdits.get(creative.id) || [];
+                            const totalEdits = edits.length;
+
+                            return edits.map((edit, editIndex) => {
+                              const editDate = new Date(edit.created_at);
+                              const formattedEditDate = editDate.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                              const formattedEditTime = editDate.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+                              const editNumber = totalEdits - editIndex;
+
+                              return (
+                                <tr
+                                  key={edit.id || editIndex}
+                                  className="border-l-4 border-yellow-400 hover:bg-yellow-100/50 transition-colors"
+                                  style={{ backgroundColor: '#fffffe66' }}
+                                >
+                                  <td className="px-1 py-2 whitespace-nowrap text-sm" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center justify-center pl-4">
+                                      <span className="text-yellow-500 text-lg">└─</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-1 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center" style={{ backgroundColor: '#fffffe66', color: '#a16207' }}>
+                                    <div className="cursor-text select-text">
+                                      <div className="font-medium">{formattedEditDate}</div>
+                                      <div className="text-xs" style={{ color: '#a16207' }}>{formattedEditTime}</div>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                        {edit.comment && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedComment({ article: `Правка #${editNumber}`, comment: edit.comment, type: 'edit' });
+                                              setShowCommentModal(true);
+                                            }}
+                                            className="p-1 rounded-full transition-colors duration-200"
+                                            title="Комментарий к правке"
+                                          >
+                                            <MessageCircle className="h-4 w-4" style={{ color: '#a16207' }} />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <span className="text-sm font-medium" style={{ color: '#a16207' }}>Правка #{editNumber}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}>
+                                    {edit.link_metadata && edit.link_metadata.length > 0 && (
+                                      <div className="space-y-1">
+                                        {edit.link_metadata.map((link, idx) => (
+                                          <div key={idx} className="text-xs" style={{ color: '#a16207' }}>
+                                            {link.title || `Видео ${idx + 1}`}
+                                            {link.type === 'reupload' && <span className="ml-1 text-[10px]" style={{ color: '#a16207' }}>(Перезалив)</span>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                          </React.Fragment>
                         );
                       })}
                   </tbody>
