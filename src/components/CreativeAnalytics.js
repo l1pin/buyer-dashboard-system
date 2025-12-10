@@ -91,6 +91,7 @@ function CreativeAnalytics({ user }) {
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedWorkTypes, setExpandedWorkTypes] = useState(new Set());
   const [deletingCreative, setDeletingCreative] = useState(null);
+  const [deletingEdit, setDeletingEdit] = useState(null);
   const [trelloStatuses, setTrelloStatuses] = useState(new Map());
   const [trelloLists, setTrelloLists] = useState([]);
   
@@ -1239,6 +1240,57 @@ function CreativeAnalytics({ user }) {
       alert(`Не удалось удалить креатив: ${error.message}`);
     } finally {
       setDeletingCreative(null);
+    }
+  };
+
+  // Удаление правки
+  const handleDeleteEdit = async (edit, editorName) => {
+    const confirmMessage = `Вы уверены, что хотите удалить правку от "${editorName || 'Неизвестно'}"?\n\nЭто действие нельзя отменить!`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeletingEdit(edit.id);
+      setError('');
+      console.log('🗑️ Удаление правки:', edit.id);
+
+      // Удаляем из базы данных
+      await creativeService.deleteCreativeEdit(edit.id);
+
+      console.log('✅ Правка успешно удалена из БД');
+
+      // Обновляем UI - удаляем правку из creativeEdits
+      setCreativeEdits(prevEdits => {
+        const newEdits = new Map(prevEdits);
+
+        // Если правка привязана к креативу
+        if (edit.creative_id) {
+          const editsForCreative = newEdits.get(edit.creative_id) || [];
+          const filteredEdits = editsForCreative.filter(e => e.id !== edit.id);
+
+          if (filteredEdits.length > 0) {
+            newEdits.set(edit.creative_id, filteredEdits);
+          } else {
+            newEdits.delete(edit.creative_id);
+          }
+        }
+
+        return newEdits;
+      });
+
+      // Также удаляем из standaloneEdits если там есть
+      setStandaloneEdits(prevEdits => prevEdits.filter(e => e.id !== edit.id));
+
+      console.log('✅ UI обновлен моментально');
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления правки:', error);
+      setError(`Ошибка удаления правки: ${error.message}`);
+      alert(`Не удалось удалить правку: ${error.message}`);
+    } finally {
+      setDeletingEdit(null);
     }
   };
 
@@ -3451,8 +3503,24 @@ function CreativeAnalytics({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
-                          {/* Действия - пустая */}
-                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Действия - кнопка удаления */}
+                          <td className="px-3 py-3 text-center" style={{ backgroundColor: '#fffffe66' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEdit(edit, edit.editor_name);
+                              }}
+                              disabled={deletingEdit === edit.id}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-full transition-colors duration-200 disabled:opacity-50"
+                              title="Удалить правку"
+                            >
+                              {deletingEdit === edit.id ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -4472,12 +4540,29 @@ function CreativeAnalytics({ user }) {
                                       </div>
                                     ) : null}
                                   </td>
-                                  {/* Trello, Статус, Buyer, Searcher, Действия - пустые */}
+                                  {/* Trello, Статус, Buyer, Searcher - пустые */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
+                                  {/* Действия - кнопка удаления */}
+                                  <td className="px-3 py-2 text-center" style={{ backgroundColor: '#fffffe66' }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteEdit(edit, edit.editor_name);
+                                      }}
+                                      disabled={deletingEdit === edit.id}
+                                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-full transition-colors duration-200 disabled:opacity-50"
+                                      title="Удалить правку"
+                                    >
+                                      {deletingEdit === edit.id ? (
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                  </td>
                                 </tr>
                               );
                             });
