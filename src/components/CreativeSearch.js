@@ -3283,7 +3283,7 @@ function CreativeSearch({ user }) {
                                       e.stopPropagation();
                                       toggleWorkTypes(`edit-${edit.id}`);
                                     }}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-colors duration-200"
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
                                   >
                                     <Eye className="h-3 w-3 mr-1" />
                                     <span>
@@ -3303,7 +3303,7 @@ function CreativeSearch({ user }) {
                                 {expandedWorkTypes.has(`edit-${edit.id}`) && (
                                   <div className="mt-2 space-y-1 max-w-xs">
                                     {edit.work_types.map((workType, index) => (
-                                      <div key={index} className="text-xs text-gray-700 bg-yellow-50 px-2 py-1 rounded flex items-center justify-between">
+                                      <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
                                         <span className="truncate cursor-text select-text">{workType}</span>
                                         <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
                                           {formatCOF(workTypeValues[workType] || 0)}
@@ -4247,7 +4247,7 @@ function CreativeSearch({ user }) {
                                               e.stopPropagation();
                                               toggleWorkTypes(`edit-${edit.id}`);
                                             }}
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-colors duration-200"
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition-colors duration-200"
                                           >
                                             <Eye className="h-3 w-3 mr-1" />
                                             <span>
@@ -4267,7 +4267,7 @@ function CreativeSearch({ user }) {
                                         {expandedWorkTypes.has(`edit-${edit.id}`) && (
                                           <div className="mt-2 space-y-1 max-w-xs">
                                             {edit.work_types.map((workType, index) => (
-                                              <div key={index} className="text-xs text-gray-700 bg-yellow-50 px-2 py-1 rounded flex items-center justify-between">
+                                              <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded flex items-center justify-between">
                                                 <span className="truncate cursor-text select-text">{workType}</span>
                                                 <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
                                                   {formatCOF(workTypeValues[workType] || 0)}
