@@ -3170,7 +3170,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table - sticky контейнер с внутренним скроллом */}
-      <div className="px-6 pt-0 pb-2 sticky top-0 bg-gray-50" style={{height: 'calc(100vh - 110px)'}}>
+      <div className="px-6 pt-0 pb-2 sticky bg-gray-50" style={{height: 'calc(100vh - 110px)', top: '-40px'}}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
