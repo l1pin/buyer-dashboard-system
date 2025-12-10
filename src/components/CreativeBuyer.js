@@ -3292,9 +3292,42 @@ const loadCreatives = async () => {
                                   <span className="text-xs font-bold mr-1">+COF</span>
                                   {formatCOF(edit.cof_rating || 0)}
                                 </span>
-                                <div className="text-xs mt-1 text-gray-600">
-                                  {edit.work_types.join(', ')}
+
+                                <div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleWorkTypes(`edit-${edit.id}`);
+                                    }}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-colors duration-200"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    <span>
+                                      {expandedWorkTypes.has(`edit-${edit.id}`)
+                                        ? `Скрыть работы`
+                                        : `Работы (${edit.work_types.length})`
+                                      }
+                                    </span>
+                                    {expandedWorkTypes.has(`edit-${edit.id}`) ? (
+                                      <ChevronUp className="h-3 w-3 ml-1" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3 ml-1" />
+                                    )}
+                                  </button>
                                 </div>
+
+                                {expandedWorkTypes.has(`edit-${edit.id}`) && (
+                                  <div className="mt-2 space-y-1 max-w-xs">
+                                    {edit.work_types.map((workType, index) => (
+                                      <div key={index} className="text-xs text-gray-700 bg-yellow-50 px-2 py-1 rounded flex items-center justify-between">
+                                        <span className="truncate cursor-text select-text">{workType}</span>
+                                        <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
+                                          {formatCOF(workTypeValues[workType] || 0)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ) : null}
                           </td>
@@ -4244,7 +4277,7 @@ const loadCreatives = async () => {
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
-                                  {/* COF */}
+                                  {/* COF с типами работ */}
                                   <td className="px-3 py-2 whitespace-nowrap text-center" style={{ backgroundColor: '#fffffe66' }}>
                                     {edit.work_types && edit.work_types.length > 0 ? (
                                       <div className="space-y-1">
@@ -4252,13 +4285,44 @@ const loadCreatives = async () => {
                                           <span className="text-xs font-bold mr-1">+COF</span>
                                           {formatCOF(edit.cof_rating || 0)}
                                         </span>
-                                        <div className="text-xs mt-1" style={{ color: '#a16207' }}>
-                                          {edit.work_types.join(', ')}
+
+                                        <div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleWorkTypes(`edit-${edit.id}`);
+                                            }}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-colors duration-200"
+                                          >
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            <span>
+                                              {expandedWorkTypes.has(`edit-${edit.id}`)
+                                                ? `Скрыть работы`
+                                                : `Работы (${edit.work_types.length})`
+                                              }
+                                            </span>
+                                            {expandedWorkTypes.has(`edit-${edit.id}`) ? (
+                                              <ChevronUp className="h-3 w-3 ml-1" />
+                                            ) : (
+                                              <ChevronDown className="h-3 w-3 ml-1" />
+                                            )}
+                                          </button>
                                         </div>
+
+                                        {expandedWorkTypes.has(`edit-${edit.id}`) && (
+                                          <div className="mt-2 space-y-1 max-w-xs">
+                                            {edit.work_types.map((workType, index) => (
+                                              <div key={index} className="text-xs text-gray-700 bg-yellow-50 px-2 py-1 rounded flex items-center justify-between">
+                                                <span className="truncate cursor-text select-text">{workType}</span>
+                                                <span className="text-gray-500 ml-1 flex-shrink-0 cursor-text select-text">
+                                                  {formatCOF(workTypeValues[workType] || 0)}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                    ) : (
-                                      <span style={{ color: '#a16207' }}>—</span>
-                                    )}
+                                    ) : null}
                                   </td>
                                   {/* Trello, Статус, Buyer, Searcher (4) */}
                                   <td className="px-3 py-2" style={{ backgroundColor: '#fffffe66' }}></td>
