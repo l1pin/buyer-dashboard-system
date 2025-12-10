@@ -3404,6 +3404,8 @@ function CreativeAnalytics({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
+                          {/* Пустая ячейка для колонки Дней */}
+                          <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           {/* Пустая ячейка для колонки Зоны */}
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                           {/* COF с типами работ */}
