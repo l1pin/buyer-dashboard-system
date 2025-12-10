@@ -38,7 +38,8 @@ import {
   Trophy,
   Award,
   Search,
-  Pencil
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 function CreativeAnalytics({ user }) {
@@ -1280,8 +1281,7 @@ function CreativeAnalytics({ user }) {
         return newEdits;
       });
 
-      // Также удаляем из standaloneEdits если там есть
-      setStandaloneEdits(prevEdits => prevEdits.filter(e => e.id !== edit.id));
+      // standaloneEdits автоматически обновится через useMemo при изменении creativeEdits
 
       console.log('✅ UI обновлен моментально');
 
