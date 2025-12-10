@@ -3170,7 +3170,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table */}
-      <div className="px-6 pt-0 pb-2" style={{height: 'calc(100vh - 120px)', minHeight: 'calc(100vh - 120px)'}}>
+      <div className="px-6 pt-0 pb-2" style={{minHeight: 'calc(100vh - 110px)'}}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -3182,9 +3182,9 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 h-full">
-            <div className="px-0 py-0 h-full">
-              <div className="overflow-x-auto h-full overflow-y-auto">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-0 py-0">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
