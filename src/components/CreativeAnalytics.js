@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
 import { useBatchMetrics, useMetricsStats, useMetricsApi } from '../hooks/useMetrics';
 import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
+import { useGlobalMetricsStatus } from '../hooks/useGlobalMetricsStatus';
 import { useZoneData } from '../hooks/useZoneData';
 import { MetricsService } from '../services/metricsService';
 import {
@@ -535,6 +536,13 @@ function CreativeAnalytics({ user }) {
     checkApiStatus,
     isAvailable: isMetricsApiAvailable 
   } = useMetricsApi();
+
+  const {
+    isAuto: isMetricsAuto,
+    formattedLastUpdate: metricsFormattedLastUpdate,
+    status: metricsStatus,
+    isRefreshing: isMetricsRefreshing
+  } = useGlobalMetricsStatus();
 
   const {
     zoneDataMap,
@@ -1879,9 +1887,24 @@ function CreativeAnalytics({ user }) {
             <h1 className="text-2xl font-semibold text-gray-900">
               Аналитика креативов
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Полная статистика работы монтажеров, COF анализ, метрики рекламы и зональные данные
-            </p>
+            <div className="mt-1">
+              {metricsStatus === 'running' ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-600 border border-blue-100">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Обновление метрик...
+                </span>
+              ) : isMetricsRefreshing ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-50 text-green-600 border border-green-100">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Загрузка обновленных данных...
+                </span>
+              ) : metricsFormattedLastUpdate ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 border border-gray-200">
+                  <Zap className="h-3 w-3 mr-1 text-green-500" />
+                  Метрики обновлены автоматически: {metricsFormattedLastUpdate}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center space-x-3">
             {/* Кнопка выбора периода дат */}
@@ -2220,38 +2243,6 @@ function CreativeAnalytics({ user }) {
               <Download className="h-4 w-4 mr-2" />
               Экспорт
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Информационная панель с временем обновления и статусом API */}
-      <div className="bg-gray-50 border-b border-gray-200 px-6 py-2">
-        <div className="flex items-center justify-between">
-          <MetricsLastUpdateBadge />
-
-          <div className="flex items-center space-x-2">
-            <Globe className="h-3 w-3 text-gray-400" />
-            <span className="text-xs text-gray-500">API:</span>
-            <div className={`flex items-center space-x-1 px-2 py-0.5 rounded text-xs ${
-              isMetricsApiAvailable 
-                ? 'bg-green-50 text-green-600' 
-                : apiStatus === 'unavailable' 
-                  ? 'bg-red-50 text-red-600'
-                  : 'bg-gray-100 text-gray-500'
-            }`}>
-              {checkingApi ? (
-                <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
-              ) : isMetricsApiAvailable ? (
-                <CheckCircle className="h-3 w-3" />
-              ) : (
-                <XCircle className="h-3 w-3" />
-              )}
-              <span>
-                {checkingApi ? 'Проверка' : 
-                 isMetricsApiAvailable ? 'OK' : 
-                 apiStatus === 'unavailable' ? 'Недоступен' : '—'}
-              </span>
-            </div>
           </div>
         </div>
       </div>
