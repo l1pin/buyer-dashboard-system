@@ -2401,6 +2401,24 @@ export const creativeService = {
     return grouped;
   },
 
+  // Удалить правку креатива
+  async deleteCreativeEdit(editId) {
+    console.log('🗑️ Удаление правки:', editId);
+
+    const { error } = await supabase
+      .from('creative_edits')
+      .delete()
+      .eq('id', editId);
+
+    if (error) {
+      console.error('❌ Ошибка удаления правки:', error);
+      throw error;
+    }
+
+    console.log('✅ Правка успешно удалена:', editId);
+    return true;
+  },
+
   // Обновить родительский креатив при добавлении правки
   async updateCreativeWithEdit(creativeId, newLinks, newTitles, editId, editDate) {
     console.log('📝 Обновление креатива с новыми ссылками:', {
