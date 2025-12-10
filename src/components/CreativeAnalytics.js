@@ -3169,8 +3169,8 @@ function CreativeAnalytics({ user }) {
         </div>
       )}
 
-      {/* Content - Table */}
-      <div className="px-6 pt-0 pb-2" style={{minHeight: 'calc(100vh - 110px)'}}>
+      {/* Content - Table - sticky контейнер с внутренним скроллом */}
+      <div className="px-6 pt-0 pb-2 sticky top-0 bg-gray-50" style={{height: 'calc(100vh - 110px)'}}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -3182,9 +3182,9 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div className="px-0 py-0">
-              <div className="overflow-x-auto">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200 h-full flex flex-col">
+            <div className="px-0 py-0 flex-1 min-h-0 overflow-hidden">
+              <div className="h-full overflow-x-auto overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
