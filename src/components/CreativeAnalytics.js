@@ -1933,7 +1933,7 @@ function CreativeAnalytics({ user }) {
   return (
     <div className="h-full overflow-auto bg-gray-50">
       {/* Header - sticky */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-40">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-30">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">
@@ -2300,7 +2300,7 @@ function CreativeAnalytics({ user }) {
       </div>
 
       {/* Filters - sticky */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky z-30" style={{top: '86px'}}>
+      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky z-30" style={{top: '76px'}}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
