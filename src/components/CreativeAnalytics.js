@@ -2300,7 +2300,7 @@ function CreativeAnalytics({ user }) {
       </div>
 
       {/* Filters - sticky */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky z-20" style={{top: '76px'}}>
+      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky z-20" style={{top: '82px'}}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
