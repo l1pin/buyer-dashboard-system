@@ -1972,7 +1972,7 @@ function CreativeAnalytics({ user }) {
               
               {/* Выпадающее меню с календарем ВНУТРИ */}
               {showPeriodMenu && (
-                <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50" style={{width: '850px'}}>
+                <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-[100]" style={{width: '850px'}}>
                   <div className="grid grid-cols-3">
                     {/* Левая колонка - список периодов */}
                     <div className="border-r border-gray-200 py-2">
@@ -2254,7 +2254,7 @@ function CreativeAnalytics({ user }) {
               </button>
               
               {showPeriodDropdown && (
-                <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                <div className="period-dropdown absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-[100]">
                   <div className="py-1">
                     <button
                       onClick={() => handlePeriodChange('all')}
