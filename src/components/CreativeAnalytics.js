@@ -393,8 +393,28 @@ function CreativeAnalytics({ user }) {
     const items = [];
 
     // Добавляем креативы с типом 'creative'
+    // Для сортировки используем релевантную дату:
+    // - если есть правки в выбранном диапазоне - максимальную дату правки в диапазоне
+    // - иначе - дату создания креатива
     filteredCreativesByMonth.forEach(creative => {
-      items.push({ type: 'creative', data: creative, created_at: creative.created_at });
+      let relevantDate = creative.created_at;
+
+      if (dateRange) {
+        const edits = creativeEdits.get(String(creative.id)) || [];
+        const editsInRange = edits.filter(edit => isDateInFilterRange(edit.created_at, dateRange));
+
+        if (editsInRange.length > 0) {
+          // Находим максимальную дату правки в диапазоне
+          let maxEditDate = new Date(editsInRange[0].created_at);
+          editsInRange.forEach(edit => {
+            const editDate = new Date(edit.created_at);
+            if (editDate > maxEditDate) maxEditDate = editDate;
+          });
+          relevantDate = maxEditDate.toISOString();
+        }
+      }
+
+      items.push({ type: 'creative', data: creative, created_at: relevantDate });
     });
 
     // Добавляем standalone правки с типом 'edit'
@@ -404,7 +424,7 @@ function CreativeAnalytics({ user }) {
 
     // Сортируем всё вместе по дате создания (от новых к старым)
     return items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [filteredCreativesByMonth, standaloneEdits]);
+  }, [filteredCreativesByMonth, standaloneEdits, dateRange, creativeEdits, isDateInFilterRange]);
 
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
