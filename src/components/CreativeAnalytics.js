@@ -388,6 +388,24 @@ function CreativeAnalytics({ user }) {
     return edits.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [creativeEdits, dateRange, analytics.creatives, selectedEditor, selectedBuyer, selectedSearcher, isDateInFilterRange, skuSearch]);
 
+  // Объединённый массив креативов и standalone правок, отсортированный по дате создания
+  const combinedItems = useMemo(() => {
+    const items = [];
+
+    // Добавляем креативы с типом 'creative'
+    filteredCreativesByMonth.forEach(creative => {
+      items.push({ type: 'creative', data: creative, created_at: creative.created_at });
+    });
+
+    // Добавляем standalone правки с типом 'edit'
+    standaloneEdits.forEach(edit => {
+      items.push({ type: 'edit', data: edit, created_at: edit.created_at });
+    });
+
+    // Сортируем всё вместе по дате создания (от новых к старым)
+    return items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [filteredCreativesByMonth, standaloneEdits]);
+
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
   // Функции для календаря
@@ -3315,15 +3333,17 @@ function CreativeAnalytics({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {/* Отдельные строки с правками - стиль как в CreativePanel */}
-                    {standaloneEdits.map((edit) => {
-                      const editDateTime = formatKyivTime(edit.created_at);
-                      // Вычисляем номер правки
-                      const allEdits = creativeEdits.get(String(edit.creative_id)) || [];
-                      const editIndex = allEdits.findIndex(e => e.id === edit.id);
-                      const editNumber = allEdits.length - editIndex;
+                    {/* Объединённый список креативов и правок, отсортированный по дате */}
+                    {combinedItems.map((item) => {
+                      if (item.type === 'edit') {
+                        const edit = item.data;
+                        const editDateTime = formatKyivTime(edit.created_at);
+                        // Вычисляем номер правки
+                        const allEdits = creativeEdits.get(String(edit.creative_id)) || [];
+                        const editIndex = allEdits.findIndex(e => e.id === edit.id);
+                        const editNumber = allEdits.length - editIndex;
 
-                      return (
+                        return (
                         <tr
                           key={`edit-${edit.id}`}
                           className="hover:bg-yellow-100/50 transition-colors"
@@ -3522,11 +3542,10 @@ function CreativeAnalytics({ user }) {
                             </button>
                           </td>
                         </tr>
-                      );
-                    })}
-                    {filteredCreativesByMonth
-                      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                      .map((creative) => {
+                        );
+                      } else {
+                        // Рендеринг креатива
+                        const creative = item.data;
                         const cof = typeof creative.cof_rating === 'number'
                           ? creative.cof_rating
                           : calculateCOF(creative.work_types || []);
@@ -4569,7 +4588,8 @@ function CreativeAnalytics({ user }) {
                           })()}
                           </React.Fragment>
                         );
-                      })}
+                      }
+                    })}
                   </tbody>
                 </table>
               </div>
