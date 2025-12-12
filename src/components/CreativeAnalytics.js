@@ -394,23 +394,28 @@ function CreativeAnalytics({ user }) {
 
     // Добавляем креативы с типом 'creative'
     // Для сортировки используем релевантную дату:
-    // - если есть правки в выбранном диапазоне - максимальную дату правки в диапазоне
-    // - иначе - дату создания креатива
+    // - если креатив создан В диапазоне - дату создания
+    // - если креатив создан ВНЕ диапазона, но есть правки в диапазоне - дату правки
     filteredCreativesByMonth.forEach(creative => {
       let relevantDate = creative.created_at;
 
       if (dateRange) {
-        const edits = creativeEdits.get(String(creative.id)) || [];
-        const editsInRange = edits.filter(edit => isDateInFilterRange(edit.created_at, dateRange));
+        const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
 
-        if (editsInRange.length > 0) {
-          // Находим максимальную дату правки в диапазоне
-          let maxEditDate = new Date(editsInRange[0].created_at);
-          editsInRange.forEach(edit => {
-            const editDate = new Date(edit.created_at);
-            if (editDate > maxEditDate) maxEditDate = editDate;
-          });
-          relevantDate = maxEditDate.toISOString();
+        // Используем дату правки только если креатив создан ВНЕ диапазона
+        if (!creativeInRange) {
+          const edits = creativeEdits.get(String(creative.id)) || [];
+          const editsInRange = edits.filter(edit => isDateInFilterRange(edit.created_at, dateRange));
+
+          if (editsInRange.length > 0) {
+            // Находим максимальную дату правки в диапазоне
+            let maxEditDate = new Date(editsInRange[0].created_at);
+            editsInRange.forEach(edit => {
+              const editDate = new Date(edit.created_at);
+              if (editDate > maxEditDate) maxEditDate = editDate;
+            });
+            relevantDate = maxEditDate.toISOString();
+          }
         }
       }
 
