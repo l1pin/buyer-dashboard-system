@@ -348,6 +348,49 @@ function CreativePanel({ user }) {
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [filteredCreatives, creativeEdits, dateRange, isDateInFilterRange, skuSearch]);
 
+  // Объединённый массив креативов и standalone правок, отсортированный по дате
+  const combinedItems = useMemo(() => {
+    const items = [];
+
+    // Добавляем креативы с типом 'creative'
+    // Для сортировки используем релевантную дату:
+    // - если креатив создан В диапазоне - дату создания
+    // - если креатив создан ВНЕ диапазона, но есть правки в диапазоне - дату правки
+    filteredCreatives.forEach(creative => {
+      let relevantDate = creative.created_at;
+
+      if (dateRange) {
+        const creativeInRange = isDateInFilterRange(creative.created_at, dateRange);
+
+        // Используем дату правки только если креатив создан ВНЕ диапазона
+        if (!creativeInRange) {
+          const edits = creativeEdits.get(creative.id) || [];
+          const editsInRange = edits.filter(edit => isDateInFilterRange(edit.created_at, dateRange));
+
+          if (editsInRange.length > 0) {
+            // Находим максимальную дату правки в диапазоне
+            let maxEditDate = new Date(editsInRange[0].created_at);
+            editsInRange.forEach(edit => {
+              const editDate = new Date(edit.created_at);
+              if (editDate > maxEditDate) maxEditDate = editDate;
+            });
+            relevantDate = maxEditDate.toISOString();
+          }
+        }
+      }
+
+      items.push({ type: 'creative', data: creative, created_at: relevantDate });
+    });
+
+    // Добавляем standalone правки с типом 'edit'
+    standaloneEdits.forEach(edit => {
+      items.push({ type: 'edit', data: edit, created_at: edit.created_at });
+    });
+
+    // Сортируем всё вместе по дате (от новых к старым)
+    return items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [filteredCreatives, standaloneEdits, dateRange, creativeEdits, isDateInFilterRange]);
+
   // Хуки для метрик - используем отфильтрованные креативы
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
 
@@ -3406,8 +3449,10 @@ function CreativePanel({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {/* Отдельные строки правок, попавших в фильтр дат */}
-                    {standaloneEdits.map((edit) => {
+                    {/* Объединённый список креативов и правок, отсортированный по дате */}
+                    {combinedItems.map((item) => {
+                      if (item.type === 'edit') {
+                        const edit = item.data;
                       const editDate = new Date(edit.created_at);
                       const formattedEditDate = editDate.toLocaleDateString('uk-UA', {
                         day: '2-digit',
@@ -3584,23 +3629,20 @@ function CreativePanel({ user }) {
                           <td className="px-3 py-3" style={{ backgroundColor: '#fffffe66' }}></td>
                         </tr>
                       );
-                    })}
-
-                    {/* Креативы */}
-                    {filteredCreatives
-                      .sort((a, b) => b.created_at.localeCompare(a.created_at))
-                      .map((creative) => {
-                        const cof = typeof creative.cof_rating === 'number' 
-                          ? creative.cof_rating 
+                      } else {
+                        // Креативы
+                        const creative = item.data;
+                        const cof = typeof creative.cof_rating === 'number'
+                          ? creative.cof_rating
                           : calculateCOF(creative.work_types || []);
-                        
+
                         const currentDisplayData = getCurrentMetricsForDisplay(creative);
                         const currentMode = detailMode.get(creative.id) || 'aggregated';
                         const allVideoMetrics = getAllVideoMetrics(creative);
                         const isWorkTypesExpanded = expandedWorkTypes.has(creative.id);
                         const isDropdownOpen = openDropdowns.has(creative.id);
                         const formattedDateTime = formatKyivTime(creative.created_at);
-                        
+
                         const hasEdits = creative.has_edits || creativeEdits.has(creative.id);
                         const editsCount = creativeEdits.get(creative.id)?.length || 0;
                         const isEditsExpanded = expandedEdits.has(creative.id);
@@ -4583,7 +4625,8 @@ function CreativePanel({ user }) {
                           })()}
                           </React.Fragment>
                         );
-                      })}
+                      }
+                    })}
                   </tbody>
                 </table>
               </div>
