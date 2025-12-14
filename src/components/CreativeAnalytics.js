@@ -1974,9 +1974,9 @@ function CreativeAnalytics({ user }) {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-      {/* Header + Filters - фиксированный блок сверху */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 pb-4 flex-shrink-0 shadow-sm z-40">
+    <div className="h-full overflow-auto bg-gray-50">
+      {/* Header + Filters - sticky блок сверху */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 pb-4 sticky top-0 z-40 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">
@@ -2626,8 +2626,8 @@ function CreativeAnalytics({ user }) {
         </div>
       </div>
 
-      {/* Content Area - scrollable */}
-      <div className="flex-1 overflow-auto">
+      {/* Content Area */}
+      <div>
 
       {/* Statistics Cards */}
       {filteredCreativesByMonth.length > 0 && (
@@ -3274,9 +3274,9 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 h-full flex flex-col">
-            <div className="px-0 py-0 flex-1 min-h-0 overflow-hidden">
-              <div className="h-full overflow-x-auto overflow-y-auto">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200" style={{ height: 'calc(100vh - 280px)' }}>
+            <div className="h-full flex flex-col">
+              <div className="flex-1 overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     <tr>
