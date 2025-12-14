@@ -1975,8 +1975,8 @@ function CreativeAnalytics({ user }) {
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      {/* Header - sticky */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-30">
+      {/* Header + Filters - sticky */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 pb-4 sticky top-0 z-40 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">
@@ -2340,10 +2340,9 @@ function CreativeAnalytics({ user }) {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Filters - sticky */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky z-20" style={{top: '82px'}}>
+        {/* Filters - внутри sticky шапки */}
+        <div className="border-t border-gray-100 pt-3 mt-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -2623,10 +2622,8 @@ function CreativeAnalytics({ user }) {
               )}
             </div>
           </div>
-
-
         </div>
-
+        </div>
       </div>
 
       {/* Content Area */}
@@ -3264,8 +3261,8 @@ function CreativeAnalytics({ user }) {
         </div>
       )}
 
-      {/* Content - Table - sticky под Header+Filters */}
-      <div className="px-6 pt-0 pb-2 sticky bg-gray-50 z-20" style={{top: '128px', height: 'calc(100vh - 128px)'}}>
+      {/* Content - Table */}
+      <div className="px-6 pt-0 pb-2 bg-gray-50 flex-1" style={{minHeight: 'calc(100vh - 200px)'}}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
