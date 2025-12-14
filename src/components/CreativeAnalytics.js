@@ -3262,7 +3262,7 @@ function CreativeAnalytics({ user }) {
       )}
 
       {/* Content - Table - минимальная высота чтобы статистика ушла под шапку */}
-      <div className="px-6 pt-0 pb-6 bg-gray-50" style={{ minHeight: 'calc(100vh - 165px)' }}>
+      <div className="px-6 pt-0 pb-2 bg-gray-50" style={{ minHeight: 'calc(100vh - 165px)' }}>
         {filteredCreativesByMonth.length === 0 ? (
           <div className="text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -3274,7 +3274,7 @@ function CreativeAnalytics({ user }) {
             </p>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 flex flex-col" style={{ height: 'calc(100vh - 185px)' }}>
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200 flex flex-col" style={{ height: 'calc(100vh - 172px)' }}>
             <div className="flex-1 overflow-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
