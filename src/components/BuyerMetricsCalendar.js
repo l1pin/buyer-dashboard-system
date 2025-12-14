@@ -94,8 +94,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     const percentage = (cpl / maxCPL) * 100;
 
     if (percentage <= 35) return 'text-green-600'; // A
-    if (percentage <= 65) return 'text-blue-600';  // B
-    if (percentage <= 90) return 'text-yellow-600'; // C
+    if (percentage <= 65) return 'text-yellow-600';  // B
+    if (percentage <= 90) return 'text-orange-600'; // C
     return 'text-red-600'; // D
   };
 
@@ -106,8 +106,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     const percentage = (cpl / maxCPL) * 100;
 
     if (percentage <= 35) return 'border-green-300 hover:border-green-400'; // A
-    if (percentage <= 65) return 'border-blue-300 hover:border-blue-400';   // B
-    if (percentage <= 90) return 'border-yellow-300 hover:border-yellow-400'; // C
+    if (percentage <= 65) return 'border-yellow-300 hover:border-yellow-400';   // B
+    if (percentage <= 90) return 'border-orange-300 hover:border-orange-400'; // C
     return 'border-red-300 hover:border-red-400'; // D
   };
 
