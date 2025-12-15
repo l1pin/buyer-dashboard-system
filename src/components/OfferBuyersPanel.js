@@ -505,9 +505,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                     {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
                     {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
-                      <div className="absolute top-1 left-1 bg-yellow-100 rounded-full p-0.5 z-10 group">
+                      <div className="absolute top-1 left-1 bg-yellow-100 rounded-full p-0.5 z-20 group/warning">
                         <AlertTriangle className="w-2.5 h-2.5 text-yellow-600" />
-                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                        <span className="absolute bottom-full left-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                           Статистика за {metrics.activeDays} {metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)
                         </span>
                       </div>
