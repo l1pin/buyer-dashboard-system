@@ -777,10 +777,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   {datesWithGaps.map((item, idx) => {
                     if (item.type === 'gap') {
                       return (
-                        <th key={`gap-${idx}`} className="bg-slate-200 border-b-2 border-slate-300 px-2 py-3 text-center" style={{ minWidth: '80px' }}>
+                        <th key={`gap-${idx}`} className="bg-amber-50 border-b-2 border-amber-200 px-2 py-3 text-center" style={{ minWidth: '80px' }}>
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-400 text-[10px]">пропуск</span>
-                            <span className="text-slate-500 text-xs font-semibold">{item.gapDays} д.</span>
+                            <span className="text-amber-500 text-[10px] font-medium">ПАУЗА</span>
+                            <span className="text-amber-600 text-xs font-bold">{item.gapDays} д.</span>
                           </div>
                         </th>
                       );
@@ -799,15 +799,27 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
               </thead>
               <tbody>
                 {flatHierarchy.map((item, index) => {
-                  // Разделитель для архивированных
+                  // Разделитель для архивированных - красивый дизайн
                   if (item.type === 'separator') {
                     return (
-                      <tr key={item.key} className="bg-gray-100 border-y-2 border-gray-300">
-                        <td colSpan={2 + datesWithGaps.length} className="px-4 py-3 relative">
-                          <div className="sticky left-1/2 transform -translate-x-1/2 w-fit flex items-center gap-2 whitespace-nowrap">
-                            <div className="h-px w-16 bg-gray-400"></div>
-                            <span className="text-xs font-semibold text-gray-600 uppercase">{item.name}</span>
-                            <div className="h-px w-16 bg-gray-400"></div>
+                      <tr key={item.key}>
+                        <td
+                          colSpan={2 + datesWithGaps.length}
+                          className="bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 border-y-2 border-slate-300 px-0 py-0"
+                        >
+                          <div className="flex items-center justify-center py-4">
+                            <div className="flex items-center gap-4 bg-white/80 backdrop-blur-sm px-6 py-2.5 rounded-full shadow-md border border-slate-200">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center shadow-inner">
+                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                  </svg>
+                                </div>
+                                <span className="text-sm font-bold text-slate-700 tracking-wide">{item.name}</span>
+                              </div>
+                              <div className="h-4 w-px bg-slate-300"></div>
+                              <span className="text-xs text-slate-500 font-medium">Неактивные аккаунты</span>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -994,12 +1006,13 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
                       {datesWithGaps.map((dateItem, idx) => {
-                        // Gap колонка
+                        // Gap колонка - пауза
                         if (dateItem.type === 'gap') {
                           return (
-                            <td key={`gap-${idx}`} className="px-2 py-2 bg-slate-100" style={{ minWidth: '80px' }}>
-                              <div className="h-full flex items-center justify-center">
-                                <span className="text-slate-400 text-xs font-medium">{dateItem.gapDays} д.</span>
+                            <td key={`gap-${idx}`} className="px-2 py-2 bg-amber-50/50" style={{ minWidth: '80px' }}>
+                              <div className="h-full flex flex-col items-center justify-center gap-0.5">
+                                <span className="text-amber-400 text-[10px] font-medium">ПАУЗА</span>
+                                <span className="text-amber-500 text-sm font-bold">{dateItem.gapDays} д.</span>
                               </div>
                             </td>
                           );
@@ -1075,15 +1088,6 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0 rounded-b-2xl">
-          <button
-            onClick={onClose}
-            className="w-full px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl hover:from-slate-800 hover:to-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all shadow-lg hover:shadow-xl"
-          >
-            Закрыть
-          </button>
-        </div>
       </div>
       </div>
     </Portal>
