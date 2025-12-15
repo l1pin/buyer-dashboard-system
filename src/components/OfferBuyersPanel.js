@@ -22,6 +22,74 @@ const STATUS_BAR_COLORS = {
   default: 'bg-gray-500'
 };
 
+// Оптимизированный компонент аватара с blur placeholder и lazy loading
+const OptimizedAvatar = React.memo(function OptimizedAvatar({ src, alt, fallbackLetter, size = 40 }) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const imgRef = useRef(null);
+
+  // IntersectionObserver для ленивой загрузки
+  useEffect(() => {
+    if (!src) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' } // Начинаем загрузку за 100px до появления
+    );
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [src]);
+
+  // Если нет URL или ошибка - показываем fallback с буквой
+  if (!src || hasError) {
+    return (
+      <div
+        className="rounded-full bg-gray-100 flex items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        <span className="text-gray-600 text-sm font-medium">
+          {fallbackLetter || 'B'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={imgRef}
+      className="relative rounded-full overflow-hidden"
+      style={{ width: size, height: size }}
+    >
+      {/* Blur placeholder - показывается пока изображение не загружено */}
+      <div
+        className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse transition-opacity duration-300 ${isLoaded ? 'opacity-0' : 'opacity-100'}`}
+      />
+
+      {/* Само изображение - загружается только когда в viewport */}
+      {isInView && (
+        <img
+          src={src}
+          alt={alt}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
+          decoding="async"
+        />
+      )}
+    </div>
+  );
+});
+
 // Функция форматирования даты (вынесена для оптимизации)
 const formatAssignmentDateStatic = (createdAt) => {
   if (!createdAt) return { date: '—', days: 0 };
@@ -216,23 +284,13 @@ const BuyerCard = React.memo(function BuyerCard({
       )}
 
       <div className="flex flex-col items-center text-center space-y-1 p-2">
-        {/* Аватар с lazy loading */}
-        <div className="relative">
-          {assignment.buyer.avatar_url ? (
-            <img
-              src={assignment.buyer.avatar_url}
-              alt={assignment.buyer.name}
-              className="w-10 h-10 rounded-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-              <span className="text-gray-600 text-sm font-medium">
-                {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Оптимизированный аватар с blur placeholder */}
+        <OptimizedAvatar
+          src={assignment.buyer.avatar_url}
+          alt={assignment.buyer.name}
+          fallbackLetter={assignment.buyer.name?.charAt(0)?.toUpperCase()}
+          size={40}
+        />
 
         {/* Имя */}
         <div className="w-full px-0.5">
@@ -916,20 +974,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
               className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="flex items-center space-x-3">
-                {/* Аватар */}
-                {buyer.avatar_url ? (
-                  <img
-                    src={buyer.avatar_url}
-                    alt={buyer.name}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                    <span className="text-gray-600 font-medium">
-                      {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                    </span>
-                  </div>
-                )}
+                {/* Оптимизированный аватар */}
+                <OptimizedAvatar
+                  src={buyer.avatar_url}
+                  alt={buyer.name}
+                  fallbackLetter={buyer.name?.charAt(0)?.toUpperCase()}
+                  size={40}
+                />
 
                 {/* Информация */}
                 <div className="flex-1 min-w-0">
