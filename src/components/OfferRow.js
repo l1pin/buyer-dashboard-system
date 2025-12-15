@@ -393,6 +393,7 @@ const OfferRow = memo(({
         loadingBuyerMetrics={loadingBuyerMetrics}
         loadingBuyerIds={loadingBuyerIds}
         articleOfferMap={articleOfferMap}
+        user={{ name: userName, id: userId }}
       />
     </div>
   );

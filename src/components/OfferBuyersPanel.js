@@ -1,13 +1,16 @@
 // src/components/OfferBuyersPanel.js
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X, Loader2, Archive, AlertTriangle } from 'lucide-react';
+import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsByActiveDays, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
 import { MiniSpinner, LoadingDots } from './LoadingSpinner';
+
+// Константа: время в миллисекундах для "раннего удаления" (3 минуты)
+const EARLY_REMOVAL_PERIOD = 3 * 60 * 1000;
 
 // Константы для фильтров байеров
 const BUYER_FILTERS = [
@@ -28,7 +31,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   loadingBuyerStatuses = false,
   loadingBuyerMetrics = false,
   loadingBuyerIds = new Set(), // ID привязок, которые сейчас загружаются
-  articleOfferMap = {} // Маппинг article -> offer_id_tracker для проверки расхода
+  articleOfferMap = {}, // Маппинг article -> offer_id_tracker для проверки расхода
+  user = null // Текущий пользователь (для логирования истории)
 }) {
   const [removingBuyerId, setRemovingBuyerId] = useState(null); // ID байера, который удаляется
   const [showModal, setShowModal] = useState(false);
@@ -42,6 +46,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
   const [selectedFilters, setSelectedFilters] = useState(new Set(['all'])); // Выбранные фильтры
   const [warningTooltip, setWarningTooltip] = useState(null); // {text, x, y} для tooltip предупреждения
+  const [historyTooltip, setHistoryTooltip] = useState(null); // {history, x, y} для tooltip истории
+  const [showRemovalReasonModal, setShowRemovalReasonModal] = useState(null); // {assignmentId, assignment} для модалки причины
+  const [removalReason, setRemovalReason] = useState(''); // Выбранная причина удаления
+  const [removalReasonDetails, setRemovalReasonDetails] = useState(''); // Детали причины "Другое"
+  const [timerTick, setTimerTick] = useState(0); // Для обновления таймеров каждую секунду
 
   // Получаем уникальных Team Leads из списка байеров
   const teamLeads = useMemo(() => {
@@ -53,6 +62,60 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     });
     return Array.from(tlMap, ([id, name]) => ({ id, name }));
   }, [allBuyers]);
+
+  // Эффект для обновления таймеров каждую секунду
+  useEffect(() => {
+    // Проверяем есть ли активные таймеры (привязки в пределах 3 минут)
+    const hasActiveTimers = initialAssignments.some(a => {
+      if (a.hidden || a.archived) return false;
+      const createdAt = new Date(a.created_at).getTime();
+      const now = Date.now();
+      return (now - createdAt) < EARLY_REMOVAL_PERIOD;
+    });
+
+    if (!hasActiveTimers) return;
+
+    const interval = setInterval(() => {
+      setTimerTick(t => t + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [initialAssignments]);
+
+  // Хелпер: проверка находится ли привязка в периоде раннего удаления
+  const isWithinEarlyRemovalPeriod = useCallback((assignment) => {
+    if (!assignment.created_at) return false;
+    const createdAt = new Date(assignment.created_at).getTime();
+    const now = Date.now();
+    return (now - createdAt) < EARLY_REMOVAL_PERIOD;
+  }, []);
+
+  // Хелпер: получить оставшееся время для таймера
+  const getRemainingTime = useCallback((assignment) => {
+    if (!assignment.created_at) return null;
+    const createdAt = new Date(assignment.created_at).getTime();
+    const elapsed = Date.now() - createdAt;
+    const remaining = EARLY_REMOVAL_PERIOD - elapsed;
+
+    if (remaining <= 0) return null;
+
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    return { minutes, seconds, total: remaining };
+  }, [timerTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Хелпер: форматирование даты для истории
+  const formatHistoryDate = useCallback((isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []);
 
   // Обработчик клика по фильтру
   const handleFilterClick = useCallback((filterKey) => {
@@ -85,7 +148,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   // Преобразуем привязки из БД в формат компонента
   const assignedBuyers = useMemo(() => {
-    const buyers = initialAssignments.map(assignment => {
+    // Фильтруем скрытые записи (удалённые в первые 3 минуты)
+    const visibleAssignments = initialAssignments.filter(a => !a.hidden);
+
+    const buyers = visibleAssignments.map(assignment => {
       const buyerData = allBuyers.find(b => b.id === assignment.buyer_id);
       return {
         id: assignment.id,
@@ -99,7 +165,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         source_ids: assignment.source_ids || [], // Массив source_id
         created_at: assignment.created_at, // Дата привязки
         archived: assignment.archived || false, // Флаг архивации
-        archived_at: assignment.archived_at // Дата архивации
+        archived_at: assignment.archived_at, // Дата архивации
+        hidden: assignment.hidden || false, // Флаг скрытия (раннее удаление)
+        history: assignment.history || [] // История привязки/удаления
       };
     });
 
@@ -223,15 +291,20 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         .map(ch => ch.channel_id)
         .filter(id => id); // Убираем null/undefined
 
-      console.log(`📦 Привязываем байера ${buyer.name} с ${sourceIds.length} source_ids для ${selectedSource}:`, sourceIds);
+      // Имя текущего пользователя для логирования
+      const assignedBy = user?.name || user?.email || 'Неизвестно';
 
-      // Сохраняем в БД с массивом source_ids
+      console.log(`📦 Привязываем байера ${buyer.name} с ${sourceIds.length} source_ids для ${selectedSource}:`, sourceIds);
+      console.log(`   Привязал: ${assignedBy}`);
+
+      // Сохраняем в БД с массивом source_ids и именем того, кто привязал
       const savedAssignment = await offerBuyersService.addAssignment(
         offer.id,
         buyer.id,
         buyer.name,
         selectedSource,
-        sourceIds
+        sourceIds,
+        assignedBy
       );
 
       // Уведомляем родительский компонент о новой привязке
@@ -248,12 +321,65 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     } finally {
       setSavingAssignment(false);
     }
-  }, [selectedSource, offer.id, initialAssignments, onAssignmentsChange]);
+  }, [selectedSource, offer.id, initialAssignments, onAssignmentsChange, user]);
 
+  // Обработчик удаления байера - новая логика с таймером и причинами
   const handleRemoveBuyer = useCallback(async (assignmentId, assignment) => {
-    if (!window.confirm('Удалить привязку байера к офферу?')) return;
+    const isEarly = isWithinEarlyRemovalPeriod(assignment);
+    const removedBy = user?.name || user?.email || 'Неизвестно';
+
+    // Если в первые 3 минуты - удаляем без модалки
+    if (isEarly) {
+      if (!window.confirm('Удалить привязку байера? (в первые 3 минуты)')) return;
+
+      setRemovingBuyerId(assignmentId);
+
+      try {
+        console.log(`👻 Раннее удаление байера ${assignment.buyer.name} (в пределах 3 минут)`);
+
+        // Скрываем запись (не удаляем из БД)
+        await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
+
+        // Уведомляем родительский компонент - убираем из отображения
+        if (onAssignmentsChange) {
+          const updatedAssignments = initialAssignments.map(a =>
+            a.id === assignmentId ? { ...a, hidden: true } : a
+          );
+          onAssignmentsChange(offer.id, updatedAssignments);
+        }
+      } catch (error) {
+        console.error('Ошибка раннего удаления привязки:', error);
+        alert('Ошибка удаления привязки');
+      } finally {
+        setRemovingBuyerId(null);
+      }
+    } else {
+      // После 3 минут - показываем модалку с выбором причины
+      setShowRemovalReasonModal({ assignmentId, assignment });
+      setRemovalReason('');
+      setRemovalReasonDetails('');
+    }
+  }, [isWithinEarlyRemovalPeriod, user, offer.id, initialAssignments, onAssignmentsChange]);
+
+  // Обработчик подтверждения удаления с причиной (после 3 минут)
+  const handleConfirmRemoval = useCallback(async () => {
+    if (!showRemovalReasonModal) return;
+    if (!removalReason) {
+      alert('Выберите причину удаления');
+      return;
+    }
+    if (removalReason === 'other' && !removalReasonDetails.trim()) {
+      alert('Укажите причину удаления');
+      return;
+    }
+
+    const { assignmentId, assignment } = showRemovalReasonModal;
+    const removedBy = user?.name || user?.email || 'Неизвестно';
+    const reason = removalReason === 'other' ? 'Другое' : removalReason;
+    const reasonDetails = removalReason === 'other' ? removalReasonDetails.trim() : null;
 
     setRemovingBuyerId(assignmentId);
+    setShowRemovalReasonModal(null);
 
     try {
       const sourceIds = assignment.source_ids || [];
@@ -265,25 +391,33 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const { hasSpend, totalCost } = await checkBuyerHasSpend(sourceIds, offerIdTracker);
 
       if (hasSpend) {
-        // Был расход - архивируем (не удаляем)
+        // Был расход - архивируем с причиной
         console.log(`📦 Архивируем байера ${assignment.buyer.name} (расход: $${totalCost.toFixed(2)})`);
-        const archivedAssignment = await offerBuyersService.archiveAssignment(assignmentId);
+        const archivedAssignment = await offerBuyersService.archiveAssignment(
+          assignmentId,
+          removedBy,
+          reason,
+          reasonDetails
+        );
 
         // Уведомляем родительский компонент об архивации
         if (onAssignmentsChange) {
           const updatedAssignments = initialAssignments.map(a =>
-            a.id === assignmentId ? { ...a, archived: true, archived_at: archivedAssignment.archived_at } : a
+            a.id === assignmentId ? { ...a, archived: true, archived_at: archivedAssignment.archived_at, history: archivedAssignment.history } : a
           );
           onAssignmentsChange(offer.id, updatedAssignments);
         }
       } else {
-        // Не было расхода - полностью удаляем
-        console.log(`🗑️ Полностью удаляем байера ${assignment.buyer.name} (расход: $0)`);
-        await offerBuyersService.removeAssignment(assignmentId);
+        // Не было расхода - скрываем с историей
+        console.log(`👻 Скрываем байера ${assignment.buyer.name} (расход: $0)`);
+        await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
 
-        // Уведомляем родительский компонент об удалении
+        // Уведомляем родительский компонент об удалении из отображения
         if (onAssignmentsChange) {
-          onAssignmentsChange(offer.id, initialAssignments.filter(a => a.id !== assignmentId));
+          const updatedAssignments = initialAssignments.map(a =>
+            a.id === assignmentId ? { ...a, hidden: true } : a
+          );
+          onAssignmentsChange(offer.id, updatedAssignments);
         }
       }
     } catch (error) {
@@ -291,8 +425,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       alert('Ошибка удаления привязки');
     } finally {
       setRemovingBuyerId(null);
+      setRemovalReason('');
+      setRemovalReasonDetails('');
     }
-  }, [offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
+  }, [showRemovalReasonModal, removalReason, removalReasonDetails, user, offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
@@ -414,6 +550,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 const metrics = aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14);
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
                 const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
+
+                // Получаем оставшееся время таймера (если в первые 3 минуты)
+                const remainingTime = getRemainingTime(assignment);
+                const hasTimer = remainingTime !== null;
 
                 // Проверяем, загружается ли этот конкретный байер
                 const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
@@ -575,10 +715,40 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         </div>
                       </div>
 
-                      {/* Дата привязки и дни */}
-                      <div className="text-[9px] text-gray-500">
-                        {date} | {days} д
+                      {/* Дата привязки и дни + иконка истории */}
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-[9px] text-gray-500">
+                          {date} | {days} д
+                        </span>
+                        {/* Иконка истории */}
+                        {assignment.history && assignment.history.length > 0 && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseEnter={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setHistoryTooltip({
+                                history: assignment.history,
+                                x: rect.left + rect.width / 2,
+                                y: rect.top
+                              });
+                            }}
+                            onMouseLeave={() => setHistoryTooltip(null)}
+                            className="cursor-help"
+                          >
+                            <Info className="w-3 h-3 text-blue-400 hover:text-blue-600" />
+                          </div>
+                        )}
                       </div>
+
+                      {/* Таймер обратного отсчёта (первые 3 минуты) */}
+                      {hasTimer && (
+                        <div className="flex items-center justify-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
+                          <Clock className="w-3 h-3 text-orange-600" />
+                          <span className="text-[10px] font-medium text-orange-600">
+                            {remainingTime.minutes}:{remainingTime.seconds.toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Метрики CPL/Lead/Cost за последние 14 активных дней */}
                       {(loadingBuyerMetrics || isThisBuyerLoading) ? (
@@ -909,6 +1079,147 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             }}
           >
             {warningTooltip.text}
+          </div>
+        </Portal>
+      )}
+
+      {/* Tooltip для истории привязки - через Portal поверх всего */}
+      {historyTooltip && (
+        <Portal>
+          <div
+            style={{
+              position: 'fixed',
+              left: historyTooltip.x,
+              top: historyTooltip.y - 8,
+              transform: 'translate(-50%, -100%)',
+              padding: '10px 14px',
+              fontSize: '11px',
+              color: '#ffffff',
+              backgroundColor: '#1f2937',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              zIndex: 999999,
+              minWidth: '200px',
+              maxWidth: '300px'
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '12px' }}>
+              История привязки
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {historyTooltip.history.map((entry, idx) => (
+                <div key={idx} style={{ borderBottom: idx < historyTooltip.history.length - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none', paddingBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                    <span style={{
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      backgroundColor: entry.action === 'assigned' ? '#22c55e' : entry.action === 'archived' ? '#f97316' : '#ef4444'
+                    }}>
+                      {entry.action === 'assigned' ? 'Привязан' : entry.action === 'archived' ? 'Архивирован' : 'Удалён'}
+                    </span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    {formatHistoryDate(entry.timestamp)}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    {entry.user_name}
+                  </div>
+                  {entry.reason && (
+                    <div style={{ color: '#fbbf24', marginTop: '2px' }}>
+                      Причина: {entry.reason}{entry.reason_details ? ` - ${entry.reason_details}` : ''}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Модальное окно выбора причины удаления */}
+      {showRemovalReasonModal && (
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Укажите причину удаления
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Байер: {showRemovalReasonModal.assignment?.buyer?.name}
+                </p>
+              </div>
+
+              <div className="px-6 py-4 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="removalReason"
+                    value="Передумал"
+                    checked={removalReason === 'Передумал'}
+                    onChange={(e) => setRemovalReason(e.target.value)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-gray-700">Передумал</span>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="removalReason"
+                    value="Мисклик"
+                    checked={removalReason === 'Мисклик'}
+                    onChange={(e) => setRemovalReason(e.target.value)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-gray-700">Мисклик</span>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="removalReason"
+                    value="other"
+                    checked={removalReason === 'other'}
+                    onChange={(e) => setRemovalReason(e.target.value)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-gray-700">Другое</span>
+                </label>
+
+                {removalReason === 'other' && (
+                  <textarea
+                    value={removalReasonDetails}
+                    onChange={(e) => setRemovalReasonDetails(e.target.value)}
+                    placeholder="Укажите причину..."
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowRemovalReasonModal(null);
+                    setRemovalReason('');
+                    setRemovalReasonDetails('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleConfirmRemoval}
+                  disabled={!removalReason || (removalReason === 'other' && !removalReasonDetails.trim())}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
           </div>
         </Portal>
       )}
