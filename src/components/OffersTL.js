@@ -243,6 +243,35 @@ function OffersTL({ user }) {
     }
   }, [allAssignments, debouncedSearchTerm, sortField, sortDirection]);
 
+  // Загрузка следующей страницы метрик (infinite scroll) - должна быть определена ДО useEffect
+  const loadMoreMetrics = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+
+      const result = await metricsAnalyticsService.getMetricsPaginated(nextPage, PAGE_SIZE);
+
+      if (result.metrics && result.metrics.length > 0) {
+        setMetrics(prev => [...prev, ...result.metrics]);
+        setCurrentPage(nextPage);
+        setHasMore(result.hasMore);
+
+        // Сбрасываем кэш высот для новых элементов
+        if (listRef.current) {
+          listRef.current.resetAfterIndex(metrics.length);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки следующей страницы:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentPage, hasMore, loadingMore, metrics.length]);
+
   // IntersectionObserver для infinite scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -367,35 +396,6 @@ function OffersTL({ user }) {
       setIsBackgroundRefresh(false);
     }
   };
-
-  // Загрузка следующей страницы метрик (infinite scroll)
-  const loadMoreMetrics = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-
-    try {
-      setLoadingMore(true);
-      const nextPage = currentPage + 1;
-
-      const result = await metricsAnalyticsService.getMetricsPaginated(nextPage, PAGE_SIZE);
-
-      if (result.metrics && result.metrics.length > 0) {
-        setMetrics(prev => [...prev, ...result.metrics]);
-        setCurrentPage(nextPage);
-        setHasMore(result.hasMore);
-
-        // Сбрасываем кэш высот для новых элементов
-        if (listRef.current) {
-          listRef.current.resetAfterIndex(metrics.length);
-        }
-      } else {
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки следующей страницы:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentPage, hasMore, loadingMore, metrics.length]);
 
   // Callback для обновления привязок после изменения
   // Оптимизация: асинхронные операции вынесены из setState
