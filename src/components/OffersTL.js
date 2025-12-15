@@ -99,21 +99,11 @@ function OffersTL({ user }) {
   const [offerSeasons, setOfferSeasons] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
 
-  // Пагинация - состояния
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const PAGE_SIZE = 100; // Загружаем по 100 офферов
-
   // React 18: useTransition для неблокирующего поиска
   const [isPending, startTransition] = useTransition();
 
   // Ref для отслеживания автообновления
   const hasAutoUpdatedRef = useRef(false);
-
-  // Ref для отслеживания загрузки следующей страницы
-  const loadMoreRef = useRef(null);
 
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
@@ -243,53 +233,6 @@ function OffersTL({ user }) {
     }
   }, [allAssignments, debouncedSearchTerm, sortField, sortDirection]);
 
-  // Загрузка следующей страницы метрик (infinite scroll) - должна быть определена ДО useEffect
-  const loadMoreMetrics = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-
-    try {
-      setLoadingMore(true);
-      const nextPage = currentPage + 1;
-
-      const result = await metricsAnalyticsService.getMetricsPaginated(nextPage, PAGE_SIZE);
-
-      if (result.metrics && result.metrics.length > 0) {
-        setMetrics(prev => [...prev, ...result.metrics]);
-        setCurrentPage(nextPage);
-        setHasMore(result.hasMore);
-
-        // Сбрасываем кэш высот для новых элементов
-        if (listRef.current) {
-          listRef.current.resetAfterIndex(metrics.length);
-        }
-      } else {
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки следующей страницы:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentPage, hasMore, loadingMore, metrics.length]);
-
-  // IntersectionObserver для infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          loadMoreMetrics();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, loadMoreMetrics]);
-
   // Автообновление метрик после загрузки данных
   useEffect(() => {
     // Проверяем что данные загружены и автообновление еще не запускалось
@@ -306,7 +249,7 @@ function OffersTL({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics, allAssignments, articleOfferMap, loading]);
 
-  // Главная функция загрузки - с пагинацией для оптимизации
+  // Главная функция загрузки данных
   const loadAllData = async (isBackground = false) => {
     try {
       if (!isBackground) {
@@ -314,13 +257,9 @@ function OffersTL({ user }) {
       }
       setError('');
 
-      // Сбрасываем пагинацию
-      setCurrentPage(0);
-      setHasMore(true);
-
-      // Запускаем ВСЕ запросы параллельно (первая страница метрик + остальные данные)
+      // Запускаем ВСЕ запросы параллельно
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
-        metricsAnalyticsService.getMetricsPaginated(0, PAGE_SIZE).catch(e => ({ metrics: [], totalCount: 0, hasMore: false, error: e })),
+        metricsAnalyticsService.getAll().catch(e => ({ metrics: [], error: e })),
         userService.getUsersByRole('buyer').catch(e => []),
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
@@ -328,12 +267,10 @@ function OffersTL({ user }) {
         offerSeasonService.getAllSeasons().catch(e => [])
       ]);
 
-      // Устанавливаем метрики (первая страница)
+      // Устанавливаем метрики
       const metricsData = metricsResult.metrics || [];
       setMetrics(metricsData);
       setLastUpdated(metricsResult.lastUpdated);
-      setTotalCount(metricsResult.totalCount || 0);
-      setHasMore(metricsResult.hasMore);
 
       // Устанавливаем байеров
       const buyersData = buyersResult || [];
@@ -1108,11 +1045,6 @@ function OffersTL({ user }) {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
               Офферы
-              {totalCount > 0 && (
-                <span className="ml-2 text-sm font-normal text-slate-500">
-                  ({metrics.length} из {totalCount})
-                </span>
-              )}
             </h1>
           </div>
           <div className="flex items-center space-x-3">
@@ -1266,29 +1198,6 @@ function OffersTL({ user }) {
               >
                 {VirtualizedRow}
               </List>
-
-              {/* Trigger для infinite scroll и индикатор загрузки */}
-              <div ref={loadMoreRef} className="py-4 text-center">
-                {loadingMore && (
-                  <div className="flex items-center justify-center gap-2 text-blue-600">
-                    <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    <span className="text-sm">Загрузка офферов...</span>
-                  </div>
-                )}
-                {!loadingMore && hasMore && (
-                  <button
-                    onClick={loadMoreMetrics}
-                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    Загрузить ещё ({metrics.length} из {totalCount})
-                  </button>
-                )}
-                {!hasMore && metrics.length > 0 && (
-                  <span className="text-sm text-gray-500">
-                    Загружено {metrics.length} из {totalCount} офферов
-                  </span>
-                )}
-              </div>
             </div>
           </>
         )}

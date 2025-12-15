@@ -3606,64 +3606,6 @@ export const metricsAnalyticsService = {
     }
   },
 
-  // Пагинированная загрузка метрик для оптимизации при 3000+ офферах
-  async getMetricsPaginated(page = 0, pageSize = 100, searchTerm = '') {
-    try {
-      console.log(`📡 Запрос метрик: страница ${page}, размер ${pageSize}, поиск: "${searchTerm}"`);
-
-      // Базовый запрос
-      let query = supabase
-        .from('metrics_analytics')
-        .select('*', { count: 'exact' });
-
-      // Поиск по артикулу или названию
-      if (searchTerm) {
-        query = query.or(`article.ilike.%${searchTerm}%,offer.ilike.%${searchTerm}%`);
-      }
-
-      // Пагинация
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, error, count } = await query
-        .order('id', { ascending: true })
-        .range(from, to);
-
-      if (error) {
-        throw error;
-      }
-
-      // Метаданные
-      const { data: metaData } = await supabase
-        .from('metrics_analytics_meta')
-        .select('last_updated')
-        .eq('id', 1)
-        .single();
-
-      console.log(`✅ Загружено ${data?.length || 0} метрик, всего: ${count}`);
-
-      return {
-        metrics: data || [],
-        totalCount: count || 0,
-        page,
-        pageSize,
-        hasMore: (page + 1) * pageSize < count,
-        lastUpdated: metaData?.last_updated
-      };
-
-    } catch (error) {
-      console.error('❌ Ошибка пагинированной загрузки метрик:', error);
-      return {
-        metrics: [],
-        totalCount: 0,
-        page,
-        pageSize,
-        hasMore: false,
-        lastUpdated: null
-      };
-    }
-  },
-
   async getMetricsStats() {
     try {
       const { data, error } = await supabase
