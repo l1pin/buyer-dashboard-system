@@ -741,15 +741,17 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         )}
                       </div>
 
-                      {/* Таймер обратного отсчёта (первые 3 минуты) */}
-                      {hasTimer && (
-                        <div className="flex items-center justify-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
-                          <Clock className="w-3 h-3 text-orange-600" />
-                          <span className="text-[10px] font-medium text-orange-600">
-                            {remainingTime.minutes}:{remainingTime.seconds.toString().padStart(2, '0')}
-                          </span>
-                        </div>
-                      )}
+                      {/* Таймер обратного отсчёта (первые 3 минуты) - всегда резервируем место */}
+                      <div className="h-5 flex items-center justify-center">
+                        {hasTimer ? (
+                          <div className="flex items-center justify-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
+                            <Clock className="w-3 h-3 text-orange-600" />
+                            <span className="text-[10px] font-medium text-orange-600">
+                              {remainingTime.minutes}:{remainingTime.seconds.toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
 
                       {/* Метрики CPL/Lead/Cost за последние 14 активных дней */}
                       {(loadingBuyerMetrics || isThisBuyerLoading) ? (
