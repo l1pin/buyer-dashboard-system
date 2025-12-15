@@ -682,30 +682,45 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
   return (
     <Portal>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] flex flex-col" style={{ maxWidth: '95vw' }}>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-gradient-to-b from-slate-50 to-white rounded-2xl shadow-2xl w-full h-[90vh] flex flex-col border border-slate-200" style={{ maxWidth: '95vw' }}>
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold text-gray-900">Календарь метрик</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <X className="w-5 h-5" />
+        <div className="px-6 py-5 border-b border-slate-200 flex-shrink-0 bg-white rounded-t-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                <Calendar className="w-5 h-5 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">Календарь метрик</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-all hover:scale-105"
+            >
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span><span className="font-medium text-gray-700">Артикул:</span> {article}</span>
-            <span>•</span>
-            <span><span className="font-medium text-gray-700">Источник:</span> {source}</span>
-            <span>•</span>
-            <span><span className="font-medium text-gray-700">Байеров:</span> {data?.buyerOrder?.length || 0}</span>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
+              <span className="text-slate-500">Артикул:</span>
+              <span className="font-semibold text-slate-800">{article}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
+              <span className="text-slate-500">Источник:</span>
+              <span className="font-semibold text-slate-800">{source}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
+              <span className="text-slate-500">Байеров:</span>
+              <span className="font-semibold text-slate-800">{data?.buyerOrder?.length || 0}</span>
+            </div>
             {data?.period && (
-              <>
-                <span>•</span>
-                <span>
-                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month}.{formatDate(data.period.start).year} - {formatDate(data.period.end).day}.{formatDate(data.period.end).month}.{formatDate(data.period.end).year}
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                <span className="font-medium text-blue-700">
+                  {formatDate(data.period.start).day}.{formatDate(data.period.start).month} — {formatDate(data.period.end).day}.{formatDate(data.period.end).month}.{formatDate(data.period.end).year}
                 </span>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -716,23 +731,31 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-gray-50 border-b-2 border-r border-gray-200 px-4 py-3 text-left text-xs font-medium text-gray-700" style={{ minWidth: '280px' }}>
+                  {/* Sticky: Иерархия */}
+                  <th
+                    className="sticky left-0 z-30 bg-slate-100 border-b-2 border-slate-300 px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide"
+                    style={{ minWidth: '300px', boxShadow: '2px 0 8px -2px rgba(0,0,0,0.1)' }}
+                  >
                     Иерархия
                   </th>
-                  <th className="sticky z-20 bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px', left: '280px' }}>
+                  {/* Sticky: Итого за период */}
+                  <th
+                    className="sticky z-30 bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
+                    style={{ minWidth: '160px', left: '300px', boxShadow: '4px 0 12px -2px rgba(0,0,0,0.15)' }}
+                  >
                     <div className="relative" ref={dropdownRef}>
                       <button
                         onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                        className="flex flex-col gap-0.5 items-center w-full hover:bg-gray-100 rounded px-2 py-1 transition-colors"
+                        className="flex flex-col gap-1 items-center w-full hover:bg-slate-700 rounded-lg px-3 py-1.5 transition-colors"
                       >
-                        <span className="text-gray-500 text-[10px] uppercase">итого</span>
-                        <span className="text-gray-900 text-xs font-semibold flex items-center gap-1">
+                        <span className="text-slate-400 text-[10px] uppercase tracking-wider">итого</span>
+                        <span className="text-white text-sm font-bold flex items-center gap-1.5">
                           {periodOptions.find(p => p.value === selectedPeriod)?.label || '30 дней'}
-                          <ChevronDown className="w-3 h-3" />
+                          <ChevronDown className="w-4 h-4" />
                         </span>
                       </button>
                       {showPeriodDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-2 min-w-[160px]">
                           {periodOptions.map(option => (
                             <button
                               key={option.value}
@@ -740,8 +763,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                                 setSelectedPeriod(option.value);
                                 setShowPeriodDropdown(false);
                               }}
-                              className={`w-full px-3 py-2 text-left text-xs hover:bg-gray-100 ${
-                                selectedPeriod === option.value ? 'bg-gray-100 font-semibold' : ''
+                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors ${
+                                selectedPeriod === option.value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'
                               }`}
                             >
                               {option.label}
@@ -754,20 +777,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   {datesWithGaps.map((item, idx) => {
                     if (item.type === 'gap') {
                       return (
-                        <th key={`gap-${idx}`} className="bg-gray-200 border-b-2 border-gray-300 px-2 py-3 text-center" style={{ minWidth: '80px' }}>
+                        <th key={`gap-${idx}`} className="bg-slate-200 border-b-2 border-slate-300 px-2 py-3 text-center" style={{ minWidth: '80px' }}>
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-gray-500 text-[10px]">пропуск</span>
-                            <span className="text-gray-600 text-xs font-semibold">{item.gapDays} д.</span>
+                            <span className="text-slate-400 text-[10px]">пропуск</span>
+                            <span className="text-slate-500 text-xs font-semibold">{item.gapDays} д.</span>
                           </div>
                         </th>
                       );
                     }
                     const { day, month, year, weekday } = formatDate(item.date);
                     return (
-                      <th key={item.date} className="bg-gray-50 border-b-2 border-gray-200 px-2 py-3 text-center" style={{ minWidth: '140px' }}>
+                      <th key={item.date} className="bg-slate-50 border-b-2 border-slate-200 px-2 py-3 text-center" style={{ minWidth: '150px' }}>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-gray-500 text-[10px] uppercase">{weekday}</span>
-                          <span className="text-gray-900 text-xs font-semibold">{day}.{month}.{year}</span>
+                          <span className="text-slate-400 text-[10px] uppercase font-medium">{weekday}</span>
+                          <span className="text-slate-700 text-sm font-bold">{day}.{month}.{year}</span>
                         </div>
                       </th>
                     );
@@ -811,14 +834,16 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   const itemMetrics = getMetricsForItem(item);
 
                   return (
-                    <tr key={item.key} className="hover:bg-gray-50 border-b border-gray-100">
-                      {/* Колонка иерархии */}
-                      <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-gray-200" style={{ minWidth: '280px' }}>
+                    <tr key={item.key} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
+                      {/* Колонка иерархии - STICKY */}
+                      <td
+                        className="sticky left-0 z-20 bg-white px-4 py-2.5"
+                        style={{ minWidth: '300px', boxShadow: '2px 0 8px -2px rgba(0,0,0,0.08)' }}
+                      >
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
-                          {/* Визуальные линии иерархии - современный стиль */}
+                          {/* Визуальные линии иерархии */}
                           {item.level > 0 && (
                             <>
-                              {/* Вертикальная линия от родителя */}
                               <div
                                 className="absolute rounded-full"
                                 style={{
@@ -827,10 +852,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                                   width: '2px',
                                   height: '50%',
                                   backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.7
+                                  opacity: 0.6
                                 }}
                               />
-                              {/* Горизонтальная линия к элементу */}
                               <div
                                 className="absolute rounded-full"
                                 style={{
@@ -839,10 +863,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                                   width: '14px',
                                   height: '2px',
                                   backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.7
+                                  opacity: 0.6
                                 }}
                               />
-                              {/* Точка соединения */}
                               <div
                                 className="absolute rounded-full"
                                 style={{
@@ -852,7 +875,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                                   width: '6px',
                                   height: '6px',
                                   backgroundColor: levelColors[item.level - 1],
-                                  opacity: 0.9
+                                  opacity: 0.8
                                 }}
                               />
                             </>
@@ -861,24 +884,24 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                           {hasChildren && (
                             <button
                               onClick={() => toggleItem(item.key)}
-                              className="w-5 h-5 flex items-center justify-center rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 flex-shrink-0 relative z-10"
+                              className="w-6 h-6 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 flex-shrink-0 relative z-10 transition-all shadow-sm"
                             >
                               {isExpanded ? (
-                                <ChevronDown className="w-3 h-3 text-gray-600" />
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
                               ) : (
-                                <ChevronRight className="w-3 h-3 text-gray-600" />
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
                               )}
                             </button>
                           )}
-                          {!hasChildren && <div className="w-5" />}
+                          {!hasChildren && <div className="w-6" />}
 
                           {/* Аватарка для байера */}
                           {item.type === 'buyer' && (
-                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
+                            <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 ring-2 ring-white shadow">
                               {item.avatarUrl ? (
                                 <img src={item.avatarUrl} alt={item.name} className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
+                                <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm font-semibold">
                                   {item.name.charAt(0).toUpperCase()}
                                 </div>
                               )}
@@ -886,10 +909,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                           )}
 
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate" title={item.name}>
+                            <div className="text-sm font-semibold text-slate-800 truncate" title={item.name}>
                               {item.name}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-slate-400 font-medium">
                               {item.type === 'buyer' && 'Байер'}
                               {item.type === 'tracker' && 'Трекер'}
                               {item.type === 'campaign' && 'Кампания'}
@@ -900,70 +923,69 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
 
-                      {/* Колонка периода - тёмная карточка (sticky) */}
-                      <td className="sticky z-10 px-2 py-2 bg-white" style={{ minWidth: '140px', left: '280px' }}>
-                        <div className="bg-gray-800 border border-gray-700 rounded-lg p-2">
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-white">Лиды</span>
-                              <span className="font-semibold text-white">{itemMetrics.valid}</span>
+                      {/* Колонка периода - тёмная карточка (STICKY) */}
+                      <td
+                        className="sticky z-20 px-2 py-2 bg-slate-100"
+                        style={{ minWidth: '160px', left: '300px', boxShadow: '4px 0 12px -2px rgba(0,0,0,0.1)' }}
+                      >
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-3 shadow-lg">
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400 text-xs">Лиды</span>
+                              <span className="font-bold text-white text-lg">{itemMetrics.valid}</span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-white">CPL</span>
-                              <span className={`font-semibold ${itemMetrics.cpl > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400 text-xs">CPL</span>
+                              <span className={`font-bold text-lg ${itemMetrics.cpl > 0 ? getCPLColor(itemMetrics.cpl).replace('text-', 'text-').replace('-600', '-400').replace('-800', '-400') : 'text-slate-500'}`}>
                                 {itemMetrics.valid > 0 ? formatCurrency(itemMetrics.cpl) : '—'}
                               </span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-white">Расх</span>
-                              <span className="font-semibold text-white">{formatCurrency(itemMetrics.cost)}</span>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400 text-xs">Расход</span>
+                              <span className="font-bold text-white text-base">{formatCurrency(itemMetrics.cost)}</span>
                             </div>
-                            {/* Показать период активности и индикатор для режима lastActivity */}
+                            {/* Период активности для режима lastActivity */}
                             {selectedPeriod === 'lastActivity' && itemMetrics.startDate && (
                               <>
-                                <div className="border-t border-gray-600 pt-1 mt-1">
-                                  <div className="text-[9px] text-white text-center">
-                                    {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month}.{formatDate(itemMetrics.startDate).year} - {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month}.{formatDate(itemMetrics.endDate).year} • {itemMetrics.activeDays} д.
+                                <div className="border-t border-slate-600 pt-2 mt-1">
+                                  <div className="text-[10px] text-slate-300 text-center font-medium">
+                                    {formatDate(itemMetrics.startDate).day}.{formatDate(itemMetrics.startDate).month} — {formatDate(itemMetrics.endDate).day}.{formatDate(itemMetrics.endDate).month} • {itemMetrics.activeDays} д.
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-center gap-1 text-[9px]">
-                                  <span className={`w-2 h-2 rounded-full ${itemMetrics.isActiveToday ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                  <span className="text-white">{itemMetrics.isActiveToday ? 'Активен' : 'Неактивен'}</span>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <span className={`w-2 h-2 rounded-full ${itemMetrics.isActiveToday ? 'bg-green-400 shadow-green-400/50 shadow-sm' : 'bg-red-400'}`}></span>
+                                  <span className="text-[10px] text-slate-300 font-medium">{itemMetrics.isActiveToday ? 'Активен' : 'Неактивен'}</span>
                                 </div>
-                                {/* Стрелки навигации между периодами */}
+                                {/* Навигация между периодами */}
                                 {itemMetrics.totalPeriods > 1 && (
                                   <div className="flex items-center justify-center gap-2 mt-1">
-                                    {itemMetrics.currentPeriodIndex > 0 && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setPeriodIndexes(prev => ({
-                                            ...prev,
-                                            [item.key]: itemMetrics.currentPeriodIndex - 1
-                                          }));
-                                        }}
-                                        className="p-0.5 hover:bg-gray-700 rounded transition-colors"
-                                      >
-                                        <ChevronLeft className="w-3 h-3 text-white" />
-                                      </button>
-                                    )}
-                                    <span className="text-[8px] text-gray-300">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (itemMetrics.currentPeriodIndex > 0) {
+                                          setPeriodIndexes(prev => ({ ...prev, [item.key]: itemMetrics.currentPeriodIndex - 1 }));
+                                        }
+                                      }}
+                                      disabled={itemMetrics.currentPeriodIndex === 0}
+                                      className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-30"
+                                    >
+                                      <ChevronLeft className="w-3 h-3 text-white" />
+                                    </button>
+                                    <span className="text-[10px] text-slate-400 font-medium">
                                       {itemMetrics.currentPeriodIndex + 1} / {itemMetrics.totalPeriods}
                                     </span>
-                                    {itemMetrics.currentPeriodIndex < itemMetrics.totalPeriods - 1 && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setPeriodIndexes(prev => ({
-                                            ...prev,
-                                            [item.key]: itemMetrics.currentPeriodIndex + 1
-                                          }));
-                                        }}
-                                        className="p-0.5 hover:bg-gray-700 rounded transition-colors"
-                                      >
-                                        <ChevronRight className="w-3 h-3 text-white" />
-                                      </button>
-                                    )}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (itemMetrics.currentPeriodIndex < itemMetrics.totalPeriods - 1) {
+                                          setPeriodIndexes(prev => ({ ...prev, [item.key]: itemMetrics.currentPeriodIndex + 1 }));
+                                        }
+                                      }}
+                                      disabled={itemMetrics.currentPeriodIndex >= itemMetrics.totalPeriods - 1}
+                                      className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-30"
+                                    >
+                                      <ChevronRight className="w-3 h-3 text-white" />
+                                    </button>
                                   </div>
                                 )}
                               </>
@@ -972,12 +994,12 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
                       {datesWithGaps.map((dateItem, idx) => {
-                        // Gap колонка - показываем затемнённую ячейку
+                        // Gap колонка
                         if (dateItem.type === 'gap') {
                           return (
-                            <td key={`gap-${idx}`} className="px-2 py-2 bg-gray-200" style={{ minWidth: '80px' }}>
+                            <td key={`gap-${idx}`} className="px-2 py-2 bg-slate-100" style={{ minWidth: '80px' }}>
                               <div className="h-full flex items-center justify-center">
-                                <span className="text-gray-500 text-[10px] text-center">{dateItem.gapDays} д.</span>
+                                <span className="text-slate-400 text-xs font-medium">{dateItem.gapDays} д.</span>
                               </div>
                             </td>
                           );
@@ -987,7 +1009,6 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         const dayData = data.hierarchy[date];
                         let cellData = null;
 
-                        // Ищем данные для этого элемента в конкретную дату
                         if (dayData) {
                           if (item.type === 'buyer' && dayData[item.name]) {
                             cellData = dayData[item.name];
@@ -1005,38 +1026,40 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         const hasCost = cellData && (cellData.cost > 0 || cellData.valid > 0);
 
                         return (
-                          <td key={date} className="px-2 py-2" style={{ minWidth: '140px' }}>
+                          <td key={date} className="px-2 py-2" style={{ minWidth: '150px' }}>
                             {hasCost ? (
-                              <div className={`bg-white border rounded-lg p-2 hover:shadow-md transition-all ${getCPLCardBg(cellData.cpl)}`}>
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-500">Лиды</span>
-                                    <span className="font-semibold text-gray-900">{cellData.valid}</span>
+                              <div className={`bg-white border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-200 ${getCPLCardBg(cellData.cpl)}`}>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-400 text-xs font-medium">Лиды</span>
+                                    <span className="font-bold text-slate-800 text-lg">{cellData.valid}</span>
                                   </div>
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-500">CPL</span>
-                                    <span className="font-semibold text-gray-900">{formatCPL(cellData.cpl, cellData.valid)}</span>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-400 text-xs font-medium">CPL</span>
+                                    <span className={`font-bold text-base ${getCPLColor(cellData.cpl)}`}>
+                                      {formatCPL(cellData.cpl, cellData.valid)}
+                                    </span>
                                   </div>
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-500">Расх</span>
-                                    <span className="font-semibold text-gray-900">{formatCurrency(cellData.cost)}</span>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-400 text-xs font-medium">Расход</span>
+                                    <span className="font-semibold text-slate-700 text-sm">{formatCurrency(cellData.cost)}</span>
                                   </div>
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-400">Лиды</span>
-                                    <span className="font-medium text-gray-400">—</span>
+                              <div className="bg-slate-50/50 border border-slate-200 border-dashed rounded-xl p-3">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-300 text-xs">Лиды</span>
+                                    <span className="font-medium text-slate-300 text-lg">—</span>
                                   </div>
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-400">CPL</span>
-                                    <span className="font-medium text-gray-400">—</span>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-300 text-xs">CPL</span>
+                                    <span className="font-medium text-slate-300 text-base">—</span>
                                   </div>
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-gray-400">Расх</span>
-                                    <span className="font-medium text-gray-400">—</span>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-300 text-xs">Расход</span>
+                                    <span className="font-medium text-slate-300 text-sm">—</span>
                                   </div>
                                 </div>
                               </div>
@@ -1053,10 +1076,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0 rounded-b-2xl">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="w-full px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl hover:from-slate-800 hover:to-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all shadow-lg hover:shadow-xl"
           >
             Закрыть
           </button>
