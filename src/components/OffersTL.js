@@ -259,7 +259,7 @@ function OffersTL({ user }) {
 
       // Запускаем ВСЕ запросы параллельно
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
-        metricsAnalyticsService.getAll().catch(e => ({ metrics: [], error: e })),
+        metricsAnalyticsService.getAllMetrics().catch(e => ({ metrics: [], error: e })),
         userService.getUsersByRole('buyer').catch(e => []),
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
