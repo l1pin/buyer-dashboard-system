@@ -41,6 +41,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
   const [selectedFilters, setSelectedFilters] = useState(new Set(['all'])); // Выбранные фильтры
+  const [warningTooltip, setWarningTooltip] = useState(null); // {text, x, y} для tooltip предупреждения
 
   // Получаем уникальных Team Leads из списка байеров
   const teamLeads = useMemo(() => {
@@ -393,11 +394,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
         {/* Список привязанных байеров - горизонтальный ряд со скроллом */}
         <div
-          className="overflow-x-auto pb-2 -mx-1 px-1 pt-8"
+          className="overflow-x-auto pb-2 -mx-1 px-1"
           style={{
             scrollBehavior: 'smooth',
-            WebkitOverflowScrolling: 'touch',
-            overflowY: 'visible'
+            WebkitOverflowScrolling: 'touch'
           }}
         >
           {buyers.length === 0 ? (
@@ -506,15 +506,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                     {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
                     {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
                       <div
-                        className="warning-icon-container"
                         onClick={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setWarningTooltip({
+                            text: `Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`,
+                            x: rect.left,
+                            y: rect.top
+                          });
+                        }}
+                        onMouseLeave={() => setWarningTooltip(null)}
                         style={{
                           position: 'absolute',
                           top: '-4px',
                           left: '-4px',
                           padding: '6px',
                           cursor: 'help',
-                          zIndex: 9999
+                          zIndex: 10
                         }}
                       >
                         <div style={{
@@ -524,33 +532,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         }}>
                           <AlertTriangle className="w-3 h-3 text-yellow-600" />
                         </div>
-                        <div
-                          className="warning-tooltip"
-                          style={{
-                            position: 'absolute',
-                            bottom: '100%',
-                            left: '0',
-                            marginBottom: '4px',
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            color: '#ffffff',
-                            backgroundColor: '#1f2937',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                            pointerEvents: 'none',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                            opacity: 0,
-                            transition: 'opacity 0.2s',
-                            zIndex: 99999
-                          }}
-                        >
-                          Статистика за {metrics.activeDays} {metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)
-                        </div>
-                        <style>{`
-                          .warning-icon-container:hover .warning-tooltip {
-                            opacity: 1 !important;
-                          }
-                        `}</style>
                       </div>
                     )}
 
@@ -905,6 +886,31 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           source={selectedBuyerForCalendar.source}
           onClose={handleCloseCalendar}
         />
+      )}
+
+      {/* Tooltip для иконки предупреждения - через Portal поверх всего */}
+      {warningTooltip && (
+        <Portal>
+          <div
+            style={{
+              position: 'fixed',
+              left: warningTooltip.x,
+              top: warningTooltip.y - 8,
+              transform: 'translateY(-100%)',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#ffffff',
+              backgroundColor: '#1f2937',
+              borderRadius: '6px',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              zIndex: 999999
+            }}
+          >
+            {warningTooltip.text}
+          </div>
+        </Portal>
       )}
     </>
   );
