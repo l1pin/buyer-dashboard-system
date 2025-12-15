@@ -164,6 +164,8 @@ export const userService = {
               email: emailToCheck,
               name: userData.name.trim(),
               role: userData.role,
+              team_lead_id: userData.team_lead_id || null,
+              team_lead_name: userData.team_lead_name || null,
               created_by_id: userData.created_by_id,
               created_by_name: userData.created_by_name,
               is_protected: userData.role === 'teamlead' ? true : false,
