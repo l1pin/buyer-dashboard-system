@@ -44,7 +44,7 @@ const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }
   const metric = filteredMetrics[index];
 
   return (
-    <div style={style} className="px-4">
+    <div style={style} className="px-4 pb-2">
       <OfferRow
         metric={metric}
         index={index}
@@ -961,7 +961,7 @@ function OffersTL({ user }) {
   // Карточки байеров расположены горизонтально, поэтому высота почти фиксированная
   const getItemSize = useCallback((index) => {
     const metric = filteredMetrics[index];
-    if (!metric) return 300;
+    if (!metric) return 320;
 
     const assignments = allAssignments[metric.id] || [];
     const hasAnyBuyers = assignments.length > 0;
@@ -970,13 +970,13 @@ function OffersTL({ user }) {
     // - Строка метрик: ~45px
     // - Заголовок панели байеров: ~35px
     // - Заголовки колонок (FB/Google/TikTok): ~45px
-    // - Область карточек байеров: ~200px (или меньше если пусто)
-    // - Отступы: ~15px
+    // - Область карточек байеров: ~220px (или меньше если пусто)
+    // - Отступы между строками: ~35px
 
     if (hasAnyBuyers) {
-      return 340; // Полная высота с карточками
+      return 380; // Полная высота с карточками + отступ
     } else {
-      return 220; // Меньшая высота когда нет байеров
+      return 260; // Меньшая высота когда нет байеров + отступ
     }
   }, [filteredMetrics, allAssignments]);
 
