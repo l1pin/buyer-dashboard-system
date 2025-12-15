@@ -33,12 +33,25 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [removingBuyerId, setRemovingBuyerId] = useState(null); // ID байера, который удаляется
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
+  const [selectedTeamLead, setSelectedTeamLead] = useState(''); // Выбранный Team Lead для фильтрации
   const [availableBuyers, setAvailableBuyers] = useState([]);
+  const [archivedBuyersForOffer, setArchivedBuyersForOffer] = useState([]); // Архивированные байеры этого оффера
   const [loadingBuyers, setLoadingBuyers] = useState(false);
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
   const [selectedFilters, setSelectedFilters] = useState(new Set(['all'])); // Выбранные фильтры
+
+  // Получаем уникальных Team Leads из списка байеров
+  const teamLeads = useMemo(() => {
+    const tlMap = new Map();
+    allBuyers.forEach(buyer => {
+      if (buyer.team_lead_id && buyer.team_lead_name) {
+        tlMap.set(buyer.team_lead_id, buyer.team_lead_name);
+      }
+    });
+    return Array.from(tlMap, ([id, name]) => ({ id, name }));
+  }, [allBuyers]);
 
   // Обработчик клика по фильтру
   const handleFilterClick = useCallback((filterKey) => {
@@ -148,6 +161,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   const handleAddBuyer = useCallback(async (source) => {
     setSelectedSource(source);
+    setSelectedTeamLead(''); // Сбрасываем фильтр Team Lead
     setShowModal(true);
     setLoadingBuyers(true);
 
@@ -162,16 +176,33 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         );
       });
 
-      // Исключаем уже привязанных байеров для этого источника
-      const alreadyAdded = assignedBuyers
-        .filter(b => b.source === source)
+      // Активные привязки для этого источника (не архивированные)
+      const activeAssignments = assignedBuyers
+        .filter(b => b.source === source && !b.archived)
         .map(b => b.buyer.id);
 
-      const available = filtered.filter(buyer => !alreadyAdded.includes(buyer.id));
+      // Архивированные привязки для этого источника
+      const archivedAssignments = assignedBuyers
+        .filter(b => b.source === source && b.archived);
+
+      // Байеры "Не отливали" - не привязаны активно и не архивированы
+      const archivedBuyerIds = archivedAssignments.map(b => b.buyer.id);
+      const available = filtered.filter(buyer =>
+        !activeAssignments.includes(buyer.id) && !archivedBuyerIds.includes(buyer.id)
+      );
+
+      // Байеры "Уже отливали" - архивированные привязки
+      const archivedBuyers = archivedAssignments.map(assignment => {
+        const buyerData = allBuyers.find(b => b.id === assignment.buyer.id);
+        return buyerData || assignment.buyer;
+      });
+
       setAvailableBuyers(available);
+      setArchivedBuyersForOffer(archivedBuyers);
     } catch (error) {
       console.error('Ошибка фильтрации байеров:', error);
       setAvailableBuyers([]);
+      setArchivedBuyersForOffer([]);
     } finally {
       setLoadingBuyers(false);
     }
@@ -638,123 +669,191 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       </div>
 
       {/* Модальное окно выбора байера */}
-      {showModal && (
-        <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Заголовок */}
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Выбрать байера для {selectedSource}
-                </h3>
+      {showModal && (() => {
+        // Фильтрация по Team Lead
+        const filteredAvailableBuyers = selectedTeamLead
+          ? availableBuyers.filter(buyer => buyer.team_lead_id === selectedTeamLead)
+          : availableBuyers;
+
+        const filteredArchivedBuyers = selectedTeamLead
+          ? archivedBuyersForOffer.filter(buyer => buyer.team_lead_id === selectedTeamLead)
+          : archivedBuyersForOffer;
+
+        const renderBuyerItem = (buyer) => {
+          const channels = buyer.buyer_settings?.traffic_channels?.filter(
+            ch => ch.source === selectedSource
+          ) || [];
+          const sourceIds = channels.map(ch => ch.channel_id).filter(id => id);
+
+          return (
+            <button
+              key={buyer.id}
+              onClick={() => handleSelectBuyer(buyer)}
+              disabled={savingAssignment}
+              className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center space-x-3">
+                {/* Аватар */}
+                {buyer.avatar_url ? (
+                  <img
+                    src={buyer.avatar_url}
+                    alt={buyer.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <span className="text-gray-600 font-medium">
+                      {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Информация */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900">{buyer.name}</div>
+                  <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
+                  {buyer.team_lead_name && (
+                    <div className="text-xs text-blue-500 mt-0.5">
+                      TL: {buyer.team_lead_name}
+                    </div>
+                  )}
+                  {sourceIds.length > 0 && (
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {sourceIds.length} Source ID{sourceIds.length > 1 ? 's' : ''}:
+                      <span className="ml-1 font-mono">
+                        {sourceIds.length <= 2
+                          ? sourceIds.join(', ')
+                          : `${sourceIds[0]}, +${sourceIds.length - 1}`
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {savingAssignment && (
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                )}
+              </div>
+            </button>
+          );
+        };
+
+        return (
+          <Portal>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+              {/* Заголовок */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Выбрать байера для {selectedSource}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowModal(false);
+                      setSelectedSource(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                    disabled={savingAssignment}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Фильтр по Team Lead */}
+                {teamLeads.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Фильтр по Team Lead
+                    </label>
+                    <select
+                      value={selectedTeamLead}
+                      onChange={(e) => setSelectedTeamLead(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Все Team Leads</option>
+                      {teamLeads.map((tl) => (
+                        <option key={tl.id} value={tl.id}>
+                          {tl.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Список байеров */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {loadingBuyers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : filteredAvailableBuyers.length === 0 && filteredArchivedBuyers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">
+                      Нет доступных байеров с источником {selectedSource}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {selectedTeamLead
+                        ? 'Попробуйте выбрать другого Team Lead'
+                        : assignedBuyers.filter(b => b.source === selectedSource).length > 0
+                          ? 'Все подходящие байеры уже привязаны к этому офферу'
+                          : 'У байеров нет настроенных каналов с этим источником'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Секция "Не отливали" */}
+                    {filteredAvailableBuyers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-sm font-medium text-gray-700">
+                            Не отливали ({filteredAvailableBuyers.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {filteredAvailableBuyers.map(renderBuyerItem)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Секция "Уже отливали" */}
+                    {filteredArchivedBuyers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2 mt-4">
+                          <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                          <span className="text-sm font-medium text-gray-700">
+                            Уже отливали ({filteredArchivedBuyers.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {filteredArchivedBuyers.map(renderBuyerItem)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Футер */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <button
                   onClick={() => {
                     setShowModal(false);
                     setSelectedSource(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
                   disabled={savingAssignment}
+                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  <X className="w-5 h-5" />
+                  Отмена
                 </button>
               </div>
             </div>
-
-            {/* Список байеров */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingBuyers ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : availableBuyers.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">
-                    Нет доступных байеров с источником {selectedSource}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    {assignedBuyers.filter(b => b.source === selectedSource).length > 0
-                      ? 'Все подходящие байеры уже привязаны к этому офферу'
-                      : 'У байеров нет настроенных каналов с этим источником'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {availableBuyers.map(buyer => {
-                    // Получаем ВСЕ channel_ids для выбранного источника
-                    const channels = buyer.buyer_settings?.traffic_channels?.filter(
-                      ch => ch.source === selectedSource
-                    ) || [];
-                    const sourceIds = channels.map(ch => ch.channel_id).filter(id => id);
-
-                    return (
-                      <button
-                        key={buyer.id}
-                        onClick={() => handleSelectBuyer(buyer)}
-                        disabled={savingAssignment}
-                        className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <div className="flex items-center space-x-3">
-                          {/* Аватар */}
-                          {buyer.avatar_url ? (
-                            <img
-                              src={buyer.avatar_url}
-                              alt={buyer.name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                              <span className="text-gray-600 font-medium">
-                                {buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Информация */}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900">{buyer.name}</div>
-                            <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
-                            {sourceIds.length > 0 && (
-                              <div className="text-xs text-gray-400 mt-0.5">
-                                {sourceIds.length} Source ID{sourceIds.length > 1 ? 's' : ''}:
-                                <span className="ml-1 font-mono">
-                                  {sourceIds.length <= 2
-                                    ? sourceIds.join(', ')
-                                    : `${sourceIds[0]}, +${sourceIds.length - 1}`
-                                  }
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {savingAssignment && (
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-
-            {/* Футер */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedSource(null);
-                }}
-                disabled={savingAssignment}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                Отмена
-              </button>
-            </div>
-          </div>
-          </div>
-        </Portal>
-      )}
+          </Portal>
+        );
+      })()}
 
       {/* Модальное окно календаря метрик */}
       {showCalendar && selectedBuyerForCalendar && (
