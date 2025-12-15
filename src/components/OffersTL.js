@@ -1,6 +1,6 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { VariableSizeList as List } from 'react-window';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
 import {
@@ -105,6 +105,7 @@ function OffersTL({ user }) {
 
   // Ref для контейнера виртуализированного списка
   const listContainerRef = useRef(null);
+  const listRef = useRef(null);
   const [listHeight, setListHeight] = useState(600);
 
   // Ключи для кэша в sessionStorage
@@ -215,6 +216,13 @@ function OffersTL({ user }) {
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, [loading]);
+
+  // Сброс кэша высот при изменении привязок байеров или фильтрации
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+  }, [allAssignments, debouncedSearchTerm, sortField, sortDirection]);
 
   // Автообновление метрик после загрузки данных
   useEffect(() => {
@@ -949,6 +957,37 @@ function OffersTL({ user }) {
     });
   }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
 
+  // Функция расчета высоты строки в зависимости от количества байеров
+  const getItemSize = useCallback((index) => {
+    const metric = filteredMetrics[index];
+    if (!metric) return 120; // Базовая высота
+
+    const assignments = allAssignments[metric.id] || [];
+
+    // Группируем по источникам для определения максимальной высоты колонки
+    const bySource = { fb: 0, google: 0, tiktok: 0, other: 0 };
+    assignments.forEach(a => {
+      const sources = a.source_ids || [];
+      if (sources.some(s => s.toString().startsWith('2'))) bySource.fb++;
+      else if (sources.some(s => s.toString().startsWith('3'))) bySource.google++;
+      else if (sources.some(s => s.toString().startsWith('4'))) bySource.tiktok++;
+      else bySource.other++;
+    });
+
+    const maxInColumn = Math.max(bySource.fb, bySource.google, bySource.tiktok, bySource.other, 1);
+
+    // Базовая высота (строка метрик + заголовок панели): 80px
+    // Каждая карточка байера: ~75px
+    // Кнопка добавления: ~35px
+    // Отступы: ~10px
+    const baseHeight = 80;
+    const buyerCardHeight = 75;
+    const addButtonHeight = 35;
+    const padding = 10;
+
+    return baseHeight + (maxInColumn * buyerCardHeight) + addButtonHeight + padding;
+  }, [filteredMetrics, allAssignments]);
+
   // itemData для виртуализированного списка - мемоизируем для предотвращения лишних ре-рендеров
   const itemData = useMemo(() => ({
     filteredMetrics,
@@ -1131,12 +1170,13 @@ function OffersTL({ user }) {
             {/* Виртуализированный список офферов */}
             <div ref={listContainerRef} className="flex-1">
               <List
+                ref={listRef}
                 height={listHeight}
                 itemCount={filteredMetrics.length}
-                itemSize={88}
+                itemSize={getItemSize}
                 width="100%"
                 itemData={itemData}
-                overscanCount={5}
+                overscanCount={3}
               >
                 {VirtualizedRow}
               </List>
