@@ -5,7 +5,6 @@ import { offerStatusService, offerBuyersService, articleOfferMappingService, off
 import {
   RefreshCw,
   AlertCircle,
-  CheckCircle,
   Search,
   ChevronDown,
   ChevronUp,
@@ -26,7 +25,6 @@ function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
@@ -39,11 +37,10 @@ function OffersTL({ user }) {
   const [offerStatuses, setOfferStatuses] = useState({});
   const [allAssignments, setAllAssignments] = useState({});
   const [buyerMetricsData, setBuyerMetricsData] = useState({});
-  const [buyerMetricsProgress, setBuyerMetricsProgress] = useState(0); // Прогресс загрузки метрик байеров (0-100)
-  const [loadingBuyerMetrics, setLoadingBuyerMetrics] = useState(false); // Загрузка метрик байеров
+  const [loadingBuyerMetrics, setLoadingBuyerMetrics] = useState(false);
   const [buyerStatuses, setBuyerStatuses] = useState({});
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(true);
-  const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set()); // ID привязок, которые сейчас загружаются
+  const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set());
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [offerSeasons, setOfferSeasons] = useState({});
@@ -85,7 +82,6 @@ function OffersTL({ user }) {
         const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
         if (cacheAge < CACHE_TTL) {
-          console.log('⚡ Загружаем из кэша...');
           return {
             metrics: JSON.parse(cached.metrics),
             buyers: JSON.parse(cached.buyers || '[]'),
@@ -98,7 +94,6 @@ function OffersTL({ user }) {
       }
       return null;
     } catch (e) {
-      console.warn('⚠️ Ошибка чтения кэша:', e);
       return null;
     }
   };
@@ -113,9 +108,8 @@ function OffersTL({ user }) {
       sessionStorage.setItem(CACHE_KEYS.mappings, JSON.stringify(data.mappings));
       sessionStorage.setItem(CACHE_KEYS.lastUpdated, data.lastUpdated || '');
       sessionStorage.setItem(CACHE_KEYS.timestamp, Date.now().toString());
-      console.log('💾 Данные сохранены в кэш');
     } catch (e) {
-      console.warn('⚠️ Ошибка сохранения в кэш:', e);
+      // ignore
     }
   };
 
@@ -133,7 +127,6 @@ function OffersTL({ user }) {
       setArticleOfferMap(cachedData.mappings);
       setLastUpdated(cachedData.lastUpdated);
       setLoading(false);
-      console.log(`⚡ Загружено из кэша: ${cachedData.metrics.length} офферов`);
 
       // Обновляем в фоне
       setIsBackgroundRefresh(true);
@@ -154,7 +147,6 @@ function OffersTL({ user }) {
       !loading &&
       !hasAutoUpdatedRef.current
     ) {
-      console.log('✅ Данные загружены, запускаем автообновление...');
       hasAutoUpdatedRef.current = true;
       autoUpdateMetrics();
     }
@@ -168,8 +160,6 @@ function OffersTL({ user }) {
         setLoading(true);
       }
       setError('');
-
-      console.log(isBackground ? '🔄 Фоновое обновление...' : '🔄 Загружаем все данные...');
 
       // Запускаем ВСЕ запросы параллельно
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
@@ -238,23 +228,13 @@ function OffersTL({ user }) {
         lastUpdated: metricsResult.lastUpdated
       });
 
-      if (metricsData.length > 0 && !isBackground) {
-        setSuccess(`✅ Загружено ${metricsData.length} офферов`);
-      }
-
-      console.log('✅ Все данные загружены');
-
     } catch (error) {
-      console.error('❌ Ошибка загрузки:', error);
       if (!isBackground) {
         setError('Ошибка загрузки: ' + error.message);
       }
     } finally {
       setLoading(false);
       setIsBackgroundRefresh(false);
-      if (!isBackground) {
-        setTimeout(() => setSuccess(''), 3000);
-      }
     }
   };
 
@@ -271,12 +251,9 @@ function OffersTL({ user }) {
       if (addedAssignment) {
         (async () => {
           try {
-            console.log(`🔄 Обновляем статусы и метрики ТОЛЬКО для нового байера ${addedAssignment.buyer_name} (${addedAssignment.source})...`);
-
             // Получаем метрику этого оффера
             const offerMetric = metrics.find(m => m.id === offerId);
             if (!offerMetric) {
-              console.warn('⚠️ Метрика оффера не найдена');
               return;
             }
 
@@ -284,8 +261,6 @@ function OffersTL({ user }) {
             const article = offerMetric.article;
             const offerIdTracker = articleOfferMap[article];
             const sourceIds = addedAssignment.source_ids || [];
-
-            console.log(`📊 Article: ${article}, Offer ID Tracker: ${offerIdTracker}, Source IDs: ${sourceIds.length}`);
 
             // Добавляем ID привязки в список загружаемых (для анимации)
             setLoadingBuyerIds(prev => {
@@ -303,9 +278,6 @@ function OffersTL({ user }) {
                 // Оптимизированное получение метрик ОДНОГО байера
                 fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, article)
               ]);
-
-              console.log(`✅ Статус байера ${addedAssignment.buyer_name}: ${statusResult.status.status}`);
-              console.log(`✅ Метрики байера: Leads=${metricsResult.metrics.leads}, Cost=${metricsResult.metrics.cost.toFixed(2)}`);
 
               // Сохраняем результаты (мержим с существующими данными)
               setBuyerStatuses(prev => ({
@@ -337,7 +309,6 @@ function OffersTL({ user }) {
               });
             }
           } catch (error) {
-            console.error('❌ Ошибка обновления статусов и метрик после привязки:', error);
             // Очищаем loadingBuyerIds в случае ошибки
             setLoadingBuyerIds(prev => {
               const newSet = new Set(prev);
@@ -346,9 +317,6 @@ function OffersTL({ user }) {
             });
           }
         })();
-      } else {
-        // При удалении байера - НЕ обновляем все статусы и метрики, просто логируем
-        console.log(`🗑️ Байер удален из оффера ${offerId}, данные других байеров не обновляются`);
       }
 
       return updated;
@@ -371,12 +339,9 @@ function OffersTL({ user }) {
   // Обновление маппингов и статусов после миграции
   const handleMigrationSuccess = async () => {
     try {
-      console.log('🔄 Перезагружаем данные после миграции...');
-
       // Перезагружаем маппинги артикулов
       const mappings = await articleOfferMappingService.getAllMappings();
       setArticleOfferMap(mappings);
-      console.log(`✅ Маппинг обновлен: ${Object.keys(mappings).length} записей`);
 
       // Перезагружаем статусы офферов
       const statusesResult = await offerStatusService.getAllStatuses();
@@ -395,10 +360,9 @@ function OffersTL({ user }) {
         };
       });
       setOfferStatuses(statusesMap);
-      console.log(`✅ Статусы обновлены: ${Object.keys(statusesMap).length} записей`);
 
     } catch (error) {
-      console.error('❌ Ошибка перезагрузки данных:', error);
+      // ignore
     }
   };
 
@@ -420,31 +384,28 @@ function OffersTL({ user }) {
     tooltipManagerRef.current.open(tooltipId, title, content, position);
   }, []);
 
-  // 🚀 АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ: запускается при загрузке страницы
+  // АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ: запускается при загрузке страницы
   const autoUpdateMetrics = useCallback(async () => {
     // Проверяем что есть данные для обновления
     if (!metrics || metrics.length === 0) {
-      console.log('⚠️ Нет метрик для автообновления');
       return;
     }
 
     try {
-      console.log('🚀 Автоматическое обновление метрик при загрузке страницы...');
-
       // Получаем актуальные данные из state
       const currentMetrics = metrics;
       const currentAssignments = allAssignments;
       const currentArticleOfferMap = articleOfferMap;
 
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
-      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время (с прогрессом)...');
+      // Загрузка метрик байеров за ВСЁ ВРЕМЯ (без прогресса в UI)
       setLoadingBuyerMetrics(true);
-      setBuyerMetricsProgress(0);
 
-      // Callback для прогрессивного обновления UI
+      // Callback для обновления данных (без частых setState для прогресса)
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
-        setBuyerMetricsProgress(progress);
-        setBuyerMetricsData(partialData); // Обновляем данные порциями
+        // Обновляем данные только при завершении или каждые 25%
+        if (isComplete || progress % 25 === 0) {
+          setBuyerMetricsData(partialData);
+        }
         if (isComplete) {
           setLoadingBuyerMetrics(false);
         }
@@ -453,7 +414,6 @@ function OffersTL({ user }) {
       const buyerMetricsPromise = fetchBuyerMetricsAllTime(currentArticleOfferMap, onBuyerMetricsProgress);
 
       // ШАГ 1: Запускаем ПАРАЛЛЕЛЬНО остатки и статусы байеров
-      console.log('📦 Шаг 1: Параллельное обновление остатков и статусов байеров...');
 
       setLoadingStocks(true);
       setLoadingBuyerStatuses(true);
@@ -464,10 +424,8 @@ function OffersTL({ user }) {
           try {
             const result = await updateStocksFromYmlScript(currentMetrics);
             setStockData(result.skuData);
-            console.log(`✅ Остатки обновлены для ${result.totalArticles} артикулов`);
             return result;
           } catch (error) {
-            console.error('❌ Ошибка обновления остатков:', error);
             return { metrics: currentMetrics, totalArticles: 0, skuData: {} };
           } finally {
             setLoadingStocks(false);
@@ -481,16 +439,10 @@ function OffersTL({ user }) {
             if (flatAssignments.length > 0) {
               const statuses = await updateBuyerStatusesScript(flatAssignments, currentArticleOfferMap, currentMetrics);
               setBuyerStatuses(statuses);
-
-              const stats = { active: 0, not_configured: 0, not_in_tracker: 0 };
-              Object.values(statuses).forEach(s => stats[s.status]++);
-              console.log(`✅ Статусы байеров обновлены! Активных: ${stats.active}, Не настроено: ${stats.not_configured}, Нет в трекере: ${stats.not_in_tracker}`);
               return statuses;
             }
-            console.log('⚠️ Нет привязок байеров для обновления статусов');
             return {};
           } catch (error) {
-            console.error('❌ Ошибка обновления статусов байеров:', error);
             return {};
           } finally {
             setLoadingBuyerStatuses(false);
@@ -500,17 +452,14 @@ function OffersTL({ user }) {
 
       let updatedMetrics = stocksResult.metrics;
 
-      // ШАГ 2: Расчет дней продаж (с загрузкой данных за 12 месяцев)
-      console.log('⚡ Шаг 2: Расчет дней продаж...');
+      // ШАГ 2: Расчет дней продаж
       setLoadingDays(true);
 
       try {
         const daysResult = await calculateRemainingDaysScript(updatedMetrics, currentArticleOfferMap);
         setLoadingDays(false);
-        console.log(`✅ Дни продаж рассчитаны, получено ${daysResult.rawData?.length || 0} агрегированных записей`);
 
-        // ШАГ 3: Расчет CPL/Лидов/Рейтинга (используем данные из предыдущего шага)
-        console.log('⚡ Шаг 3: Расчет CPL/Лидов/Рейтинга...');
+        // ШАГ 3: Расчет CPL/Лидов/Рейтинга
         setLoadingLeadsData(true);
 
         const leadsResult = await updateLeadsFromSqlScript(
@@ -532,40 +481,34 @@ function OffersTL({ user }) {
           };
         });
 
-        // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+        // Ждём завершения загрузки метрик байеров
         await buyerMetricsPromise;
-        console.log(`✅ Метрики байеров за ВСЁ время загружены`);
 
         setMetrics(updatedMetrics);
         setLoadingBuyerMetrics(false);
-        console.log('🎉 Автоматическое обновление завершено!');
       } catch (error) {
-        console.error('❌ Ошибка обновления дней/CPL:', error);
         setLoadingDays(false);
         setLoadingLeadsData(false);
       }
 
     } catch (error) {
-      console.error('❌ Ошибка автоматического обновления:', error);
+      // ignore
     }
   }, [metrics, allAssignments, articleOfferMap]);
 
-  // 🚀 ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
+  // ГЛАВНАЯ ФУНКЦИЯ: Обновление всех метрик
   const updateAllMetrics = async () => {
     try {
       setError('');
-      setSuccess('Обновление метрик...');
 
-      console.log('🚀 Начинаем обновление ВСЕХ метрик...');
-
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
-      console.log('📊 Параллельно: Загрузка метрик байеров за ВСЁ время (с прогрессом)...');
+      // Загрузка метрик байеров (без частых обновлений прогресса)
       setLoadingBuyerMetrics(true);
-      setBuyerMetricsProgress(0);
 
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
-        setBuyerMetricsProgress(progress);
-        setBuyerMetricsData(partialData);
+        // Обновляем данные только при завершении или каждые 25%
+        if (isComplete || progress % 25 === 0) {
+          setBuyerMetricsData(partialData);
+        }
         if (isComplete) {
           setLoadingBuyerMetrics(false);
         }
@@ -573,32 +516,25 @@ function OffersTL({ user }) {
 
       const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap, onBuyerMetricsProgress);
 
-      // ШАГ 1: Сначала обновляем остатки (нужны для расчета дней)
-      console.log('📦 Шаг 1/3: Обновление остатков из YML...');
+      // ШАГ 1: Обновляем остатки
       setLoadingStocks(true);
       const stocksResult = await updateStocksFromYmlScript(metrics);
       let updatedMetrics = stocksResult.metrics;
       setStockData(stocksResult.skuData);
       setLoadingStocks(false);
-      console.log(`✅ Остатки обновлены для ${stocksResult.totalArticles} артикулов`);
 
-      // ШАГ 2: 🎯 ОПТИМИЗАЦИЯ - сначала загружаем данные за 12 месяцев (с source_id)
-      console.log('⚡ Шаг 2/3: Загрузка данных за 12 месяцев и расчет Дней продаж...');
+      // ШАГ 2: Загрузка данных и расчет Дней продаж
       setLoadingDays(true);
-
       const daysResult = await calculateRemainingDaysScript(updatedMetrics, articleOfferMap);
-
       setLoadingDays(false);
-      console.log(`✅ Дни продаж рассчитаны, получено ${daysResult.rawData?.length || 0} агрегированных записей`);
 
-      // ШАГ 3: 🚀 Используем те же данные для CPL/Лидов/Рейтинга (экономим 6 SQL запросов!)
-      console.log('⚡ Шаг 3/3: Расчет CPL/Лидов/Рейтинга из тех же данных...');
+      // ШАГ 3: Расчет CPL/Лидов/Рейтинга
       setLoadingLeadsData(true);
 
       const leadsResult = await updateLeadsFromSqlScript(
         updatedMetrics,
         articleOfferMap,
-        daysResult.rawData // 🎯 Передаем агрегированные данные с source_id!
+        daysResult.rawData
       );
 
       setLoadingLeadsData(false);
@@ -615,25 +551,19 @@ function OffersTL({ user }) {
         };
       });
 
-      // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+      // Ждём завершения загрузки метрик байеров
       await buyerMetricsPromise;
-      console.log(`✅ Метрики байеров за ВСЁ время загружены`);
 
       setMetrics(updatedMetrics);
       setLoadingBuyerMetrics(false);
-      setSuccess(`✅ Все метрики обновлены! Остатков: ${stocksResult.totalArticles}, CPL/Лиды: ${leadsResult.processedCount}, Дни: ${daysResult.processedCount}`);
-
-      console.log('🎉 Все метрики успешно обновлены!');
 
     } catch (error) {
-      console.error('❌ Ошибка обновления метрик:', error);
       setError('Ошибка обновления метрик: ' + error.message);
     } finally {
       setLoadingStocks(false);
       setLoadingLeadsData(false);
       setLoadingDays(false);
       setLoadingBuyerMetrics(false);
-      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -642,19 +572,15 @@ function OffersTL({ user }) {
       setLoadingStocks(true);
       setError('');
 
-      // Используем функцию из отдельного скрипта
       const result = await updateStocksFromYmlScript(metrics);
 
       setMetrics(result.metrics);
-      setStockData(result.skuData); // Сохраняем данные о модификациях
-      setSuccess(`✅ Остатки успешно обновлены для ${result.totalArticles} артикулов`);
+      setStockData(result.skuData);
 
     } catch (error) {
-      console.error('❌ Ошибка загрузки остатков:', error);
       setError('Ошибка загрузки остатков: ' + error.message);
     } finally {
       setLoadingStocks(false);
-      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -663,19 +589,14 @@ function OffersTL({ user }) {
       setLoadingDays(true);
       setError('');
 
-      // Используем функцию из отдельного скрипта
-      // Передаем маппинг артикулов -> offer_id для получения данных по offer_id_tracker
       const result = await calculateRemainingDaysScript(metrics, articleOfferMap);
 
       setMetrics(result.metrics);
-      setSuccess(`✅ Дни продаж рассчитаны для ${result.processedCount} офферов`);
 
     } catch (error) {
-      console.error('❌ Ошибка расчета дней продаж:', error);
       setError('Ошибка расчета дней продаж: ' + error.message);
     } finally {
       setLoadingDays(false);
-      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -685,13 +606,13 @@ function OffersTL({ user }) {
       setLoadingLeadsData(true);
       setError('');
 
-      // 🎯 Запускаем загрузку метрик байеров за ВСЁ ВРЕМЯ с прогрессивным обновлением
+      // Загрузка метрик байеров (без частых обновлений прогресса)
       setLoadingBuyerMetrics(true);
-      setBuyerMetricsProgress(0);
 
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
-        setBuyerMetricsProgress(progress);
-        setBuyerMetricsData(partialData);
+        if (isComplete || progress % 25 === 0) {
+          setBuyerMetricsData(partialData);
+        }
         if (isComplete) {
           setLoadingBuyerMetrics(false);
         }
@@ -699,25 +620,21 @@ function OffersTL({ user }) {
 
       const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap, onBuyerMetricsProgress);
 
-      // Универсальный скрипт обновляет ВСЕ ТРИ колонки одним запросом
+      // Обновляем ВСЕ ТРИ колонки одним запросом
       const result = await updateLeadsFromSqlScript(metrics, articleOfferMap);
 
       setMetrics(result.metrics);
 
-      // 🎯 Ждём завершения загрузки метрик байеров (данные обновляются прогрессивно через callback)
+      // Ждём завершения загрузки метрик байеров
       await buyerMetricsPromise;
-      console.log(`📊 Метрики байеров за ВСЁ время загружены`);
 
       setLoadingBuyerMetrics(false);
-      setSuccess(`✅ Обновлены CPL, Лиды и Рейтинг для ${result.processedCount} офферов`);
 
     } catch (error) {
-      console.error('❌ Ошибка загрузки данных из БД:', error);
       setError('Ошибка загрузки данных: ' + error.message);
     } finally {
       setLoadingLeadsData(false);
       setLoadingBuyerMetrics(false);
-      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -726,34 +643,22 @@ function OffersTL({ user }) {
     try {
       setLoadingBuyerStatuses(true);
       setError('');
-      setSuccess('Обновление статусов байеров...');
 
       // Собираем все привязки в плоский массив
       const flatAssignments = Object.values(allAssignments).flat();
 
       if (flatAssignments.length === 0) {
-        setSuccess('⚠️ Нет привязок байеров для обновления');
         return;
       }
-
-      console.log(`🔄 Обновляем статусы для ${flatAssignments.length} привязок...`);
 
       // Передаем metrics для получения артикула по offer_id
       const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
       setBuyerStatuses(statuses);
 
-      // Подсчет статистики
-      const stats = { active: 0, not_configured: 0, not_in_tracker: 0 };
-      Object.values(statuses).forEach(s => stats[s.status]++);
-
-      setSuccess(`✅ Статусы обновлены! Активных: ${stats.active}, Не настроено: ${stats.not_configured}, Нет в трекере: ${stats.not_in_tracker}`);
-
     } catch (error) {
-      console.error('❌ Ошибка обновления статусов байеров:', error);
       setError('Ошибка обновления статусов: ' + error.message);
     } finally {
       setLoadingBuyerStatuses(false);
-      setTimeout(() => setSuccess(''), 5000);
     }
   };
 
@@ -1068,44 +973,11 @@ function OffersTL({ user }) {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages - только ошибки */}
       {error && (
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center shadow-sm">
           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm flex items-center shadow-sm">
-          <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-          {success}
-        </div>
-      )}
-
-      {/* Прогресс загрузки метрик байеров */}
-      {loadingBuyerMetrics && (
-        <div className="mx-6 mt-4 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-lg text-sm shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <span className="flex items-center">
-              <RefreshCw className="h-4 w-4 mr-2 flex-shrink-0 animate-spin" />
-              Загрузка метрик байеров за всё время...
-            </span>
-            <span className="font-semibold">{buyerMetricsProgress}%</span>
-          </div>
-          <div className="w-full bg-purple-200 rounded-full h-1.5">
-            <div
-              className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${buyerMetricsProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      {isBackgroundRefresh && (
-        <div className="mx-6 mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm flex items-center shadow-sm">
-          <RefreshCw className="h-4 w-4 mr-2 flex-shrink-0 animate-spin" />
-          Обновление данных в фоне...
         </div>
       )}
 
