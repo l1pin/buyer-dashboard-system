@@ -18,6 +18,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [periodIndexes, setPeriodIndexes] = useState({}); // Индексы выбранных периодов для каждого элемента
   const dropdownRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
   // Варианты периодов
   const periodOptions = [
@@ -63,10 +64,23 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   };
 
   const toggleItem = (key) => {
+    // Сохраняем позицию скролла перед изменением
+    const scrollContainer = scrollContainerRef.current;
+    const scrollTop = scrollContainer?.scrollTop || 0;
+    const scrollLeft = scrollContainer?.scrollLeft || 0;
+
     setExpandedItems(prev => ({
       ...prev,
       [key]: !prev[key]
     }));
+
+    // Восстанавливаем позицию скролла после рендера
+    requestAnimationFrame(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollTop;
+        scrollContainer.scrollLeft = scrollLeft;
+      }
+    });
   };
 
   const formatDate = (dateStr) => {
@@ -727,7 +741,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
         {/* Table Container */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-auto">
+          <div ref={scrollContainerRef} className="h-full overflow-auto">
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
@@ -807,25 +821,23 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
                     return (
                       <tr key={item.key}>
-                        {/* Sticky ячейка для иерархии */}
-                        <td className="sticky left-0 z-20 bg-slate-100 border-y border-slate-200" style={{ minWidth: '300px' }}>
-                          <div className="flex items-center justify-center py-3">
-                            <div className="flex items-center gap-2 bg-white px-5 py-2 rounded-full shadow border border-slate-200">
-                              <div className="w-6 h-6 rounded-full bg-slate-400 flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                </svg>
-                              </div>
-                              <span className="text-sm font-semibold text-slate-600">Неактивные аккаунты{count ? ` (${count})` : ''}</span>
+                        <td
+                          colSpan={2 + datesWithGaps.length}
+                          className="bg-slate-100 border-y border-slate-200 p-0 relative h-14"
+                        >
+                          {/* Плашка по центру видимой области */}
+                          <div
+                            className="sticky left-1/2 -translate-x-1/2 inline-flex items-center gap-2 bg-white px-5 py-2 rounded-full shadow border border-slate-200"
+                            style={{ marginLeft: 'calc(50vw - 47.5vw)' }}
+                          >
+                            <div className="w-6 h-6 rounded-full bg-slate-400 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
                             </div>
+                            <span className="text-sm font-semibold text-slate-600">Неактивные аккаунты{count ? ` (${count})` : ''}</span>
                           </div>
                         </td>
-                        {/* Sticky ячейка для итого */}
-                        <td className="sticky z-20 bg-slate-100 border-y border-slate-200" style={{ left: '300px', minWidth: '160px' }}></td>
-                        {/* Остальные ячейки */}
-                        {datesWithGaps.map((dateItem, idx) => (
-                          <td key={idx} className="bg-slate-100 border-y border-slate-200"></td>
-                        ))}
                       </tr>
                     );
                   }
@@ -944,21 +956,21 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         className="sticky z-20 px-2 py-2 bg-slate-100"
                         style={{ minWidth: '160px', left: '300px', boxShadow: '4px 0 12px -2px rgba(0,0,0,0.1)' }}
                       >
-                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-3 shadow-lg">
-                          <div className="space-y-2">
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-2.5 shadow-lg">
+                          <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                              <span className="text-slate-400 text-xs">Лиды</span>
-                              <span className="font-bold text-white text-lg">{itemMetrics.valid}</span>
+                              <span className="text-slate-400 text-[10px]">Лиды</span>
+                              <span className="font-bold text-white text-base">{itemMetrics.valid}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-slate-400 text-xs">CPL</span>
-                              <span className="font-bold text-lg text-white">
+                              <span className="text-slate-400 text-[10px]">CPL</span>
+                              <span className="font-bold text-base text-white">
                                 {itemMetrics.valid > 0 ? formatCurrency(itemMetrics.cpl) : '—'}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-slate-400 text-xs">Расход</span>
-                              <span className="font-bold text-white text-base">{formatCurrency(itemMetrics.cost)}</span>
+                              <span className="text-slate-400 text-[10px]">Расход</span>
+                              <span className="font-bold text-white text-sm">{formatCurrency(itemMetrics.cost)}</span>
                             </div>
                             {/* Период активности для режима lastActivity */}
                             {selectedPeriod === 'lastActivity' && itemMetrics.startDate && (
@@ -1043,40 +1055,40 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         const hasCost = cellData && (cellData.cost > 0 || cellData.valid > 0);
 
                         return (
-                          <td key={date} className="px-2 py-2" style={{ minWidth: '150px' }}>
+                          <td key={date} className="px-1.5 py-1.5" style={{ minWidth: '130px' }}>
                             {hasCost ? (
-                              <div className={`bg-white border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-200 ${getCPLCardBg(cellData.cpl)}`}>
-                                <div className="space-y-2">
+                              <div className={`bg-white border-2 rounded-lg p-2 hover:shadow-lg transition-all duration-200 ${getCPLCardBg(cellData.cpl)}`}>
+                                <div className="space-y-1">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-400 text-xs font-medium">Лиды</span>
-                                    <span className="font-bold text-slate-800 text-lg">{cellData.valid}</span>
+                                    <span className="text-slate-400 text-[10px] font-medium">Лиды</span>
+                                    <span className="font-bold text-slate-800 text-sm">{cellData.valid}</span>
                                   </div>
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-400 text-xs font-medium">CPL</span>
-                                    <span className={`font-bold text-base ${getCPLColor(cellData.cpl)}`}>
+                                    <span className="text-slate-400 text-[10px] font-medium">CPL</span>
+                                    <span className={`font-bold text-sm ${getCPLColor(cellData.cpl)}`}>
                                       {formatCPL(cellData.cpl, cellData.valid)}
                                     </span>
                                   </div>
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-400 text-xs font-medium">Расход</span>
-                                    <span className="font-semibold text-slate-700 text-sm">{formatCurrency(cellData.cost)}</span>
+                                    <span className="text-slate-400 text-[10px] font-medium">Расход</span>
+                                    <span className="font-semibold text-slate-700 text-xs">{formatCurrency(cellData.cost)}</span>
                                   </div>
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-slate-50/50 border border-slate-200 border-dashed rounded-xl p-3">
-                                <div className="space-y-2">
+                              <div className="bg-slate-50/50 border border-slate-200 border-dashed rounded-lg p-2">
+                                <div className="space-y-1">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-300 text-xs">Лиды</span>
-                                    <span className="font-medium text-slate-300 text-lg">—</span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-slate-300 text-xs">CPL</span>
-                                    <span className="font-medium text-slate-300 text-base">—</span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-slate-300 text-xs">Расход</span>
+                                    <span className="text-slate-300 text-[10px]">Лиды</span>
                                     <span className="font-medium text-slate-300 text-sm">—</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-300 text-[10px]">CPL</span>
+                                    <span className="font-medium text-slate-300 text-sm">—</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-300 text-[10px]">Расход</span>
+                                    <span className="font-medium text-slate-300 text-xs">—</span>
                                   </div>
                                 </div>
                               </div>
