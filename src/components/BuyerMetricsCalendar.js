@@ -752,10 +752,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   >
                     Иерархия
                   </th>
-                  {/* Sticky: Итого за период */}
+                  {/* Итого за период - НЕ sticky */}
                   <th
-                    className="sticky z-30 bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
-                    style={{ minWidth: '160px', left: '300px', boxShadow: '4px 0 12px -2px rgba(0,0,0,0.15)' }}
+                    className="bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
+                    style={{ minWidth: '160px' }}
                   >
                     <div className="relative" ref={dropdownRef}>
                       <button
@@ -951,10 +951,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
 
-                      {/* Колонка периода - тёмная карточка (STICKY) */}
+                      {/* Колонка периода - тёмная карточка */}
                       <td
-                        className="sticky z-20 px-2 py-2 bg-slate-100"
-                        style={{ minWidth: '160px', left: '300px', boxShadow: '4px 0 12px -2px rgba(0,0,0,0.1)' }}
+                        className="px-2 py-2 bg-white"
+                        style={{ minWidth: '160px' }}
                       >
                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-2.5 shadow-lg">
                           <div className="space-y-1.5">
