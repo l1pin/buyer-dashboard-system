@@ -393,10 +393,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
         {/* Список привязанных байеров - горизонтальный ряд со скроллом */}
         <div
-          className="overflow-x-auto pb-2 -mx-1 px-1"
+          className="overflow-x-auto pb-2 -mx-1 px-1 pt-8"
           style={{
             scrollBehavior: 'smooth',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            overflowY: 'visible'
           }}
         >
           {buyers.length === 0 ? (
