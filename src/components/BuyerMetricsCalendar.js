@@ -83,9 +83,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       }));
     });
 
-    // DOM уже обновлён - восстанавливаем скролл немедленно
+    // Восстанавливаем скролл сразу после flushSync
     scrollContainer.scrollTop = scrollTop;
     scrollContainer.scrollLeft = scrollLeft;
+
+    // Дополнительно восстанавливаем после paint браузера (на случай если браузер сбросит)
+    requestAnimationFrame(() => {
+      scrollContainer.scrollTop = scrollTop;
+      scrollContainer.scrollLeft = scrollLeft;
+      // И ещё раз после следующего frame
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = scrollTop;
+        scrollContainer.scrollLeft = scrollLeft;
+      });
+    });
   };
 
   const formatDate = (dateStr) => {
@@ -746,7 +757,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
         {/* Table Container */}
         <div className="flex-1 overflow-hidden">
-          <div ref={scrollContainerRef} className="h-full overflow-auto">
+          <div ref={scrollContainerRef} className="h-full overflow-auto" style={{ overflowAnchor: 'none' }}>
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr>
