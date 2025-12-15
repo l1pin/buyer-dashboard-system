@@ -1,5 +1,6 @@
 // src/components/OfferBuyersPanel.js
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { FixedSizeList } from 'react-window';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
@@ -9,6 +10,11 @@ import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
 import DraggableTooltip from './DraggableTooltip';
 import { MiniSpinner, LoadingDots } from './LoadingSpinner';
+
+// Порог для виртуализации - виртуализируем только если байеров больше этого числа
+const VIRTUALIZATION_THRESHOLD = 5;
+// Ширина одной карточки байера (w-32 = 128px + gap 10px)
+const BUYER_CARD_WIDTH = 138;
 
 // Константа: время в миллисекундах для "раннего удаления" (3 минуты)
 const EARLY_REMOVAL_PERIOD = 3 * 60 * 1000;
@@ -301,6 +307,50 @@ const BuyerCard = React.memo(function BuyerCard({
   );
 });
 
+// Компонент для рендеринга одной виртуализированной карточки байера
+const VirtualizedBuyerCard = React.memo(function VirtualizedBuyerCard({ index, style, data }) {
+  const {
+    buyers,
+    offerId,
+    offerArticle,
+    buyerMetricsData,
+    buyerStatuses,
+    loadingBuyerMetrics,
+    loadingBuyerStatuses,
+    loadingBuyerIds,
+    removingBuyerId,
+    onRemoveBuyer,
+    onOpenCalendar,
+    onShowWarning,
+    onHideWarning,
+    onShowHistory
+  } = data;
+
+  const assignment = buyers[index];
+  if (!assignment) return null;
+
+  return (
+    <div style={{ ...style, paddingRight: '10px' }}>
+      <BuyerCard
+        assignment={assignment}
+        offerId={offerId}
+        offerArticle={offerArticle}
+        buyerMetricsData={buyerMetricsData}
+        buyerStatuses={buyerStatuses}
+        loadingBuyerMetrics={loadingBuyerMetrics}
+        loadingBuyerStatuses={loadingBuyerStatuses}
+        isLoading={loadingBuyerIds?.has(assignment.id)}
+        isRemoving={removingBuyerId === assignment.id}
+        onRemove={onRemoveBuyer}
+        onOpenCalendar={onOpenCalendar}
+        onShowWarning={onShowWarning}
+        onHideWarning={onHideWarning}
+        onShowHistory={onShowHistory}
+      />
+    </div>
+  );
+});
+
 // Оптимизированный компонент колонки источника - вынесен наружу
 const SourceColumn = React.memo(function SourceColumn({
   source,
@@ -322,7 +372,51 @@ const SourceColumn = React.memo(function SourceColumn({
   onHideWarning,
   onShowHistory
 }) {
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const handleAddClick = useCallback(() => onAddBuyer(source), [onAddBuyer, source]);
+
+  // Вычисляем ширину контейнера для виртуализации
+  useEffect(() => {
+    if (containerRef.current) {
+      const updateWidth = () => {
+        setContainerWidth(containerRef.current.offsetWidth);
+      };
+      updateWidth();
+
+      // ResizeObserver для отслеживания изменений размера
+      const resizeObserver = new ResizeObserver(updateWidth);
+      resizeObserver.observe(containerRef.current);
+
+      return () => resizeObserver.disconnect();
+    }
+  }, []);
+
+  // Мемоизируем данные для виртуализированного списка
+  const listItemData = useMemo(() => ({
+    buyers,
+    offerId,
+    offerArticle,
+    buyerMetricsData,
+    buyerStatuses,
+    loadingBuyerMetrics,
+    loadingBuyerStatuses,
+    loadingBuyerIds,
+    removingBuyerId,
+    onRemoveBuyer,
+    onOpenCalendar,
+    onShowWarning,
+    onHideWarning,
+    onShowHistory
+  }), [
+    buyers, offerId, offerArticle, buyerMetricsData, buyerStatuses,
+    loadingBuyerMetrics, loadingBuyerStatuses, loadingBuyerIds,
+    removingBuyerId, onRemoveBuyer, onOpenCalendar, onShowWarning,
+    onHideWarning, onShowHistory
+  ]);
+
+  // Определяем нужна ли виртуализация
+  const shouldVirtualize = buyers.length > VIRTUALIZATION_THRESHOLD;
 
   return (
     <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
@@ -342,12 +436,29 @@ const SourceColumn = React.memo(function SourceColumn({
       </div>
 
       <div
+        ref={containerRef}
         className="overflow-x-auto pb-2 -mx-1 px-1"
         style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
       >
         {buyers.length === 0 ? (
           <div className="text-xs text-gray-400 text-center py-6">Нет байеров</div>
+        ) : shouldVirtualize && containerWidth > 0 ? (
+          // Горизонтальная виртуализация для большого количества байеров
+          <FixedSizeList
+            layout="horizontal"
+            height={220}
+            width={containerWidth}
+            itemCount={buyers.length}
+            itemSize={BUYER_CARD_WIDTH}
+            itemData={listItemData}
+            overscanCount={3}
+            className="select-none"
+            style={{ overflow: 'auto hidden' }}
+          >
+            {VirtualizedBuyerCard}
+          </FixedSizeList>
         ) : (
+          // Обычный рендеринг для небольшого количества байеров
           <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
             {buyers.map((assignment) => (
               <BuyerCard
