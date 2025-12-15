@@ -1,5 +1,5 @@
 // src/components/OffersTL.js
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useTransition, useDeferredValue, Suspense, lazy } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
@@ -20,7 +20,9 @@ import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBu
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
-import MigrationModal from './MigrationModal';
+
+// Lazy loading для модального окна миграции - загружается только при открытии
+const MigrationModal = lazy(() => import('./MigrationModal'));
 
 // Компонент строки для виртуализированного списка
 const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }) {
@@ -96,6 +98,9 @@ function OffersTL({ user }) {
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [offerSeasons, setOfferSeasons] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
+
+  // React 18: useTransition для неблокирующего поиска
+  const [isPending, startTransition] = useTransition();
 
   // Ref для отслеживания автообновления
   const hasAutoUpdatedRef = useRef(false);
@@ -193,10 +198,14 @@ function OffersTL({ user }) {
     }
   }, []);
 
-  // Дебаунс для поиска - 300мс задержка
+  // Дебаунс для поиска - 300мс задержка + useTransition для неблокирующего UI
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      // startTransition помечает обновление как неприоритетное
+      // UI остается отзывчивым во время фильтрации
+      startTransition(() => {
+        setDebouncedSearchTerm(searchTerm);
+      });
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -957,10 +966,15 @@ function OffersTL({ user }) {
     });
   }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
 
+  // useDeferredValue - отложенная версия для неблокирующего рендеринга списка
+  // UI остается отзывчивым даже при большом количестве офферов
+  const deferredFilteredMetrics = useDeferredValue(filteredMetrics);
+  const isStale = deferredFilteredMetrics !== filteredMetrics;
+
   // Функция расчета высоты строки
   // Карточки байеров расположены горизонтально, поэтому высота почти фиксированная
   const getItemSize = useCallback((index) => {
-    const metric = filteredMetrics[index];
+    const metric = deferredFilteredMetrics[index];
     if (!metric) return 320;
 
     const assignments = allAssignments[metric.id] || [];
@@ -978,11 +992,12 @@ function OffersTL({ user }) {
     } else {
       return 260; // Меньшая высота когда нет байеров + отступ
     }
-  }, [filteredMetrics, allAssignments]);
+  }, [deferredFilteredMetrics, allAssignments]);
 
   // itemData для виртуализированного списка - мемоизируем для предотвращения лишних ре-рендеров
+  // Используем deferredFilteredMetrics для неблокирующего рендеринга
   const itemData = useMemo(() => ({
-    filteredMetrics,
+    filteredMetrics: deferredFilteredMetrics,
     offerStatuses,
     loadingState,
     openTooltip,
@@ -996,7 +1011,7 @@ function OffersTL({ user }) {
     articleOfferMap,
     loadingBuyerIds,
     offerSeasons
-  }), [filteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
+  }), [deferredFilteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -1160,11 +1175,22 @@ function OffersTL({ user }) {
             </div>
 
             {/* Виртуализированный список офферов */}
-            <div ref={listContainerRef} className="flex-1">
+            <div
+              ref={listContainerRef}
+              className="flex-1 relative"
+              style={{ opacity: (isPending || isStale) ? 0.7 : 1, transition: 'opacity 0.2s' }}
+            >
+              {/* Индикатор загрузки при фильтрации */}
+              {(isPending || isStale) && (
+                <div className="absolute top-2 right-4 z-10 flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm">
+                  <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  Фильтрация...
+                </div>
+              )}
               <List
                 ref={listRef}
                 height={listHeight}
-                itemCount={filteredMetrics.length}
+                itemCount={deferredFilteredMetrics.length}
                 itemSize={getItemSize}
                 width="100%"
                 itemData={itemData}
@@ -1180,15 +1206,26 @@ function OffersTL({ user }) {
       {/* Изолированный менеджер tooltip'ов - не вызывает ре-рендер OffersTL */}
       <TooltipManager ref={tooltipManagerRef} />
 
-      {/* Модальное окно миграции */}
-      <MigrationModal
-        isOpen={showMigrationModal}
-        onClose={() => setShowMigrationModal(false)}
-        onMigrationSuccess={handleMigrationSuccess}
-        user={user}
-        metrics={metrics}
-        allBuyers={allBuyers}
-      />
+      {/* Модальное окно миграции - lazy loaded */}
+      {showMigrationModal && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 flex items-center gap-3">
+              <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              <span>Загрузка...</span>
+            </div>
+          </div>
+        }>
+          <MigrationModal
+            isOpen={showMigrationModal}
+            onClose={() => setShowMigrationModal(false)}
+            onMigrationSuccess={handleMigrationSuccess}
+            user={user}
+            metrics={metrics}
+            allBuyers={allBuyers}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
