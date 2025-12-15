@@ -19,6 +19,16 @@
 // Прямой доступ к API (CORS включен на сервере)
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
+// Кэш для мемоизации результатов (оптимизация производительности)
+const metricsCache = new Map();
+const consecutiveDaysCache = new Map();
+
+// Очистка кэша (вызывать при обновлении данных)
+export function clearMetricsCache() {
+  metricsCache.clear();
+  consecutiveDaysCache.clear();
+}
+
 // Периоды для агрегации данных
 const PERIODS = [
   { days: 4, label: '4 дня' },
@@ -314,9 +324,17 @@ export function aggregateMetricsBySourceIds(article, sourceIds, dataBySourceIdAn
  * @returns {Object} - { leads, cost, cpl, activeDays: количество реально использованных активных дней }
  */
 export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdAndDate, activeDaysCount = 14) {
+  // Оптимизация: проверка кэша
+  const cacheKey = `${article}|${sourceIds.join(',')}|${activeDaysCount}`;
+  if (metricsCache.has(cacheKey)) {
+    return metricsCache.get(cacheKey);
+  }
+
   const articleData = dataBySourceIdAndDate[article];
   if (!articleData) {
-    return { leads: 0, cost: 0, cpl: 0, activeDays: 0 };
+    const emptyResult = { leads: 0, cost: 0, cpl: 0, activeDays: 0 };
+    metricsCache.set(cacheKey, emptyResult);
+    return emptyResult;
   }
 
   // Собираем все даты с данными для всех source_ids байера
@@ -364,12 +382,16 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
 
   const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
 
-  return {
+  const result = {
     leads: totalLeads,
     cost: totalCost,
     cpl: cpl,
     activeDays: selectedDays.length
   };
+
+  // Сохраняем в кэш
+  metricsCache.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -381,8 +403,15 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
  * @returns {number} - Количество дней подряд с cost > 0
  */
 export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceIdAndDate) {
+  // Оптимизация: проверка кэша
+  const cacheKey = `${article}|${sourceIds.join(',')}`;
+  if (consecutiveDaysCache.has(cacheKey)) {
+    return consecutiveDaysCache.get(cacheKey);
+  }
+
   const articleData = dataBySourceIdAndDate[article];
   if (!articleData) {
+    consecutiveDaysCache.set(cacheKey, 0);
     return 0;
   }
 
@@ -401,6 +430,7 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
   });
 
   if (datesWithCost.size === 0) {
+    consecutiveDaysCache.set(cacheKey, 0);
     return 0;
   }
 
@@ -423,6 +453,8 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
     }
   }
 
+  // Сохраняем в кэш
+  consecutiveDaysCache.set(cacheKey, consecutiveDays);
   return consecutiveDays;
 }
 

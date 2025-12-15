@@ -13,6 +13,46 @@ import { MiniSpinner, LoadingDots } from './LoadingSpinner';
 // Константа: время в миллисекундах для "раннего удаления" (3 минуты)
 const EARLY_REMOVAL_PERIOD = 3 * 60 * 1000;
 
+// Оптимизированный компонент таймера - не вызывает ре-рендер родителя
+const CountdownTimer = React.memo(function CountdownTimer({ createdAt }) {
+  const [remaining, setRemaining] = useState(() => {
+    if (!createdAt) return null;
+    const elapsed = Date.now() - new Date(createdAt).getTime();
+    const rem = EARLY_REMOVAL_PERIOD - elapsed;
+    return rem > 0 ? rem : null;
+  });
+
+  useEffect(() => {
+    if (remaining === null || remaining <= 0) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - new Date(createdAt).getTime();
+      const rem = EARLY_REMOVAL_PERIOD - elapsed;
+      if (rem <= 0) {
+        setRemaining(null);
+      } else {
+        setRemaining(rem);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [createdAt, remaining]);
+
+  if (remaining === null || remaining <= 0) return null;
+
+  const minutes = Math.floor(remaining / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+
+  return (
+    <div className="flex items-center justify-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
+      <Clock className="w-3 h-3 text-orange-600" />
+      <span className="text-[10px] font-medium text-orange-600">
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </span>
+    </div>
+  );
+});
+
 // Константы для фильтров байеров
 const BUYER_FILTERS = [
   { key: 'all', label: 'Все' },
@@ -51,7 +91,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [showRemovalReasonModal, setShowRemovalReasonModal] = useState(null); // {assignmentId, assignment} для модалки причины
   const [removalReason, setRemovalReason] = useState(''); // Выбранная причина удаления
   const [removalReasonDetails, setRemovalReasonDetails] = useState(''); // Детали причины "Другое"
-  const [timerTick, setTimerTick] = useState(0); // Для обновления таймеров каждую секунду
 
   // Получаем уникальных Team Leads из списка байеров
   const teamLeads = useMemo(() => {
@@ -64,25 +103,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return Array.from(tlMap, ([id, name]) => ({ id, name }));
   }, [allBuyers]);
 
-  // Эффект для обновления таймеров каждую секунду
-  useEffect(() => {
-    // Проверяем есть ли активные таймеры (привязки в пределах 3 минут)
-    const hasActiveTimers = initialAssignments.some(a => {
-      if (a.hidden || a.archived) return false;
-      const createdAt = new Date(a.created_at).getTime();
-      const now = Date.now();
-      return (now - createdAt) < EARLY_REMOVAL_PERIOD;
-    });
-
-    if (!hasActiveTimers) return;
-
-    const interval = setInterval(() => {
-      setTimerTick(t => t + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [initialAssignments]);
-
   // Хелпер: проверка находится ли привязка в периоде раннего удаления
   const isWithinEarlyRemovalPeriod = useCallback((assignment) => {
     if (!assignment.created_at) return false;
@@ -90,20 +110,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     const now = Date.now();
     return (now - createdAt) < EARLY_REMOVAL_PERIOD;
   }, []);
-
-  // Хелпер: получить оставшееся время для таймера
-  const getRemainingTime = useCallback((assignment) => {
-    if (!assignment.created_at) return null;
-    const createdAt = new Date(assignment.created_at).getTime();
-    const elapsed = Date.now() - createdAt;
-    const remaining = EARLY_REMOVAL_PERIOD - elapsed;
-
-    if (remaining <= 0) return null;
-
-    const minutes = Math.floor(remaining / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
-    return { minutes, seconds, total: remaining };
-  }, [timerTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Хелпер: форматирование даты для истории
   const formatHistoryDate = useCallback((isoString) => {
@@ -552,10 +558,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                 const hasData = metrics.leads > 0 || metrics.cost > 0;
                 const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
 
-                // Получаем оставшееся время таймера (если в первые 3 минуты)
-                const remainingTime = getRemainingTime(assignment);
-                const hasTimer = remainingTime !== null;
-
                 // Проверяем, загружается ли этот конкретный байер
                 const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
                 const isRemoving = removingBuyerId === assignment.id;
@@ -741,16 +743,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         )}
                       </div>
 
-                      {/* Таймер обратного отсчёта (первые 3 минуты) - всегда резервируем место */}
+                      {/* Таймер обратного отсчёта (первые 3 минуты) - изолированный компонент для оптимизации */}
                       <div className="h-5 flex items-center justify-center">
-                        {hasTimer ? (
-                          <div className="flex items-center justify-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
-                            <Clock className="w-3 h-3 text-orange-600" />
-                            <span className="text-[10px] font-medium text-orange-600">
-                              {remainingTime.minutes}:{remainingTime.seconds.toString().padStart(2, '0')}
-                            </span>
-                          </div>
-                        ) : null}
+                        <CountdownTimer createdAt={assignment.created_at} />
                       </div>
 
                       {/* Метрики CPL/Lead/Cost за последние 14 активных дней */}
