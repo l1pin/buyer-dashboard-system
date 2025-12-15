@@ -807,11 +807,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
                     return (
                       <tr key={item.key}>
-                        <td
-                          colSpan={2 + datesWithGaps.length}
-                          className="bg-slate-100 border-y border-slate-200 px-0 py-0 relative"
-                        >
-                          <div className="sticky left-0 right-0 w-full flex items-center justify-center py-3" style={{ width: 'calc(300px + 160px)', minWidth: '460px' }}>
+                        {/* Sticky ячейка для иерархии */}
+                        <td className="sticky left-0 z-20 bg-slate-100 border-y border-slate-200" style={{ minWidth: '300px' }}>
+                          <div className="flex items-center justify-center py-3">
                             <div className="flex items-center gap-2 bg-white px-5 py-2 rounded-full shadow border border-slate-200">
                               <div className="w-6 h-6 rounded-full bg-slate-400 flex items-center justify-center">
                                 <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -822,6 +820,12 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                             </div>
                           </div>
                         </td>
+                        {/* Sticky ячейка для итого */}
+                        <td className="sticky z-20 bg-slate-100 border-y border-slate-200" style={{ left: '300px', minWidth: '160px' }}></td>
+                        {/* Остальные ячейки */}
+                        {datesWithGaps.map((dateItem, idx) => (
+                          <td key={idx} className="bg-slate-100 border-y border-slate-200"></td>
+                        ))}
                       </tr>
                     );
                   }
@@ -909,7 +913,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
                           {/* Аватарка для байера */}
                           {item.type === 'buyer' && (
-                            <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 ring-2 ring-white shadow">
+                            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 ring-2 ring-white shadow">
                               {item.avatarUrl ? (
                                 <img src={item.avatarUrl} alt={item.name} className="w-full h-full object-cover" />
                               ) : (
@@ -948,7 +952,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-slate-400 text-xs">CPL</span>
-                              <span className={`font-bold text-lg ${itemMetrics.cpl > 0 ? getCPLColor(itemMetrics.cpl).replace('text-', 'text-').replace('-600', '-400').replace('-800', '-400') : 'text-slate-500'}`}>
+                              <span className="font-bold text-lg text-white">
                                 {itemMetrics.valid > 0 ? formatCurrency(itemMetrics.cpl) : '—'}
                               </span>
                             </div>
