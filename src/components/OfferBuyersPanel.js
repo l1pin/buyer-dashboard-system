@@ -511,7 +511,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         <div className="bg-yellow-100 rounded-full p-0.5">
                           <AlertTriangle className="w-3 h-3 text-yellow-600" />
                         </div>
-                        <div className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg">
+                        <div
+                          className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg"
+                          style={{ zIndex: 9999 }}
+                        >
                           Статистика за {metrics.activeDays} {metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)
                         </div>
                       </div>
