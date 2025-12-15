@@ -446,14 +446,48 @@ export const offerBuyersService = {
       console.log(`   Source IDs: ${JSON.stringify(sourceIds)}`);
       console.log(`   Assigned by: ${assignedBy}`);
 
+      // Проверяем, есть ли скрытая запись для этого байера+оффера+источника
+      const { data: existingHidden, error: checkError } = await supabase
+        .from('offer_buyers')
+        .select('id, history')
+        .eq('offer_id', offerId)
+        .eq('buyer_id', buyerId)
+        .eq('source', source)
+        .eq('hidden', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.warn('⚠️ Ошибка проверки скрытых записей:', checkError);
+      }
+
+      let previousHistory = [];
+
+      // Если есть скрытая запись - удаляем её, но сохраняем историю
+      if (existingHidden) {
+        console.log(`🗑️ Найдена скрытая запись ${existingHidden.id}, удаляем перед повторной привязкой`);
+        previousHistory = existingHidden.history || [];
+
+        const { error: deleteError } = await supabase
+          .from('offer_buyers')
+          .delete()
+          .eq('id', existingHidden.id);
+
+        if (deleteError) {
+          console.warn('⚠️ Ошибка удаления скрытой записи:', deleteError);
+        }
+      }
+
       const now = new Date().toISOString();
 
-      // Создаём первую запись в истории
+      // Создаём запись в истории (включая предыдущую историю если была)
       const historyEntry = {
         action: 'assigned',
         timestamp: now,
         user_name: assignedBy || 'Неизвестно'
       };
+
+      // Объединяем предыдущую историю с новой записью
+      const fullHistory = [...previousHistory, historyEntry];
 
       const { data, error } = await supabase
         .from('offer_buyers')
@@ -463,7 +497,7 @@ export const offerBuyersService = {
           buyer_name: buyerName,
           source: source,
           source_ids: sourceIds,
-          history: [historyEntry]
+          history: fullHistory
         })
         .select()
         .single();
