@@ -13,6 +13,30 @@ import { MiniSpinner, LoadingDots } from './LoadingSpinner';
 // Константа: время в миллисекундах для "раннего удаления" (3 минуты)
 const EARLY_REMOVAL_PERIOD = 3 * 60 * 1000;
 
+// Маппинг статуса на цвет полоски (вынесено для оптимизации)
+const STATUS_BAR_COLORS = {
+  archived: 'bg-gray-400',
+  active: 'bg-green-500',
+  not_configured: 'bg-red-500',
+  not_in_tracker: 'bg-purple-500',
+  default: 'bg-gray-500'
+};
+
+// Функция форматирования даты (вынесена для оптимизации)
+const formatAssignmentDateStatic = (createdAt) => {
+  if (!createdAt) return { date: '—', days: 0 };
+  const date = new Date(createdAt);
+  const now = new Date();
+  const diffTime = Math.abs(now - date);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const formattedDate = date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  return { date: formattedDate, days: diffDays };
+};
+
 // Оптимизированный компонент таймера - не вызывает ре-рендер родителя
 const CountdownTimer = React.memo(function CountdownTimer({ createdAt }) {
   const [remaining, setRemaining] = useState(() => {
@@ -49,6 +73,304 @@ const CountdownTimer = React.memo(function CountdownTimer({ createdAt }) {
       <span className="text-[10px] font-medium text-orange-600">
         {minutes}:{seconds.toString().padStart(2, '0')}
       </span>
+    </div>
+  );
+});
+
+// Оптимизированный компонент карточки байера - изолирован для минимизации ре-рендеров
+const BuyerCard = React.memo(function BuyerCard({
+  assignment,
+  offerId,
+  offerArticle,
+  buyerMetricsData,
+  buyerStatuses,
+  loadingBuyerMetrics,
+  loadingBuyerStatuses,
+  isLoading,
+  isRemoving,
+  onRemove,
+  onOpenCalendar,
+  onShowWarning,
+  onHideWarning,
+  onShowHistory
+}) {
+  const { date, days } = formatAssignmentDateStatic(assignment.created_at);
+  const sourceIds = assignment.source_ids || [];
+  const isArchived = assignment.archived;
+
+  // Мемоизируем метрики для этого байера
+  const metrics = useMemo(() =>
+    aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14),
+    [offerArticle, sourceIds, buyerMetricsData]
+  );
+
+  const hasData = metrics.leads > 0 || metrics.cost > 0;
+  const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
+
+  // Вычисляем статус
+  const statusKey = getAssignmentKey(offerId, assignment.buyer.id, assignment.source);
+  const statusData = buyerStatuses[statusKey];
+  const statusType = isArchived ? 'archived' : (statusData?.status || 'active');
+  const config = isArchived
+    ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
+    : (BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
+
+  // Мемоизируем вычисление дней для статуса
+  const daysLabel = useMemo(() => {
+    let daysToShow = 0;
+    if (statusType === 'active') {
+      daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData);
+    } else if (statusType === 'not_configured' && statusData?.date) {
+      const lastDate = new Date(statusData.date);
+      daysToShow = Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
+    } else if (statusType === 'not_in_tracker' && assignment.created_at) {
+      const createdDate = new Date(assignment.created_at);
+      daysToShow = Math.floor(Math.abs(new Date() - createdDate) / (1000 * 60 * 60 * 24));
+    } else if (statusType === 'archived' && assignment.archived_at) {
+      const archivedDate = new Date(assignment.archived_at);
+      daysToShow = Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
+    }
+    return daysToShow > 0 ? `${daysToShow} д` : '';
+  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at]);
+
+  const statusBarColor = STATUS_BAR_COLORS[isArchived ? 'archived' : statusType] || STATUS_BAR_COLORS.default;
+
+  const handleClick = useCallback(() => {
+    if (!isRemoving) onOpenCalendar(assignment);
+  }, [isRemoving, onOpenCalendar, assignment]);
+
+  const handleRemoveClick = useCallback((e) => {
+    e.stopPropagation();
+    onRemove(assignment.id, assignment);
+  }, [onRemove, assignment]);
+
+  const handleWarningEnter = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    onShowWarning({
+      text: `Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`,
+      x: rect.left,
+      y: rect.top
+    });
+  }, [metrics.activeDays, onShowWarning]);
+
+  const handleHistoryClick = useCallback((e) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    onShowHistory({
+      history: assignment.history,
+      buyerName: assignment.buyer.name,
+      x: rect.left,
+      y: rect.bottom + 8
+    });
+  }, [assignment.history, assignment.buyer.name, onShowHistory]);
+
+  return (
+    <div
+      onClick={handleClick}
+      className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-visible relative
+        ${isArchived
+          ? 'bg-gray-100 border-2 border-dashed border-gray-300 opacity-60 hover:opacity-80'
+          : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md'
+        }
+        ${isRemoving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
+      `}
+    >
+      {/* Индикатор загрузки при удалении/архивации */}
+      {isRemoving && (
+        <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+        </div>
+      )}
+
+      {/* Иконка архива */}
+      {isArchived && (
+        <div className="absolute top-1 left-1 bg-gray-400 rounded-full p-0.5" title="Архивирован">
+          <Archive className="w-2.5 h-2.5 text-white" />
+        </div>
+      )}
+
+      {/* Иконка предупреждения */}
+      {!isArchived && !loadingBuyerMetrics && !isLoading && hasLessActiveDays && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onMouseEnter={handleWarningEnter}
+          onMouseLeave={onHideWarning}
+          style={{ position: 'absolute', top: '-4px', left: '-4px', padding: '6px', cursor: 'help', zIndex: 10 }}
+        >
+          <div style={{ backgroundColor: '#fef9c3', borderRadius: '9999px', padding: '2px' }}>
+            <AlertTriangle className="w-3 h-3 text-yellow-600" />
+          </div>
+        </div>
+      )}
+
+      {/* Кнопка удаления */}
+      {!isArchived && (
+        <button
+          onClick={handleRemoveClick}
+          disabled={isRemoving}
+          className="absolute top-0.5 right-0.5 p-0.5 rounded-full transition-all hover:bg-red-100 disabled:opacity-50 z-10"
+          title="Удалить привязку"
+        >
+          <X className="w-3.5 h-3.5 text-red-500" />
+        </button>
+      )}
+
+      <div className="flex flex-col items-center text-center space-y-1 p-2">
+        {/* Аватар с lazy loading */}
+        <div className="relative">
+          {assignment.buyer.avatar_url ? (
+            <img
+              src={assignment.buyer.avatar_url}
+              alt={assignment.buyer.name}
+              className="w-10 h-10 rounded-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-gray-600 text-sm font-medium">
+                {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Имя */}
+        <div className="w-full px-0.5">
+          <div className="text-[11px] font-medium text-gray-900 leading-tight truncate" title={assignment.buyer.name}>
+            {assignment.buyer.name}
+          </div>
+        </div>
+
+        {/* Дата и история */}
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-[9px] text-gray-500">{date} | {days} д</span>
+          {assignment.history?.length > 0 && (
+            <div onClick={handleHistoryClick} className="cursor-pointer">
+              <Info className="w-3 h-3 text-blue-400 hover:text-blue-600" />
+            </div>
+          )}
+        </div>
+
+        {/* Таймер */}
+        <div className="h-5 flex items-center justify-center">
+          <CountdownTimer createdAt={assignment.created_at} />
+        </div>
+
+        {/* Метрики */}
+        {(loadingBuyerMetrics || isLoading) ? (
+          <div className="w-full flex items-center justify-center py-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+            <div className="flex justify-between px-1">
+              <span>CPL:</span>
+              <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between px-1">
+              <span>Lead:</span>
+              <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                {hasData ? metrics.leads : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between px-1">
+              <span>Cost:</span>
+              <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
+                {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Статус */}
+      {(loadingBuyerStatuses || isLoading) ? (
+        <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
+          <LoadingDots className="mx-auto" />
+        </div>
+      ) : (
+        <div className={`${statusBarColor} py-1.5 px-2 flex items-center justify-center`}>
+          <span className="text-[10px] font-semibold text-white text-center leading-tight">
+            {config.label}{daysLabel && ` • ${daysLabel}`}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Оптимизированный компонент колонки источника - вынесен наружу
+const SourceColumn = React.memo(function SourceColumn({
+  source,
+  icon: Icon,
+  buyers,
+  isLast,
+  offerId,
+  offerArticle,
+  buyerMetricsData,
+  buyerStatuses,
+  loadingBuyerMetrics,
+  loadingBuyerStatuses,
+  loadingBuyerIds,
+  removingBuyerId,
+  onAddBuyer,
+  onRemoveBuyer,
+  onOpenCalendar,
+  onShowWarning,
+  onHideWarning,
+  onShowHistory
+}) {
+  const handleAddClick = useCallback(() => onAddBuyer(source), [onAddBuyer, source]);
+
+  return (
+    <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <Icon className="w-5 h-5" />
+          <span className="text-sm font-medium text-gray-900">{source}</span>
+          <span className="text-xs text-gray-400">({buyers.length})</span>
+        </div>
+        <button
+          onClick={handleAddClick}
+          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+          title={`Добавить байера для ${source}`}
+        >
+          <Plus className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      <div
+        className="overflow-x-auto pb-2 -mx-1 px-1"
+        style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+      >
+        {buyers.length === 0 ? (
+          <div className="text-xs text-gray-400 text-center py-6">Нет байеров</div>
+        ) : (
+          <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
+            {buyers.map((assignment) => (
+              <BuyerCard
+                key={assignment.id}
+                assignment={assignment}
+                offerId={offerId}
+                offerArticle={offerArticle}
+                buyerMetricsData={buyerMetricsData}
+                buyerStatuses={buyerStatuses}
+                loadingBuyerMetrics={loadingBuyerMetrics}
+                loadingBuyerStatuses={loadingBuyerStatuses}
+                isLoading={loadingBuyerIds?.has(assignment.id)}
+                isRemoving={removingBuyerId === assignment.id}
+                onRemove={onRemoveBuyer}
+                onOpenCalendar={onOpenCalendar}
+                onShowWarning={onShowWarning}
+                onHideWarning={onHideWarning}
+                onShowHistory={onShowHistory}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -499,305 +821,28 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     TikTok: filteredBuyers.filter(b => b.source === 'TikTok')
   }), [filteredBuyers]);
 
-  // Функция для форматирования даты и расчета дней
-  const formatAssignmentDate = useCallback((createdAt) => {
-    if (!createdAt) return { date: '—', days: 0 };
+  // Обработчики для BuyerCard
+  const handleShowWarning = useCallback((data) => setWarningTooltip(data), []);
+  const handleHideWarning = useCallback(() => setWarningTooltip(null), []);
+  const handleShowHistory = useCallback((data) => setHistoryWindow(data), []);
 
-    const date = new Date(createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    const formattedDate = date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-
-    return { date: formattedDate, days: diffDays };
-  }, []);
-
-  const SourceColumn = React.memo(({ source, icon: Icon, buyers, isLast, onAddBuyer, onRemoveBuyer, onOpenCalendar, loadingBuyerIds, removingBuyerId }) => {
-    return (
-      <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Icon className="w-5 h-5" />
-            <span className="text-sm font-medium text-gray-900">{source}</span>
-            <span className="text-xs text-gray-400">({buyers.length})</span>
-          </div>
-          <button
-            onClick={() => onAddBuyer(source)}
-            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-            title={`Добавить байера для ${source}`}
-          >
-            <Plus className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
-
-        {/* Список привязанных байеров - горизонтальный ряд со скроллом */}
-        <div
-          className="overflow-x-auto pb-2 -mx-1 px-1"
-          style={{
-            scrollBehavior: 'smooth',
-            WebkitOverflowScrolling: 'touch'
-          }}
-        >
-          {buyers.length === 0 ? (
-            <div className="text-xs text-gray-400 text-center py-6">
-              Нет байеров
-            </div>
-          ) : (
-            <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
-              {buyers.map((assignment) => {
-                const { date, days } = formatAssignmentDate(assignment.created_at);
-                // Агрегируем метрики по артикулу оффера + source_ids байера за последние 14 АКТИВНЫХ дней
-                const sourceIds = assignment.source_ids || [];
-                const offerArticle = offer?.article || '';
-                const metrics = aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14);
-                const hasData = metrics.leads > 0 || metrics.cost > 0;
-                const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
-
-                // Проверяем, загружается ли этот конкретный байер
-                const isThisBuyerLoading = loadingBuyerIds && loadingBuyerIds.has(assignment.id);
-                const isRemoving = removingBuyerId === assignment.id;
-                const isArchived = assignment.archived;
-
-                // Вычисляем данные для статуса
-                const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
-                const statusData = buyerStatuses[statusKey];
-                const statusType = isArchived ? 'archived' : (statusData?.status || 'active');
-                const config = isArchived
-                  ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
-                  : (BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
-
-                // Подсчитываем дни для статуса
-                let daysToShow = 0;
-                let daysLabel = '';
-
-                if (statusType === 'active') {
-                  // Для активных - считаем дни подряд с cost > 0
-                  daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData);
-                  daysLabel = daysToShow > 0 ? `${daysToShow} д` : '';
-                } else if (statusType === 'not_configured' && statusData?.date) {
-                  // Для "Не настроено" - считаем дни с момента последнего расхода
-                  const lastDate = new Date(statusData.date);
-                  const today = new Date();
-                  const diffTime = Math.abs(today - lastDate);
-                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                  daysToShow = diffDays;
-                  daysLabel = diffDays > 0 ? `${diffDays} д` : '';
-                } else if (statusType === 'not_in_tracker' && assignment.created_at) {
-                  // Для "Нет в трекере" - считаем дни с момента привязки байера
-                  const createdDate = new Date(assignment.created_at);
-                  const today = new Date();
-                  const diffTime = Math.abs(today - createdDate);
-                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                  daysToShow = diffDays;
-                  daysLabel = diffDays > 0 ? `${diffDays} д` : '';
-                } else if (statusType === 'archived' && assignment.archived_at) {
-                  // Для "Неактивный" (архивированные) - считаем дни с момента архивации
-                  const archivedDate = new Date(assignment.archived_at);
-                  const today = new Date();
-                  const diffTime = Math.abs(today - archivedDate);
-                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                  daysToShow = diffDays;
-                  daysLabel = `${diffDays} д`;
-                }
-
-                // Получаем цвета для полоски статуса
-                const getStatusBarColor = () => {
-                  if (isArchived) return 'bg-gray-400';
-                  switch (statusType) {
-                    case 'active':
-                      return 'bg-green-500';
-                    case 'not_configured':
-                      return 'bg-red-500';
-                    case 'not_in_tracker':
-                      return 'bg-purple-500';
-                    default:
-                      return 'bg-gray-500';
-                  }
-                };
-
-                return (
-                  <div
-                    key={assignment.id}
-                    onClick={() => !isRemoving && onOpenCalendar(assignment)}
-                    className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-visible relative
-                      ${isArchived
-                        ? 'bg-gray-100 border-2 border-dashed border-gray-300 opacity-60 hover:opacity-80'
-                        : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md'
-                      }
-                      ${isRemoving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
-                    `}
-                  >
-                    {/* Индикатор загрузки при удалении/архивации */}
-                    {isRemoving && (
-                      <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
-                      </div>
-                    )}
-
-                    {/* Иконка архива для архивированных */}
-                    {isArchived && (
-                      <div className="absolute top-1 left-1 bg-gray-400 rounded-full p-0.5" title="Архивирован">
-                        <Archive className="w-2.5 h-2.5 text-white" />
-                      </div>
-                    )}
-
-                    {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
-                    {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseEnter={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setWarningTooltip({
-                            text: `Статистика за ${metrics.activeDays} ${metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)`,
-                            x: rect.left,
-                            y: rect.top
-                          });
-                        }}
-                        onMouseLeave={() => setWarningTooltip(null)}
-                        style={{
-                          position: 'absolute',
-                          top: '-4px',
-                          left: '-4px',
-                          padding: '6px',
-                          cursor: 'help',
-                          zIndex: 10
-                        }}
-                      >
-                        <div style={{
-                          backgroundColor: '#fef9c3',
-                          borderRadius: '9999px',
-                          padding: '2px'
-                        }}>
-                          <AlertTriangle className="w-3 h-3 text-yellow-600" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Кнопка удаления - только для активных байеров, в правом верхнем углу карточки */}
-                    {!isArchived && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveBuyer(assignment.id, assignment);
-                        }}
-                        disabled={isRemoving}
-                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full transition-all hover:bg-red-100 disabled:opacity-50 z-10"
-                        title="Удалить привязку"
-                      >
-                        <X className="w-3.5 h-3.5 text-red-500" />
-                      </button>
-                    )}
-
-                    <div className="flex flex-col items-center text-center space-y-1 p-2">
-                      {/* Аватар */}
-                      <div className="relative">
-                        {assignment.buyer.avatar_url ? (
-                          <img
-                            src={assignment.buyer.avatar_url}
-                            alt={assignment.buyer.name}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-600 text-sm font-medium">
-                              {assignment.buyer.name?.charAt(0)?.toUpperCase() || 'B'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Имя */}
-                      <div className="w-full px-0.5">
-                        <div className="text-[11px] font-medium text-gray-900 leading-tight truncate" title={assignment.buyer.name}>
-                          {assignment.buyer.name}
-                        </div>
-                      </div>
-
-                      {/* Дата привязки и дни + иконка истории */}
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="text-[9px] text-gray-500">
-                          {date} | {days} д
-                        </span>
-                        {/* Иконка истории - по клику открывает перетаскиваемое окно */}
-                        {assignment.history && assignment.history.length > 0 && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setHistoryWindow({
-                                history: assignment.history,
-                                buyerName: assignment.buyer.name,
-                                x: rect.left,
-                                y: rect.bottom + 8
-                              });
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Info className="w-3 h-3 text-blue-400 hover:text-blue-600" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Таймер обратного отсчёта (первые 3 минуты) - изолированный компонент для оптимизации */}
-                      <div className="h-5 flex items-center justify-center">
-                        <CountdownTimer createdAt={assignment.created_at} />
-                      </div>
-
-                      {/* Метрики CPL/Lead/Cost за последние 14 активных дней */}
-                      {(loadingBuyerMetrics || isThisBuyerLoading) ? (
-                        <div className="w-full flex items-center justify-center py-3">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : (
-                        <div className="w-full text-[9px] text-gray-500 space-y-0.5">
-                          <div className="flex justify-between px-1">
-                            <span>CPL:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? `$${metrics.cpl.toFixed(2)}` : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between px-1">
-                            <span>Lead:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? metrics.leads : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between px-1">
-                            <span>Cost:</span>
-                            <span className={hasData ? "text-gray-700 font-medium" : "text-gray-400"}>
-                              {hasData ? `$${metrics.cost.toFixed(2)}` : '—'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Цветная полоска статуса внизу карточки */}
-                    {(loadingBuyerStatuses || isThisBuyerLoading) ? (
-                      <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
-                        <LoadingDots className="mx-auto" />
-                      </div>
-                    ) : (
-                      <div className={`${getStatusBarColor()} py-1.5 px-2 flex items-center justify-center`}>
-                        <span className="text-[10px] font-semibold text-white text-center leading-tight">
-                          {config.label}{daysLabel && ` • ${daysLabel}`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  });
+  // Общие props для SourceColumn
+  const sourceColumnCommonProps = useMemo(() => ({
+    offerId: offer.id,
+    offerArticle: offer?.article || '',
+    buyerMetricsData,
+    buyerStatuses,
+    loadingBuyerMetrics,
+    loadingBuyerStatuses,
+    loadingBuyerIds,
+    removingBuyerId,
+    onAddBuyer: handleAddBuyer,
+    onRemoveBuyer: handleRemoveBuyer,
+    onOpenCalendar: handleOpenCalendar,
+    onShowWarning: handleShowWarning,
+    onHideWarning: handleHideWarning,
+    onShowHistory: handleShowHistory
+  }), [offer.id, offer?.article, buyerMetricsData, buyerStatuses, loadingBuyerMetrics, loadingBuyerStatuses, loadingBuyerIds, removingBuyerId, handleAddBuyer, handleRemoveBuyer, handleOpenCalendar, handleShowWarning, handleHideWarning, handleShowHistory]);
 
   return (
     <>
@@ -827,33 +872,21 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             icon={FacebookIcon}
             buyers={buyersBySource.Facebook}
             isLast={false}
-            onAddBuyer={handleAddBuyer}
-            onRemoveBuyer={handleRemoveBuyer}
-            onOpenCalendar={handleOpenCalendar}
-            loadingBuyerIds={loadingBuyerIds}
-            removingBuyerId={removingBuyerId}
+            {...sourceColumnCommonProps}
           />
           <SourceColumn
             source="Google"
             icon={GoogleIcon}
             buyers={buyersBySource.Google}
             isLast={false}
-            onAddBuyer={handleAddBuyer}
-            onRemoveBuyer={handleRemoveBuyer}
-            onOpenCalendar={handleOpenCalendar}
-            loadingBuyerIds={loadingBuyerIds}
-            removingBuyerId={removingBuyerId}
+            {...sourceColumnCommonProps}
           />
           <SourceColumn
             source="TikTok"
             icon={TiktokIcon}
             buyers={buyersBySource.TikTok}
             isLast={true}
-            onAddBuyer={handleAddBuyer}
-            onRemoveBuyer={handleRemoveBuyer}
-            onOpenCalendar={handleOpenCalendar}
-            loadingBuyerIds={loadingBuyerIds}
-            removingBuyerId={removingBuyerId}
+            {...sourceColumnCommonProps}
           />
         </div>
       </div>
