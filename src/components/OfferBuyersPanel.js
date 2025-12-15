@@ -505,18 +505,26 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                     {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
                     {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
                       <div
-                        className="absolute -top-1 -left-1 p-1.5 z-30 group/warning cursor-help"
+                        className="warning-icon-container absolute -top-1 -left-1 p-1.5 cursor-help"
                         onClick={(e) => e.stopPropagation()}
+                        style={{ zIndex: 9999 }}
                       >
                         <div className="bg-yellow-100 rounded-full p-0.5">
                           <AlertTriangle className="w-3 h-3 text-yellow-600" />
                         </div>
-                        <div
-                          className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg"
-                          style={{ zIndex: 9999 }}
-                        >
+                        <div className="warning-tooltip absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded whitespace-nowrap pointer-events-none shadow-lg">
                           Статистика за {metrics.activeDays} {metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)
                         </div>
+                        <style>{`
+                          .warning-icon-container .warning-tooltip {
+                            opacity: 0;
+                            transition: opacity 0.2s;
+                            z-index: 99999;
+                          }
+                          .warning-icon-container:hover .warning-tooltip {
+                            opacity: 1;
+                          }
+                        `}</style>
                       </div>
                     )}
 
