@@ -3430,6 +3430,7 @@ export const metricsAnalyticsService = {
     try {
       console.log('📡 Запрос метрик аналитики...');
 
+      // Сначала получаем общее количество записей
       const { count, error: countError } = await supabase
         .from('metrics_analytics')
         .select('*', { count: 'exact', head: true });
@@ -3440,17 +3441,41 @@ export const metricsAnalyticsService = {
 
       console.log(`📊 Всего записей в базе: ${count}`);
 
-      const { data: metrics, error: metricsError } = await supabase
-        .from('metrics_analytics')
-        .select('*')
-        .order('id', { ascending: true })
-        .limit(10000);
+      // Supabase по умолчанию отдаёт максимум 1000 строк
+      // Загружаем все данные через пагинацию
+      const PAGE_SIZE = 1000;
+      const totalPages = Math.ceil((count || 1000) / PAGE_SIZE);
+      let allMetrics = [];
 
-      if (metricsError) {
-        console.error('Ошибка получения метрик:', metricsError);
-        throw metricsError;
+      console.log(`📦 Загрузка метрик: ${totalPages} страниц по ${PAGE_SIZE} записей`);
+
+      // Загружаем все страницы параллельно (но не больше 5 одновременно)
+      const PARALLEL_LIMIT = 5;
+      for (let i = 0; i < totalPages; i += PARALLEL_LIMIT) {
+        const batch = [];
+        for (let j = i; j < Math.min(i + PARALLEL_LIMIT, totalPages); j++) {
+          const from = j * PAGE_SIZE;
+          const to = from + PAGE_SIZE - 1;
+          batch.push(
+            supabase
+              .from('metrics_analytics')
+              .select('*')
+              .order('id', { ascending: true })
+              .range(from, to)
+          );
+        }
+
+        const results = await Promise.all(batch);
+        for (const result of results) {
+          if (result.error) {
+            console.error('Ошибка загрузки страницы:', result.error);
+          } else if (result.data) {
+            allMetrics = allMetrics.concat(result.data);
+          }
+        }
       }
 
+      // Получаем метаданные
       const { data: meta, error: metaError } = await supabase
         .from('metrics_analytics_meta')
         .select('*')
@@ -3461,15 +3486,11 @@ export const metricsAnalyticsService = {
         console.error('Ошибка получения метаданных:', metaError);
       }
 
-      const actualCount = metrics?.length || 0;
+      const actualCount = allMetrics.length;
       console.log(`✅ Получены метрики аналитики: ${actualCount} записей`);
 
-      if (count && actualCount < count) {
-        console.warn(`⚠️ Получено ${actualCount} записей из ${count} в базе. Возможно, нужна пагинация.`);
-      }
-
       return {
-        metrics: metrics || [],
+        metrics: allMetrics,
         lastUpdated: meta?.last_updated,
         totalRecords: meta?.total_records || actualCount,
         actualCount: actualCount,
