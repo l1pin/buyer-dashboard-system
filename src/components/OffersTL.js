@@ -1,5 +1,6 @@
 // src/components/OffersTL.js
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { FixedSizeList as List } from 'react-window';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
 import {
@@ -20,6 +21,55 @@ import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStat
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 import MigrationModal from './MigrationModal';
+
+// Компонент строки для виртуализированного списка
+const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }) {
+  const {
+    filteredMetrics,
+    offerStatuses,
+    loadingState,
+    openTooltip,
+    handleStatusChange,
+    user,
+    allBuyers,
+    allAssignments,
+    handleAssignmentsChange,
+    buyerMetricsData,
+    buyerStatuses,
+    articleOfferMap,
+    loadingBuyerIds,
+    offerSeasons
+  } = data;
+
+  const metric = filteredMetrics[index];
+
+  return (
+    <div style={style} className="px-4">
+      <OfferRow
+        metric={metric}
+        index={index}
+        offerStatus={offerStatuses[metric.id]}
+        loadingLeadsData={loadingState.leads}
+        loadingDays={loadingState.days}
+        loadingStocks={loadingState.stocks}
+        loadingBuyerStatuses={loadingState.buyerStatuses}
+        onOpenTooltip={openTooltip}
+        onStatusChange={handleStatusChange}
+        userName={user?.name || 'Неизвестно'}
+        userId={user?.id}
+        allBuyers={allBuyers}
+        initialAssignments={allAssignments[metric.id] || []}
+        onAssignmentsChange={handleAssignmentsChange}
+        buyerMetricsData={buyerMetricsData}
+        buyerStatuses={buyerStatuses}
+        articleOfferMap={articleOfferMap}
+        loadingBuyerIds={loadingBuyerIds}
+        loadingBuyerMetrics={loadingState.buyerMetrics}
+        seasons={offerSeasons[metric.article] || []}
+      />
+    </div>
+  );
+});
 
 function OffersTL({ user }) {
   const [metrics, setMetrics] = useState([]);
@@ -52,6 +102,10 @@ function OffersTL({ user }) {
 
   // Ref для изолированного менеджера tooltip'ов
   const tooltipManagerRef = useRef(null);
+
+  // Ref для контейнера виртуализированного списка
+  const listContainerRef = useRef(null);
+  const [listHeight, setListHeight] = useState(600);
 
   // Ключи для кэша в sessionStorage
   const CACHE_KEYS = {
@@ -145,6 +199,22 @@ function OffersTL({ user }) {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Отслеживание высоты контейнера для виртуализации
+  useEffect(() => {
+    const updateHeight = () => {
+      if (listContainerRef.current) {
+        const height = listContainerRef.current.clientHeight;
+        if (height > 0) {
+          setListHeight(height);
+        }
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [loading]);
 
   // Автообновление метрик после загрузки данных
   useEffect(() => {
@@ -879,44 +949,23 @@ function OffersTL({ user }) {
     });
   }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
 
-  // Мемоизированный список офферов с CSS content-visibility для оптимизации
-  // Оптимизация: используем loadingState вместо отдельных loading состояний (уменьшает зависимости)
-  const renderedOffersList = useMemo(() => (
-    <div className="px-4 py-2 space-y-1">
-      {filteredMetrics.map((metric, index) => (
-        <div
-          key={metric.id}
-          style={{
-            contentVisibility: 'auto',
-            containIntrinsicSize: '0 80px'
-          }}
-        >
-          <OfferRow
-            metric={metric}
-            index={index}
-            offerStatus={offerStatuses[metric.id]}
-            loadingLeadsData={loadingState.leads}
-            loadingDays={loadingState.days}
-            loadingStocks={loadingState.stocks}
-            loadingBuyerStatuses={loadingState.buyerStatuses}
-            onOpenTooltip={openTooltip}
-            onStatusChange={handleStatusChange}
-            userName={user?.name || 'Неизвестно'}
-            userId={user?.id}
-            allBuyers={allBuyers}
-            initialAssignments={allAssignments[metric.id] || []}
-            onAssignmentsChange={handleAssignmentsChange}
-            buyerMetricsData={buyerMetricsData}
-            buyerStatuses={buyerStatuses}
-            articleOfferMap={articleOfferMap}
-            loadingBuyerIds={loadingBuyerIds}
-            loadingBuyerMetrics={loadingState.buyerMetrics}
-            seasons={offerSeasons[metric.article] || []}
-          />
-        </div>
-      ))}
-    </div>
-  ), [filteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
+  // itemData для виртуализированного списка - мемоизируем для предотвращения лишних ре-рендеров
+  const itemData = useMemo(() => ({
+    filteredMetrics,
+    offerStatuses,
+    loadingState,
+    openTooltip,
+    handleStatusChange,
+    user,
+    allBuyers,
+    allAssignments,
+    handleAssignmentsChange,
+    buyerMetricsData,
+    buyerStatuses,
+    articleOfferMap,
+    loadingBuyerIds,
+    offerSeasons
+  }), [filteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -1032,7 +1081,7 @@ function OffersTL({ user }) {
       </div>
 
       {/* Cards with Sticky Header Row */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {metrics.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -1050,7 +1099,7 @@ function OffersTL({ user }) {
         ) : (
           <>
             {/* Sticky Header Row */}
-            <div className="sticky top-0 z-10 bg-slate-100 border-b border-slate-300 px-4 py-2.5">
+            <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5">
               <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
                 <div className="w-[3%] min-w-[32px]">№</div>
                 <div className="w-[6%] min-w-[60px]">Артикул</div>
@@ -1079,8 +1128,19 @@ function OffersTL({ user }) {
               </div>
             </div>
 
-            {/* Cards - мемоизированный список */}
-            {renderedOffersList}
+            {/* Виртуализированный список офферов */}
+            <div ref={listContainerRef} className="flex-1">
+              <List
+                height={listHeight}
+                itemCount={filteredMetrics.length}
+                itemSize={88}
+                width="100%"
+                itemData={itemData}
+                overscanCount={5}
+              >
+                {VirtualizedRow}
+              </List>
+            </div>
           </>
         )}
       </div>
