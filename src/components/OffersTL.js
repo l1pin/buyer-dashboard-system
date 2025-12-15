@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
-import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer, fetchBuyerMetricsAllTime } from '../scripts/offers/Sql_leads';
+import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer, fetchBuyerMetricsAllTime, clearMetricsCache } from '../scripts/offers/Sql_leads';
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
@@ -27,6 +27,7 @@ function OffersTL({ user }) {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
   const [loadingStocks, setLoadingStocks] = useState(true);
@@ -137,6 +138,14 @@ function OffersTL({ user }) {
     }
   }, []);
 
+  // Дебаунс для поиска - 300мс задержка
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Автообновление метрик после загрузки данных
   useEffect(() => {
     // Проверяем что данные загружены и автообновление еще не запускалось
@@ -239,88 +248,84 @@ function OffersTL({ user }) {
   };
 
   // Callback для обновления привязок после изменения
+  // Оптимизация: асинхронные операции вынесены из setState
   const handleAssignmentsChange = useCallback(async (offerId, newAssignments, addedAssignment = null) => {
-    // Обновляем state привязок
-    setAllAssignments(prev => {
-      const updated = {
-        ...prev,
-        [offerId]: newAssignments
-      };
+    // Обновляем state привязок синхронно
+    setAllAssignments(prev => ({
+      ...prev,
+      [offerId]: newAssignments
+    }));
 
-      // Запускаем асинхронное обновление статусов и метрик ТОЛЬКО для нового байера
-      if (addedAssignment) {
-        (async () => {
-          try {
-            // Получаем метрику этого оффера
-            const offerMetric = metrics.find(m => m.id === offerId);
-            if (!offerMetric) {
-              return;
-            }
+    // Асинхронное обновление статусов и метрик ТОЛЬКО для нового байера (вне setState)
+    if (addedAssignment) {
+      try {
+        // Получаем метрику этого оффера
+        const offerMetric = metrics.find(m => m.id === offerId);
+        if (!offerMetric) {
+          return;
+        }
 
-            // Получаем article и offer_id_tracker
-            const article = offerMetric.article;
-            const offerIdTracker = articleOfferMap[article];
-            const sourceIds = addedAssignment.source_ids || [];
+        // Получаем article и offer_id_tracker
+        const article = offerMetric.article;
+        const offerIdTracker = articleOfferMap[article];
+        const sourceIds = addedAssignment.source_ids || [];
 
-            // Добавляем ID привязки в список загружаемых (для анимации)
-            setLoadingBuyerIds(prev => {
-              const newSet = new Set(prev);
-              newSet.add(addedAssignment.id);
-              return newSet;
-            });
+        // Добавляем ID привязки в список загружаемых (для анимации)
+        setLoadingBuyerIds(prev => {
+          const newSet = new Set(prev);
+          newSet.add(addedAssignment.id);
+          return newSet;
+        });
 
-            try {
-              // Обновляем статус и метрики параллельно ТОЛЬКО для этого байера
-              const [statusResult, metricsResult] = await Promise.all([
-                // Оптимизированное обновление статуса ОДНОГО байера
-                updateSingleBuyerStatus(addedAssignment, article, offerIdTracker),
+        try {
+          // Обновляем статус и метрики параллельно ТОЛЬКО для этого байера
+          const [statusResult, metricsResult] = await Promise.all([
+            // Оптимизированное обновление статуса ОДНОГО байера
+            updateSingleBuyerStatus(addedAssignment, article, offerIdTracker),
 
-                // Оптимизированное получение метрик ОДНОГО байера
-                fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, article)
-              ]);
+            // Оптимизированное получение метрик ОДНОГО байера
+            fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, article)
+          ]);
 
-              // Сохраняем результаты (мержим с существующими данными)
-              setBuyerStatuses(prev => ({
-                ...prev,
-                [statusResult.key]: statusResult.status
-              }));
+          // Сохраняем результаты (мержим с существующими данными)
+          setBuyerStatuses(prev => ({
+            ...prev,
+            [statusResult.key]: statusResult.status
+          }));
 
-              if (metricsResult.dataBySourceIdAndDate) {
-                setBuyerMetricsData(prev => {
-                  // Мержим данные по артикулу
-                  const newData = { ...prev };
-                  Object.keys(metricsResult.dataBySourceIdAndDate).forEach(art => {
-                    if (!newData[art]) {
-                      newData[art] = {};
-                    }
-                    Object.keys(metricsResult.dataBySourceIdAndDate[art]).forEach(srcId => {
-                      newData[art][srcId] = metricsResult.dataBySourceIdAndDate[art][srcId];
-                    });
-                  });
-                  return newData;
+          if (metricsResult.dataBySourceIdAndDate) {
+            clearMetricsCache(); // Очищаем кэш при добавлении новых данных
+            setBuyerMetricsData(prev => {
+              // Мержим данные по артикулу
+              const newData = { ...prev };
+              Object.keys(metricsResult.dataBySourceIdAndDate).forEach(art => {
+                if (!newData[art]) {
+                  newData[art] = {};
+                }
+                Object.keys(metricsResult.dataBySourceIdAndDate[art]).forEach(srcId => {
+                  newData[art][srcId] = metricsResult.dataBySourceIdAndDate[art][srcId];
                 });
-              }
-            } finally {
-              // Убираем ID привязки из списка загружаемых
-              setLoadingBuyerIds(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(addedAssignment.id);
-                return newSet;
               });
-            }
-          } catch (error) {
-            // Очищаем loadingBuyerIds в случае ошибки
-            setLoadingBuyerIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(addedAssignment.id);
-              return newSet;
+              return newData;
             });
           }
-        })();
+        } finally {
+          // Убираем ID привязки из списка загружаемых
+          setLoadingBuyerIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(addedAssignment.id);
+            return newSet;
+          });
+        }
+      } catch (error) {
+        // Очищаем loadingBuyerIds в случае ошибки
+        setLoadingBuyerIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(addedAssignment.id);
+          return newSet;
+        });
       }
-
-      return updated;
-    });
+    }
   }, [metrics, articleOfferMap]);
 
   // Обновление статусов после изменения
@@ -404,6 +409,7 @@ function OffersTL({ user }) {
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
         // Обновляем данные только при завершении или каждые 25%
         if (isComplete || progress % 25 === 0) {
+          clearMetricsCache(); // Очищаем кэш метрик при обновлении данных
           setBuyerMetricsData(partialData);
         }
         if (isComplete) {
@@ -507,6 +513,7 @@ function OffersTL({ user }) {
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
         // Обновляем данные только при завершении или каждые 25%
         if (isComplete || progress % 25 === 0) {
+          clearMetricsCache(); // Очищаем кэш метрик при обновлении данных
           setBuyerMetricsData(partialData);
         }
         if (isComplete) {
@@ -611,6 +618,7 @@ function OffersTL({ user }) {
 
       const onBuyerMetricsProgress = (partialData, progress, isComplete) => {
         if (isComplete || progress % 25 === 0) {
+          clearMetricsCache(); // Очищаем кэш метрик при обновлении данных
           setBuyerMetricsData(partialData);
         }
         if (isComplete) {
@@ -843,14 +851,22 @@ function OffersTL({ user }) {
     }
   };
 
-  // Фильтрация и сортировка
-  const filteredMetrics = useMemo(() => {
-    return metrics.filter(metric => {
-      const matchesSearch = searchTerm === '' ||
-        metric.article?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        metric.offer?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Группируем loading состояния для уменьшения ре-рендеров
+  const loadingState = useMemo(() => ({
+    stocks: loadingStocks,
+    days: loadingDays,
+    leads: loadingLeadsData,
+    buyerMetrics: loadingBuyerMetrics,
+    buyerStatuses: loadingBuyerStatuses
+  }), [loadingStocks, loadingDays, loadingLeadsData, loadingBuyerMetrics, loadingBuyerStatuses]);
 
-      return matchesSearch;
+  // Фильтрация и сортировка (используем debouncedSearchTerm для оптимизации)
+  const filteredMetrics = useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    return metrics.filter(metric => {
+      if (debouncedSearchTerm === '') return true;
+      return metric.article?.toLowerCase().includes(searchLower) ||
+        metric.offer?.toLowerCase().includes(searchLower);
     }).sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
@@ -861,9 +877,10 @@ function OffersTL({ user }) {
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [metrics, searchTerm, sortField, sortDirection]);
+  }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
 
   // Мемоизированный список офферов с CSS content-visibility для оптимизации
+  // Оптимизация: используем loadingState вместо отдельных loading состояний (уменьшает зависимости)
   const renderedOffersList = useMemo(() => (
     <div className="px-4 py-2 space-y-1">
       {filteredMetrics.map((metric, index) => (
@@ -878,10 +895,10 @@ function OffersTL({ user }) {
             metric={metric}
             index={index}
             offerStatus={offerStatuses[metric.id]}
-            loadingLeadsData={loadingLeadsData}
-            loadingDays={loadingDays}
-            loadingStocks={loadingStocks}
-            loadingBuyerStatuses={loadingBuyerStatuses}
+            loadingLeadsData={loadingState.leads}
+            loadingDays={loadingState.days}
+            loadingStocks={loadingState.stocks}
+            loadingBuyerStatuses={loadingState.buyerStatuses}
             onOpenTooltip={openTooltip}
             onStatusChange={handleStatusChange}
             userName={user?.name || 'Неизвестно'}
@@ -893,13 +910,13 @@ function OffersTL({ user }) {
             buyerStatuses={buyerStatuses}
             articleOfferMap={articleOfferMap}
             loadingBuyerIds={loadingBuyerIds}
-            loadingBuyerMetrics={loadingBuyerMetrics}
+            loadingBuyerMetrics={loadingState.buyerMetrics}
             seasons={offerSeasons[metric.article] || []}
           />
         </div>
       ))}
     </div>
-  ), [filteredMetrics, offerStatuses, loadingLeadsData, loadingDays, loadingStocks, loadingBuyerStatuses, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, loadingBuyerMetrics, offerSeasons]);
+  ), [filteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
