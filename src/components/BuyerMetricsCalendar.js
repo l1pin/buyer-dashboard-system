@@ -74,13 +74,13 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       [key]: !prev[key]
     }));
 
-    // Восстанавливаем позицию скролла после рендера
-    requestAnimationFrame(() => {
+    // Восстанавливаем позицию скролла после рендера (setTimeout даёт React время обновить DOM)
+    setTimeout(() => {
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollTop;
         scrollContainer.scrollLeft = scrollLeft;
       }
-    });
+    }, 0);
   };
 
   const formatDate = (dateStr) => {
