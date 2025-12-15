@@ -276,7 +276,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         avatarUrl: a.buyer.avatar_url,
         sourceIds: a.source_ids || [],
         source: a.source,
-        archived: a.archived || false
+        archived: a.archived || false,
+        // Добавляем traffic_channels для определения дат доступа к каналам
+        trafficChannels: a.buyer.buyer_settings?.traffic_channels || []
       }));
 
     setSelectedBuyerForCalendar({
