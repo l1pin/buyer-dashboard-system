@@ -446,40 +446,56 @@ export const offerBuyersService = {
       console.log(`   Source IDs: ${JSON.stringify(sourceIds)}`);
       console.log(`   Assigned by: ${assignedBy}`);
 
-      // Проверяем, есть ли скрытая запись для этого байера+оффера+источника
-      const { data: existingHidden, error: checkError } = await supabase
+      // Проверяем, есть ли существующая запись (скрытая или архивированная)
+      const { data: existingRecord, error: checkError } = await supabase
         .from('offer_buyers')
-        .select('id, history')
+        .select('id, history, hidden, archived, created_at')
         .eq('offer_id', offerId)
         .eq('buyer_id', buyerId)
         .eq('source', source)
-        .eq('hidden', true)
         .maybeSingle();
 
-      if (checkError) {
-        console.warn('⚠️ Ошибка проверки скрытых записей:', checkError);
-      }
-
-      let previousHistory = [];
-
-      // Если есть скрытая запись - удаляем её, но сохраняем историю
-      if (existingHidden) {
-        console.log(`🗑️ Найдена скрытая запись ${existingHidden.id}, удаляем перед повторной привязкой`);
-        previousHistory = existingHidden.history || [];
-
-        const { error: deleteError } = await supabase
-          .from('offer_buyers')
-          .delete()
-          .eq('id', existingHidden.id);
-
-        if (deleteError) {
-          console.warn('⚠️ Ошибка удаления скрытой записи:', deleteError);
-        }
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.warn('⚠️ Ошибка проверки существующих записей:', checkError);
       }
 
       const now = new Date().toISOString();
+      let previousHistory = [];
+      let originalCreatedAt = null;
 
-      // Создаём запись в истории (включая предыдущую историю если была)
+      // Если есть существующая запись
+      if (existingRecord) {
+        previousHistory = existingRecord.history || [];
+
+        // Если запись скрытая (удалена в первые 3 минуты) - сохраняем оригинальную дату
+        if (existingRecord.hidden) {
+          console.log(`🗑️ Найдена скрытая запись ${existingRecord.id}, удаляем перед повторной привязкой`);
+          // Проверяем, прошло ли 3 минуты с момента создания
+          const createdAt = new Date(existingRecord.created_at).getTime();
+          const elapsed = Date.now() - createdAt;
+          if (elapsed < 3 * 60 * 1000) {
+            // Меньше 3 минут - сохраняем оригинальную дату
+            originalCreatedAt = existingRecord.created_at;
+          }
+        }
+
+        // Если запись архивированная - используем новую дату
+        if (existingRecord.archived) {
+          console.log(`📦 Найдена архивированная запись ${existingRecord.id}, удаляем перед повторной привязкой`);
+        }
+
+        // Удаляем старую запись
+        const { error: deleteError } = await supabase
+          .from('offer_buyers')
+          .delete()
+          .eq('id', existingRecord.id);
+
+        if (deleteError) {
+          console.warn('⚠️ Ошибка удаления существующей записи:', deleteError);
+        }
+      }
+
+      // Создаём запись в истории
       const historyEntry = {
         action: 'assigned',
         timestamp: now,
@@ -489,16 +505,24 @@ export const offerBuyersService = {
       // Объединяем предыдущую историю с новой записью
       const fullHistory = [...previousHistory, historyEntry];
 
+      // Создаём новую запись
+      const insertData = {
+        offer_id: offerId,
+        buyer_id: buyerId,
+        buyer_name: buyerName,
+        source: source,
+        source_ids: sourceIds,
+        history: fullHistory
+      };
+
+      // Если нужно сохранить оригинальную дату (повторная привязка в первые 3 минуты)
+      if (originalCreatedAt) {
+        insertData.created_at = originalCreatedAt;
+      }
+
       const { data, error } = await supabase
         .from('offer_buyers')
-        .insert({
-          offer_id: offerId,
-          buyer_id: buyerId,
-          buyer_name: buyerName,
-          source: source,
-          source_ids: sourceIds,
-          history: fullHistory
-        })
+        .insert(insertData)
         .select()
         .single();
 
