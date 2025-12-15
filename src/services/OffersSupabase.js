@@ -540,15 +540,18 @@ export const offerBuyersService = {
   },
 
   /**
-   * Скрыть привязку (удаление в первые 3 минуты)
+   * Скрыть привязку (удаление без расхода)
    * Запись сохраняется в БД с историей, но не отображается в интерфейсе
    * @param {number} assignmentId - ID привязки
    * @param {string} removedBy - Имя тимлида, который удалил байера
+   * @param {string} reason - Причина удаления (опционально)
+   * @param {string} reasonDetails - Детали причины (опционально)
+   * @param {boolean} isEarly - Удаление в первые 3 минуты
    * @returns {Promise<Object>} Обновленная привязка
    */
-  async hideEarlyAssignment(assignmentId, removedBy = null) {
+  async hideAssignment(assignmentId, removedBy = null, reason = null, reasonDetails = null, isEarly = false) {
     try {
-      console.log(`👻 Скрываем раннюю привязку ${assignmentId}...`);
+      console.log(`👻 Скрываем привязку ${assignmentId}...`);
 
       // Сначала получаем текущую запись для добавления в историю
       const { data: current, error: fetchError } = await supabase
@@ -561,12 +564,13 @@ export const offerBuyersService = {
 
       const now = new Date().toISOString();
 
-      // Создаём запись истории для раннего удаления
+      // Создаём запись истории для удаления
       const historyEntry = {
-        action: 'removed_early',
+        action: isEarly ? 'removed_early' : 'removed',
         timestamp: now,
         user_name: removedBy || 'Неизвестно',
-        reason: 'Удалено в первые 3 минуты'
+        reason: isEarly ? 'Удалено в первые 3 минуты' : (reason || null),
+        reason_details: isEarly ? null : (reasonDetails || null)
       };
 
       // Добавляем к существующей истории
@@ -585,13 +589,21 @@ export const offerBuyersService = {
 
       if (error) throw error;
 
-      console.log(`✅ Привязка ${assignmentId} скрыта (раннее удаление)`);
+      console.log(`✅ Привязка ${assignmentId} скрыта`);
       return data;
 
     } catch (error) {
       console.error(`❌ Ошибка скрытия привязки ${assignmentId}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Скрыть привязку (раннее удаление в первые 3 минуты)
+   * @deprecated Используйте hideAssignment с isEarly=true
+   */
+  async hideEarlyAssignment(assignmentId, removedBy = null) {
+    return this.hideAssignment(assignmentId, removedBy, null, null, true);
   },
 
   /**

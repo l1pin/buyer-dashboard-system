@@ -409,9 +409,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           onAssignmentsChange(offer.id, updatedAssignments);
         }
       } else {
-        // Не было расхода - скрываем с историей
+        // Не было расхода - скрываем с историей и причиной из модалки
         console.log(`👻 Скрываем байера ${assignment.buyer.name} (расход: $0)`);
-        await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
+        await offerBuyersService.hideAssignment(assignmentId, removedBy, reason, reasonDetails, false);
 
         // Уведомляем родительский компонент об удалении из отображения
         if (onAssignmentsChange) {
@@ -1093,10 +1093,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           zIndex={999999}
         >
           <div className="space-y-3">
-            {historyWindow.history.map((entry, idx) => (
+            {/* Сортируем историю: новые записи сверху */}
+            {[...historyWindow.history].reverse().map((entry, idx, arr) => (
               <div
                 key={idx}
-                className={`pb-3 ${idx < historyWindow.history.length - 1 ? 'border-b border-gray-200' : ''}`}
+                className={`pb-3 ${idx < arr.length - 1 ? 'border-b border-gray-200' : ''}`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${
