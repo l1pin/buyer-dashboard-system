@@ -4,7 +4,7 @@
  * Иерархия: buyer > campaign_name_tracker > campaign_name > adv_group_name > adv_name
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 import { getAllBuyersMetricsCalendar, getTotalMetrics } from '../services/BuyerMetricsService';
 import Portal from './Portal';
@@ -19,6 +19,16 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   const [periodIndexes, setPeriodIndexes] = useState({}); // Индексы выбранных периодов для каждого элемента
   const dropdownRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const savedScrollPosition = useRef({ top: 0, left: 0 });
+
+  // Восстанавливаем скролл после изменения expandedItems (useLayoutEffect - синхронно до перерисовки)
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && (savedScrollPosition.current.top !== 0 || savedScrollPosition.current.left !== 0)) {
+      scrollContainer.scrollTop = savedScrollPosition.current.top;
+      scrollContainer.scrollLeft = savedScrollPosition.current.left;
+    }
+  }, [expandedItems]);
 
   // Варианты периодов
   const periodOptions = [
@@ -64,23 +74,20 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
   };
 
   const toggleItem = (key) => {
-    // Сохраняем позицию скролла перед изменением
+    // Сохраняем позицию скролла в ref ПЕРЕД изменением состояния
     const scrollContainer = scrollContainerRef.current;
-    const scrollTop = scrollContainer?.scrollTop || 0;
-    const scrollLeft = scrollContainer?.scrollLeft || 0;
+    if (scrollContainer) {
+      savedScrollPosition.current = {
+        top: scrollContainer.scrollTop,
+        left: scrollContainer.scrollLeft
+      };
+    }
 
     setExpandedItems(prev => ({
       ...prev,
       [key]: !prev[key]
     }));
-
-    // Восстанавливаем позицию скролла после рендера (setTimeout даёт React время обновить DOM)
-    setTimeout(() => {
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollTop;
-        scrollContainer.scrollLeft = scrollLeft;
-      }
-    }, 0);
+    // Восстановление скролла происходит в useLayoutEffect
   };
 
   const formatDate = (dateStr) => {
