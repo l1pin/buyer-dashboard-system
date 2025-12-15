@@ -339,8 +339,36 @@ function buildHierarchy(data) {
 }
 
 /**
+ * Найти байера для данного source_id и даты на основе периодов доступа
+ * @param {Object} sourceIdToPeriods - Маппинг source_id -> [{buyerName, accessGranted, accessLimited}]
+ * @param {string} sourceId - ID источника
+ * @param {string} date - Дата в формате YYYY-MM-DD
+ * @returns {string} - Имя байера или 'Неизвестный байер'
+ */
+function getBuyerForSourceIdAndDate(sourceIdToPeriods, sourceId, date) {
+  const periods = sourceIdToPeriods[sourceId];
+  if (!periods || periods.length === 0) {
+    return 'Неизвестный байер';
+  }
+
+  // Ищем байера, у которого date попадает в период [accessGranted, accessLimited]
+  for (const period of periods) {
+    const accessGranted = period.accessGranted || '1970-01-01';
+    const accessLimited = period.accessLimited; // может быть null
+
+    // Проверяем: accessGranted <= date && (accessLimited === null || date <= accessLimited)
+    if (date >= accessGranted && (!accessLimited || date <= accessLimited)) {
+      return period.buyerName;
+    }
+  }
+
+  // Если не нашли по датам - возвращаем первого (fallback для старых данных без дат)
+  return periods[0].buyerName;
+}
+
+/**
  * Получить календарь метрик для ВСЕХ байеров оффера
- * @param {Array} allBuyers - Массив всех байеров [{buyerName, sourceIds, source}]
+ * @param {Array} allBuyers - Массив всех байеров [{buyerName, sourceIds, source, trafficChannels}]
  * @param {string} article - Артикул оффера
  * @param {string} selectedBuyerName - Имя выбранного байера (для сортировки)
  * @returns {Promise<Object>} - Данные календаря с иерархией по байерам
@@ -375,16 +403,36 @@ export async function getAllBuyersMetricsCalendar(allBuyers, article, selectedBu
 
     console.log('✅ Найден offer_id_tracker:', offerIdTracker);
 
-    // 2. Собираем ВСЕ source_ids от всех байеров
+    // 2. Собираем ВСЕ source_ids от всех байеров С ПЕРИОДАМИ ДОСТУПА
     const allSourceIds = [];
-    const sourceIdToBuyer = {};
+    const sourceIdToPeriods = {}; // source_id -> [{buyerName, accessGranted, accessLimited}]
 
     allBuyers.forEach(buyer => {
+      const trafficChannels = buyer.trafficChannels || [];
+
+      // Для каждого source_id из привязки находим соответствующий traffic_channel с датами
       (buyer.sourceIds || []).forEach(sourceId => {
-        allSourceIds.push(sourceId);
-        sourceIdToBuyer[sourceId] = buyer.buyerName;
+        if (!allSourceIds.includes(sourceId)) {
+          allSourceIds.push(sourceId);
+        }
+
+        // Ищем channel с этим source_id в traffic_channels байера
+        const channel = trafficChannels.find(ch => ch.channel_id === sourceId);
+
+        if (!sourceIdToPeriods[sourceId]) {
+          sourceIdToPeriods[sourceId] = [];
+        }
+
+        // Добавляем период доступа этого байера к этому source_id
+        sourceIdToPeriods[sourceId].push({
+          buyerName: buyer.buyerName,
+          accessGranted: channel?.access_granted || '2020-01-01',
+          accessLimited: channel?.access_limited || null
+        });
       });
     });
+
+    console.log('📋 sourceIdToPeriods:', JSON.stringify(sourceIdToPeriods, null, 2));
 
     if (allSourceIds.length === 0) {
       console.warn('⚠️ Нет source_ids ни у одного байера');
@@ -458,8 +506,8 @@ export async function getAllBuyersMetricsCalendar(allBuyers, article, selectedBu
     const rawData = await getDataBySql(dataSql);
     console.log('✅ Получено записей:', rawData.length);
 
-    // 5. Обработать данные и построить иерархию С УРОВНЕМ БАЙЕРА
-    const hierarchy = buildHierarchyWithBuyers(rawData, sourceIdToBuyer);
+    // 5. Обработать данные и построить иерархию С УРОВНЕМ БАЙЕРА (с учётом дат доступа)
+    const hierarchy = buildHierarchyWithBuyers(rawData, sourceIdToPeriods);
 
     // 6. Сортируем байеров - выбранный первый
     const buyerOrder = Object.keys(hierarchy).reduce((acc, date) => {
@@ -499,11 +547,12 @@ export async function getAllBuyersMetricsCalendar(allBuyers, article, selectedBu
 
 /**
  * Построить иерархию данных по дням С УРОВНЕМ БАЙЕРА (level 0)
+ * Определяет байера для каждой записи на основе даты и периодов доступа
  * @param {Array} data - Сырые данные из БД
- * @param {Object} sourceIdToBuyer - Маппинг source_id -> buyerName
+ * @param {Object} sourceIdToPeriods - Маппинг source_id -> [{buyerName, accessGranted, accessLimited}]
  * @returns {Object} - Иерархия по дням с байерами
  */
-function buildHierarchyWithBuyers(data, sourceIdToBuyer) {
+function buildHierarchyWithBuyers(data, sourceIdToPeriods) {
   const hierarchy = {};
 
   // Группируем по датам
@@ -524,7 +573,8 @@ function buildHierarchyWithBuyers(data, sourceIdToBuyer) {
     const level0 = {};
 
     rows.forEach(row => {
-      const buyerName = sourceIdToBuyer[row.source_id_tracker] || 'Неизвестный байер';
+      // Определяем байера по source_id И ДАТЕ записи
+      const buyerName = getBuyerForSourceIdAndDate(sourceIdToPeriods, row.source_id_tracker, date);
       const tracker = row.campaign_name_tracker || 'Не указано';
       const campaign = row.campaign_name || 'Не указано';
       const group = row.adv_group_name || 'Не указано';
