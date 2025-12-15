@@ -957,35 +957,27 @@ function OffersTL({ user }) {
     });
   }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
 
-  // Функция расчета высоты строки в зависимости от количества байеров
+  // Функция расчета высоты строки
+  // Карточки байеров расположены горизонтально, поэтому высота почти фиксированная
   const getItemSize = useCallback((index) => {
     const metric = filteredMetrics[index];
-    if (!metric) return 120; // Базовая высота
+    if (!metric) return 300;
 
     const assignments = allAssignments[metric.id] || [];
+    const hasAnyBuyers = assignments.length > 0;
 
-    // Группируем по источникам для определения максимальной высоты колонки
-    const bySource = { fb: 0, google: 0, tiktok: 0, other: 0 };
-    assignments.forEach(a => {
-      const sources = a.source_ids || [];
-      if (sources.some(s => s.toString().startsWith('2'))) bySource.fb++;
-      else if (sources.some(s => s.toString().startsWith('3'))) bySource.google++;
-      else if (sources.some(s => s.toString().startsWith('4'))) bySource.tiktok++;
-      else bySource.other++;
-    });
+    // Структура высоты:
+    // - Строка метрик: ~45px
+    // - Заголовок панели байеров: ~35px
+    // - Заголовки колонок (FB/Google/TikTok): ~45px
+    // - Область карточек байеров: ~200px (или меньше если пусто)
+    // - Отступы: ~15px
 
-    const maxInColumn = Math.max(bySource.fb, bySource.google, bySource.tiktok, bySource.other, 1);
-
-    // Базовая высота (строка метрик + заголовок панели): 80px
-    // Каждая карточка байера: ~75px
-    // Кнопка добавления: ~35px
-    // Отступы: ~10px
-    const baseHeight = 80;
-    const buyerCardHeight = 75;
-    const addButtonHeight = 35;
-    const padding = 10;
-
-    return baseHeight + (maxInColumn * buyerCardHeight) + addButtonHeight + padding;
+    if (hasAnyBuyers) {
+      return 340; // Полная высота с карточками
+    } else {
+      return 220; // Меньшая высота когда нет байеров
+    }
   }, [filteredMetrics, allAssignments]);
 
   // itemData для виртуализированного списка - мемоизируем для предотвращения лишних ре-рендеров
