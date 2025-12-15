@@ -437,12 +437,23 @@ export const offerBuyersService = {
    * @param {string} buyerName - Имя байера
    * @param {string} source - Источник трафика (Facebook, Google, TikTok)
    * @param {Array<string>} sourceIds - Массив всех source_id байера для данного источника
+   * @param {string} assignedBy - Имя тимлида, который привязал байера
    * @returns {Promise<Object>} Созданная привязка
    */
-  async addAssignment(offerId, buyerId, buyerName, source, sourceIds = []) {
+  async addAssignment(offerId, buyerId, buyerName, source, sourceIds = [], assignedBy = null) {
     try {
       console.log(`📝 Привязываем байера ${buyerName} к офферу ${offerId} (${source})...`);
       console.log(`   Source IDs: ${JSON.stringify(sourceIds)}`);
+      console.log(`   Assigned by: ${assignedBy}`);
+
+      const now = new Date().toISOString();
+
+      // Создаём первую запись в истории
+      const historyEntry = {
+        action: 'assigned',
+        timestamp: now,
+        user_name: assignedBy || 'Неизвестно'
+      };
 
       const { data, error } = await supabase
         .from('offer_buyers')
@@ -451,7 +462,8 @@ export const offerBuyersService = {
           buyer_id: buyerId,
           buyer_name: buyerName,
           source: source,
-          source_ids: sourceIds
+          source_ids: sourceIds,
+          history: [historyEntry]
         })
         .select()
         .single();
@@ -468,9 +480,10 @@ export const offerBuyersService = {
   },
 
   /**
-   * Удалить привязку байера к офферу
+   * Удалить привязку байера к офферу (полное удаление без сохранения истории)
    * @param {number} assignmentId - ID привязки
    * @returns {Promise<Object>} Результат операции
+   * @deprecated Используйте hideEarlyAssignment или archiveAssignment
    */
   async removeAssignment(assignmentId) {
     try {
@@ -488,6 +501,61 @@ export const offerBuyersService = {
 
     } catch (error) {
       console.error(`❌ Ошибка удаления привязки ${assignmentId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Скрыть привязку (удаление в первые 3 минуты)
+   * Запись сохраняется в БД с историей, но не отображается в интерфейсе
+   * @param {number} assignmentId - ID привязки
+   * @param {string} removedBy - Имя тимлида, который удалил байера
+   * @returns {Promise<Object>} Обновленная привязка
+   */
+  async hideEarlyAssignment(assignmentId, removedBy = null) {
+    try {
+      console.log(`👻 Скрываем раннюю привязку ${assignmentId}...`);
+
+      // Сначала получаем текущую запись для добавления в историю
+      const { data: current, error: fetchError } = await supabase
+        .from('offer_buyers')
+        .select('history')
+        .eq('id', assignmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const now = new Date().toISOString();
+
+      // Создаём запись истории для раннего удаления
+      const historyEntry = {
+        action: 'removed_early',
+        timestamp: now,
+        user_name: removedBy || 'Неизвестно',
+        reason: 'Удалено в первые 3 минуты'
+      };
+
+      // Добавляем к существующей истории
+      const updatedHistory = [...(current.history || []), historyEntry];
+
+      const { data, error } = await supabase
+        .from('offer_buyers')
+        .update({
+          hidden: true,
+          hidden_at: now,
+          history: updatedHistory
+        })
+        .eq('id', assignmentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Привязка ${assignmentId} скрыта (раннее удаление)`);
+      return data;
+
+    } catch (error) {
+      console.error(`❌ Ошибка скрытия привязки ${assignmentId}:`, error);
       throw error;
     }
   },
@@ -542,17 +610,44 @@ export const offerBuyersService = {
    * Архивировать привязку байера (не удалять, а пометить как неактивную)
    * Используется когда у байера был расход (cost > 0)
    * @param {number} assignmentId - ID привязки
+   * @param {string} removedBy - Имя тимлида, который удалил байера
+   * @param {string} reason - Причина удаления (Передумал, Мисклик, Другое)
+   * @param {string} reasonDetails - Детали причины (для "Другое")
    * @returns {Promise<Object>} Обновленная привязка
    */
-  async archiveAssignment(assignmentId) {
+  async archiveAssignment(assignmentId, removedBy = null, reason = null, reasonDetails = null) {
     try {
       console.log(`📦 Архивируем привязку ${assignmentId}...`);
+
+      // Сначала получаем текущую запись для добавления в историю
+      const { data: current, error: fetchError } = await supabase
+        .from('offer_buyers')
+        .select('history')
+        .eq('id', assignmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const now = new Date().toISOString();
+
+      // Создаём запись истории для архивации
+      const historyEntry = {
+        action: 'archived',
+        timestamp: now,
+        user_name: removedBy || 'Неизвестно',
+        reason: reason || null,
+        reason_details: reasonDetails || null
+      };
+
+      // Добавляем к существующей истории
+      const updatedHistory = [...(current.history || []), historyEntry];
 
       const { data, error } = await supabase
         .from('offer_buyers')
         .update({
           archived: true,
-          archived_at: new Date().toISOString()
+          archived_at: now,
+          history: updatedHistory
         })
         .eq('id', assignmentId)
         .select()
