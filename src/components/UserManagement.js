@@ -117,6 +117,7 @@ const AdIcon = ({ className }) => (
 
 function UserManagement({ user }) {
   const [users, setUsers] = useState([]);
+  const [teamLeads, setTeamLeads] = useState([]); // Список Team Leads для дропдауна
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -135,6 +136,8 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
+    team_lead_id: null,
+    team_lead_name: null,
     buyer_settings: {
       traffic_channels: [
         {
@@ -155,6 +158,8 @@ function UserManagement({ user }) {
     password: '',
     role: 'buyer',
     is_protected: false,
+    team_lead_id: null,
+    team_lead_name: null,
     buyer_settings: {
       traffic_channels: [
         {
@@ -170,7 +175,17 @@ function UserManagement({ user }) {
 
   useEffect(() => {
     loadUsers();
+    loadTeamLeads(); // Загружаем Team Leads при инициализации
   }, [showArchived]); // Перезагружаем при переключении архива
+
+  const loadTeamLeads = async () => {
+    try {
+      const teamLeadsData = await userService.getUsersByRole('teamlead');
+      setTeamLeads(teamLeadsData || []);
+    } catch (error) {
+      console.error('Ошибка загрузки Team Leads:', error);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -258,6 +273,8 @@ function UserManagement({ user }) {
         email: newUser.email.trim(),
         password: newUser.password,
         role: newUser.role,
+        team_lead_id: newUser.team_lead_id || null,
+        team_lead_name: newUser.team_lead_name || null,
         created_by_id: user.id,
         created_by_name: user.name || user.email
       };
@@ -291,6 +308,8 @@ function UserManagement({ user }) {
         email: '',
         password: '',
         role: 'buyer',
+        team_lead_id: null,
+        team_lead_name: null,
         buyer_settings: {
           traffic_channels: [
             {
@@ -430,6 +449,8 @@ function UserManagement({ user }) {
       password: '', // Пароль всегда пустой для безопасности
       role: userToEdit.role || 'buyer',
       is_protected: userToEdit.is_protected || false,
+      team_lead_id: userToEdit.team_lead_id || null,
+      team_lead_name: userToEdit.team_lead_name || null,
       buyer_settings: buyerSettings
     });
     setShowEditModal(true);
@@ -462,7 +483,9 @@ function UserManagement({ user }) {
         email: editUserData.email.trim(),
         password: editUserData.password || undefined, // Только если пароль указан
         role: editUserData.role,
-        is_protected: editUserData.is_protected
+        is_protected: editUserData.is_protected,
+        team_lead_id: editUserData.team_lead_id || null,
+        team_lead_name: editUserData.team_lead_name || null
       };
 
       // Добавляем buyer_settings только для Media Buyer
@@ -1324,6 +1347,37 @@ function UserManagement({ user }) {
                 </p>
               </div>
 
+              {/* Выбор Team Lead */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Team Lead
+                </label>
+                <select
+                  value={newUser.team_lead_id || ''}
+                  onChange={(e) => {
+                    const selectedId = e.target.value || null;
+                    const selectedTL = teamLeads.find(tl => tl.id === selectedId);
+                    setNewUser({
+                      ...newUser,
+                      team_lead_id: selectedId,
+                      team_lead_name: selectedTL ? selectedTL.name : null
+                    });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Не выбран</option>
+                  {teamLeads.map((tl) => (
+                    <option key={tl.id} value={tl.id}>
+                      {tl.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Выберите Team Lead, к которому привязан пользователь
+                </p>
+              </div>
+
               {/* Дополнительные поля для Media Buyer */}
               {newUser.role === 'buyer' && (
                 <>
@@ -1714,6 +1768,37 @@ function UserManagement({ user }) {
                   {editUserData.role === 'proofreader' && 'Доступ к редактированию контента'}
                   {editUserData.role === 'gif_creator' && 'Доступ к созданию GIF-файлов'}
                   {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                </p>
+              </div>
+
+              {/* Выбор Team Lead */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Team Lead
+                </label>
+                <select
+                  value={editUserData.team_lead_id || ''}
+                  onChange={(e) => {
+                    const selectedId = e.target.value || null;
+                    const selectedTL = teamLeads.find(tl => tl.id === selectedId);
+                    setEditUserData({
+                      ...editUserData,
+                      team_lead_id: selectedId,
+                      team_lead_name: selectedTL ? selectedTL.name : null
+                    });
+                    clearMessages();
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Не выбран</option>
+                  {teamLeads.map((tl) => (
+                    <option key={tl.id} value={tl.id}>
+                      {tl.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Выберите Team Lead, к которому привязан пользователь
                 </p>
               </div>
 
