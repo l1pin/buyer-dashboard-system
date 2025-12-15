@@ -480,14 +480,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                   <div
                     key={assignment.id}
                     onClick={() => !isRemoving && onOpenCalendar(assignment)}
-                    className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-hidden relative
+                    className={`flex-shrink-0 w-32 rounded-lg transition-all group overflow-visible relative
                       ${isArchived
                         ? 'bg-gray-100 border-2 border-dashed border-gray-300 opacity-60 hover:opacity-80'
                         : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md'
                       }
                       ${isRemoving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
                     `}
-                    title={isArchived ? 'Архивированный байер (был расход)' : 'Нажмите для просмотра календаря метрик'}
                   >
                     {/* Индикатор загрузки при удалении/архивации */}
                     {isRemoving && (
@@ -505,11 +504,16 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
                     {/* Иконка предупреждения если активных дней < 14 (в левом верхнем углу) */}
                     {!isArchived && !loadingBuyerMetrics && !isThisBuyerLoading && hasLessActiveDays && (
-                      <div className="absolute top-1 left-1 bg-yellow-100 rounded-full p-0.5 z-20 group/warning">
-                        <AlertTriangle className="w-2.5 h-2.5 text-yellow-600" />
-                        <span className="absolute bottom-full left-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                      <div
+                        className="absolute -top-1 -left-1 p-1.5 z-30 group/warning cursor-help"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="bg-yellow-100 rounded-full p-0.5">
+                          <AlertTriangle className="w-3 h-3 text-yellow-600" />
+                        </div>
+                        <div className="absolute bottom-full left-0 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/warning:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg">
                           Статистика за {metrics.activeDays} {metrics.activeDays === 1 ? 'активный день' : metrics.activeDays < 5 ? 'активных дня' : 'активных дней'} (меньше 14)
-                        </span>
+                        </div>
                       </div>
                     )}
 
