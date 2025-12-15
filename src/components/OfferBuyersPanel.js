@@ -7,6 +7,7 @@ import { aggregateMetricsByActiveDays, calculateConsecutiveActiveDays } from '..
 import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
+import DraggableTooltip from './DraggableTooltip';
 import { MiniSpinner, LoadingDots } from './LoadingSpinner';
 
 // Константа: время в миллисекундах для "раннего удаления" (3 минуты)
@@ -46,7 +47,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [selectedBuyerForCalendar, setSelectedBuyerForCalendar] = useState(null);
   const [selectedFilters, setSelectedFilters] = useState(new Set(['all'])); // Выбранные фильтры
   const [warningTooltip, setWarningTooltip] = useState(null); // {text, x, y} для tooltip предупреждения
-  const [historyTooltip, setHistoryTooltip] = useState(null); // {history, x, y} для tooltip истории
+  const [historyWindow, setHistoryWindow] = useState(null); // {history, buyerName, x, y} для перетаскиваемого окна истории
   const [showRemovalReasonModal, setShowRemovalReasonModal] = useState(null); // {assignmentId, assignment} для модалки причины
   const [removalReason, setRemovalReason] = useState(''); // Выбранная причина удаления
   const [removalReasonDetails, setRemovalReasonDetails] = useState(''); // Детали причины "Другое"
@@ -720,20 +721,20 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                         <span className="text-[9px] text-gray-500">
                           {date} | {days} д
                         </span>
-                        {/* Иконка истории */}
+                        {/* Иконка истории - по клику открывает перетаскиваемое окно */}
                         {assignment.history && assignment.history.length > 0 && (
                           <div
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseEnter={(e) => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setHistoryTooltip({
+                              setHistoryWindow({
                                 history: assignment.history,
-                                x: rect.left + rect.width / 2,
-                                y: rect.top
+                                buyerName: assignment.buyer.name,
+                                x: rect.left,
+                                y: rect.bottom + 8
                               });
                             }}
-                            onMouseLeave={() => setHistoryTooltip(null)}
-                            className="cursor-help"
+                            className="cursor-pointer"
                           >
                             <Info className="w-3 h-3 text-blue-400 hover:text-blue-600" />
                           </div>
@@ -1083,59 +1084,46 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         </Portal>
       )}
 
-      {/* Tooltip для истории привязки - через Portal поверх всего */}
-      {historyTooltip && (
-        <Portal>
-          <div
-            style={{
-              position: 'fixed',
-              left: historyTooltip.x,
-              top: historyTooltip.y - 8,
-              transform: 'translate(-50%, -100%)',
-              padding: '10px 14px',
-              fontSize: '11px',
-              color: '#ffffff',
-              backgroundColor: '#1f2937',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-              zIndex: 999999,
-              minWidth: '200px',
-              maxWidth: '300px'
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '12px' }}>
-              История привязки
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {historyTooltip.history.map((entry, idx) => (
-                <div key={idx} style={{ borderBottom: idx < historyTooltip.history.length - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none', paddingBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                    <span style={{
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '10px',
-                      fontWeight: 500,
-                      backgroundColor: entry.action === 'assigned' ? '#22c55e' : entry.action === 'archived' ? '#f97316' : '#ef4444'
-                    }}>
-                      {entry.action === 'assigned' ? 'Привязан' : entry.action === 'archived' ? 'Архивирован' : 'Удалён'}
-                    </span>
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.8)' }}>
-                    {formatHistoryDate(entry.timestamp)}
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.9)' }}>
-                    {entry.user_name}
-                  </div>
-                  {entry.reason && (
-                    <div style={{ color: '#fbbf24', marginTop: '2px' }}>
-                      Причина: {entry.reason}{entry.reason_details ? ` - ${entry.reason_details}` : ''}
-                    </div>
-                  )}
+      {/* Перетаскиваемое окно истории привязки - как для CLP/Лиды/Рейтинг */}
+      {historyWindow && (
+        <DraggableTooltip
+          title={`История: ${historyWindow.buyerName}`}
+          onClose={() => setHistoryWindow(null)}
+          initialPosition={{ x: historyWindow.x, y: historyWindow.y }}
+          zIndex={999999}
+        >
+          <div className="space-y-3">
+            {historyWindow.history.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`pb-3 ${idx < historyWindow.history.length - 1 ? 'border-b border-gray-200' : ''}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${
+                    entry.action === 'assigned'
+                      ? 'bg-green-500'
+                      : entry.action === 'archived'
+                        ? 'bg-orange-500'
+                        : 'bg-red-500'
+                  }`}>
+                    {entry.action === 'assigned' ? 'Привязан' : entry.action === 'archived' ? 'Архивирован' : 'Удалён'}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div className="text-sm text-gray-600">
+                  {formatHistoryDate(entry.timestamp)}
+                </div>
+                <div className="text-sm font-medium text-gray-900">
+                  {entry.user_name}
+                </div>
+                {entry.reason && (
+                  <div className="text-sm text-amber-600 mt-1">
+                    Причина: {entry.reason}{entry.reason_details ? ` - ${entry.reason_details}` : ''}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </Portal>
+        </DraggableTooltip>
       )}
 
       {/* Модальное окно выбора причины удаления */}
