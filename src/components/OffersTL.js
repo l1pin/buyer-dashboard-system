@@ -198,12 +198,12 @@ function OffersTL({ user }) {
     }
   }, []);
 
-  // 🔴 REALTIME: Подписка на изменения привязок байеров для синхронизации между пользователями
-  // Используем ref для доступа к актуальным данным внутри подписки
-  const realtimeDataRef = useRef({ metrics, articleOfferMap });
+  // 🔴 REALTIME & AUTO-UPDATE: ref для доступа к актуальным данным внутри callbacks
+  // Используем ref чтобы избежать stale closure в useCallback с пустыми зависимостями
+  const realtimeDataRef = useRef({ metrics, articleOfferMap, allAssignments });
   useEffect(() => {
-    realtimeDataRef.current = { metrics, articleOfferMap };
-  }, [metrics, articleOfferMap]);
+    realtimeDataRef.current = { metrics, articleOfferMap, allAssignments };
+  }, [metrics, articleOfferMap, allAssignments]);
 
   useEffect(() => {
     const subscription = offerBuyersService.subscribeToChanges(
@@ -601,16 +601,24 @@ function OffersTL({ user }) {
 
   // АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ: запускается при загрузке страницы
   const autoUpdateMetrics = useCallback(async () => {
+    // ВАЖНО: Получаем актуальные данные из ref, а не из замыкания!
+    // Это решает проблему stale closure когда данные ещё не загружены при первом вызове
+    const { metrics: currentMetrics, articleOfferMap: currentArticleOfferMap, allAssignments: currentAssignments } = realtimeDataRef.current;
+
     // Проверяем что есть данные для обновления
-    if (!metrics || metrics.length === 0) {
+    if (!currentMetrics || currentMetrics.length === 0) {
+      console.log('⚠️ autoUpdateMetrics: metrics ещё не загружены');
+      return;
+    }
+
+    if (!currentArticleOfferMap || Object.keys(currentArticleOfferMap).length === 0) {
+      console.log('⚠️ autoUpdateMetrics: articleOfferMap ещё не загружен');
       return;
     }
 
     try {
-      // Получаем актуальные данные из state
-      const currentMetrics = metrics;
-      const currentAssignments = allAssignments;
-      const currentArticleOfferMap = articleOfferMap;
+      console.log('🔄 autoUpdateMetrics: запуск с актуальными данными из ref');
+      console.log(`   metrics: ${currentMetrics.length}, articleOfferMap: ${Object.keys(currentArticleOfferMap).length}, assignments: ${Object.keys(currentAssignments).length}`);
 
       // Загрузка метрик байеров за ВСЁ ВРЕМЯ (без прогресса в UI)
       setLoadingBuyerMetrics(true);

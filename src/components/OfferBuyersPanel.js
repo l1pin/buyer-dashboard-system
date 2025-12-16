@@ -195,12 +195,16 @@ const BuyerCard = React.memo(function BuyerCard({
   // Вычисляем статус
   const statusKey = getAssignmentKey(offerId, assignment.buyer.id, assignment.source);
   const statusData = buyerStatuses[statusKey];
-  // ВАЖНО: Если статусы ещё загружаются или статус не найден - показываем 'loading', НЕ 'active'!
+  // Логика определения статуса:
+  // 1. Если архивирован - 'archived'
+  // 2. Если статусы ещё загружаются (loadingBuyerStatuses=true) - 'loading'
+  // 3. Если статусы загружены и есть данные - используем statusData.status
+  // 4. Если статусы загружены но данных нет - 'not_in_tracker' (не найден в трекере)
   const statusType = isArchived
     ? 'archived'
-    : (loadingBuyerStatuses || !statusData)
+    : loadingBuyerStatuses
       ? 'loading'
-      : statusData.status;
+      : (statusData?.status || 'not_in_tracker');
   const config = isArchived
     ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
     : (BUYER_STATUS_CONFIG[statusType] || LOCAL_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
@@ -690,9 +694,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       if (assignment.archived) return 0; // Неактивные - слева
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
-      // Если статус не загружен - показываем в конце (не используем fallback 'active'!)
-      if (!statusData) return 5; // Загружается - в конце
-      const statusType = statusData.status;
+      // Если статус не найден - считаем 'not_in_tracker'
+      const statusType = statusData?.status || 'not_in_tracker';
 
       switch (statusType) {
         case 'not_in_tracker': return 1; // Нет в трекере
@@ -708,9 +711,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const offerArticle = offer?.article || '';
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
-      // Если статус не загружен - возвращаем 0 (не используем fallback 'active'!)
-      if (!statusData && !assignment.archived) return 0;
-      const statusType = assignment.archived ? 'archived' : statusData?.status;
+      // Если статус не найден - считаем 'not_in_tracker'
+      const statusType = assignment.archived ? 'archived' : (statusData?.status || 'not_in_tracker');
 
       if (statusType === 'active') {
         // Для активных - дни подряд с cost > 0
@@ -986,8 +988,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     if (assignment.archived) return 'archived';
     const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
     const statusData = buyerStatuses[statusKey];
-    // Если статус не загружен - возвращаем 'loading' (не используем fallback 'active'!)
-    return statusData?.status || 'loading';
+    // Если статус не найден - считаем 'not_in_tracker' (не 'active'!)
+    return statusData?.status || 'not_in_tracker';
   }, [offer.id, buyerStatuses]);
 
   // Фильтруем байеров по выбранным фильтрам
