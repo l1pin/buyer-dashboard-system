@@ -1271,12 +1271,11 @@
   }
 }
 
-/* Базовый класс skeleton - светло-серый фон с белой волной */
+/* Базовый класс skeleton - серый фон #e5e7eb с белой волной */
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
-  background-color: #f3f4f6; /* gray-100 - светлее */
-  border-radius: 9999px; /* максимально закругленные края */
+  background-color: #e5e7eb;
 }
 
 .skeleton-shimmer::after {
@@ -1297,12 +1296,11 @@
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
-/* Вариант blue - тоже светло-серый (без синего оттенка) */
+/* Вариант blue - тот же цвет #e5e7eb */
 .skeleton-shimmer-blue {
   position: relative;
   overflow: hidden;
-  background-color: #f3f4f6; /* gray-100 - светлее, без синего */
-  border-radius: 9999px;
+  background-color: #e5e7eb;
 }
 
 .skeleton-shimmer-blue::after {
@@ -1336,8 +1334,7 @@
 .skeleton-shimmer-pulse {
   position: relative;
   overflow: hidden;
-  background-color: #e5e7eb; /* gray-200 */
-  border-radius: 9999px;
+  background-color: #e5e7eb;
   animation: skeleton-pulse 2s ease-in-out infinite;
 }
 
@@ -1360,12 +1357,14 @@
 /* Для темных тем */
 @media (prefers-color-scheme: dark) {
   .skeleton-shimmer,
-  .skeleton-shimmer-blue {
-    background-color: #374151; /* gray-700 */
+  .skeleton-shimmer-blue,
+  .skeleton-shimmer-pulse {
+    background-color: #374151;
   }
 
   .skeleton-shimmer::after,
-  .skeleton-shimmer-blue::after {
+  .skeleton-shimmer-blue::after,
+  .skeleton-shimmer-pulse::after {
     background: linear-gradient(
       90deg,
       transparent 0%,

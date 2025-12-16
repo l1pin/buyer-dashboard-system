@@ -46,7 +46,7 @@ export const Skeleton = memo(({ className = "", style = {}, variant = "blue" }) 
 
   return (
     <div
-      className={`${shimmerClass} rounded ${className}`}
+      className={`${shimmerClass} ${className}`}
       style={style}
     />
   );
