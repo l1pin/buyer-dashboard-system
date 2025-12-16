@@ -495,7 +495,7 @@ const SourceColumn = React.memo(function SourceColumn({
 
       <div
         ref={containerRef}
-        className="overflow-x-auto pb-2 -mx-1 px-1"
+        className={`pb-2 -mx-1 px-1 ${shouldVirtualize ? 'overflow-hidden' : 'overflow-x-auto overflow-y-visible'}`}
         style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
       >
         {buyers.length === 0 ? (
@@ -511,7 +511,7 @@ const SourceColumn = React.memo(function SourceColumn({
             itemData={listItemData}
             overscanCount={3}
             className="select-none"
-            style={{ overflow: 'auto hidden' }}
+            style={{ overflowX: 'auto', overflowY: 'hidden' }}
           >
             {VirtualizedBuyerCard}
           </FixedSizeList>
