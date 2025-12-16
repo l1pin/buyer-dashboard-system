@@ -1258,7 +1258,7 @@
 
 /* ============================================
    SKELETON LOADING ANIMATIONS
-   Современный shimmer эффект - серый с белой волной
+   Светло-серый shimmer с белой волной
    ============================================ */
 
 /* Основная анимация shimmer - белая волна слева направо */
@@ -1271,11 +1271,12 @@
   }
 }
 
-/* Базовый класс skeleton - серый фон с белой волной */
+/* Базовый класс skeleton - светло-серый фон с белой волной */
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
-  background-color: #e5e7eb; /* gray-200 */
+  background-color: #f3f4f6; /* gray-100 - светлее */
+  border-radius: 9999px; /* максимально закругленные края */
 }
 
 .skeleton-shimmer::after {
@@ -1288,19 +1289,20 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.4) 20%,
-    rgba(255, 255, 255, 0.8) 50%,
-    rgba(255, 255, 255, 0.4) 80%,
+    rgba(255, 255, 255, 0.6) 20%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 255, 255, 0.6) 80%,
     transparent 100%
   );
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
-/* Вариант с легким голубым оттенком */
+/* Вариант blue - тоже светло-серый (без синего оттенка) */
 .skeleton-shimmer-blue {
   position: relative;
   overflow: hidden;
-  background-color: #e2e8f0; /* slate-200 */
+  background-color: #f3f4f6; /* gray-100 - светлее, без синего */
+  border-radius: 9999px;
 }
 
 .skeleton-shimmer-blue::after {
@@ -1313,9 +1315,9 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.5) 20%,
-    rgba(255, 255, 255, 0.9) 50%,
-    rgba(255, 255, 255, 0.5) 80%,
+    rgba(255, 255, 255, 0.7) 20%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 255, 255, 0.7) 80%,
     transparent 100%
   );
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
@@ -1334,7 +1336,8 @@
 .skeleton-shimmer-pulse {
   position: relative;
   overflow: hidden;
-  background-color: #d1d5db; /* gray-300 */
+  background-color: #e5e7eb; /* gray-200 */
+  border-radius: 9999px;
   animation: skeleton-pulse 2s ease-in-out infinite;
 }
 
@@ -1348,7 +1351,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.8) 50%,
     transparent 100%
   );
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
@@ -1356,30 +1359,19 @@
 
 /* Для темных тем */
 @media (prefers-color-scheme: dark) {
-  .skeleton-shimmer {
+  .skeleton-shimmer,
+  .skeleton-shimmer-blue {
     background-color: #374151; /* gray-700 */
   }
 
-  .skeleton-shimmer::after {
+  .skeleton-shimmer::after,
+  .skeleton-shimmer-blue::after {
     background: linear-gradient(
       90deg,
       transparent 0%,
       rgba(255, 255, 255, 0.1) 20%,
       rgba(255, 255, 255, 0.2) 50%,
       rgba(255, 255, 255, 0.1) 80%,
-      transparent 100%
-    );
-  }
-
-  .skeleton-shimmer-blue {
-    background-color: #1e3a5f;
-  }
-
-  .skeleton-shimmer-blue::after {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.15) 50%,
       transparent 100%
     );
   }

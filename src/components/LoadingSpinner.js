@@ -79,43 +79,41 @@ SkeletonCircle.displayName = 'SkeletonCircle';
 
 /**
  * Skeleton для карточки байера
- * Полностью повторяет структуру реальной карточки
+ * Показывает реальные метки, skeleton только на значениях
  */
 export const SkeletonBuyerCard = memo(() => (
-  <div className="flex-shrink-0 w-32 rounded-lg bg-white border border-gray-100 overflow-hidden shadow-sm">
+  <div className="flex-shrink-0 w-32 rounded-xl bg-white border border-gray-100 overflow-hidden shadow-sm">
     <div className="flex flex-col items-center text-center space-y-2 p-2">
       {/* Аватар */}
       <SkeletonCircle size={40} />
 
       {/* Имя */}
-      <SkeletonText width="80%" height="h-3" className="mx-auto" />
+      <Skeleton className="h-3 w-16" />
 
       {/* Дата */}
-      <SkeletonText width="60%" height="h-2" className="mx-auto" />
+      <Skeleton className="h-2 w-12" />
 
       {/* Таймер placeholder */}
-      <div className="h-5 flex items-center justify-center">
-        <Skeleton className="h-4 w-12 rounded" variant="default" />
-      </div>
+      <div className="h-5" />
 
-      {/* Метрики */}
-      <div className="w-full space-y-1.5 py-1">
-        <div className="flex justify-between px-1 items-center">
-          <span className="text-[9px] text-gray-300">CPL:</span>
-          <SkeletonText width="40%" height="h-2" />
+      {/* Метрики - реальные метки, skeleton только на значениях */}
+      <div className="w-full text-[9px] text-gray-500 space-y-0.5">
+        <div className="flex justify-between px-1">
+          <span>CPL:</span>
+          <Skeleton className="h-2.5 w-8" />
         </div>
-        <div className="flex justify-between px-1 items-center">
-          <span className="text-[9px] text-gray-300">Lead:</span>
-          <SkeletonText width="30%" height="h-2" />
+        <div className="flex justify-between px-1">
+          <span>Lead:</span>
+          <Skeleton className="h-2.5 w-5" />
         </div>
-        <div className="flex justify-between px-1 items-center">
-          <span className="text-[9px] text-gray-300">Cost:</span>
-          <SkeletonText width="45%" height="h-2" />
+        <div className="flex justify-between px-1">
+          <span>Cost:</span>
+          <Skeleton className="h-2.5 w-10" />
         </div>
       </div>
     </div>
 
-    {/* Статус бар - используем pulse для разнообразия */}
+    {/* Статус бар */}
     <Skeleton className="h-6 rounded-none" variant="pulse" />
   </div>
 ));
@@ -124,20 +122,21 @@ SkeletonBuyerCard.displayName = 'SkeletonBuyerCard';
 
 /**
  * Skeleton для строки метрик в карточке байера
+ * Показывает реальные метки, skeleton только на значениях
  */
 export const SkeletonMetrics = memo(() => (
-  <div className="w-full space-y-1">
+  <div className="w-full text-[9px] text-gray-500 space-y-0.5">
     <div className="flex justify-between px-1">
-      <SkeletonText width="30%" height="h-2" />
-      <SkeletonText width="40%" height="h-2" />
+      <span>CPL:</span>
+      <Skeleton className="h-2.5 w-8" />
     </div>
     <div className="flex justify-between px-1">
-      <SkeletonText width="30%" height="h-2" />
-      <SkeletonText width="35%" height="h-2" />
+      <span>Lead:</span>
+      <Skeleton className="h-2.5 w-5" />
     </div>
     <div className="flex justify-between px-1">
-      <SkeletonText width="30%" height="h-2" />
-      <SkeletonText width="45%" height="h-2" />
+      <span>Cost:</span>
+      <Skeleton className="h-2.5 w-10" />
     </div>
   </div>
 ));
