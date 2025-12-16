@@ -372,7 +372,7 @@ function OffersTL({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics, allAssignments, articleOfferMap, loading]);
 
-  // Главная функция загрузки - всё параллельно
+  // Главная функция загрузки данных
   const loadAllData = async (isBackground = false) => {
     try {
       if (!isBackground) {
@@ -382,7 +382,7 @@ function OffersTL({ user }) {
 
       // Запускаем ВСЕ запросы параллельно
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
-        metricsAnalyticsService.getAllMetricsLarge().catch(e => ({ metrics: [], error: e })),
+        metricsAnalyticsService.getAllMetrics().catch(e => ({ metrics: [], error: e })),
         userService.getUsersByRole('buyer').catch(e => []),
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
@@ -437,7 +437,7 @@ function OffersTL({ user }) {
       });
       setOfferSeasons(seasonsMap);
 
-      // Сохраняем в кэш
+      // Сохраняем в кэш (только первую страницу)
       saveToCache({
         metrics: metricsData,
         buyers: buyersData,
