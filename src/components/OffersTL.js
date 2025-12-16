@@ -199,11 +199,19 @@ function OffersTL({ user }) {
   }, []);
 
   // 🔴 REALTIME: Подписка на изменения привязок байеров для синхронизации между пользователями
+  // Используем ref для доступа к актуальным данным внутри подписки
+  const realtimeDataRef = useRef({ metrics, articleOfferMap });
+  useEffect(() => {
+    realtimeDataRef.current = { metrics, articleOfferMap };
+  }, [metrics, articleOfferMap]);
+
   useEffect(() => {
     const subscription = offerBuyersService.subscribeToChanges(
       // INSERT: новая привязка байера
-      (newAssignment) => {
+      async (newAssignment) => {
         console.log('🔔 Realtime: добавлена привязка', newAssignment);
+
+        // Добавляем привязку в state
         setAllAssignments(prev => {
           const offerId = newAssignment.offer_id;
           const current = prev[offerId] || [];
@@ -216,6 +224,68 @@ function OffersTL({ user }) {
             [offerId]: [...current, newAssignment]
           };
         });
+
+        // 🔄 Рассчитываем статус для нового байера
+        try {
+          const { metrics: currentMetrics, articleOfferMap: currentMap } = realtimeDataRef.current;
+          const offerMetric = currentMetrics.find(m => m.id === newAssignment.offer_id);
+
+          if (offerMetric) {
+            const article = offerMetric.article;
+            const offerIdTracker = currentMap[article];
+            const sourceIds = newAssignment.source_ids || [];
+
+            if (offerIdTracker && sourceIds.length > 0) {
+              // Показываем индикатор загрузки
+              setLoadingBuyerIds(prev => {
+                const newSet = new Set(prev);
+                newSet.add(newAssignment.id);
+                return newSet;
+              });
+
+              // Получаем статус и метрики параллельно
+              const [statusResult, metricsResult] = await Promise.all([
+                updateSingleBuyerStatus(newAssignment, article, offerIdTracker),
+                fetchMetricsForSingleBuyer(sourceIds, offerIdTracker, article)
+              ]);
+
+              // Обновляем статус
+              setBuyerStatuses(prev => ({
+                ...prev,
+                [statusResult.key]: statusResult.status
+              }));
+
+              // Обновляем метрики
+              if (metricsResult.dataBySourceIdAndDate) {
+                clearMetricsCache();
+                setBuyerMetricsData(prev => {
+                  const newData = { ...prev };
+                  Object.keys(metricsResult.dataBySourceIdAndDate).forEach(art => {
+                    if (!newData[art]) newData[art] = {};
+                    Object.keys(metricsResult.dataBySourceIdAndDate[art]).forEach(srcId => {
+                      newData[art][srcId] = metricsResult.dataBySourceIdAndDate[art][srcId];
+                    });
+                  });
+                  return newData;
+                });
+              }
+
+              // Убираем индикатор загрузки
+              setLoadingBuyerIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(newAssignment.id);
+                return newSet;
+              });
+            }
+          }
+        } catch (error) {
+          console.error('🔔 Realtime: ошибка расчета статуса', error);
+          setLoadingBuyerIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(newAssignment.id);
+            return newSet;
+          });
+        }
       },
       // UPDATE: обновление привязки (архивация, изменение и т.д.)
       (updatedAssignment) => {
