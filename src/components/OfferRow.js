@@ -234,7 +234,7 @@ const OfferRow = memo(({
         {/* CPL */}
         <div className="w-[5%] min-w-[50px] text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <Skeleton className="h-3.5 w-10 rounded" />
+            <Skeleton className="h-3.5 w-10" />
           ) : (
             <>
               <span className={`font-mono ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -248,7 +248,7 @@ const OfferRow = memo(({
         {/* Лиды */}
         <div className="w-[4%] min-w-[40px] text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <Skeleton className="h-3.5 w-6 rounded" />
+            <Skeleton className="h-3.5 w-6" />
           ) : (
             <>
               <span className={`font-mono ${metric.leads_4days != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -267,7 +267,7 @@ const OfferRow = memo(({
         {/* Рейтинг */}
         <div className="w-[5%] min-w-[44px] text-xs flex items-center justify-center gap-0.5">
           {loadingLeadsData ? (
-            <Skeleton className="h-4 w-5 rounded" />
+            <Skeleton className="h-4 w-5" />
           ) : (
             <>
               <span
@@ -321,7 +321,7 @@ const OfferRow = memo(({
         {/* Дней продаж */}
         <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center">
           {loadingDays ? (
-            <Skeleton className="h-3.5 w-8 rounded" />
+            <Skeleton className="h-3.5 w-8" />
           ) : (
             <span className={`font-mono ${
               metric.days_remaining != null
@@ -336,7 +336,7 @@ const OfferRow = memo(({
         {/* Остаток */}
         <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center gap-1">
           {loadingStocks ? (
-            <Skeleton className="h-3.5 w-8 rounded" />
+            <Skeleton className="h-3.5 w-8" />
           ) : (
             <>
               <span className={`font-mono ${metric.stock_quantity != null ? 'text-slate-800' : 'text-slate-400'}`}>

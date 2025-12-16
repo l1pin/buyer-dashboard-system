@@ -1354,27 +1354,7 @@
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
 }
 
-/* Для темных тем */
-@media (prefers-color-scheme: dark) {
-  .skeleton-shimmer,
-  .skeleton-shimmer-blue,
-  .skeleton-shimmer-pulse {
-    background-color: #374151;
-  }
-
-  .skeleton-shimmer::after,
-  .skeleton-shimmer-blue::after,
-  .skeleton-shimmer-pulse::after {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.1) 20%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0.1) 80%,
-      transparent 100%
-    );
-  }
-}
+/* Skeleton всегда светло-серый #e5e7eb независимо от темы системы */
 
 /* Дополнительные анимации */
 @keyframes loading-shimmer {
