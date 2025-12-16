@@ -9,7 +9,7 @@ import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../sc
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 import Portal from './Portal';
 import DraggableTooltip from './DraggableTooltip';
-import { MiniSpinner, LoadingDots } from './LoadingSpinner';
+import { MiniSpinner, LoadingDots, SkeletonMetrics, Skeleton } from './LoadingSpinner';
 
 // Порог для виртуализации - виртуализируем только если байеров больше этого числа
 const VIRTUALIZATION_THRESHOLD = 5;
@@ -279,7 +279,7 @@ const BuyerCard = React.memo(function BuyerCard({
       {/* Индикатор загрузки при удалении/архивации */}
       {isRemoving && (
         <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+          <MiniSpinner />
         </div>
       )}
 
@@ -349,9 +349,7 @@ const BuyerCard = React.memo(function BuyerCard({
 
         {/* Метрики */}
         {(loadingBuyerMetrics || isLoading) ? (
-          <div className="w-full flex items-center justify-center py-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-          </div>
+          <SkeletonMetrics />
         ) : (
           <div className="w-full text-[9px] text-gray-500 space-y-0.5">
             <div className="flex justify-between px-1">
@@ -1200,8 +1198,18 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
               {/* Список байеров */}
               <div className="flex-1 overflow-y-auto p-6">
                 {loadingBuyers ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center space-x-3">
+                          <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-3/4 rounded" />
+                            <Skeleton className="h-3 w-1/2 rounded" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : filteredAvailableBuyers.length === 0 && filteredArchivedBuyers.length === 0 ? (
                   <div className="text-center py-8">
