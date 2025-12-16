@@ -198,6 +198,59 @@ function OffersTL({ user }) {
     }
   }, []);
 
+  // 🔴 REALTIME: Подписка на изменения привязок байеров для синхронизации между пользователями
+  useEffect(() => {
+    const subscription = offerBuyersService.subscribeToChanges(
+      // INSERT: новая привязка байера
+      (newAssignment) => {
+        console.log('🔔 Realtime: добавлена привязка', newAssignment);
+        setAllAssignments(prev => {
+          const offerId = newAssignment.offer_id;
+          const current = prev[offerId] || [];
+          // Проверяем, что привязки еще нет (чтобы избежать дубликатов)
+          if (current.some(a => a.id === newAssignment.id)) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [offerId]: [...current, newAssignment]
+          };
+        });
+      },
+      // UPDATE: обновление привязки (архивация, изменение и т.д.)
+      (updatedAssignment) => {
+        console.log('🔔 Realtime: обновлена привязка', updatedAssignment);
+        setAllAssignments(prev => {
+          const offerId = updatedAssignment.offer_id;
+          const current = prev[offerId] || [];
+          return {
+            ...prev,
+            [offerId]: current.map(a =>
+              a.id === updatedAssignment.id ? updatedAssignment : a
+            )
+          };
+        });
+      },
+      // DELETE: удаление привязки
+      (deletedAssignment) => {
+        console.log('🔔 Realtime: удалена привязка', deletedAssignment);
+        setAllAssignments(prev => {
+          const offerId = deletedAssignment.offer_id;
+          const current = prev[offerId] || [];
+          return {
+            ...prev,
+            [offerId]: current.filter(a => a.id !== deletedAssignment.id)
+          };
+        });
+      }
+    );
+
+    // Отписываемся при размонтировании компонента
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Дебаунс для поиска - 300мс задержка + useTransition для неблокирующего UI
   useEffect(() => {
     const timer = setTimeout(() => {

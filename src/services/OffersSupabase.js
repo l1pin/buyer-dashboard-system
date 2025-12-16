@@ -762,6 +762,67 @@ export const offerBuyersService = {
       console.error(`❌ Ошибка восстановления привязки ${assignmentId}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Подписка на realtime изменения привязок байеров
+   * Работает для всех пользователей и всех браузеров одновременно
+   * @param {Function} onInsert - Callback при добавлении привязки
+   * @param {Function} onUpdate - Callback при обновлении привязки
+   * @param {Function} onDelete - Callback при удалении привязки
+   * @returns {Object} Объект подписки с методом unsubscribe
+   */
+  subscribeToChanges(onInsert, onUpdate, onDelete) {
+    console.log('📡 Подключаемся к Realtime для offer_buyers...');
+
+    const channel = supabase
+      .channel('offer_buyers_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'offer_buyers'
+        },
+        (payload) => {
+          console.log('🔔 Realtime INSERT:', payload.new);
+          if (onInsert) onInsert(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'offer_buyers'
+        },
+        (payload) => {
+          console.log('🔔 Realtime UPDATE:', payload.new);
+          if (onUpdate) onUpdate(payload.new, payload.old);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'offer_buyers'
+        },
+        (payload) => {
+          console.log('🔔 Realtime DELETE:', payload.old);
+          if (onDelete) onDelete(payload.old);
+        }
+      )
+      .subscribe((status) => {
+        console.log(`📡 Realtime статус: ${status}`);
+      });
+
+    return {
+      unsubscribe: () => {
+        console.log('📡 Отключаемся от Realtime...');
+        supabase.removeChannel(channel);
+      }
+    };
   }
 };
 
