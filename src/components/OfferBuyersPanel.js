@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { FixedSizeList } from 'react-window';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock } from 'lucide-react';
+import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock, RotateCcw } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsByActiveDays, calculateConsecutiveActiveDays } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
@@ -180,7 +180,9 @@ const BuyerCard = React.memo(function BuyerCard({
   loadingBuyerStatuses,
   isLoading,
   isRemoving,
+  isRestoring,
   onRemove,
+  onRestore,
   onOpenCalendar,
   onShowWarning,
   onHideWarning,
@@ -245,6 +247,11 @@ const BuyerCard = React.memo(function BuyerCard({
     onRemove(assignment.id, assignment);
   }, [onRemove, assignment]);
 
+  const handleRestoreClick = useCallback((e) => {
+    e.stopPropagation();
+    if (onRestore) onRestore(assignment);
+  }, [onRestore, assignment]);
+
   const handleWarningEnter = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     onShowWarning({
@@ -304,7 +311,7 @@ const BuyerCard = React.memo(function BuyerCard({
         </div>
       )}
 
-      {/* Кнопка удаления */}
+      {/* Кнопка удаления (для активных) */}
       {!isArchived && (
         <button
           onClick={handleRemoveClick}
@@ -313,6 +320,22 @@ const BuyerCard = React.memo(function BuyerCard({
           title="Удалить привязку"
         >
           <X className="w-3.5 h-3.5 text-red-500" />
+        </button>
+      )}
+
+      {/* Кнопка восстановления (для архивных) */}
+      {isArchived && (
+        <button
+          onClick={handleRestoreClick}
+          disabled={isRestoring}
+          className="absolute top-0.5 right-0.5 p-1 rounded-full transition-all bg-green-100 hover:bg-green-200 disabled:opacity-50 z-10"
+          title="Восстановить байера"
+        >
+          {isRestoring ? (
+            <Loader2 className="w-3 h-3 text-green-600 animate-spin" />
+          ) : (
+            <RotateCcw className="w-3 h-3 text-green-600" />
+          )}
         </button>
       )}
 
@@ -402,7 +425,9 @@ const VirtualizedBuyerCard = React.memo(function VirtualizedBuyerCard({ index, s
     loadingBuyerStatuses,
     loadingBuyerIds,
     removingBuyerId,
+    restoringBuyerId,
     onRemoveBuyer,
+    onRestoreBuyer,
     onOpenCalendar,
     onShowWarning,
     onHideWarning,
@@ -424,7 +449,9 @@ const VirtualizedBuyerCard = React.memo(function VirtualizedBuyerCard({ index, s
         loadingBuyerStatuses={loadingBuyerStatuses}
         isLoading={loadingBuyerIds?.has(assignment.id)}
         isRemoving={removingBuyerId === assignment.id}
+        isRestoring={restoringBuyerId === assignment.id}
         onRemove={onRemoveBuyer}
+        onRestore={onRestoreBuyer}
         onOpenCalendar={onOpenCalendar}
         onShowWarning={onShowWarning}
         onHideWarning={onHideWarning}
@@ -448,8 +475,10 @@ const SourceColumn = React.memo(function SourceColumn({
   loadingBuyerStatuses,
   loadingBuyerIds,
   removingBuyerId,
+  restoringBuyerId,
   onAddBuyer,
   onRemoveBuyer,
+  onRestoreBuyer,
   onOpenCalendar,
   onShowWarning,
   onHideWarning,
@@ -486,7 +515,9 @@ const SourceColumn = React.memo(function SourceColumn({
     loadingBuyerStatuses,
     loadingBuyerIds,
     removingBuyerId,
+    restoringBuyerId,
     onRemoveBuyer,
+    onRestoreBuyer,
     onOpenCalendar,
     onShowWarning,
     onHideWarning,
@@ -494,7 +525,7 @@ const SourceColumn = React.memo(function SourceColumn({
   }), [
     buyers, offerId, offerArticle, buyerMetricsData, buyerStatuses,
     loadingBuyerMetrics, loadingBuyerStatuses, loadingBuyerIds,
-    removingBuyerId, onRemoveBuyer, onOpenCalendar, onShowWarning,
+    removingBuyerId, restoringBuyerId, onRemoveBuyer, onRestoreBuyer, onOpenCalendar, onShowWarning,
     onHideWarning, onShowHistory
   ]);
 
@@ -555,7 +586,9 @@ const SourceColumn = React.memo(function SourceColumn({
                 loadingBuyerStatuses={loadingBuyerStatuses}
                 isLoading={loadingBuyerIds?.has(assignment.id)}
                 isRemoving={removingBuyerId === assignment.id}
+                isRestoring={restoringBuyerId === assignment.id}
                 onRemove={onRemoveBuyer}
+                onRestore={onRestoreBuyer}
                 onOpenCalendar={onOpenCalendar}
                 onShowWarning={onShowWarning}
                 onHideWarning={onHideWarning}
@@ -592,6 +625,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   user = null // Текущий пользователь (для логирования истории)
 }) {
   const [removingBuyerId, setRemovingBuyerId] = useState(null); // ID байера, который удаляется
+  const [restoringBuyerId, setRestoringBuyerId] = useState(null); // ID байера, который восстанавливается
   const [showModal, setShowModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [selectedTeamLead, setSelectedTeamLead] = useState(''); // Выбранный Team Lead для фильтрации
@@ -855,6 +889,63 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     }
   }, [selectedSource, offer.id, initialAssignments, onAssignmentsChange, user]);
 
+  // Обработчик восстановления архивированного байера
+  const handleRestoreBuyer = useCallback(async (assignment) => {
+    setRestoringBuyerId(assignment.id);
+
+    try {
+      // Находим полные данные байера из allBuyers
+      const buyerId = assignment.buyer_id || assignment.buyer?.id;
+      const buyerData = allBuyers.find(b => b.id === buyerId);
+
+      if (!buyerData) {
+        throw new Error('Байер не найден в системе');
+      }
+
+      const source = assignment.source;
+
+      // Получаем ВСЕ source_ids для этого источника
+      const channels = buyerData.buyer_settings?.traffic_channels?.filter(
+        ch => ch.source === source
+      ) || [];
+
+      const sourceIds = channels
+        .map(ch => ch.channel_id)
+        .filter(id => id);
+
+      const assignedBy = user?.name || user?.email || 'Неизвестно';
+
+      console.log(`🔄 Восстанавливаем байера ${buyerData.name} для ${source}`);
+
+      // Сохраняем в БД (addAssignment автоматически удалит архивную запись)
+      const savedAssignment = await offerBuyersService.addAssignment(
+        offer.id,
+        buyerData.id,
+        buyerData.name,
+        source,
+        sourceIds,
+        assignedBy
+      );
+
+      // Уведомляем родительский компонент о новой привязке
+      if (onAssignmentsChange) {
+        // Фильтруем архивную запись этого байера
+        const filteredAssignments = initialAssignments.filter(a => {
+          const aBuyerId = a.buyer_id || a.buyer?.id;
+          return !(aBuyerId === buyerData.id && a.source === source && a.archived);
+        });
+        onAssignmentsChange(offer.id, [...filteredAssignments, savedAssignment], savedAssignment);
+      }
+
+      console.log(`✅ Байер ${buyerData.name} восстановлен`);
+    } catch (error) {
+      console.error('Ошибка восстановления байера:', error);
+      alert('Ошибка восстановления байера: ' + error.message);
+    } finally {
+      setRestoringBuyerId(null);
+    }
+  }, [offer.id, allBuyers, initialAssignments, onAssignmentsChange, user]);
+
   // Обработчик удаления байера - новая логика с таймером и причинами
   const handleRemoveBuyer = useCallback(async (assignmentId, assignment) => {
     const isEarly = isWithinEarlyRemovalPeriod(assignment);
@@ -1040,13 +1131,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     loadingBuyerStatuses,
     loadingBuyerIds,
     removingBuyerId,
+    restoringBuyerId,
     onAddBuyer: handleAddBuyer,
     onRemoveBuyer: handleRemoveBuyer,
+    onRestoreBuyer: handleRestoreBuyer,
     onOpenCalendar: handleOpenCalendar,
     onShowWarning: handleShowWarning,
     onHideWarning: handleHideWarning,
     onShowHistory: handleShowHistory
-  }), [offer.id, offer?.article, buyerMetricsData, buyerStatuses, loadingBuyerMetrics, loadingBuyerStatuses, loadingBuyerIds, removingBuyerId, handleAddBuyer, handleRemoveBuyer, handleOpenCalendar, handleShowWarning, handleHideWarning, handleShowHistory]);
+  }), [offer.id, offer?.article, buyerMetricsData, buyerStatuses, loadingBuyerMetrics, loadingBuyerStatuses, loadingBuyerIds, removingBuyerId, restoringBuyerId, handleAddBuyer, handleRemoveBuyer, handleRestoreBuyer, handleOpenCalendar, handleShowWarning, handleHideWarning, handleShowHistory]);
 
   return (
     <>
