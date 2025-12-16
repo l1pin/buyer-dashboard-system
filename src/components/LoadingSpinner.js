@@ -299,112 +299,43 @@ export const SkeletonStatusBar = memo(() => (
 SkeletonStatusBar.displayName = 'SkeletonStatusBar';
 
 /**
- * Skeleton для полной страницы загрузки офферов
- * Показывает полную структуру страницы включая источники трафика
- * С реальными заголовками для узнаваемости интерфейса
+ * Красивый большой спиннер для загрузки страницы офферов
  */
 export const SkeletonOffersPage = memo(() => (
   <div className="h-full flex flex-col bg-slate-50">
-    {/* Header - с реальным заголовком */}
-    <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Офферы</h1>
-        </div>
-        <div className="flex items-center space-x-3">
-          {/* Кнопки действий - skeleton */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm">
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Обновить статусы
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm">
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Обновить метрики
-          </div>
-        </div>
-      </div>
-
-      {/* Поиск и фильтры */}
-      <div className="mt-4 flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    {/* Центрированный контент */}
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        {/* Красивый анимированный спиннер */}
+        <div className="relative w-20 h-20 mx-auto mb-6">
+          {/* Внешний круг */}
+          <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+          {/* Анимированный градиентный круг */}
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 border-r-blue-400 animate-spin"></div>
+          {/* Внутренний пульсирующий круг */}
+          <div className="absolute inset-3 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 animate-pulse"></div>
+          {/* Иконка в центре */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg className="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-sm"
-            placeholder="Поиск по артикулу или названию..."
-            disabled
-          />
         </div>
-        <Skeleton className="h-9 w-44 rounded-lg" />
-        <Skeleton className="h-9 w-44 rounded-lg" />
-      </div>
-    </div>
 
-    {/* Контент */}
-    <div className="flex-1 overflow-auto px-6 py-4">
-      {/* Заголовок таблицы - с реальными названиями колонок */}
-      <div className="bg-white sticky top-0 z-10 border-b-2 border-slate-200 rounded-t-lg shadow-sm">
-        <div className="flex items-center text-xs font-medium text-slate-500 py-3 px-2">
-          <div className="w-[3%] min-w-[32px] text-center">№</div>
-          <div className="w-[6%] min-w-[60px]">Артикул</div>
-          <div className="w-[14%] min-w-[120px]">Название</div>
-          <div className="w-[8%] min-w-[80px] text-center">Статус</div>
-          <div className="w-[5%] min-w-[50px] text-center">CPL</div>
-          <div className="w-[4%] min-w-[40px] text-center">Лиды</div>
-          <div className="w-[4%] min-w-[36px] text-center">К/л</div>
-          <div className="w-[5%] min-w-[44px] text-center">Рейт</div>
-          <div className="w-[4%] min-w-[36px] text-center">Рекл</div>
-          <div className="w-[5%] min-w-[44px] text-center">Зона</div>
-          <div className="w-[6%] min-w-[56px] text-center">Цена зоны</div>
-          <div className="w-[5%] min-w-[48px] text-center">Дней</div>
-          <div className="w-[5%] min-w-[48px] text-center">Остаток</div>
-          <div className="w-[5%] min-w-[44px] text-center">Приход</div>
+        {/* Текст */}
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">
+          Загрузка офферов...
+        </h2>
+        <p className="text-sm text-gray-500">
+          Пожалуйста, подождите
+        </p>
+
+        {/* Анимированные точки */}
+        <div className="flex items-center justify-center gap-1.5 mt-4">
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
-      </div>
-
-      {/* Строки офферов с панелями байеров */}
-      {[1, 2, 3].map(i => (
-        <div key={i} className="bg-white py-2 border-b border-slate-100">
-          {/* Строка данных оффера */}
-          <div className="flex items-center text-sm text-center">
-            <div className="w-[3%] min-w-[32px] text-slate-300 text-xs">{i}</div>
-            <div className="w-[6%] min-w-[60px]"><Skeleton className="h-3.5 w-14 rounded" /></div>
-            <div className="w-[14%] min-w-[120px] text-left"><Skeleton className="h-3.5 w-28 rounded" /></div>
-            <div className="w-[8%] min-w-[80px]"><Skeleton className="h-5 w-16 rounded-full mx-auto" variant="pulse" /></div>
-            <div className="w-[5%] min-w-[50px]"><Skeleton className="h-3.5 w-10 rounded mx-auto" /></div>
-            <div className="w-[4%] min-w-[40px]"><Skeleton className="h-3.5 w-6 rounded mx-auto" /></div>
-            <div className="w-[4%] min-w-[36px]"><Skeleton className="h-3.5 w-8 rounded mx-auto" /></div>
-            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-4 w-5 rounded mx-auto" variant="pulse" /></div>
-            <div className="w-[4%] min-w-[36px] text-slate-300 text-xs">—</div>
-            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3.5 w-12 rounded mx-auto" /></div>
-            <div className="w-[6%] min-w-[56px]"><Skeleton className="h-4 w-14 rounded-full mx-auto" variant="pulse" /></div>
-            <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3.5 w-8 rounded mx-auto" /></div>
-            <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3.5 w-8 rounded mx-auto" /></div>
-            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3.5 w-6 rounded mx-auto" /></div>
-          </div>
-
-          {/* Панель байеров с источниками */}
-          <SkeletonBuyersPanel />
-        </div>
-      ))}
-
-      {/* Индикатор загрузки внизу */}
-      <div className="flex items-center justify-center py-6 text-gray-400 text-sm">
-        <svg className="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        Загрузка данных...
       </div>
     </div>
   </div>
