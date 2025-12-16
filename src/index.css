@@ -1356,6 +1356,27 @@
 
 /* Skeleton всегда светло-серый #e5e7eb независимо от темы системы */
 
+/* ============================================
+   TYPING INDICATOR ANIMATION
+   Плавное появление/исчезновение как в мессенджерах
+   ============================================ */
+
+@keyframes typing-fade {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.typing-dot {
+  animation: typing-fade 1.4s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
 /* Дополнительные анимации */
 @keyframes loading-shimmer {
   0% {

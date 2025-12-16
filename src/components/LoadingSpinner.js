@@ -14,18 +14,59 @@ export const MiniSpinner = memo(() => (
 MiniSpinner.displayName = 'MiniSpinner';
 
 /**
- * Три движущиеся точки для индикации загрузки
- * Используется в статусах байеров
+ * Typing Indicator - как в мессенджерах
+ * Точки последовательно появляются и исчезают с плавным fade эффектом
+ * Использует CSS-анимацию для максимальной производительности
  */
-export const LoadingDots = memo(({ className = "" }) => (
-  <div className={`inline-flex items-center space-x-1.5 ${className}`}>
-    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
-    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></div>
-    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></div>
+export const LoadingDots = memo(({ className = "", color = "white" }) => (
+  <div className={`inline-flex items-center space-x-1 ${className}`}>
+    <div
+      className={`w-1.5 h-1.5 rounded-full typing-dot`}
+      style={{
+        backgroundColor: color === "white" ? "rgba(255,255,255,0.9)" : "currentColor",
+        animationDelay: '0ms'
+      }}
+    />
+    <div
+      className={`w-1.5 h-1.5 rounded-full typing-dot`}
+      style={{
+        backgroundColor: color === "white" ? "rgba(255,255,255,0.9)" : "currentColor",
+        animationDelay: '200ms'
+      }}
+    />
+    <div
+      className={`w-1.5 h-1.5 rounded-full typing-dot`}
+      style={{
+        backgroundColor: color === "white" ? "rgba(255,255,255,0.9)" : "currentColor",
+        animationDelay: '400ms'
+      }}
+    />
   </div>
 ));
 
 LoadingDots.displayName = 'LoadingDots';
+
+/**
+ * Typing Indicator для темного фона (белые точки)
+ */
+export const TypingDotsWhite = memo(({ className = "" }) => (
+  <LoadingDots className={className} color="white" />
+));
+
+TypingDotsWhite.displayName = 'TypingDotsWhite';
+
+/**
+ * Typing Indicator для светлого фона (серые точки)
+ */
+export const TypingDotsGray = memo(({ className = "" }) => (
+  <div className={`inline-flex items-center space-x-1 ${className}`}>
+    <div className="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot" style={{ animationDelay: '0ms' }} />
+    <div className="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot" style={{ animationDelay: '200ms' }} />
+    <div className="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot" style={{ animationDelay: '400ms' }} />
+  </div>
+));
+
+TypingDotsGray.displayName = 'TypingDotsGray';
 
 // ============================================
 // SKELETON LOADING КОМПОНЕНТЫ
