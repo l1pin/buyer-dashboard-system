@@ -488,6 +488,46 @@ const SourceColumn = React.memo(function SourceColumn({
   const [containerWidth, setContainerWidth] = useState(0);
   const handleAddClick = useCallback(() => onAddBuyer(source), [onAddBuyer, source]);
 
+  // Drag-to-scroll state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, scrollLeft: 0 });
+  const virtualListOuterRef = useRef(null);
+
+  // Получаем актуальный scroll-контейнер (обычный или виртуализированный)
+  const getScrollContainer = useCallback(() => {
+    return virtualListOuterRef.current || containerRef.current;
+  }, []);
+
+  // Drag-to-scroll handlers
+  const handleMouseDown = useCallback((e) => {
+    // Игнорируем клики по кнопкам и интерактивным элементам
+    if (e.target.closest('button') || e.target.closest('a')) return;
+
+    const scrollContainer = getScrollContainer();
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.pageX,
+      scrollLeft: scrollContainer?.scrollLeft || 0
+    };
+  }, [getScrollContainer]);
+
+  const handleMouseMove = useCallback((e) => {
+    const scrollContainer = getScrollContainer();
+    if (!isDragging || !scrollContainer) return;
+    e.preventDefault();
+
+    const dx = e.pageX - dragStartRef.current.x;
+    scrollContainer.scrollLeft = dragStartRef.current.scrollLeft - dx;
+  }, [isDragging, getScrollContainer]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   // Вычисляем ширину контейнера для виртуализации
   useEffect(() => {
     if (containerRef.current) {
@@ -551,8 +591,12 @@ const SourceColumn = React.memo(function SourceColumn({
 
       <div
         ref={containerRef}
-        className={`pb-2 -mx-1 px-1 ${shouldVirtualize ? 'overflow-hidden' : 'overflow-x-auto overflow-y-visible'}`}
-        style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+        className={`pb-2 -mx-1 px-1 ${shouldVirtualize ? 'overflow-hidden' : 'overflow-x-auto overflow-y-visible'} ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ scrollBehavior: isDragging ? 'auto' : 'smooth', WebkitOverflowScrolling: 'touch' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
       >
         {buyers.length === 0 ? (
           <div className="text-xs text-gray-400 text-center py-6">Нет байеров</div>
@@ -566,14 +610,15 @@ const SourceColumn = React.memo(function SourceColumn({
             itemSize={BUYER_CARD_WIDTH}
             itemData={listItemData}
             overscanCount={3}
-            className="select-none"
+            outerRef={virtualListOuterRef}
+            className={`select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             style={{ overflowX: 'auto', overflowY: 'hidden' }}
           >
             {VirtualizedBuyerCard}
           </FixedSizeList>
         ) : (
           // Обычный рендеринг для небольшого количества байеров
-          <div className="flex flex-row gap-2.5 min-w-max cursor-grab active:cursor-grabbing select-none">
+          <div className="flex flex-row gap-2.5 min-w-max select-none">
             {buyers.map((assignment) => (
               <BuyerCard
                 key={assignment.id}
