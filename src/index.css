@@ -1256,6 +1256,110 @@
   }
 }
 
+/* ============================================
+   SKELETON LOADING ANIMATIONS
+   Современный shimmer эффект для skeleton loading
+   ============================================ */
+
+/* Основная анимация shimmer - плавное переливание */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Мягкая пульсация для дополнительного эффекта */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Базовый класс skeleton с красивым градиентом */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e8e8e8 20%,
+    #f5f5f5 40%,
+    #ffffff 50%,
+    #f5f5f5 60%,
+    #e8e8e8 80%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* Вариант с легким голубым оттенком - современный вид */
+.skeleton-shimmer-blue {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 20%,
+    #f1f5f9 40%,
+    #f8fafc 50%,
+    #f1f5f9 60%,
+    #e2e8f0 80%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* Комбинированный эффект: shimmer + легкая пульсация */
+.skeleton-shimmer-pulse {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 25%,
+    #f8f8f8 50%,
+    #e0e0e0 75%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation:
+    skeleton-shimmer 1.5s ease-in-out infinite,
+    skeleton-pulse 2s ease-in-out infinite;
+}
+
+/* Для темных тем */
+@media (prefers-color-scheme: dark) {
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      #374151 0%,
+      #4b5563 20%,
+      #374151 40%,
+      #6b7280 50%,
+      #374151 60%,
+      #4b5563 80%,
+      #374151 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .skeleton-shimmer-blue {
+    background: linear-gradient(
+      90deg,
+      #1e3a5f 0%,
+      #2d4a6f 20%,
+      #1e3a5f 40%,
+      #3d5a7f 50%,
+      #1e3a5f 60%,
+      #2d4a6f 80%,
+      #1e3a5f 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
 /* Дополнительные анимации */
 @keyframes loading-shimmer {
   0% {
