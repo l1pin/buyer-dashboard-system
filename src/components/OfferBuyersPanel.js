@@ -1202,10 +1202,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                     {[1, 2, 3].map(i => (
                       <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
                         <div className="flex items-center space-x-3">
-                          <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+                          <Skeleton className="w-10 h-10 flex-shrink-0" />
                           <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4 rounded" />
-                            <Skeleton className="h-3 w-1/2 rounded" />
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-1/2" />
                           </div>
                         </div>
                       </div>
