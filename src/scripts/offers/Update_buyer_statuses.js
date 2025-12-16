@@ -70,15 +70,26 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
     // Группируем привязки и собираем данные
     // Формат: { offerIdTracker: { sourceIds: Set, assignments: [], article: string } }
     const trackerGroups = {};
+    // ВАЖНО: Инициализируем statusesMap сразу для ВСЕХ байеров со статусом 'not_in_tracker'
+    // Это гарантирует что у каждого байера будет статус (не fallback 'active'!)
+    const statusesMap = {};
     let skippedNoArticle = 0;
     let skippedNoOfferIdTracker = 0;
 
     allAssignments.forEach(assignment => {
+      const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
+
       // 1. Получаем article по offer_id из metrics
       const article = offerIdToArticle[assignment.offer_id];
       if (!article) {
         console.warn(`⚠️ Не найден артикул для offer_id: ${assignment.offer_id}`);
         skippedNoArticle++;
+        // ВАЖНО: Не пропускаем! Устанавливаем статус 'not_in_tracker'
+        statusesMap[assignmentKey] = {
+          status: 'not_in_tracker',
+          date: null,
+          message: 'Нет артикула в метриках'
+        };
         return;
       }
 
@@ -87,6 +98,12 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
       if (!offerIdTracker) {
         console.warn(`⚠️ Не найден offer_id_tracker для артикула: ${article}`);
         skippedNoOfferIdTracker++;
+        // ВАЖНО: Не пропускаем! Устанавливаем статус 'not_in_tracker'
+        statusesMap[assignmentKey] = {
+          status: 'not_in_tracker',
+          date: null,
+          message: 'Нет в трекере (нет маппинга)'
+        };
         return;
       }
 
@@ -117,16 +134,7 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
 
     if (offerIdTrackers.length === 0) {
       console.log('⚠️ Нет offer_id_tracker для проверки');
-      // Возвращаем статусы для пропущенных
-      const statusesMap = {};
-      allAssignments.forEach(assignment => {
-        const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
-        statusesMap[assignmentKey] = {
-          status: 'not_in_tracker',
-          date: null,
-          message: 'Нет маппинга'
-        };
-      });
+      // statusesMap уже заполнен статусами 'not_in_tracker' для всех байеров
       return statusesMap;
     }
 
@@ -145,15 +153,19 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
     const spendData = await fetchSpendDataByOfferIds(sourceIdsList, offerIdTrackers);
     console.log(`✅ Получены данные для ${Object.keys(spendData).length} комбинаций`);
 
-    // Определяем статусы для каждой привязки
+    // Определяем статусы для каждой привязки (statusesMap уже частично заполнен выше)
     const todayStr = formatDate(new Date());
-    const statusesMap = {};
 
     allAssignments.forEach(assignment => {
       const article = offerIdToArticle[assignment.offer_id];
       const offerIdTracker = article ? articleOfferMap[article] : null;
       const sourceIds = assignment.source_ids || [];
       const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
+
+      // Пропускаем если уже установлен статус ранее (для байеров без маппинга)
+      if (statusesMap[assignmentKey]) {
+        return;
+      }
 
       if (!article || !offerIdTracker) {
         statusesMap[assignmentKey] = {
