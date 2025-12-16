@@ -399,11 +399,11 @@ const BuyerCard = React.memo(function BuyerCard({
 
       {/* Статус */}
       {(loadingBuyerStatuses || isLoading) ? (
-        <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center">
+        <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center rounded-b-lg">
           <LoadingDots className="mx-auto" />
         </div>
       ) : (
-        <div className={`${statusBarColor} py-1.5 px-2 flex items-center justify-center`}>
+        <div className={`${statusBarColor} py-1.5 px-2 flex items-center justify-center rounded-b-lg`}>
           <span className="text-[10px] font-semibold text-white text-center leading-tight">
             {config.label}{daysLabel && ` • ${daysLabel}`}
           </span>
