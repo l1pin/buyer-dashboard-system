@@ -25,7 +25,18 @@ const STATUS_BAR_COLORS = {
   active: 'bg-green-500',
   not_configured: 'bg-red-500',
   not_in_tracker: 'bg-purple-500',
+  loading: 'bg-gray-400', // Статус загружается
   default: 'bg-gray-500'
+};
+
+// Локальная конфигурация для статуса 'loading' (не экспортируется из Update_buyer_statuses)
+const LOCAL_STATUS_CONFIG = {
+  loading: {
+    label: 'Загрузка...',
+    color: 'bg-gray-100',
+    textColor: 'text-gray-500',
+    borderColor: 'border-gray-200'
+  }
 };
 
 // Оптимизированный компонент аватара с blur placeholder и lazy loading
@@ -184,10 +195,15 @@ const BuyerCard = React.memo(function BuyerCard({
   // Вычисляем статус
   const statusKey = getAssignmentKey(offerId, assignment.buyer.id, assignment.source);
   const statusData = buyerStatuses[statusKey];
-  const statusType = isArchived ? 'archived' : (statusData?.status || 'active');
+  // ВАЖНО: Если статусы ещё загружаются или статус не найден - показываем 'loading', НЕ 'active'!
+  const statusType = isArchived
+    ? 'archived'
+    : (loadingBuyerStatuses || !statusData)
+      ? 'loading'
+      : statusData.status;
   const config = isArchived
     ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
-    : (BUYER_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
+    : (BUYER_STATUS_CONFIG[statusType] || LOCAL_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
 
   // Мемоизируем вычисление дней для статуса
   const daysLabel = useMemo(() => {
@@ -674,7 +690,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       if (assignment.archived) return 0; // Неактивные - слева
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
-      const statusType = statusData?.status || 'active';
+      // Если статус не загружен - показываем в конце (не используем fallback 'active'!)
+      if (!statusData) return 5; // Загружается - в конце
+      const statusType = statusData.status;
 
       switch (statusType) {
         case 'not_in_tracker': return 1; // Нет в трекере
@@ -690,7 +708,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const offerArticle = offer?.article || '';
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
-      const statusType = assignment.archived ? 'archived' : (statusData?.status || 'active');
+      // Если статус не загружен - возвращаем 0 (не используем fallback 'active'!)
+      if (!statusData && !assignment.archived) return 0;
+      const statusType = assignment.archived ? 'archived' : statusData?.status;
 
       if (statusType === 'active') {
         // Для активных - дни подряд с cost > 0
@@ -966,7 +986,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     if (assignment.archived) return 'archived';
     const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
     const statusData = buyerStatuses[statusKey];
-    return statusData?.status || 'active';
+    // Если статус не загружен - возвращаем 'loading' (не используем fallback 'active'!)
+    return statusData?.status || 'loading';
   }, [offer.id, buyerStatuses]);
 
   // Фильтруем байеров по выбранным фильтрам
