@@ -220,6 +220,11 @@ function OffersTL({ user }) {
           if (current.some(a => a.id === newAssignment.id)) {
             return prev;
           }
+          // Если это первый байер - высота изменится, нужно пересчитать
+          const prevHasBuyers = current.filter(a => !a.hidden).length > 0;
+          if (!prevHasBuyers && listRef.current) {
+            setTimeout(() => listRef.current?.resetAfterIndex(0), 0);
+          }
           return {
             ...prev,
             [offerId]: [...current, newAssignment]
@@ -308,9 +313,16 @@ function OffersTL({ user }) {
         setAllAssignments(prev => {
           const offerId = deletedAssignment.offer_id;
           const current = prev[offerId] || [];
+          const newAssignments = current.filter(a => a.id !== deletedAssignment.id);
+          // Если удалили последнего байера - высота изменится, нужно пересчитать
+          const prevHasBuyers = current.filter(a => !a.hidden).length > 0;
+          const newHasBuyers = newAssignments.filter(a => !a.hidden).length > 0;
+          if (prevHasBuyers && !newHasBuyers && listRef.current) {
+            setTimeout(() => listRef.current?.resetAfterIndex(0), 0);
+          }
           return {
             ...prev,
-            [offerId]: current.filter(a => a.id !== deletedAssignment.id)
+            [offerId]: newAssignments
           };
         });
       }
@@ -461,11 +473,23 @@ function OffersTL({ user }) {
   // Callback для обновления привязок после изменения
   // Оптимизация: асинхронные операции вынесены из setState
   const handleAssignmentsChange = useCallback(async (offerId, newAssignments, addedAssignment = null) => {
+    // Проверяем изменилось ли количество байеров (влияет на высоту строки)
+    const prevAssignments = allAssignments[offerId] || [];
+    const prevHasBuyers = prevAssignments.filter(a => !a.hidden).length > 0;
+    const newHasBuyers = newAssignments.filter(a => !a.hidden).length > 0;
+    const heightChanged = prevHasBuyers !== newHasBuyers;
+
     // Обновляем state привязок синхронно
     setAllAssignments(prev => ({
       ...prev,
       [offerId]: newAssignments
     }));
+
+    // Если высота изменилась - пересчитываем высоты в виртуализированном списке
+    if (heightChanged && listRef.current) {
+      // Сбрасываем кэш высот с начала списка
+      listRef.current.resetAfterIndex(0);
+    }
 
     // Асинхронное обновление статусов и метрик ТОЛЬКО для нового байера (вне setState)
     if (addedAssignment) {
@@ -537,7 +561,7 @@ function OffersTL({ user }) {
         });
       }
     }
-  }, [metrics, articleOfferMap]);
+  }, [metrics, articleOfferMap, allAssignments]);
 
   // Обновление статусов после изменения
   const handleStatusChange = async (offerId, newStatus) => {
