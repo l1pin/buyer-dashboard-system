@@ -124,28 +124,35 @@ const formatAssignmentDateStatic = (createdAt) => {
 
 // Оптимизированный компонент таймера - не вызывает ре-рендер родителя
 const CountdownTimer = React.memo(function CountdownTimer({ createdAt }) {
-  const [remaining, setRemaining] = useState(() => {
+  // Функция расчёта оставшегося времени
+  const calculateRemaining = useCallback(() => {
     if (!createdAt) return null;
     const elapsed = Date.now() - new Date(createdAt).getTime();
     const rem = EARLY_REMOVAL_PERIOD - elapsed;
     return rem > 0 ? rem : null;
-  });
+  }, [createdAt]);
+
+  const [remaining, setRemaining] = useState(calculateRemaining);
+
+  // ВАЖНО: Пересчитываем remaining когда createdAt меняется (для realtime)
+  useEffect(() => {
+    setRemaining(calculateRemaining());
+  }, [calculateRemaining]);
 
   useEffect(() => {
     if (remaining === null || remaining <= 0) return;
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - new Date(createdAt).getTime();
-      const rem = EARLY_REMOVAL_PERIOD - elapsed;
-      if (rem <= 0) {
+      const newRemaining = calculateRemaining();
+      if (newRemaining === null || newRemaining <= 0) {
         setRemaining(null);
       } else {
-        setRemaining(rem);
+        setRemaining(newRemaining);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [createdAt, remaining]);
+  }, [calculateRemaining, remaining]);
 
   if (remaining === null || remaining <= 0) return null;
 
