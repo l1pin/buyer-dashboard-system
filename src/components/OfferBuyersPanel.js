@@ -1109,12 +1109,31 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     });
   }, [assignedBuyers, selectedFilters, getBuyerStatus]);
 
-  // Группируем отфильтрованных байеров по источникам
+  // Приоритет сортировки статусов (меньше = левее)
+  const STATUS_SORT_ORDER = {
+    'active': 0,
+    'not_configured': 1,
+    'not_in_tracker': 2,
+    'archived': 3
+  };
+
+  // Сортируем байеров по статусу: Активные → Не настроено → Нет в трекере → Архивированные
+  const sortBuyersByStatus = useCallback((buyers) => {
+    return [...buyers].sort((a, b) => {
+      const statusA = getBuyerStatus(a);
+      const statusB = getBuyerStatus(b);
+      const orderA = STATUS_SORT_ORDER[statusA] ?? 99;
+      const orderB = STATUS_SORT_ORDER[statusB] ?? 99;
+      return orderA - orderB;
+    });
+  }, [getBuyerStatus]);
+
+  // Группируем отфильтрованных байеров по источникам и сортируем по статусу
   const buyersBySource = useMemo(() => ({
-    Facebook: filteredBuyers.filter(b => b.source === 'Facebook'),
-    Google: filteredBuyers.filter(b => b.source === 'Google'),
-    TikTok: filteredBuyers.filter(b => b.source === 'TikTok')
-  }), [filteredBuyers]);
+    Facebook: sortBuyersByStatus(filteredBuyers.filter(b => b.source === 'Facebook')),
+    Google: sortBuyersByStatus(filteredBuyers.filter(b => b.source === 'Google')),
+    TikTok: sortBuyersByStatus(filteredBuyers.filter(b => b.source === 'TikTok'))
+  }), [filteredBuyers, sortBuyersByStatus]);
 
   // Обработчики для BuyerCard
   const handleShowWarning = useCallback((data) => setWarningTooltip(data), []);
