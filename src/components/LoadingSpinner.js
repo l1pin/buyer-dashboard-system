@@ -248,38 +248,78 @@ SkeletonStatusBar.displayName = 'SkeletonStatusBar';
 
 /**
  * Skeleton для полной страницы загрузки офферов
+ * Показывает полную структуру страницы включая источники трафика
  */
 export const SkeletonOffersPage = memo(() => (
-  <div className="space-y-4 p-4">
-    {/* Заголовок и кнопки */}
-    <div className="flex justify-between items-center">
-      <SkeletonText width="200px" height="h-8" />
-      <div className="flex gap-2">
-        <Skeleton className="h-10 w-32 rounded-lg" />
-        <Skeleton className="h-10 w-32 rounded-lg" />
+  <div className="h-full flex flex-col bg-slate-50">
+    {/* Header */}
+    <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <Skeleton className="h-8 w-32 rounded" />
+        </div>
+        <div className="flex items-center space-x-3">
+          <Skeleton className="h-9 w-36 rounded-lg" />
+          <Skeleton className="h-9 w-40 rounded-lg" />
+        </div>
+      </div>
+
+      {/* Поиск и фильтры */}
+      <div className="mt-4 flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Skeleton className="h-9 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-9 w-44 rounded-lg" />
+        <Skeleton className="h-9 w-44 rounded-lg" />
       </div>
     </div>
 
-    {/* Поиск и фильтры */}
-    <div className="flex gap-4">
-      <Skeleton className="h-10 flex-1 max-w-md rounded-lg" />
-      <Skeleton className="h-10 w-40 rounded-lg" />
-    </div>
-
-    {/* Таблица */}
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {/* Контент */}
+    <div className="flex-1 overflow-auto px-6 py-4">
       {/* Заголовок таблицы */}
-      <div className="flex items-center py-3 px-4 bg-gray-50 border-b border-gray-200">
-        {[40, 80, 200, 120, 80, 60, 80, 60, 80].map((w, i) => (
-          <div key={i} style={{ width: w }} className="px-2">
-            <SkeletonText width="80%" height="h-4" />
-          </div>
-        ))}
+      <div className="bg-white sticky top-0 z-10 border-b-2 border-slate-200 rounded-t-lg shadow-sm">
+        <div className="flex items-center text-xs font-medium text-slate-600 py-3 px-2">
+          <div className="w-[3%] min-w-[32px]"><Skeleton className="h-3 w-4 rounded mx-auto" /></div>
+          <div className="w-[6%] min-w-[60px]"><Skeleton className="h-3 w-12 rounded" /></div>
+          <div className="w-[14%] min-w-[120px]"><Skeleton className="h-3 w-20 rounded" /></div>
+          <div className="w-[8%] min-w-[80px]"><Skeleton className="h-3 w-12 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[50px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+          <div className="w-[4%] min-w-[40px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+          <div className="w-[4%] min-w-[36px]"><Skeleton className="h-3 w-6 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+          <div className="w-[4%] min-w-[36px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+          <div className="w-[6%] min-w-[56px]"><Skeleton className="h-3 w-12 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+          <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+        </div>
       </div>
 
-      {/* Строки */}
-      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-        <SkeletonOfferRow key={i} />
+      {/* Строки офферов с панелями байеров */}
+      {[1, 2, 3].map(i => (
+        <div key={i} className="bg-white hover:bg-slate-50 py-2 border-b border-slate-100">
+          {/* Строка данных оффера */}
+          <div className="flex items-center text-sm text-center">
+            <div className="w-[3%] min-w-[32px]"><Skeleton className="h-3 w-4 rounded mx-auto" /></div>
+            <div className="w-[6%] min-w-[60px]"><Skeleton className="h-3 w-12 rounded" /></div>
+            <div className="w-[14%] min-w-[120px] text-left"><Skeleton className="h-3 w-24 rounded" /></div>
+            <div className="w-[8%] min-w-[80px]"><Skeleton className="h-5 w-16 rounded-full mx-auto" /></div>
+            <div className="w-[5%] min-w-[50px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+            <div className="w-[4%] min-w-[40px]"><Skeleton className="h-3 w-6 rounded mx-auto" /></div>
+            <div className="w-[4%] min-w-[36px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-4 w-5 rounded mx-auto" /></div>
+            <div className="w-[4%] min-w-[36px]"><Skeleton className="h-3 w-4 rounded mx-auto" /></div>
+            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3 w-10 rounded mx-auto" /></div>
+            <div className="w-[6%] min-w-[56px]"><Skeleton className="h-4 w-12 rounded-full mx-auto" /></div>
+            <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+            <div className="w-[5%] min-w-[48px]"><Skeleton className="h-3 w-8 rounded mx-auto" /></div>
+            <div className="w-[5%] min-w-[44px]"><Skeleton className="h-3 w-6 rounded mx-auto" /></div>
+          </div>
+
+          {/* Панель байеров с источниками */}
+          <SkeletonBuyersPanel />
+        </div>
       ))}
     </div>
   </div>
