@@ -20,6 +20,7 @@ import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBu
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
+import { SkeletonOffersPage, MiniSpinner } from './LoadingSpinner';
 
 // Lazy loading для модального окна миграции - загружается только при открытии
 const MigrationModal = lazy(() => import('./MigrationModal'));
@@ -1157,15 +1158,7 @@ function OffersTL({ user }) {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка офферов...</p>
-          <p className="mt-2 text-sm text-gray-500">Это может занять некоторое время</p>
-        </div>
-      </div>
-    );
+    return <SkeletonOffersPage />;
   }
 
   return (
@@ -1314,7 +1307,7 @@ function OffersTL({ user }) {
               {/* Индикатор загрузки при фильтрации */}
               {(isPending || isStale) && (
                 <div className="absolute top-2 right-4 z-10 flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm">
-                  <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  <MiniSpinner />
                   Фильтрация...
                 </div>
               )}
@@ -1342,7 +1335,7 @@ function OffersTL({ user }) {
         <Suspense fallback={
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 flex items-center gap-3">
-              <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              <MiniSpinner />
               <span>Загрузка...</span>
             </div>
           </div>
