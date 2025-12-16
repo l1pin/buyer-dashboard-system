@@ -835,7 +835,14 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       // Уведомляем родительский компонент о новой привязке
       // Передаем savedAssignment как третий параметр для оптимизированного обновления
       if (onAssignmentsChange) {
-        onAssignmentsChange(offer.id, [...initialAssignments, savedAssignment], savedAssignment);
+        // Фильтруем существующую архивную привязку этого же байера + источника
+        // (при повторной привязке архивированного байера БД удаляет старую запись)
+        // Проверяем оба варианта ID: buyer_id и buyer.id (зависит от источника данных)
+        const filteredAssignments = initialAssignments.filter(a => {
+          const assignmentBuyerId = a.buyer_id || a.buyer?.id;
+          return !(assignmentBuyerId === buyer.id && a.source === selectedSource && a.archived);
+        });
+        onAssignmentsChange(offer.id, [...filteredAssignments, savedAssignment], savedAssignment);
       }
 
       setShowModal(false);
