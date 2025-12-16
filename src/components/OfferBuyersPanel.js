@@ -400,7 +400,7 @@ const SourceColumn = React.memo(function SourceColumn({
       </div>
 
       <div
-        className="overflow-x-auto pb-2 -mx-1 px-1"
+        className="overflow-x-auto overflow-y-visible pb-2 -mx-1 px-1"
         style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
       >
         {buyers.length === 0 ? (
