@@ -1258,20 +1258,70 @@
 
 /* ============================================
    SKELETON LOADING ANIMATIONS
-   Современный shimmer эффект для skeleton loading
+   Современный shimmer эффект - серый с белой волной
    ============================================ */
 
-/* Основная анимация shimmer - плавное переливание */
+/* Основная анимация shimmer - белая волна слева направо */
 @keyframes skeleton-shimmer {
   0% {
-    background-position: -200% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: 200% 0;
+    transform: translateX(100%);
   }
 }
 
-/* Мягкая пульсация для дополнительного эффекта */
+/* Базовый класс skeleton - серый фон с белой волной */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #e5e7eb; /* gray-200 */
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 20%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.4) 80%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Вариант с легким голубым оттенком */
+.skeleton-shimmer-blue {
+  position: relative;
+  overflow: hidden;
+  background-color: #e2e8f0; /* slate-200 */
+}
+
+.skeleton-shimmer-blue::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 255, 255, 0.5) 80%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Комбинированный эффект: shimmer + легкая пульсация */
 @keyframes skeleton-pulse {
   0%, 100% {
     opacity: 1;
@@ -1281,82 +1331,57 @@
   }
 }
 
-/* Базовый класс skeleton с красивым градиентом */
-.skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 0%,
-    #e8e8e8 20%,
-    #f5f5f5 40%,
-    #ffffff 50%,
-    #f5f5f5 60%,
-    #e8e8e8 80%,
-    #f0f0f0 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite;
-}
-
-/* Вариант с легким голубым оттенком - современный вид */
-.skeleton-shimmer-blue {
-  background: linear-gradient(
-    90deg,
-    #f1f5f9 0%,
-    #e2e8f0 20%,
-    #f1f5f9 40%,
-    #f8fafc 50%,
-    #f1f5f9 60%,
-    #e2e8f0 80%,
-    #f1f5f9 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite;
-}
-
-/* Комбинированный эффект: shimmer + легкая пульсация */
 .skeleton-shimmer-pulse {
+  position: relative;
+  overflow: hidden;
+  background-color: #d1d5db; /* gray-300 */
+  animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+.skeleton-shimmer-pulse::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: linear-gradient(
     90deg,
-    #f0f0f0 0%,
-    #e0e0e0 25%,
-    #f8f8f8 50%,
-    #e0e0e0 75%,
-    #f0f0f0 100%
+    transparent 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 100%
   );
-  background-size: 200% 100%;
-  animation:
-    skeleton-shimmer 1.5s ease-in-out infinite,
-    skeleton-pulse 2s ease-in-out infinite;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
 }
 
 /* Для темных тем */
 @media (prefers-color-scheme: dark) {
   .skeleton-shimmer {
+    background-color: #374151; /* gray-700 */
+  }
+
+  .skeleton-shimmer::after {
     background: linear-gradient(
       90deg,
-      #374151 0%,
-      #4b5563 20%,
-      #374151 40%,
-      #6b7280 50%,
-      #374151 60%,
-      #4b5563 80%,
-      #374151 100%
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 20%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.1) 80%,
+      transparent 100%
     );
-    background-size: 200% 100%;
   }
 
   .skeleton-shimmer-blue {
+    background-color: #1e3a5f;
+  }
+
+  .skeleton-shimmer-blue::after {
     background: linear-gradient(
       90deg,
-      #1e3a5f 0%,
-      #2d4a6f 20%,
-      #1e3a5f 40%,
-      #3d5a7f 50%,
-      #1e3a5f 60%,
-      #2d4a6f 80%,
-      #1e3a5f 100%
+      transparent 0%,
+      rgba(255, 255, 255, 0.15) 50%,
+      transparent 100%
     );
-    background-size: 200% 100%;
   }
 }
 
