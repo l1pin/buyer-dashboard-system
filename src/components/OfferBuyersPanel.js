@@ -226,6 +226,24 @@ const BuyerCard = React.memo(function BuyerCard({
   const statusKey = getAssignmentKey(offerId, assignment.buyer.id, assignment.source);
   const statusData = buyerStatuses[statusKey];
 
+  // Проверяем, истёк ли доступ байера (все access_limited в прошлом)
+  const isAccessExpired = useMemo(() => {
+    if (!accessDatesMap) return false;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // Проверяем есть ли хоть один канал с активным доступом
+    const hasActiveAccess = Object.values(accessDatesMap).some(access => {
+      if (!access.accessLimited) return true; // Нет ограничения = активен
+      const accessEnd = new Date(access.accessLimited);
+      accessEnd.setHours(23, 59, 59, 999);
+      return accessEnd >= today; // Ещё не истёк
+    });
+
+    return !hasActiveAccess; // Если нет активного доступа - доступ истёк
+  }, [accessDatesMap]);
+
   // Проверяем, есть ли у байера данные в ЕГО периоде доступа
   const hasBuyerDataInAccessPeriod = useMemo(() => {
     // Проверяем через findLastActiveDate - ищет реальную активность в buyerMetricsData
@@ -266,15 +284,18 @@ const BuyerCard = React.memo(function BuyerCard({
   // Логика определения статуса:
   // 1. Если архивирован - 'archived'
   // 2. Если статусы ещё загружаются - 'loading'
-  // 3. Если трекер говорит 'active' или 'not_configured', но у байера НЕТ данных в его периоде - 'not_in_tracker'
-  // 4. Иначе используем статус из трекера
+  // 3. Если доступ истёк (access_limited в прошлом) И есть данные - 'not_configured' (не может быть active!)
+  // 4. Если трекер говорит 'active' или 'not_configured', но у байера НЕТ данных в его периоде - 'not_in_tracker'
+  // 5. Иначе используем статус из трекера
   const statusType = isArchived
     ? 'archived'
     : loadingBuyerStatuses
       ? 'loading'
-      : (statusData?.status === 'active' || statusData?.status === 'not_configured') && !hasBuyerDataInAccessPeriod
-        ? 'not_in_tracker'
-        : (statusData?.status || 'not_in_tracker');
+      : isAccessExpired && hasBuyerDataInAccessPeriod
+        ? 'not_configured' // Доступ истёк, но данные были - "Не настроено"
+        : (statusData?.status === 'active' || statusData?.status === 'not_configured') && !hasBuyerDataInAccessPeriod
+          ? 'not_in_tracker' // Нет данных вообще - "Нет в трекере"
+          : (statusData?.status || 'not_in_tracker');
   const config = isArchived
     ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
     : (BUYER_STATUS_CONFIG[statusType] || LOCAL_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
@@ -869,6 +890,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       };
     });
 
+    // Функция для проверки, истёк ли доступ байера
+    const checkIsAccessExpired = (accessDatesMap) => {
+      if (!accessDatesMap) return false;
+
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+
+      const hasActiveAccess = Object.values(accessDatesMap).some(access => {
+        if (!access.accessLimited) return true;
+        const accessEnd = new Date(access.accessLimited);
+        accessEnd.setHours(23, 59, 59, 999);
+        return accessEnd >= today;
+      });
+
+      return !hasActiveAccess;
+    };
+
     // Функция для проверки, есть ли у байера данные в его периоде доступа
     const checkHasBuyerDataInAccessPeriod = (assignment, accessDatesMap, statusData) => {
       const sourceIds = assignment.source_ids || [];
@@ -912,10 +950,18 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
       const accessDatesMap = getAccessDatesMap(assignment);
+      const isAccessExpired = checkIsAccessExpired(accessDatesMap);
+      const hasData = checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData);
 
-      // Определяем реальный статус с учётом периода доступа
+      // Определяем реальный статус
       let statusType = statusData?.status || 'not_in_tracker';
-      if ((statusType === 'active' || statusType === 'not_configured') && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
+
+      // Если доступ истёк и есть данные - "Не настроено"
+      if (isAccessExpired && hasData) {
+        statusType = 'not_configured';
+      }
+      // Если нет данных вообще - "Нет в трекере"
+      else if ((statusType === 'active' || statusType === 'not_configured') && !hasData) {
         statusType = 'not_in_tracker';
       }
 
@@ -953,10 +999,18 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
       const accessDatesMap = getAccessDatesMap(assignment);
+      const isAccessExpired = checkIsAccessExpired(accessDatesMap);
+      const hasData = checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData);
 
       // Определяем реальный статус с учётом периода доступа
       let statusType = assignment.archived ? 'archived' : (statusData?.status || 'not_in_tracker');
-      if ((statusType === 'active' || statusType === 'not_configured') && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
+
+      // Если доступ истёк и есть данные - "Не настроено"
+      if (isAccessExpired && hasData) {
+        statusType = 'not_configured';
+      }
+      // Если нет данных вообще - "Нет в трекере"
+      else if ((statusType === 'active' || statusType === 'not_configured') && !hasData) {
         statusType = 'not_in_tracker';
       }
 
@@ -1378,23 +1432,46 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return false;
   }, [offer.article, buyerMetricsData]);
 
+  // Функция для проверки, истёк ли доступ байера
+  const checkIsAccessExpiredForAssignment = useCallback((accessDatesMap) => {
+    if (!accessDatesMap) return false;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const hasActiveAccess = Object.values(accessDatesMap).some(access => {
+      if (!access.accessLimited) return true;
+      const accessEnd = new Date(access.accessLimited);
+      accessEnd.setHours(23, 59, 59, 999);
+      return accessEnd >= today;
+    });
+
+    return !hasActiveAccess;
+  }, []);
+
   // Функция для получения статуса байера
   const getBuyerStatus = useCallback((assignment) => {
     if (assignment.archived) return 'archived';
     const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
     const statusData = buyerStatuses[statusKey];
+    const accessDatesMap = getAccessDatesMapForAssignment(assignment);
+    const isAccessExpired = checkIsAccessExpiredForAssignment(accessDatesMap);
+    const hasData = checkBuyerHasDataInAccessPeriod(assignment, accessDatesMap, statusData);
 
-    // Определяем реальный статус с учётом периода доступа
+    // Определяем реальный статус
     let status = statusData?.status || 'not_in_tracker';
-    if (status === 'active' || status === 'not_configured') {
-      const accessDatesMap = getAccessDatesMapForAssignment(assignment);
-      if (!checkBuyerHasDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
-        status = 'not_in_tracker';
-      }
+
+    // Если доступ истёк и есть данные - "Не настроено"
+    if (isAccessExpired && hasData) {
+      status = 'not_configured';
+    }
+    // Если нет данных вообще - "Нет в трекере"
+    else if ((status === 'active' || status === 'not_configured') && !hasData) {
+      status = 'not_in_tracker';
     }
 
     return status;
-  }, [offer.id, buyerStatuses, getAccessDatesMapForAssignment, checkBuyerHasDataInAccessPeriod]);
+  }, [offer.id, buyerStatuses, getAccessDatesMapForAssignment, checkIsAccessExpiredForAssignment, checkBuyerHasDataInAccessPeriod]);
 
   // Фильтруем байеров по выбранным фильтрам
   const filteredBuyers = useMemo(() => {
