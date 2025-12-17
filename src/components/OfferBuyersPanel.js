@@ -515,7 +515,7 @@ const BuyerCard = React.memo(function BuyerCard({
       </div>
 
       {/* Статус */}
-      {(loadingBuyerStatuses || isLoading) ? (
+      {(loadingBuyerStatuses || isLoading || statusType === 'loading') ? (
         <div className="bg-gray-400 py-1.5 px-2 flex items-center justify-center rounded-b-lg">
           <LoadingDots className="mx-auto" />
         </div>
