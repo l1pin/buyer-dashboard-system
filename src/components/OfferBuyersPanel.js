@@ -239,14 +239,52 @@ const BuyerCard = React.memo(function BuyerCard({
     ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
     : (BUYER_STATUS_CONFIG[statusType] || LOCAL_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
 
+  // Находим последнюю дату окончания доступа из всех каналов (для расчёта дней "Не настроено")
+  const latestAccessLimited = useMemo(() => {
+    if (!accessDatesMap) return null;
+    let latest = null;
+    Object.values(accessDatesMap).forEach(channel => {
+      if (channel.accessLimited) {
+        if (!latest || channel.accessLimited > latest) {
+          latest = channel.accessLimited;
+        }
+      }
+    });
+    return latest;
+  }, [accessDatesMap]);
+
   // Мемоизируем вычисление дней для статуса (с учётом дат доступа каждого канала)
   const daysLabel = useMemo(() => {
     let daysToShow = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     if (statusType === 'active') {
       daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
-    } else if (statusType === 'not_configured' && statusData?.date) {
-      const lastDate = new Date(statusData.date);
-      daysToShow = Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
+    } else if (statusType === 'not_configured') {
+      // Для "Не настроено" нужно учитывать access_limited
+      // Если access_limited задан и он в прошлом - считаем дни от него
+      // Иначе используем statusData.date из трекера
+      let referenceDate = null;
+
+      if (latestAccessLimited) {
+        const accessEndDate = new Date(latestAccessLimited);
+        accessEndDate.setHours(0, 0, 0, 0);
+        // Если access_limited в прошлом, используем его
+        if (accessEndDate < today) {
+          referenceDate = accessEndDate;
+        }
+      }
+
+      // Если referenceDate не установлен, используем statusData.date
+      if (!referenceDate && statusData?.date) {
+        referenceDate = new Date(statusData.date);
+        referenceDate.setHours(0, 0, 0, 0);
+      }
+
+      if (referenceDate) {
+        daysToShow = Math.floor((today - referenceDate) / (1000 * 60 * 60 * 24));
+      }
     } else if (statusType === 'not_in_tracker' && assignment.created_at) {
       const createdDate = new Date(assignment.created_at);
       daysToShow = Math.floor(Math.abs(new Date() - createdDate) / (1000 * 60 * 60 * 24));
@@ -255,7 +293,7 @@ const BuyerCard = React.memo(function BuyerCard({
       daysToShow = Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return daysToShow > 0 ? `${daysToShow} д` : '';
-  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDatesMap]);
+  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDatesMap, latestAccessLimited]);
 
   const statusBarColor = STATUS_BAR_COLORS[isArchived ? 'archived' : statusType] || STATUS_BAR_COLORS.default;
 
@@ -837,20 +875,50 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const statusData = buyerStatuses[statusKey];
       // Если статус не найден - считаем 'not_in_tracker'
       const statusType = assignment.archived ? 'archived' : (statusData?.status || 'not_in_tracker');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       if (statusType === 'active') {
         // Для активных - дни подряд с cost > 0 (с учётом дат доступа каждого канала)
         const accessDatesMap = getAccessDatesMap(assignment);
         return calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
-      } else if (statusType === 'not_configured' && statusData?.date) {
-        // Для "Не настроено" - дни с момента последнего расхода
-        const lastDate = new Date(statusData.date);
-        const today = new Date();
-        return Math.floor(Math.abs(today - lastDate) / (1000 * 60 * 60 * 24));
+      } else if (statusType === 'not_configured') {
+        // Для "Не настроено" - учитываем access_limited
+        const accessDatesMap = getAccessDatesMap(assignment);
+        let referenceDate = null;
+
+        // Находим последнюю дату окончания доступа
+        if (accessDatesMap) {
+          let latestAccessLimited = null;
+          Object.values(accessDatesMap).forEach(channel => {
+            if (channel.accessLimited) {
+              if (!latestAccessLimited || channel.accessLimited > latestAccessLimited) {
+                latestAccessLimited = channel.accessLimited;
+              }
+            }
+          });
+          if (latestAccessLimited) {
+            const accessEndDate = new Date(latestAccessLimited);
+            accessEndDate.setHours(0, 0, 0, 0);
+            if (accessEndDate < today) {
+              referenceDate = accessEndDate;
+            }
+          }
+        }
+
+        // Если referenceDate не установлен, используем statusData.date
+        if (!referenceDate && statusData?.date) {
+          referenceDate = new Date(statusData.date);
+          referenceDate.setHours(0, 0, 0, 0);
+        }
+
+        if (referenceDate) {
+          return Math.floor((today - referenceDate) / (1000 * 60 * 60 * 24));
+        }
+        return 0;
       } else if ((statusType === 'not_in_tracker' || statusType === 'archived') && assignment.created_at) {
         // Для "Нет в трекере" и архивированных - дни с момента привязки
         const createdDate = new Date(assignment.created_at);
-        const today = new Date();
         return Math.floor(Math.abs(today - createdDate) / (1000 * 60 * 60 * 24));
       }
       return 0;
@@ -1226,24 +1294,56 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const getBuyerDays = useCallback((assignment, status) => {
     const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
     const statusData = buyerStatuses[statusKey];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     if (status === 'active') {
       // Для активных - дни активности из buyerMetricsData (с учётом дат доступа каждого канала)
       const sourceIds = assignment.source_ids || [];
       const accessDatesMap = getAccessDatesMapForAssignment(assignment);
       return calculateConsecutiveActiveDays(offer.article, sourceIds, buyerMetricsData, accessDatesMap);
-    } else if (status === 'not_configured' && statusData?.date) {
-      // Для "не настроено" - дни с последней даты
-      const lastDate = new Date(statusData.date);
-      return Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
+    } else if (status === 'not_configured') {
+      // Для "не настроено" - учитываем access_limited
+      const accessDatesMap = getAccessDatesMapForAssignment(assignment);
+      let referenceDate = null;
+
+      // Находим последнюю дату окончания доступа
+      if (accessDatesMap) {
+        let latestAccessLimited = null;
+        Object.values(accessDatesMap).forEach(channel => {
+          if (channel.accessLimited) {
+            if (!latestAccessLimited || channel.accessLimited > latestAccessLimited) {
+              latestAccessLimited = channel.accessLimited;
+            }
+          }
+        });
+        if (latestAccessLimited) {
+          const accessEndDate = new Date(latestAccessLimited);
+          accessEndDate.setHours(0, 0, 0, 0);
+          if (accessEndDate < today) {
+            referenceDate = accessEndDate;
+          }
+        }
+      }
+
+      // Если referenceDate не установлен, используем statusData.date
+      if (!referenceDate && statusData?.date) {
+        referenceDate = new Date(statusData.date);
+        referenceDate.setHours(0, 0, 0, 0);
+      }
+
+      if (referenceDate) {
+        return Math.floor((today - referenceDate) / (1000 * 60 * 60 * 24));
+      }
+      return 0;
     } else if (status === 'not_in_tracker' && assignment.created_at) {
       // Для "нет в трекере" - дни с момента привязки
       const createdDate = new Date(assignment.created_at);
-      return Math.floor(Math.abs(new Date() - createdDate) / (1000 * 60 * 60 * 24));
+      return Math.floor(Math.abs(today - createdDate) / (1000 * 60 * 60 * 24));
     } else if (status === 'archived' && assignment.archived_at) {
       // Для архивированных - дни с момента архивации
       const archivedDate = new Date(assignment.archived_at);
-      return Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
+      return Math.floor(Math.abs(today - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return 0;
   }, [offer.id, offer.article, buyerStatuses, buyerMetricsData, getAccessDatesMapForAssignment]);
