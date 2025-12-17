@@ -516,6 +516,54 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
 }
 
 /**
+ * Находит последний активный день (с cost > 0) для байера в пределах периода доступа
+ * @param {string} article - Артикул оффера
+ * @param {Array} sourceIds - Массив source_id байера
+ * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
+ * @param {Object|null} accessDatesMap - Маппинг source_id -> {accessGranted, accessLimited} для фильтрации по датам доступа каждого канала
+ * @returns {string|null} - Дата последнего активного дня (YYYY-MM-DD) или null если нет данных
+ */
+export function findLastActiveDate(article, sourceIds, dataBySourceIdAndDate, accessDatesMap = null) {
+  const articleData = dataBySourceIdAndDate[article];
+  if (!articleData) {
+    return null;
+  }
+
+  let lastActiveDate = null;
+
+  sourceIds.forEach(sourceId => {
+    const sourceData = articleData[sourceId];
+    if (!sourceData) return;
+
+    // Получаем даты доступа для ЭТОГО конкретного source_id
+    const channelAccess = accessDatesMap?.[sourceId] || {};
+    const accessStart = channelAccess.accessGranted ? new Date(channelAccess.accessGranted) : null;
+    const accessEnd = channelAccess.accessLimited ? new Date(channelAccess.accessLimited) : null;
+    if (accessStart) accessStart.setHours(0, 0, 0, 0);
+    if (accessEnd) accessEnd.setHours(23, 59, 59, 999);
+
+    Object.keys(sourceData).forEach(dateStr => {
+      if (sourceData[dateStr].cost > 0) {
+        // Фильтруем по датам доступа для ЭТОГО канала
+        const recordDate = new Date(dateStr);
+        recordDate.setHours(0, 0, 0, 0);
+
+        // Пропускаем если дата ВНЕ периода доступа для этого канала
+        if (accessStart && recordDate < accessStart) return;
+        if (accessEnd && recordDate > accessEnd) return;
+
+        // Обновляем lastActiveDate если эта дата позже
+        if (!lastActiveDate || dateStr > lastActiveDate) {
+          lastActiveDate = dateStr;
+        }
+      }
+    });
+  });
+
+  return lastActiveDate;
+}
+
+/**
  * Рассчитывает рейтинг на основе CPL и базового порога
  * @param {number} cpl - CPL за 4 дня
  * @param {number} base - Базовый порог (red_zone_price или 3.5)
