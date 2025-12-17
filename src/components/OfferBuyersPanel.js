@@ -1323,6 +1323,25 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setSelectedBuyerForCalendar(null);
   }, []);
 
+  // Функция для получения дат доступа из traffic_channels - возвращает маппинг channel_id -> {accessGranted, accessLimited}
+  const getAccessDatesMapForAssignment = useCallback((assignment) => {
+    const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
+    const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
+    if (matchingChannels.length === 0) {
+      return null;
+    }
+    const map = {};
+    matchingChannels.forEach(ch => {
+      if (ch.channel_id) {
+        map[ch.channel_id] = {
+          accessGranted: ch.access_granted || null,
+          accessLimited: ch.access_limited || null
+        };
+      }
+    });
+    return Object.keys(map).length > 0 ? map : null;
+  }, []);
+
   // Функция для проверки, есть ли у байера данные в его периоде доступа (для фильтрации/сортировки)
   const checkBuyerHasDataInAccessPeriod = useCallback((assignment, accessDatesMap, statusData) => {
     const sourceIds = assignment.source_ids || [];
@@ -1398,25 +1417,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     'not_in_tracker': 2,
     'archived': 3
   };
-
-  // Функция для получения дат доступа из traffic_channels - возвращает маппинг channel_id -> {accessGranted, accessLimited}
-  const getAccessDatesMapForAssignment = useCallback((assignment) => {
-    const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
-    const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
-    if (matchingChannels.length === 0) {
-      return null;
-    }
-    const map = {};
-    matchingChannels.forEach(ch => {
-      if (ch.channel_id) {
-        map[ch.channel_id] = {
-          accessGranted: ch.access_granted || null,
-          accessLimited: ch.access_limited || null
-        };
-      }
-    });
-    return Object.keys(map).length > 0 ? map : null;
-  }, []);
 
   // Функция для получения количества дней для сортировки
   const getBuyerDays = useCallback((assignment, status) => {
