@@ -1162,16 +1162,50 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     'archived': 3
   };
 
-  // Сортируем байеров по статусу: Активные → Не настроено → Нет в трекере → Архивированные
+  // Функция для получения количества дней для сортировки
+  const getBuyerDays = useCallback((assignment, status) => {
+    const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
+    const statusData = buyerStatuses[statusKey];
+
+    if (status === 'active') {
+      // Для активных - дни активности из buyerMetricsData
+      const sourceIds = assignment.source_ids || [];
+      return calculateConsecutiveActiveDays(offer.article, sourceIds, buyerMetricsData);
+    } else if (status === 'not_configured' && statusData?.date) {
+      // Для "не настроено" - дни с последней даты
+      const lastDate = new Date(statusData.date);
+      return Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
+    } else if (status === 'not_in_tracker' && assignment.created_at) {
+      // Для "нет в трекере" - дни с момента привязки
+      const createdDate = new Date(assignment.created_at);
+      return Math.floor(Math.abs(new Date() - createdDate) / (1000 * 60 * 60 * 24));
+    } else if (status === 'archived' && assignment.archived_at) {
+      // Для архивированных - дни с момента архивации
+      const archivedDate = new Date(assignment.archived_at);
+      return Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
+    }
+    return 0;
+  }, [offer.id, offer.article, buyerStatuses, buyerMetricsData]);
+
+  // Сортируем байеров по статусу, затем по дням (от большего к меньшему)
   const sortBuyersByStatus = useCallback((buyers) => {
     return [...buyers].sort((a, b) => {
       const statusA = getBuyerStatus(a);
       const statusB = getBuyerStatus(b);
       const orderA = STATUS_SORT_ORDER[statusA] ?? 99;
       const orderB = STATUS_SORT_ORDER[statusB] ?? 99;
-      return orderA - orderB;
+
+      // Сначала сортируем по статусу
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      // Если статус одинаковый - сортируем по дням (от большего к меньшему)
+      const daysA = getBuyerDays(a, statusA);
+      const daysB = getBuyerDays(b, statusB);
+      return daysB - daysA; // Descending (больше дней = левее)
     });
-  }, [getBuyerStatus]);
+  }, [getBuyerStatus, getBuyerDays]);
 
   // Группируем отфильтрованных байеров по источникам и сортируем по статусу
   const buyersBySource = useMemo(() => ({
