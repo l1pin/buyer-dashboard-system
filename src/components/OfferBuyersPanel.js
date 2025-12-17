@@ -266,13 +266,13 @@ const BuyerCard = React.memo(function BuyerCard({
   // Логика определения статуса:
   // 1. Если архивирован - 'archived'
   // 2. Если статусы ещё загружаются - 'loading'
-  // 3. Если трекер говорит 'not_configured', но у байера НЕТ данных в его периоде - 'not_in_tracker'
+  // 3. Если трекер говорит 'active' или 'not_configured', но у байера НЕТ данных в его периоде - 'not_in_tracker'
   // 4. Иначе используем статус из трекера
   const statusType = isArchived
     ? 'archived'
     : loadingBuyerStatuses
       ? 'loading'
-      : statusData?.status === 'not_configured' && !hasBuyerDataInAccessPeriod
+      : (statusData?.status === 'active' || statusData?.status === 'not_configured') && !hasBuyerDataInAccessPeriod
         ? 'not_in_tracker'
         : (statusData?.status || 'not_in_tracker');
   const config = isArchived
@@ -915,7 +915,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
       // Определяем реальный статус с учётом периода доступа
       let statusType = statusData?.status || 'not_in_tracker';
-      if (statusType === 'not_configured' && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
+      if ((statusType === 'active' || statusType === 'not_configured') && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
         statusType = 'not_in_tracker';
       }
 
@@ -956,7 +956,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
       // Определяем реальный статус с учётом периода доступа
       let statusType = assignment.archived ? 'archived' : (statusData?.status || 'not_in_tracker');
-      if (statusType === 'not_configured' && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
+      if ((statusType === 'active' || statusType === 'not_configured') && !checkHasBuyerDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
         statusType = 'not_in_tracker';
       }
 
@@ -1386,7 +1386,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
     // Определяем реальный статус с учётом периода доступа
     let status = statusData?.status || 'not_in_tracker';
-    if (status === 'not_configured') {
+    if (status === 'active' || status === 'not_configured') {
       const accessDatesMap = getAccessDatesMapForAssignment(assignment);
       if (!checkBuyerHasDataInAccessPeriod(assignment, accessDatesMap, statusData)) {
         status = 'not_in_tracker';

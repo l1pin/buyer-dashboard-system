@@ -495,7 +495,11 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
 
   // Идем назад от начальной даты
   for (let i = 0; i < 365; i++) { // Максимум 365 дней назад
-    const dateStr = currentDate.toISOString().split('T')[0];
+    // Используем локальную дату (как в данных), а не UTC
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
     // Если вышли за пределы earliestAccessStart - прекращаем
     if (earliestAccessStart && currentDate < earliestAccessStart) {
