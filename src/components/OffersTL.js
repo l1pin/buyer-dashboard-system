@@ -216,18 +216,27 @@ function OffersTL({ user }) {
         setAllAssignments(prev => {
           const offerId = newAssignment.offer_id;
           const current = prev[offerId] || [];
-          // Проверяем, что привязки еще нет (чтобы избежать дубликатов)
+
+          // Проверяем, что привязки с таким ID еще нет
           if (current.some(a => a.id === newAssignment.id)) {
             return prev;
           }
+
+          // Удаляем существующую привязку для этого же buyer_id + source
+          // (при восстановлении архивированного байера старая запись удаляется)
+          const filtered = current.filter(a =>
+            !(a.buyer_id === newAssignment.buyer_id && a.source === newAssignment.source)
+          );
+
           // Если это первый байер - высота изменится, нужно пересчитать
-          const prevHasBuyers = current.filter(a => !a.hidden).length > 0;
+          const prevHasBuyers = filtered.filter(a => !a.hidden).length > 0;
           if (!prevHasBuyers && listRef.current) {
             setTimeout(() => listRef.current?.resetAfterIndex(0), 0);
           }
+
           return {
             ...prev,
-            [offerId]: [...current, newAssignment]
+            [offerId]: [...filtered, newAssignment]
           };
         });
 
