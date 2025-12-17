@@ -192,36 +192,31 @@ const BuyerCard = React.memo(function BuyerCard({
   const sourceIds = assignment.source_ids || [];
   const isArchived = assignment.archived;
 
-  // Получаем даты доступа из traffic_channels байера для текущего источника
-  const accessDates = useMemo(() => {
+  // Получаем даты доступа из traffic_channels байера - маппинг channel_id -> {accessGranted, accessLimited}
+  const accessDatesMap = useMemo(() => {
     const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
     // Находим каналы для текущего источника (assignment.source)
     const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
     if (matchingChannels.length === 0) {
-      return { accessGranted: null, accessLimited: null };
+      return null;
     }
-    // Если несколько каналов одного источника, берём минимальный access_granted и максимальный access_limited
-    let accessGranted = null;
-    let accessLimited = null;
+    // Строим маппинг: channel_id -> {accessGranted, accessLimited}
+    const map = {};
     matchingChannels.forEach(ch => {
-      if (ch.access_granted) {
-        if (!accessGranted || ch.access_granted < accessGranted) {
-          accessGranted = ch.access_granted;
-        }
-      }
-      if (ch.access_limited) {
-        if (!accessLimited || ch.access_limited > accessLimited) {
-          accessLimited = ch.access_limited;
-        }
+      if (ch.channel_id) {
+        map[ch.channel_id] = {
+          accessGranted: ch.access_granted || null,
+          accessLimited: ch.access_limited || null
+        };
       }
     });
-    return { accessGranted, accessLimited };
+    return Object.keys(map).length > 0 ? map : null;
   }, [assignment.buyer?.buyer_settings?.traffic_channels, assignment.source]);
 
-  // Мемоизируем метрики для этого байера (с учётом дат доступа)
+  // Мемоизируем метрики для этого байера (с учётом дат доступа каждого канала)
   const metrics = useMemo(() =>
-    aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14, accessDates.accessGranted, accessDates.accessLimited),
-    [offerArticle, sourceIds, buyerMetricsData, accessDates.accessGranted, accessDates.accessLimited]
+    aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14, accessDatesMap),
+    [offerArticle, sourceIds, buyerMetricsData, accessDatesMap]
   );
 
   const hasData = metrics.leads > 0 || metrics.cost > 0;
@@ -244,11 +239,11 @@ const BuyerCard = React.memo(function BuyerCard({
     ? { label: 'Неактивный', color: 'bg-gray-100', textColor: 'text-gray-600' }
     : (BUYER_STATUS_CONFIG[statusType] || LOCAL_STATUS_CONFIG[statusType] || BUYER_STATUS_CONFIG.active);
 
-  // Мемоизируем вычисление дней для статуса (с учётом дат доступа)
+  // Мемоизируем вычисление дней для статуса (с учётом дат доступа каждого канала)
   const daysLabel = useMemo(() => {
     let daysToShow = 0;
     if (statusType === 'active') {
-      daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDates.accessGranted, accessDates.accessLimited);
+      daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
     } else if (statusType === 'not_configured' && statusData?.date) {
       const lastDate = new Date(statusData.date);
       daysToShow = Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
@@ -260,7 +255,7 @@ const BuyerCard = React.memo(function BuyerCard({
       daysToShow = Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return daysToShow > 0 ? `${daysToShow} д` : '';
-  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDates.accessGranted, accessDates.accessLimited]);
+  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDatesMap]);
 
   const statusBarColor = STATUS_BAR_COLORS[isArchived ? 'archived' : statusType] || STATUS_BAR_COLORS.default;
 
@@ -815,28 +810,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       }
     };
 
-    // Функция для получения дат доступа из traffic_channels
-    const getAccessDates = (assignment) => {
+    // Функция для получения дат доступа из traffic_channels - возвращает маппинг channel_id -> {accessGranted, accessLimited}
+    const getAccessDatesMap = (assignment) => {
       const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
       const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
       if (matchingChannels.length === 0) {
-        return { accessGranted: null, accessLimited: null };
+        return null;
       }
-      let accessGranted = null;
-      let accessLimited = null;
+      const map = {};
       matchingChannels.forEach(ch => {
-        if (ch.access_granted) {
-          if (!accessGranted || ch.access_granted < accessGranted) {
-            accessGranted = ch.access_granted;
-          }
-        }
-        if (ch.access_limited) {
-          if (!accessLimited || ch.access_limited > accessLimited) {
-            accessLimited = ch.access_limited;
-          }
+        if (ch.channel_id) {
+          map[ch.channel_id] = {
+            accessGranted: ch.access_granted || null,
+            accessLimited: ch.access_limited || null
+          };
         }
       });
-      return { accessGranted, accessLimited };
+      return Object.keys(map).length > 0 ? map : null;
     };
 
     // Функция для получения количества дней для сортировки
@@ -849,9 +839,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       const statusType = assignment.archived ? 'archived' : (statusData?.status || 'not_in_tracker');
 
       if (statusType === 'active') {
-        // Для активных - дни подряд с cost > 0 (с учётом дат доступа)
-        const { accessGranted, accessLimited } = getAccessDates(assignment);
-        return calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessGranted, accessLimited);
+        // Для активных - дни подряд с cost > 0 (с учётом дат доступа каждого канала)
+        const accessDatesMap = getAccessDatesMap(assignment);
+        return calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
       } else if (statusType === 'not_configured' && statusData?.date) {
         // Для "Не настроено" - дни с момента последнего расхода
         const lastDate = new Date(statusData.date);
@@ -1213,28 +1203,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     'archived': 3
   };
 
-  // Функция для получения дат доступа из traffic_channels
-  const getAccessDatesForAssignment = useCallback((assignment) => {
+  // Функция для получения дат доступа из traffic_channels - возвращает маппинг channel_id -> {accessGranted, accessLimited}
+  const getAccessDatesMapForAssignment = useCallback((assignment) => {
     const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
     const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
     if (matchingChannels.length === 0) {
-      return { accessGranted: null, accessLimited: null };
+      return null;
     }
-    let accessGranted = null;
-    let accessLimited = null;
+    const map = {};
     matchingChannels.forEach(ch => {
-      if (ch.access_granted) {
-        if (!accessGranted || ch.access_granted < accessGranted) {
-          accessGranted = ch.access_granted;
-        }
-      }
-      if (ch.access_limited) {
-        if (!accessLimited || ch.access_limited > accessLimited) {
-          accessLimited = ch.access_limited;
-        }
+      if (ch.channel_id) {
+        map[ch.channel_id] = {
+          accessGranted: ch.access_granted || null,
+          accessLimited: ch.access_limited || null
+        };
       }
     });
-    return { accessGranted, accessLimited };
+    return Object.keys(map).length > 0 ? map : null;
   }, []);
 
   // Функция для получения количества дней для сортировки
@@ -1243,10 +1228,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     const statusData = buyerStatuses[statusKey];
 
     if (status === 'active') {
-      // Для активных - дни активности из buyerMetricsData (с учётом дат доступа)
+      // Для активных - дни активности из buyerMetricsData (с учётом дат доступа каждого канала)
       const sourceIds = assignment.source_ids || [];
-      const { accessGranted, accessLimited } = getAccessDatesForAssignment(assignment);
-      return calculateConsecutiveActiveDays(offer.article, sourceIds, buyerMetricsData, accessGranted, accessLimited);
+      const accessDatesMap = getAccessDatesMapForAssignment(assignment);
+      return calculateConsecutiveActiveDays(offer.article, sourceIds, buyerMetricsData, accessDatesMap);
     } else if (status === 'not_configured' && statusData?.date) {
       // Для "не настроено" - дни с последней даты
       const lastDate = new Date(statusData.date);
@@ -1261,7 +1246,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       return Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return 0;
-  }, [offer.id, offer.article, buyerStatuses, buyerMetricsData, getAccessDatesForAssignment]);
+  }, [offer.id, offer.article, buyerStatuses, buyerMetricsData, getAccessDatesMapForAssignment]);
 
   // Сортируем байеров по статусу, затем по дням (от большего к меньшему)
   const sortBuyersByStatus = useCallback((buyers) => {
