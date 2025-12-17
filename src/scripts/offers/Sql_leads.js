@@ -321,11 +321,13 @@ export function aggregateMetricsBySourceIds(article, sourceIds, dataBySourceIdAn
  * @param {Array} sourceIds - Массив source_id байера
  * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
  * @param {number} activeDaysCount - Количество активных дней для агрегации (по умолчанию 14)
+ * @param {string|null} accessGranted - Дата начала доступа (YYYY-MM-DD), null = с начала времён
+ * @param {string|null} accessLimited - Дата окончания доступа (YYYY-MM-DD), null = до сегодня
  * @returns {Object} - { leads, cost, cpl, activeDays: количество реально использованных активных дней }
  */
-export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdAndDate, activeDaysCount = 14) {
-  // Оптимизация: проверка кэша
-  const cacheKey = `${article}|${sourceIds.join(',')}|${activeDaysCount}`;
+export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdAndDate, activeDaysCount = 14, accessGranted = null, accessLimited = null) {
+  // Оптимизация: проверка кэша (включаем access dates в ключ)
+  const cacheKey = `${article}|${sourceIds.join(',')}|${activeDaysCount}|${accessGranted || ''}|${accessLimited || ''}`;
   if (metricsCache.has(cacheKey)) {
     return metricsCache.get(cacheKey);
   }
@@ -337,6 +339,12 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
     return emptyResult;
   }
 
+  // Парсим даты доступа
+  const accessStart = accessGranted ? new Date(accessGranted) : null;
+  const accessEnd = accessLimited ? new Date(accessLimited) : null;
+  if (accessStart) accessStart.setHours(0, 0, 0, 0);
+  if (accessEnd) accessEnd.setHours(23, 59, 59, 999);
+
   // Собираем все даты с данными для всех source_ids байера
   // Структура: { dateStr: { leads, cost } }
   const aggregatedByDate = {};
@@ -346,6 +354,14 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
     if (!sourceData) return;
 
     Object.keys(sourceData).forEach(dateStr => {
+      // Фильтруем по датам доступа
+      const recordDate = new Date(dateStr);
+      recordDate.setHours(0, 0, 0, 0);
+
+      // Пропускаем если дата ВНЕ периода доступа
+      if (accessStart && recordDate < accessStart) return;
+      if (accessEnd && recordDate > accessEnd) return;
+
       const dayData = sourceData[dateStr];
       if (!aggregatedByDate[dateStr]) {
         aggregatedByDate[dateStr] = { leads: 0, cost: 0 };
@@ -400,11 +416,13 @@ export function aggregateMetricsByActiveDays(article, sourceIds, dataBySourceIdA
  * @param {string} article - Артикул оффера
  * @param {Array} sourceIds - Массив source_id байера
  * @param {Object} dataBySourceIdAndDate - Сгруппированные данные { article: { source_id: { date: { leads, cost } } } }
+ * @param {string|null} accessGranted - Дата начала доступа (YYYY-MM-DD), null = с начала времён
+ * @param {string|null} accessLimited - Дата окончания доступа (YYYY-MM-DD), null = до сегодня
  * @returns {number} - Количество дней подряд с cost > 0
  */
-export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceIdAndDate) {
-  // Оптимизация: проверка кэша
-  const cacheKey = `${article}|${sourceIds.join(',')}`;
+export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceIdAndDate, accessGranted = null, accessLimited = null) {
+  // Оптимизация: проверка кэша (включаем access dates в ключ)
+  const cacheKey = `${article}|${sourceIds.join(',')}|${accessGranted || ''}|${accessLimited || ''}`;
   if (consecutiveDaysCache.has(cacheKey)) {
     return consecutiveDaysCache.get(cacheKey);
   }
@@ -415,7 +433,13 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
     return 0;
   }
 
-  // Собираем все даты с cost > 0 для всех source_ids байера
+  // Парсим даты доступа
+  const accessStart = accessGranted ? new Date(accessGranted) : null;
+  const accessEnd = accessLimited ? new Date(accessLimited) : null;
+  if (accessStart) accessStart.setHours(0, 0, 0, 0);
+  if (accessEnd) accessEnd.setHours(23, 59, 59, 999);
+
+  // Собираем все даты с cost > 0 для всех source_ids байера (с учётом дат доступа)
   const datesWithCost = new Set();
 
   sourceIds.forEach(sourceId => {
@@ -424,6 +448,14 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
 
     Object.keys(sourceData).forEach(dateStr => {
       if (sourceData[dateStr].cost > 0) {
+        // Фильтруем по датам доступа
+        const recordDate = new Date(dateStr);
+        recordDate.setHours(0, 0, 0, 0);
+
+        // Пропускаем если дата ВНЕ периода доступа
+        if (accessStart && recordDate < accessStart) return;
+        if (accessEnd && recordDate > accessEnd) return;
+
         datesWithCost.add(dateStr);
       }
     });
@@ -434,16 +466,28 @@ export function calculateConsecutiveActiveDays(article, sourceIds, dataBySourceI
     return 0;
   }
 
-  // Считаем дни подряд с сегодняшнего дня назад
+  // Определяем начальную точку отсчёта
+  // Если accessLimited задан и меньше сегодня, начинаем с него
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let consecutiveDays = 0;
-  let currentDate = new Date(today);
+  let startDate = new Date(today);
+  if (accessEnd && accessEnd < today) {
+    startDate = new Date(accessEnd);
+    startDate.setHours(0, 0, 0, 0);
+  }
 
-  // Идем назад от сегодняшнего дня
-  for (let i = 0; i < 90; i++) { // Максимум 90 дней назад
+  let consecutiveDays = 0;
+  let currentDate = new Date(startDate);
+
+  // Идем назад от начальной даты
+  for (let i = 0; i < 365; i++) { // Максимум 365 дней назад
     const dateStr = currentDate.toISOString().split('T')[0];
+
+    // Если вышли за пределы accessGranted - прекращаем
+    if (accessStart && currentDate < accessStart) {
+      break;
+    }
 
     if (datesWithCost.has(dateStr)) {
       consecutiveDays++;
