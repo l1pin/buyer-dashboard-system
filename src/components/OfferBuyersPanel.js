@@ -257,10 +257,30 @@ const BuyerCard = React.memo(function BuyerCard({
         lastActiveDate.setHours(0, 0, 0, 0);
         daysToShow = Math.floor((today - lastActiveDate) / (1000 * 60 * 60 * 24));
       } else if (statusData?.date) {
-        // Если нет данных в buyerMetricsData, используем statusData.date из трекера
+        // Если нет данных в buyerMetricsData, проверяем что дата из трекера в пределах доступа байера
         const lastDate = new Date(statusData.date);
         lastDate.setHours(0, 0, 0, 0);
-        daysToShow = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+
+        // Находим максимальный access_limited из всех каналов байера
+        let latestAccessLimited = null;
+        if (accessDatesMap) {
+          Object.values(accessDatesMap).forEach(access => {
+            if (access.accessLimited) {
+              const accessEnd = new Date(access.accessLimited);
+              accessEnd.setHours(23, 59, 59, 999);
+              if (!latestAccessLimited || accessEnd > latestAccessLimited) {
+                latestAccessLimited = accessEnd;
+              }
+            }
+          });
+        }
+
+        // Если дата из трекера ПОЗЖЕ окончания доступа - не используем её
+        // (это активность другого байера с тем же source_id)
+        if (!latestAccessLimited || lastDate <= latestAccessLimited) {
+          daysToShow = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+        }
+        // Иначе daysToShow остаётся 0 - у этого байера не было активности
       }
     } else if (statusType === 'not_in_tracker' && assignment.created_at) {
       const createdDate = new Date(assignment.created_at);
@@ -869,9 +889,28 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           lastActiveDate.setHours(0, 0, 0, 0);
           return Math.floor((today - lastActiveDate) / (1000 * 60 * 60 * 24));
         } else if (statusData?.date) {
+          // Проверяем что дата из трекера в пределах доступа байера
           const lastDate = new Date(statusData.date);
           lastDate.setHours(0, 0, 0, 0);
-          return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+
+          // Находим максимальный access_limited из всех каналов байера
+          let latestAccessLimited = null;
+          if (accessDatesMap) {
+            Object.values(accessDatesMap).forEach(access => {
+              if (access.accessLimited) {
+                const accessEnd = new Date(access.accessLimited);
+                accessEnd.setHours(23, 59, 59, 999);
+                if (!latestAccessLimited || accessEnd > latestAccessLimited) {
+                  latestAccessLimited = accessEnd;
+                }
+              }
+            });
+          }
+
+          // Если дата из трекера ПОЗЖЕ окончания доступа - не используем её
+          if (!latestAccessLimited || lastDate <= latestAccessLimited) {
+            return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+          }
         }
         return 0;
       } else if ((statusType === 'not_in_tracker' || statusType === 'archived') && assignment.created_at) {
@@ -1271,9 +1310,28 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         lastActiveDate.setHours(0, 0, 0, 0);
         return Math.floor((today - lastActiveDate) / (1000 * 60 * 60 * 24));
       } else if (statusData?.date) {
+        // Проверяем что дата из трекера в пределах доступа байера
         const lastDate = new Date(statusData.date);
         lastDate.setHours(0, 0, 0, 0);
-        return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+
+        // Находим максимальный access_limited из всех каналов байера
+        let latestAccessLimited = null;
+        if (accessDatesMap) {
+          Object.values(accessDatesMap).forEach(access => {
+            if (access.accessLimited) {
+              const accessEnd = new Date(access.accessLimited);
+              accessEnd.setHours(23, 59, 59, 999);
+              if (!latestAccessLimited || accessEnd > latestAccessLimited) {
+                latestAccessLimited = accessEnd;
+              }
+            }
+          });
+        }
+
+        // Если дата из трекера ПОЗЖЕ окончания доступа - не используем её
+        if (!latestAccessLimited || lastDate <= latestAccessLimited) {
+          return Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+        }
       }
       return 0;
     } else if (status === 'not_in_tracker' && assignment.created_at) {
