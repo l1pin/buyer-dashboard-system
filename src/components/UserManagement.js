@@ -139,15 +139,7 @@ function UserManagement({ user }) {
     team_lead_id: null,
     team_lead_name: null,
     buyer_settings: {
-      traffic_channels: [
-        {
-          source: 'Facebook',
-          channel_id: '',
-          currency: 'USD',
-          access_granted: '2020-01-01',
-          access_limited: null
-        }
-      ]
+      traffic_channels: [] // Пустой по умолчанию - каналы добавляются по кнопке
     }
   });
 
@@ -161,15 +153,7 @@ function UserManagement({ user }) {
     team_lead_id: null,
     team_lead_name: null,
     buyer_settings: {
-      traffic_channels: [
-        {
-          source: 'Facebook',
-          channel_id: '',
-          currency: 'USD',
-          access_granted: '2020-01-01',
-          access_limited: null
-        }
-      ]
+      traffic_channels: [] // Пустой по умолчанию
     }
   });
 
@@ -287,6 +271,7 @@ function UserManagement({ user }) {
           .map(channel => ({
             source: channel.source || 'Facebook',
             channel_id: channel.channel_id.trim(),
+            account_name: channel.account_name?.trim() || '',
             currency: channel.currency,
             access_granted: channel.access_granted || '2020-01-01',
             access_limited: channel.access_limited || null
@@ -311,15 +296,7 @@ function UserManagement({ user }) {
         team_lead_id: null,
         team_lead_name: null,
         buyer_settings: {
-          traffic_channels: [
-            {
-              source: 'Facebook',
-              channel_id: '',
-              currency: 'USD',
-              access_granted: '2020-01-01',
-              access_limited: null
-            }
-          ]
+          traffic_channels: []
         }
       });
       setShowCreateModal(false);
@@ -360,11 +337,10 @@ function UserManagement({ user }) {
               email: '',
               password: '',
               role: 'buyer',
+              team_lead_id: null,
+              team_lead_name: null,
               buyer_settings: {
-                traffic_channel_ids: [''],
-                currency: 'USD',
-                access_granted: '2020-01-01',
-                access_limited: null
+                traffic_channels: []
               }
             });
             setShowCreateModal(false);
@@ -410,36 +386,22 @@ function UserManagement({ user }) {
     setEditingUser(userToEdit);
 
     // Загружаем buyer_settings если пользователь - Media Buyer
+    // Если каналов нет - оставляем пустой массив (каналы добавляются по кнопке)
     const buyerSettings = userToEdit.role === 'buyer' && userToEdit.buyer_settings
       ? {
           traffic_channels: userToEdit.buyer_settings.traffic_channels?.length > 0
             ? userToEdit.buyer_settings.traffic_channels.map(channel => ({
                 source: channel.source || 'Facebook',
                 channel_id: channel.channel_id || '',
+                account_name: channel.account_name || '',
                 currency: channel.currency || 'USD',
                 access_granted: channel.access_granted || '2020-01-01',
                 access_limited: channel.access_limited || null
               }))
-            : [
-                {
-                  source: 'Facebook',
-                  channel_id: '',
-                  currency: 'USD',
-                  access_granted: '2020-01-01',
-                  access_limited: null
-                }
-              ]
+            : [] // Пустой массив - каналы добавляются по кнопке
         }
       : {
-          traffic_channels: [
-            {
-              source: 'Facebook',
-              channel_id: '',
-              currency: 'USD',
-              access_granted: '2020-01-01',
-              access_limited: null
-            }
-          ]
+          traffic_channels: [] // Пустой массив
         };
 
     setEditUserData({
@@ -496,6 +458,7 @@ function UserManagement({ user }) {
           .map(channel => ({
             source: channel.source || 'Facebook',
             channel_id: channel.channel_id.trim(),
+            account_name: channel.account_name?.trim() || '',
             currency: channel.currency,
             access_granted: channel.access_granted || '2020-01-01',
             access_limited: channel.access_limited || null
@@ -518,16 +481,11 @@ function UserManagement({ user }) {
         email: '',
         password: '',
         role: 'buyer',
+        is_protected: false,
+        team_lead_id: null,
+        team_lead_name: null,
         buyer_settings: {
-          traffic_channels: [
-            {
-              source: 'Facebook',
-              channel_id: '',
-              currency: 'USD',
-              access_granted: '2020-01-01',
-              access_limited: null
-            }
-          ]
+          traffic_channels: []
         }
       });
       setEditingUser(null);
@@ -1197,11 +1155,12 @@ function UserManagement({ user }) {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-[700px] shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                Создать нового пользователя
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-10 pb-10">
+          <div className="relative w-full max-w-2xl mx-4 shadow-2xl rounded-2xl bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Создать пользователя
               </h3>
               <button
                 onClick={() => {
@@ -1211,40 +1170,41 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    team_lead_id: null,
+                    team_lead_name: null,
                     buyer_settings: {
-                      traffic_channel_ids: [''],
-                      currency: 'USD',
-                      access_granted: '2020-01-01',
-                      access_limited: null
+                      traffic_channels: []
                     }
                   });
                   clearMessages();
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Messages inside modal */}
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
-                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
-                <div>{error}</div>
-              </div>
-            )}
+            {/* Content */}
+            <div className="px-6 py-5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {/* Messages inside modal */}
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start">
+                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>{error}</div>
+                </div>
+              )}
 
-            {success && (
-              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
-                <Check className="h-4 w-4 mr-2 flex-shrink-0" />
-                {success}
-              </div>
-            )}
+              {success && (
+                <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center">
+                  <Check className="h-4 w-4 mr-2 flex-shrink-0" />
+                  {success}
+                </div>
+              )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Имя пользователя *
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Имя пользователя *
                 </label>
                 <input
                   type="text"
@@ -1380,45 +1340,45 @@ function UserManagement({ user }) {
 
               {/* Дополнительные поля для Media Buyer */}
               {newUser.role === 'buyer' && (
-                <>
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">
-                      Настройки Media Buyer
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-medium text-gray-900">
+                      Каналы трафика
                     </h4>
+                    <span className="text-xs text-gray-500">
+                      {newUser.buyer_settings.traffic_channels.length} {newUser.buyer_settings.traffic_channels.length === 1 ? 'канал' : newUser.buyer_settings.traffic_channels.length < 5 ? 'канала' : 'каналов'}
+                    </span>
+                  </div>
 
-                    {/* Каналы трафика */}
-                    <div className="space-y-4 mb-4">
+                  {/* Список каналов */}
+                  {newUser.buyer_settings.traffic_channels.length > 0 && (
+                    <div className="space-y-3 mb-4">
                       {newUser.buyer_settings.traffic_channels.map((channel, index) => (
-                        <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-gray-700">
-                              Канал #{index + 1}
-                            </span>
-                            {newUser.buyer_settings.traffic_channels.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newChannels = newUser.buyer_settings.traffic_channels.filter((_, i) => i !== index);
-                                  setNewUser({
-                                    ...newUser,
-                                    buyer_settings: {
-                                      ...newUser.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
+                        <div key={index} className="relative p-4 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                          {/* Кнопка удаления */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newChannels = newUser.buyer_settings.traffic_channels.filter((_, i) => i !== index);
+                              setNewUser({
+                                ...newUser,
+                                buyer_settings: {
+                                  ...newUser.buyer_settings,
+                                  traffic_channels: newChannels
+                                }
+                              });
+                            }}
+                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Удалить канал"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
 
-                          <div className="space-y-3">
-                            {/* Источник */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Источник трафика *
+                          {/* Строка 1: Источник + Валюта */}
+                          <div className="flex gap-3 mb-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Источник
                               </label>
                               <SourceSelector
                                 value={channel.source}
@@ -1433,146 +1393,170 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left"
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
                               />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              {/* ID канала */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  ID канала трафика *
-                                </label>
-                                <input
-                                  type="text"
-                                  value={channel.channel_id}
-                                  onChange={(e) => {
-                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                    newChannels[index].channel_id = e.target.value;
-                                    setNewUser({
-                                      ...newUser,
-                                      buyer_settings: {
-                                        ...newUser.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                  placeholder="Введите ID канала"
-                                />
-                              </div>
-
-                              {/* Валюта */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Валюта
-                                </label>
-                                <select
-                                  value={channel.currency}
-                                  onChange={(e) => {
-                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                    newChannels[index].currency = e.target.value;
-                                    setNewUser({
-                                      ...newUser,
-                                      buyer_settings: {
-                                        ...newUser.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                >
-                                  <option value="USD">$ USD</option>
-                                  <option value="EUR">€ EUR</option>
-                                  <option value="UAH">₴ UAH</option>
-                                </select>
-                              </div>
+                            <div className="w-28">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Валюта
+                              </label>
+                              <select
+                                value={channel.currency}
+                                onChange={(e) => {
+                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                  newChannels[index].currency = e.target.value;
+                                  setNewUser({
+                                    ...newUser,
+                                    buyer_settings: {
+                                      ...newUser.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                              >
+                                <option value="USD">$ USD</option>
+                                <option value="EUR">€ EUR</option>
+                                <option value="UAH">₴ UAH</option>
+                              </select>
                             </div>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                              {/* Доступ предоставлен */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Доступ с
-                                </label>
-                                <input
-                                  type="date"
-                                  value={channel.access_granted}
-                                  onChange={(e) => {
-                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                    newChannels[index].access_granted = e.target.value;
-                                    setNewUser({
-                                      ...newUser,
-                                      buyer_settings: {
-                                        ...newUser.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                />
-                              </div>
+                          {/* Строка 2: ID канала + Название аккаунта */}
+                          <div className="flex gap-3 mb-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                ID канала *
+                              </label>
+                              <input
+                                type="text"
+                                value={channel.channel_id}
+                                onChange={(e) => {
+                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                  newChannels[index].channel_id = e.target.value;
+                                  setNewUser({
+                                    ...newUser,
+                                    buyer_settings: {
+                                      ...newUser.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="654cb443baf00b..."
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Название аккаунта
+                              </label>
+                              <input
+                                type="text"
+                                value={channel.account_name || ''}
+                                onChange={(e) => {
+                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                  newChannels[index].account_name = e.target.value;
+                                  setNewUser({
+                                    ...newUser,
+                                    buyer_settings: {
+                                      ...newUser.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="VL46 Akk1.1"
+                              />
+                            </div>
+                          </div>
 
-                              {/* Доступ ограничен */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Доступ до (опционально)
-                                </label>
-                                <input
-                                  type="date"
-                                  value={channel.access_limited || ''}
-                                  onChange={(e) => {
-                                    const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                    newChannels[index].access_limited = e.target.value || null;
-                                    setNewUser({
-                                      ...newUser,
-                                      buyer_settings: {
-                                        ...newUser.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                />
-                              </div>
+                          {/* Строка 3: Даты доступа */}
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                <Calendar className="inline h-3 w-3 mr-1" />
+                                Доступ с
+                              </label>
+                              <input
+                                type="date"
+                                value={channel.access_granted}
+                                onChange={(e) => {
+                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                  newChannels[index].access_granted = e.target.value;
+                                  setNewUser({
+                                    ...newUser,
+                                    buyer_settings: {
+                                      ...newUser.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                <Calendar className="inline h-3 w-3 mr-1" />
+                                Доступ до
+                              </label>
+                              <input
+                                type="date"
+                                value={channel.access_limited || ''}
+                                onChange={(e) => {
+                                  const newChannels = [...newUser.buyer_settings.traffic_channels];
+                                  newChannels[index].access_limited = e.target.value || null;
+                                  setNewUser({
+                                    ...newUser,
+                                    buyer_settings: {
+                                      ...newUser.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="Не ограничено"
+                              />
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
+                  )}
 
-                    {/* Кнопка добавления канала внизу */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewUser({
-                          ...newUser,
-                          buyer_settings: {
-                            ...newUser.buyer_settings,
-                            traffic_channels: [
-                              ...newUser.buyer_settings.traffic_channels,
-                              {
-                                source: 'Facebook',
-                                channel_id: '',
-                                currency: 'USD',
-                                access_granted: '2020-01-01',
-                                access_limited: null
-                              }
-                            ]
-                          }
-                        });
-                      }}
-                      className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Добавить канал
-                    </button>
-                  </div>
-                </>
+                  {/* Кнопка добавления канала */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewUser({
+                        ...newUser,
+                        buyer_settings: {
+                          ...newUser.buyer_settings,
+                          traffic_channels: [
+                            ...newUser.buyer_settings.traffic_channels,
+                            {
+                              source: 'Facebook',
+                              channel_id: '',
+                              account_name: '',
+                              currency: 'USD',
+                              access_granted: new Date().toISOString().split('T')[0],
+                              access_limited: null
+                            }
+                          ]
+                        }
+                      });
+                    }}
+                    className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 hover:bg-white hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Добавить канал трафика
+                  </button>
+                </div>
               )}
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
@@ -1581,33 +1565,32 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    team_lead_id: null,
+                    team_lead_name: null,
                     buyer_settings: {
-                      traffic_channel_ids: [''],
-                      currency: 'USD',
-                      access_granted: '2020-01-01',
-                      access_limited: null
+                      traffic_channels: []
                     }
                   });
                   clearMessages();
                 }}
                 disabled={creating}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 disabled:opacity-50 transition-all"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateUser}
                 disabled={creating || !newUser.name?.trim() || !newUser.email?.trim() || !newUser.password}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-2"
               >
                 {creating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                     Создание...
                   </>
                 ) : (
                   <>
-                    <Check className="h-4 w-4 mr-2" />
+                    <Check className="h-4 w-4" />
                     Создать
                   </>
                 )}
@@ -1619,10 +1602,11 @@ function UserManagement({ user }) {
 
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-[700px] shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-10 pb-10">
+          <div className="relative w-full max-w-2xl mx-4 shadow-2xl rounded-2xl bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-xl font-semibold text-gray-900">
                 Редактировать пользователя
               </h3>
               <button
@@ -1635,40 +1619,42 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    is_protected: false,
+                    team_lead_id: null,
+                    team_lead_name: null,
                     buyer_settings: {
-                      traffic_channel_ids: [''],
-                      currency: 'USD',
-                      access_granted: '2020-01-01',
-                      access_limited: null
+                      traffic_channels: []
                     }
                   });
                   clearMessages();
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Messages inside modal */}
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
-                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
-                <div>{error}</div>
-              </div>
-            )}
+            {/* Content */}
+            <div className="px-6 py-5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {/* Messages inside modal */}
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start">
+                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>{error}</div>
+                </div>
+              )}
 
-            {success && (
-              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
-                <Check className="h-4 w-4 mr-2 flex-shrink-0" />
-                {success}
-              </div>
-            )}
+              {success && (
+                <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center">
+                  <Check className="h-4 w-4 mr-2 flex-shrink-0" />
+                  {success}
+                </div>
+              )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Имя пользователя *
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Имя пользователя *
                 </label>
                 <input
                   type="text"
@@ -1824,45 +1810,45 @@ function UserManagement({ user }) {
 
               {/* Дополнительные поля для Media Buyer */}
               {editUserData.role === 'buyer' && (
-                <>
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">
-                      Настройки Media Buyer
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-medium text-gray-900">
+                      Каналы трафика
                     </h4>
+                    <span className="text-xs text-gray-500">
+                      {editUserData.buyer_settings.traffic_channels.length} {editUserData.buyer_settings.traffic_channels.length === 1 ? 'канал' : editUserData.buyer_settings.traffic_channels.length < 5 ? 'канала' : 'каналов'}
+                    </span>
+                  </div>
 
-                    {/* Каналы трафика */}
-                    <div className="space-y-4 mb-4">
+                  {/* Список каналов */}
+                  {editUserData.buyer_settings.traffic_channels.length > 0 && (
+                    <div className="space-y-3 mb-4">
                       {editUserData.buyer_settings.traffic_channels.map((channel, index) => (
-                        <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-gray-700">
-                              Канал #{index + 1}
-                            </span>
-                            {editUserData.buyer_settings.traffic_channels.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newChannels = editUserData.buyer_settings.traffic_channels.filter((_, i) => i !== index);
-                                  setEditUserData({
-                                    ...editUserData,
-                                    buyer_settings: {
-                                      ...editUserData.buyer_settings,
-                                      traffic_channels: newChannels
-                                    }
-                                  });
-                                }}
-                                className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
+                        <div key={index} className="relative p-4 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                          {/* Кнопка удаления */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newChannels = editUserData.buyer_settings.traffic_channels.filter((_, i) => i !== index);
+                              setEditUserData({
+                                ...editUserData,
+                                buyer_settings: {
+                                  ...editUserData.buyer_settings,
+                                  traffic_channels: newChannels
+                                }
+                              });
+                            }}
+                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Удалить канал"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
 
-                          <div className="space-y-3">
-                            {/* Источник */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Источник трафика *
+                          {/* Строка 1: Источник + Валюта */}
+                          <div className="flex gap-3 mb-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Источник
                               </label>
                               <SourceSelector
                                 value={channel.source || 'Facebook'}
@@ -1877,164 +1863,188 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left"
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
                               />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              {/* ID канала */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  ID канала трафика *
-                                </label>
-                                <input
-                                  type="text"
-                                  value={channel.channel_id}
-                                  onChange={(e) => {
-                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                    newChannels[index].channel_id = e.target.value;
-                                    setEditUserData({
-                                      ...editUserData,
-                                      buyer_settings: {
-                                        ...editUserData.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                  placeholder="Введите ID канала"
-                                />
-                              </div>
-
-                              {/* Валюта */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Валюта
-                                </label>
-                                <select
-                                  value={channel.currency}
-                                  onChange={(e) => {
-                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                    newChannels[index].currency = e.target.value;
-                                    setEditUserData({
-                                      ...editUserData,
-                                      buyer_settings: {
-                                        ...editUserData.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                >
-                                  <option value="USD">$ USD</option>
-                                  <option value="EUR">€ EUR</option>
-                                  <option value="UAH">₴ UAH</option>
-                                </select>
-                              </div>
+                            <div className="w-28">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Валюта
+                              </label>
+                              <select
+                                value={channel.currency}
+                                onChange={(e) => {
+                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                  newChannels[index].currency = e.target.value;
+                                  setEditUserData({
+                                    ...editUserData,
+                                    buyer_settings: {
+                                      ...editUserData.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                              >
+                                <option value="USD">$ USD</option>
+                                <option value="EUR">€ EUR</option>
+                                <option value="UAH">₴ UAH</option>
+                              </select>
                             </div>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                              {/* Доступ предоставлен */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Доступ с
-                                </label>
-                                <input
-                                  type="date"
-                                  value={channel.access_granted}
-                                  onChange={(e) => {
-                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                    newChannels[index].access_granted = e.target.value;
-                                    setEditUserData({
-                                      ...editUserData,
-                                      buyer_settings: {
-                                        ...editUserData.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                />
-                              </div>
+                          {/* Строка 2: ID канала + Название аккаунта */}
+                          <div className="flex gap-3 mb-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                ID канала *
+                              </label>
+                              <input
+                                type="text"
+                                value={channel.channel_id}
+                                onChange={(e) => {
+                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                  newChannels[index].channel_id = e.target.value;
+                                  setEditUserData({
+                                    ...editUserData,
+                                    buyer_settings: {
+                                      ...editUserData.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="654cb443baf00b..."
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Название аккаунта
+                              </label>
+                              <input
+                                type="text"
+                                value={channel.account_name || ''}
+                                onChange={(e) => {
+                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                  newChannels[index].account_name = e.target.value;
+                                  setEditUserData({
+                                    ...editUserData,
+                                    buyer_settings: {
+                                      ...editUserData.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="VL46 Akk1.1"
+                              />
+                            </div>
+                          </div>
 
-                              {/* Доступ ограничен */}
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Доступ до (опционально)
-                                </label>
-                                <input
-                                  type="date"
-                                  value={channel.access_limited || ''}
-                                  onChange={(e) => {
-                                    const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                    newChannels[index].access_limited = e.target.value || null;
-                                    setEditUserData({
-                                      ...editUserData,
-                                      buyer_settings: {
-                                        ...editUserData.buyer_settings,
-                                        traffic_channels: newChannels
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                />
-                              </div>
+                          {/* Строка 3: Даты доступа */}
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                <Calendar className="inline h-3 w-3 mr-1" />
+                                Доступ с
+                              </label>
+                              <input
+                                type="date"
+                                value={channel.access_granted}
+                                onChange={(e) => {
+                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                  newChannels[index].access_granted = e.target.value;
+                                  setEditUserData({
+                                    ...editUserData,
+                                    buyer_settings: {
+                                      ...editUserData.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                <Calendar className="inline h-3 w-3 mr-1" />
+                                Доступ до
+                              </label>
+                              <input
+                                type="date"
+                                value={channel.access_limited || ''}
+                                onChange={(e) => {
+                                  const newChannels = [...editUserData.buyer_settings.traffic_channels];
+                                  newChannels[index].access_limited = e.target.value || null;
+                                  setEditUserData({
+                                    ...editUserData,
+                                    buyer_settings: {
+                                      ...editUserData.buyer_settings,
+                                      traffic_channels: newChannels
+                                    }
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                placeholder="Не ограничено"
+                              />
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
+                  )}
 
-                    {/* Кнопка добавления канала внизу */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditUserData({
-                          ...editUserData,
-                          buyer_settings: {
-                            ...editUserData.buyer_settings,
-                            traffic_channels: [
-                              ...editUserData.buyer_settings.traffic_channels,
-                              {
-                                source: 'Facebook',
-                                channel_id: '',
-                                currency: 'USD',
-                                access_granted: '2020-01-01',
-                                access_limited: null
-                              }
-                            ]
-                          }
-                        });
-                      }}
-                      className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Добавить канал
-                    </button>
-                  </div>
-                </>
+                  {/* Кнопка добавления канала */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditUserData({
+                        ...editUserData,
+                        buyer_settings: {
+                          ...editUserData.buyer_settings,
+                          traffic_channels: [
+                            ...editUserData.buyer_settings.traffic_channels,
+                            {
+                              source: 'Facebook',
+                              channel_id: '',
+                              account_name: '',
+                              currency: 'USD',
+                              access_granted: new Date().toISOString().split('T')[0],
+                              access_limited: null
+                            }
+                          ]
+                        }
+                      });
+                    }}
+                    className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 hover:bg-white hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Добавить канал трафика
+                  </button>
+                </div>
               )}
 
-              <div className="bg-blue-50 p-3 rounded-md">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <Info className="h-5 w-5 text-blue-400" />
+                    <Info className="h-5 w-5 text-blue-500" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Текущие данные:
+                    <h3 className="text-sm font-medium text-blue-900">
+                      Текущие данные
                     </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p><strong>Email:</strong> {editingUser.email}</p>
-                      <p><strong>Роль:</strong> {getRoleDisplayName(editingUser.role)}</p>
-                      <p><strong>Создан:</strong> {formatKyivTime(editingUser.created_at)}</p>
+                    <div className="mt-2 text-sm text-blue-700 space-y-1">
+                      <p><span className="font-medium">Email:</span> {editingUser.email}</p>
+                      <p><span className="font-medium">Роль:</span> {getRoleDisplayName(editingUser.role)}</p>
+                      <p><span className="font-medium">Создан:</span> {formatKyivTime(editingUser.created_at)}</p>
                     </div>
                   </div>
                 </div>
               </div>
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -2045,33 +2055,33 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    is_protected: false,
+                    team_lead_id: null,
+                    team_lead_name: null,
                     buyer_settings: {
-                      traffic_channel_ids: [''],
-                      currency: 'USD',
-                      access_granted: '2020-01-01',
-                      access_limited: null
+                      traffic_channels: []
                     }
                   });
                   clearMessages();
                 }}
                 disabled={updating}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 disabled:opacity-50 transition-all"
               >
                 Отмена
               </button>
               <button
                 onClick={handleUpdateUser}
                 disabled={updating || !editUserData.name?.trim() || !editUserData.email?.trim()}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                className="px-6 py-2.5 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-2"
               >
                 {updating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                     Сохранение...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-4 w-4" />
                     Сохранить
                   </>
                 )}
