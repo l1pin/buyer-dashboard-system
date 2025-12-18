@@ -1230,15 +1230,6 @@ function UserManagement({ user }) {
             </p>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={loadUsers}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Обновить
-            </button>
-
             {!showArchived && (
               <button
                 onClick={() => {
@@ -1472,38 +1463,10 @@ function UserManagement({ user }) {
         {/* Users List */}
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:p-6">
-            {/* Заголовок и вкладки */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Пользователи
-                </h3>
-                {/* Вкладки Активные/Архив */}
-                <div className="flex border-b border-gray-200">
-                  <button
-                    onClick={() => setShowArchived(false)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      !showArchived
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Активные
-                  </button>
-                  <button
-                    onClick={() => setShowArchived(true)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      showArchived
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Архив
-                  </button>
-                </div>
-              </div>
-              {/* Поиск пользователей */}
-              <div className="relative">
+            {/* Поиск и вкладки */}
+            <div className="flex items-center gap-4 mb-4">
+              {/* Поиск пользователей - слева */}
+              <div className="relative flex-shrink-0">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" />
                 </div>
@@ -1527,8 +1490,34 @@ function UserManagement({ user }) {
                   </button>
                 )}
               </div>
+
+              {/* Вкладки Активные/Архив - на всю ширину */}
+              <div className="flex-1 flex border-b border-gray-200">
+                <button
+                  onClick={() => setShowArchived(false)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    !showArchived
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Активные
+                </button>
+                <button
+                  onClick={() => setShowArchived(true)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    showArchived
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Архив
+                </button>
+              </div>
             </div>
 
+            {/* Минимальная высота для предотвращения мерцания при переключении вкладок */}
+            <div className="min-h-[200px]">
             {filteredUsers.length === 0 ? (
               <div className="text-center py-8">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1703,6 +1692,7 @@ function UserManagement({ user }) {
                 })}
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
