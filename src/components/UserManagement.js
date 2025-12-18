@@ -1077,6 +1077,58 @@ function UserManagement({ user }) {
     }
   };
 
+  // Цвет фона аватара по роли
+  const getRoleAvatarBg = (role) => {
+    switch (role) {
+      case 'buyer':
+        return 'bg-blue-100';
+      case 'editor':
+        return 'bg-purple-100';
+      case 'designer':
+        return 'bg-pink-100';
+      case 'teamlead':
+        return 'bg-green-100';
+      case 'search_manager':
+        return 'bg-orange-100';
+      case 'content_manager':
+        return 'bg-indigo-100';
+      case 'product_manager':
+        return 'bg-amber-100';
+      case 'proofreader':
+        return 'bg-teal-100';
+      case 'gif_creator':
+        return 'bg-cyan-100';
+      default:
+        return 'bg-gray-100';
+    }
+  };
+
+  // Цвет верхней полоски карточки по роли
+  const getRoleStripeColor = (role) => {
+    switch (role) {
+      case 'buyer':
+        return 'bg-blue-400';
+      case 'editor':
+        return 'bg-purple-400';
+      case 'designer':
+        return 'bg-pink-400';
+      case 'teamlead':
+        return 'bg-green-400';
+      case 'search_manager':
+        return 'bg-orange-400';
+      case 'content_manager':
+        return 'bg-indigo-400';
+      case 'product_manager':
+        return 'bg-amber-400';
+      case 'proofreader':
+        return 'bg-teal-400';
+      case 'gif_creator':
+        return 'bg-cyan-400';
+      default:
+        return 'bg-gray-400';
+    }
+  };
+
   const getUserStats = () => {
     const buyersCount = users.filter(u => u.role === 'buyer').length;
     const editorsCount = users.filter(u => u.role === 'editor').length;
@@ -1461,150 +1513,160 @@ function UserManagement({ user }) {
                 )}
               </div>
             ) : (
-              <div className="overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Пользователь
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Роль
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Создан
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Создатель
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Действия
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredUsers.map((currentUser) => {
-                      const isTeamLead = currentUser.role === 'teamlead';
-                      return (
-                        <tr key={currentUser.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
-                                  {currentUser.avatar_url ? (
-                                    <img
-                                      src={currentUser.avatar_url}
-                                      alt="Avatar"
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
-                                    {getRoleIcon(currentUser.role)}
-                                  </div>
-                                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredUsers.map((currentUser) => {
+                  const isTeamLead = currentUser.role === 'teamlead';
+                  // Найти тимлида пользователя
+                  const userTeamLead = currentUser.team_lead_id
+                    ? teamLeads.find(tl => tl.id === currentUser.team_lead_id)
+                    : null;
+
+                  return (
+                    <div
+                      key={currentUser.id}
+                      className="group relative bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                    >
+                      {/* Верхняя цветная полоска по роли */}
+                      <div className={`h-1 ${getRoleStripeColor(currentUser.role)}`} />
+
+                      {/* Контент карточки */}
+                      <div className="p-4">
+                        {/* Заголовок с аватаром и действиями */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            {/* Аватар */}
+                            <div className={`h-12 w-12 rounded-xl overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                              {currentUser.avatar_url ? (
+                                <img
+                                  src={currentUser.avatar_url}
+                                  alt="Avatar"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
+                                {getRoleIcon(currentUser.role)}
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
+                            </div>
+
+                            {/* Имя и роль */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-semibold text-gray-900 truncate">
                                   {currentUser.name}
-                                  {currentUser.is_protected && (
-                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                      Защищен
-                                    </span>
-                                  )}
-                                </div>
+                                </h4>
+                                {currentUser.is_protected && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
+                                    <Shield className="h-3 w-3 mr-0.5" />
+                                    Защищен
+                                  </span>
+                                )}
                               </div>
+                              <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
+                                {getRoleDisplayName(currentUser.role)}
+                              </span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{currentUser.email}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
-                              {getRoleDisplayName(currentUser.role)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatKyivTime(currentUser.created_at)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-6 w-6">
-                                <Shield className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <div className="ml-2">
-                                <div className="text-sm text-gray-900">
-                                  {currentUser.created_by_name || 'Система'}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end space-x-2">
-                              {showArchived ? (
-                                // Кнопка восстановления для архивированных пользователей
+                          </div>
+
+                          {/* Кнопки действий */}
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {showArchived ? (
+                              <button
+                                onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
+                                disabled={restoring === currentUser.id}
+                                className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
+                                title="Восстановить пользователя"
+                              >
+                                {restoring === currentUser.id ? (
+                                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
+                                ) : (
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            ) : (
+                              <>
                                 <button
-                                  onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
-                                  disabled={restoring === currentUser.id}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                                  title="Восстановить пользователя"
+                                  onClick={() => handleEditUser(currentUser)}
+                                  disabled={currentUser.is_protected}
+                                  className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                  }`}
+                                  title={currentUser.is_protected ? "Защищен от редактирования" : "Редактировать"}
                                 >
-                                  {restoring === currentUser.id ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                      Восстановление...
-                                    </>
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
+                                  disabled={deleting === currentUser.id || currentUser.is_protected}
+                                  className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                  } disabled:opacity-50`}
+                                  title={currentUser.is_protected ? "Защищен от удаления" : "Архивировать"}
+                                >
+                                  {deleting === currentUser.id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                                   ) : (
-                                    <>
-                                      <RotateCcw className="h-4 w-4 mr-1" />
-                                      Восстановить
-                                    </>
+                                    <Archive className="h-4 w-4" />
                                   )}
                                 </button>
-                              ) : (
-                                // Кнопки редактирования и удаления для активных пользователей
-                                <>
-                                  <button
-                                    onClick={() => handleEditUser(currentUser)}
-                                    disabled={currentUser.is_protected}
-                                    className={`p-2 ${currentUser.is_protected
-                                      ? 'text-gray-400 cursor-not-allowed'
-                                      : 'text-blue-600 hover:text-blue-900'
-                                    }`}
-                                    title={currentUser.is_protected ? "Пользователь защищен от редактирования" : "Редактировать пользователя"}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
-                                    disabled={deleting === currentUser.id || currentUser.is_protected}
-                                    className={`p-2 ${currentUser.is_protected
-                                      ? 'text-gray-400 cursor-not-allowed'
-                                      : 'text-red-600 hover:text-red-900'
-                                    } disabled:opacity-50`}
-                                    title={currentUser.is_protected ? "Пользователь защищен от удаления" : "Архивировать пользователя"}
-                                  >
-                                    {deleting === currentUser.id ? (
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                                    ) : (
-                                      <Archive className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                </>
-                              )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Email */}
+                        <div className="flex items-center text-sm text-gray-500 mb-3">
+                          <svg className="h-4 w-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span className="truncate">{currentUser.email}</span>
+                        </div>
+
+                        {/* Дополнительная информация */}
+                        <div className="space-y-2 pt-3 border-t border-gray-100">
+                          {/* Team Lead (если есть и не сам тимлид) */}
+                          {userTeamLead && !isTeamLead && (
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Shield className="h-3.5 w-3.5 mr-2 text-green-500" />
+                              <span className="text-gray-400">Team Lead:</span>
+                              <span className="ml-1 font-medium text-gray-700">{userTeamLead.name}</span>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          )}
+
+                          {/* Количество подчиненных для тимлида */}
+                          {isTeamLead && (
+                            <div className="flex items-center text-xs text-gray-500">
+                              <User className="h-3.5 w-3.5 mr-2 text-green-500" />
+                              <span className="text-gray-400">В команде:</span>
+                              <span className="ml-1 font-medium text-gray-700">
+                                {users.filter(u => u.team_lead_id === currentUser.id).length} чел.
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Дата создания */}
+                          <div className="flex items-center text-xs text-gray-500">
+                            <Calendar className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                            <span className="text-gray-400">Создан:</span>
+                            <span className="ml-1 text-gray-600">{formatKyivTime(currentUser.created_at)}</span>
+                          </div>
+
+                          {/* Создатель */}
+                          <div className="flex items-center text-xs text-gray-500">
+                            <User className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                            <span className="text-gray-400">Создатель:</span>
+                            <span className="ml-1 text-gray-600">{currentUser.created_by_name || 'Система'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
