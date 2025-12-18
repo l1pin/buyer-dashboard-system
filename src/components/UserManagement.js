@@ -372,6 +372,7 @@ function UserManagement({ user }) {
   const [searchQuery, setSearchQuery] = useState(''); // Поиск пользователей
   const [debouncedSearch, setDebouncedSearch] = useState(''); // Дебаунсированный поиск
   const searchTimeoutRef = useRef(null); // Ref для таймаута дебаунса
+  const isFirstLoadRef = useRef(true); // Ref для отслеживания первой загрузки
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -402,8 +403,11 @@ function UserManagement({ user }) {
   });
 
   useEffect(() => {
-    loadUsers();
+    // Показываем loading только при первой загрузке, не при переключении вкладок
+    const showLoading = isFirstLoadRef.current;
+    loadUsers(showLoading);
     loadTeamLeads(); // Загружаем Team Leads при инициализации
+    isFirstLoadRef.current = false;
   }, [showArchived]); // Перезагружаем при переключении архива
 
   const loadTeamLeads = async () => {
@@ -415,9 +419,11 @@ function UserManagement({ user }) {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = async (showLoadingState = true) => {
     try {
-      setLoading(true);
+      if (showLoadingState) {
+        setLoading(true);
+      }
       const usersData = showArchived
         ? await userService.getArchivedUsers()
         : await userService.getAllUsers();
@@ -1460,13 +1466,36 @@ function UserManagement({ user }) {
           </div>
         </div>
 
+        {/* Вкладки Активные/Архив - сверху списка, на всю ширину */}
+        <div className="flex border-b border-gray-200 bg-white rounded-t-lg">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`flex-1 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              !showArchived
+                ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Активные
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`flex-1 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              showArchived
+                ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Архив
+          </button>
+        </div>
+
         {/* Users List */}
-        <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div className="bg-white shadow-sm rounded-b-lg border border-t-0 border-gray-200">
           <div className="px-4 py-5 sm:p-6">
-            {/* Поиск и вкладки */}
-            <div className="flex items-center gap-4 mb-4">
-              {/* Поиск пользователей - слева */}
-              <div className="relative flex-shrink-0">
+            {/* Поиск пользователей */}
+            <div className="mb-4">
+              <div className="relative w-64">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" />
                 </div>
@@ -1475,7 +1504,7 @@ function UserManagement({ user }) {
                   value={searchQuery}
                   onChange={handleSearchChange}
                   placeholder="Поиск по имени или email..."
-                  className="block w-64 pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
                   autoComplete="off"
                 />
                 {searchQuery && (
@@ -1489,30 +1518,6 @@ function UserManagement({ user }) {
                     <X className="h-4 w-4" />
                   </button>
                 )}
-              </div>
-
-              {/* Вкладки Активные/Архив - на всю ширину */}
-              <div className="flex-1 flex border-b border-gray-200">
-                <button
-                  onClick={() => setShowArchived(false)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                    !showArchived
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Активные
-                </button>
-                <button
-                  onClick={() => setShowArchived(true)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                    showArchived
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Архив
-                </button>
               </div>
             </div>
 
