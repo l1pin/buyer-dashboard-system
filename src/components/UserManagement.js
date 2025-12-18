@@ -368,6 +368,7 @@ function UserManagement({ user }) {
   const [editingUser, setEditingUser] = useState(null);
   const [showArchived, setShowArchived] = useState(false); // Показывать архивированных
   const [restoring, setRestoring] = useState(null); // ID восстанавливаемого пользователя
+  const [fieldErrors, setFieldErrors] = useState({}); // Ошибки полей для подсветки
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -426,32 +427,44 @@ function UserManagement({ user }) {
 
 
   const validateUserData = (userData, isEdit = false) => {
+    const errors = {};
+
     if (!userData.name?.trim()) {
+      errors.name = true;
       setError('Имя пользователя обязательно для заполнения');
+      setFieldErrors(errors);
       return false;
     }
 
     if (!userData.email?.trim()) {
+      errors.email = true;
       setError('Email адрес обязателен для заполнения');
+      setFieldErrors(errors);
       return false;
     }
 
     // Проверка формата email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(userData.email.trim())) {
+      errors.email = true;
       setError('Введите корректный email адрес (например: user@example.com)');
+      setFieldErrors(errors);
       return false;
     }
 
     // Для создания пароль обязателен, для редактирования - нет
     if (!isEdit && (!userData.password || userData.password.length < 6)) {
+      errors.password = true;
       setError('Пароль должен содержать минимум 6 символов');
+      setFieldErrors(errors);
       return false;
     }
 
     // Для редактирования проверяем пароль только если он указан
     if (isEdit && userData.password && userData.password.length < 6) {
+      errors.password = true;
       setError('Пароль должен содержать минимум 6 символов');
+      setFieldErrors(errors);
       return false;
     }
 
@@ -466,38 +479,82 @@ function UserManagement({ user }) {
     });
 
     if (existingUser) {
+      errors.email = true;
       setError('Пользователь с таким email уже существует');
+      setFieldErrors(errors);
       return false;
     }
 
     // Проверка каналов трафика для Media Buyer
     if (userData.role === 'buyer' && userData.buyer_settings?.traffic_channels?.length > 0) {
-      for (let i = 0; i < userData.buyer_settings.traffic_channels.length; i++) {
-        const channel = userData.buyer_settings.traffic_channels[i];
+      const channels = userData.buyer_settings.traffic_channels;
+
+      // Проверка обязательных полей
+      for (let i = 0; i < channels.length; i++) {
+        const channel = channels[i];
         const channelNum = i + 1;
 
         if (!channel.source) {
+          errors[`channel_${i}_source`] = true;
           setError(`Канал ${channelNum}: Источник трафика обязателен`);
+          setFieldErrors(errors);
           return false;
         }
 
         if (!channel.currency) {
+          errors[`channel_${i}_currency`] = true;
           setError(`Канал ${channelNum}: Валюта обязательна`);
+          setFieldErrors(errors);
           return false;
         }
 
         if (!channel.channel_id?.trim()) {
+          errors[`channel_${i}_channel_id`] = true;
           setError(`Канал ${channelNum}: ID канала обязателен`);
+          setFieldErrors(errors);
           return false;
         }
 
         if (!channel.account_name?.trim()) {
+          errors[`channel_${i}_account_name`] = true;
           setError(`Канал ${channelNum}: Название аккаунта обязательно`);
+          setFieldErrors(errors);
           return false;
         }
       }
+
+      // Проверка дубликатов ID каналов
+      const channelIds = channels.map(c => c.channel_id?.trim().toLowerCase()).filter(Boolean);
+      const duplicateChannelId = channelIds.find((id, index) => channelIds.indexOf(id) !== index);
+      if (duplicateChannelId) {
+        const duplicateIndices = channels
+          .map((c, i) => c.channel_id?.trim().toLowerCase() === duplicateChannelId ? i : -1)
+          .filter(i => i !== -1);
+        duplicateIndices.forEach(i => {
+          errors[`channel_${i}_channel_id`] = true;
+        });
+        setError(`ID канала "${duplicateChannelId}" уже привязан к этому байеру`);
+        setFieldErrors(errors);
+        return false;
+      }
+
+      // Проверка дубликатов названий аккаунтов
+      const accountNames = channels.map(c => c.account_name?.trim().toLowerCase()).filter(Boolean);
+      const duplicateAccountName = accountNames.find((name, index) => accountNames.indexOf(name) !== index);
+      if (duplicateAccountName) {
+        const duplicateIndices = channels
+          .map((c, i) => c.account_name?.trim().toLowerCase() === duplicateAccountName ? i : -1)
+          .filter(i => i !== -1);
+        duplicateIndices.forEach(i => {
+          errors[`channel_${i}_account_name`] = true;
+        });
+        setError(`Название аккаунта "${duplicateAccountName}" уже используется в другом канале`);
+        setFieldErrors(errors);
+        return false;
+      }
     }
 
+    setFieldErrors({});
     return true;
   };
 
@@ -941,6 +998,7 @@ function UserManagement({ user }) {
     setError('');
     setSuccess('');
     setShowPassword(false);
+    setFieldErrors({});
   };
 
   const { buyersCount, editorsCount, designersCount, searchManagersCount, contentManagersCount, productManagersCount, proofreadersCount, gifCreatorsCount, teamleadCount } = getUserStats();
@@ -1469,7 +1527,7 @@ function UserManagement({ user }) {
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.name ? 'text-red-600' : 'text-gray-700'}`}>
                     Имя пользователя *
                 </label>
                 <input
@@ -1479,14 +1537,18 @@ function UserManagement({ user }) {
                     setNewUser({ ...newUser, name: e.target.value });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                    fieldErrors.name
+                      ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="Введите имя"
                   maxLength={100}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${fieldErrors.email ? 'text-red-600' : 'text-gray-700'}`}>
                   Email *
                 </label>
                 <input
@@ -1496,7 +1558,11 @@ function UserManagement({ user }) {
                     setNewUser({ ...newUser, email: e.target.value });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                    fieldErrors.email
+                      ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="user@example.com"
                   maxLength={200}
                 />
@@ -1506,7 +1572,7 @@ function UserManagement({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${fieldErrors.password ? 'text-red-600' : 'text-gray-700'}`}>
                   Пароль *
                 </label>
                 <div className="relative">
@@ -1517,7 +1583,11 @@ function UserManagement({ user }) {
                       setNewUser({ ...newUser, password: e.target.value });
                       clearMessages();
                     }}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                      fieldErrors.password
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                     placeholder="Минимум 6 символов"
                     minLength={6}
                   />
@@ -1625,7 +1695,7 @@ function UserManagement({ user }) {
                           {/* Строка 1: Источник + Валюта */}
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Источник *
                               </label>
                               <SourceSelector
@@ -1640,12 +1710,17 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left transition-colors ${
+                                  fieldErrors[`channel_${index}_source`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                               />
                             </div>
                             <div className="w-28">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_currency`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Валюта *
                               </label>
                               <CurrencySelector
@@ -1660,8 +1735,13 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors text-left"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left transition-colors ${
+                                  fieldErrors[`channel_${index}_currency`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                               />
                             </div>
                           </div>
@@ -1669,7 +1749,7 @@ function UserManagement({ user }) {
                           {/* Строка 2: ID канала + Название аккаунта */}
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_channel_id`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 ID канала *
                               </label>
                               <input
@@ -1685,13 +1765,18 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm transition-colors ${
+                                  fieldErrors[`channel_${index}_channel_id`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                                 placeholder="654cb443baf00b..."
                               />
                             </div>
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_account_name`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Название аккаунта *
                               </label>
                               <input
@@ -1707,8 +1792,13 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm transition-colors ${
+                                  fieldErrors[`channel_${index}_account_name`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                                 placeholder="VL46 Akk1.1"
                               />
                             </div>
@@ -1897,7 +1987,7 @@ function UserManagement({ user }) {
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.name ? 'text-red-600' : 'text-gray-700'}`}>
                     Имя пользователя *
                 </label>
                 <input
@@ -1907,14 +1997,18 @@ function UserManagement({ user }) {
                     setEditUserData({ ...editUserData, name: e.target.value });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                    fieldErrors.name
+                      ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="Введите имя"
                   maxLength={100}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${fieldErrors.email ? 'text-red-600' : 'text-gray-700'}`}>
                   Email *
                 </label>
                 <input
@@ -1924,7 +2018,11 @@ function UserManagement({ user }) {
                     setEditUserData({ ...editUserData, email: e.target.value });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                    fieldErrors.email
+                      ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="user@example.com"
                   maxLength={200}
                 />
@@ -1934,7 +2032,7 @@ function UserManagement({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${fieldErrors.password ? 'text-red-600' : 'text-gray-700'}`}>
                   Новый пароль
                 </label>
                 <div className="relative">
@@ -1945,7 +2043,11 @@ function UserManagement({ user }) {
                       setEditUserData({ ...editUserData, password: e.target.value });
                       clearMessages();
                     }}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                      fieldErrors.password
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                     placeholder="Оставьте пустым, чтобы не менять"
                     minLength={6}
                   />
@@ -2073,7 +2175,7 @@ function UserManagement({ user }) {
                           {/* Строка 1: Источник + Валюта */}
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Источник *
                               </label>
                               <SourceSelector
@@ -2088,12 +2190,17 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left transition-colors ${
+                                  fieldErrors[`channel_${index}_source`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                               />
                             </div>
                             <div className="w-28">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_currency`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Валюта *
                               </label>
                               <CurrencySelector
@@ -2108,8 +2215,13 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors text-left"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left transition-colors ${
+                                  fieldErrors[`channel_${index}_currency`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                               />
                             </div>
                           </div>
@@ -2117,7 +2229,7 @@ function UserManagement({ user }) {
                           {/* Строка 2: ID канала + Название аккаунта */}
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_channel_id`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 ID канала *
                               </label>
                               <input
@@ -2133,13 +2245,18 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm transition-colors ${
+                                  fieldErrors[`channel_${index}_channel_id`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                                 placeholder="654cb443baf00b..."
                               />
                             </div>
                             <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_account_name`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Название аккаунта *
                               </label>
                               <input
@@ -2155,8 +2272,13 @@ function UserManagement({ user }) {
                                       traffic_channels: newChannels
                                     }
                                   });
+                                  clearMessages();
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
+                                className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm transition-colors ${
+                                  fieldErrors[`channel_${index}_account_name`]
+                                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                    : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                                }`}
                                 placeholder="VL46 Akk1.1"
                               />
                             </div>
