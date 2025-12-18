@@ -1555,16 +1555,19 @@ function UserManagement({ user }) {
                 )}
               </div>
             ) : (
-              <div className="overflow-hidden">
+              <div className="overflow-x-auto">
                 {/* Заголовок таблицы */}
-                <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="w-10 mr-3 flex-shrink-0"></div>
-                  <div style={{ width: '180px' }} className="mr-4">Пользователь</div>
-                  <div style={{ width: '140px' }} className="mr-4">Роль</div>
-                  <div style={{ width: '140px' }} className="mr-4">Team Lead</div>
-                  <div style={{ width: '120px' }} className="mr-4 hidden md:block">Создатель</div>
-                  <div style={{ width: '100px' }} className="mr-4 hidden lg:block">Дата</div>
-                  <div className="flex-shrink-0 w-20 text-right">Действия</div>
+                <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[900px]">
+                  <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                    <div className="w-9"></div>
+                    <span>Имя</span>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">Email</div>
+                  <div className="w-[130px]">Роль</div>
+                  <div className="w-[130px]">Team Lead</div>
+                  <div className="w-[100px]">Создатель</div>
+                  <div className="w-[90px]">Дата</div>
+                  <div className="w-[70px] text-right">Действия</div>
                 </div>
 
                 {/* Список пользователей */}
@@ -1578,50 +1581,55 @@ function UserManagement({ user }) {
                   return (
                     <div
                       key={currentUser.id}
-                      className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors min-w-[900px]"
                     >
-                      {/* Аватар */}
-                      <div className={`h-10 w-10 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0 mr-3`}>
-                        {currentUser.avatar_url ? (
-                          <img
-                            src={currentUser.avatar_url}
-                            alt="Avatar"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
-                          {getRoleIcon(currentUser.role)}
+                      {/* Аватар + Имя */}
+                      <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                        <div className={`h-9 w-9 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
+                          {currentUser.avatar_url ? (
+                            <img
+                              src={currentUser.avatar_url}
+                              alt="Avatar"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${currentUser.avatar_url ? 'hidden' : ''}`}>
+                            {getRoleIcon(currentUser.role)}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Имя и Email */}
-                      <div className="min-w-0 mr-4" style={{ width: '180px' }}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-gray-900 truncate">
+                          <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                             {currentUser.name}
                           </span>
                           {currentUser.is_protected && (
                             <Shield className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
+                      </div>
+
+                      {/* Email */}
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-600 whitespace-nowrap">{currentUser.email}</span>
                       </div>
 
                       {/* Роль */}
-                      <div className="mr-4" style={{ width: '140px' }}>
+                      <div className="w-[130px]">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
                           {getRoleDisplayWithDepartment(currentUser.role, currentUser.department)}
                         </span>
                       </div>
 
                       {/* Team Lead */}
-                      <div className="mr-4" style={{ width: '140px' }}>
+                      <div className="w-[130px]">
                         {userTeamLead && !isTeamLead ? (
-                          <span className="text-sm text-gray-700 truncate">{userTeamLead.name}</span>
+                          <span className="text-sm text-gray-700">{userTeamLead.name}</span>
                         ) : isTeamLead ? (
                           <span className="text-sm text-gray-500">{users.filter(u => u.team_lead_id === currentUser.id).length} в команде</span>
                         ) : (
@@ -1630,32 +1638,32 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Создатель */}
-                      <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
-                        <span className="text-sm text-gray-600 truncate">
+                      <div className="w-[100px]">
+                        <span className="text-sm text-gray-600">
                           {currentUser.created_by_name || 'Система'}
                         </span>
                       </div>
 
                       {/* Дата */}
-                      <div className="mr-4 hidden lg:block" style={{ width: '100px' }}>
+                      <div className="w-[90px]">
                         <span className="text-sm text-gray-500">
                           {formatKyivTime(currentUser.created_at)}
                         </span>
                       </div>
 
                       {/* Действия */}
-                      <div className="flex items-center justify-end space-x-1 flex-shrink-0 w-20">
+                      <div className="flex items-center justify-end gap-1 w-[70px]">
                         {showArchived ? (
                           <button
                             onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
                             disabled={restoring === currentUser.id}
-                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 transition-colors disabled:opacity-50"
+                            className="p-1.5 rounded-md text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
                             title="Восстановить"
                           >
                             {restoring === currentUser.id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
                             ) : (
-                              <RotateCcw className="h-3.5 w-3.5" />
+                              <RotateCcw className="h-4 w-4" />
                             )}
                           </button>
                         ) : (
