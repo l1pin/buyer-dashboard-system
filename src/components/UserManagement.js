@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { userService } from '../supabaseClient';
 import {
   Plus,
@@ -369,6 +369,9 @@ function UserManagement({ user }) {
   const [showArchived, setShowArchived] = useState(false); // Показывать архивированных
   const [restoring, setRestoring] = useState(null); // ID восстанавливаемого пользователя
   const [fieldErrors, setFieldErrors] = useState({}); // Ошибки полей для подсветки
+  const [searchQuery, setSearchQuery] = useState(''); // Поиск пользователей
+  const [debouncedSearch, setDebouncedSearch] = useState(''); // Дебаунсированный поиск
+  const searchTimeoutRef = useRef(null); // Ref для таймаута дебаунса
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -425,6 +428,43 @@ function UserManagement({ user }) {
     }
   };
 
+  // Обработчик поиска с дебаунсом
+  const handleSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    // Очищаем предыдущий таймаут
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Устанавливаем новый таймаут для дебаунса (300мс)
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+  }, []);
+
+  // Очистка таймаута при размонтировании компонента
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Фильтрация пользователей по поисковому запросу
+  const filteredUsers = useMemo(() => {
+    if (!debouncedSearch.trim()) {
+      return users;
+    }
+
+    const searchLower = debouncedSearch.toLowerCase().trim();
+    return users.filter(user =>
+      user.name?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower)
+    );
+  }, [users, debouncedSearch]);
 
   const validateUserData = (userData, isEdit = false) => {
     const errors = {};
@@ -1359,21 +1399,66 @@ function UserManagement({ user }) {
         {/* Users List */}
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-              Список пользователей
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Список пользователей
+              </h3>
+              {/* Поиск пользователей */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  placeholder="Поиск по имени или email..."
+                  className="block w-64 pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setDebouncedSearch('');
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-            {users.length === 0 ? (
+            {filteredUsers.length === 0 ? (
               <div className="text-center py-8">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">Пользователи не найдены</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Создать первого пользователя
-                </button>
+                {debouncedSearch ? (
+                  <>
+                    <p className="text-gray-500 mb-2">По запросу "{debouncedSearch}" ничего не найдено</p>
+                    <p className="text-gray-400 text-sm mb-4">Попробуйте изменить поисковый запрос</p>
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setDebouncedSearch('');
+                      }}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Сбросить поиск
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-500 mb-4">Пользователи не найдены</p>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Создать первого пользователя
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="overflow-hidden">
@@ -1401,7 +1486,7 @@ function UserManagement({ user }) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((currentUser) => {
+                    {filteredUsers.map((currentUser) => {
                       const isTeamLead = currentUser.role === 'teamlead';
                       return (
                         <tr key={currentUser.id} className="hover:bg-gray-50">
