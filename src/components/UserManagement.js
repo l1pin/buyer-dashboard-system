@@ -93,6 +93,244 @@ const SourceSelector = ({ value, onChange, className }) => {
   );
 };
 
+// Кастомный селектор роли пользователя
+const RoleSelector = ({ value, onChange, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const roles = [
+    { value: 'buyer', label: 'Media Buyer', icon: 'ad', color: 'text-blue-600' },
+    { value: 'editor', label: 'Video Designer', icon: Video, color: 'text-purple-600' },
+    { value: 'designer', label: 'Designer', icon: Palette, color: 'text-pink-600' },
+    { value: 'search_manager', label: 'Search Manager', icon: Search, color: 'text-orange-600' },
+    { value: 'content_manager', label: 'Content Manager', icon: Code2, color: 'text-indigo-600' },
+    { value: 'product_manager', label: 'Product Manager', icon: Package, color: 'text-amber-600' },
+    { value: 'proofreader', label: 'Editor', icon: Pencil, color: 'text-teal-600' },
+    { value: 'gif_creator', label: 'GIF Creator', icon: Image, color: 'text-cyan-600' },
+    { value: 'teamlead', label: 'Team Lead', icon: Shield, color: 'text-green-600' }
+  ];
+
+  const selectedRole = roles.find(r => r.value === value) || roles[0];
+
+  const RoleIconComponent = ({ role, className: iconClassName }) => {
+    if (role.icon === 'ad') {
+      return <AdIcon className={iconClassName} />;
+    }
+    const IconComponent = role.icon;
+    return <IconComponent className={iconClassName} />;
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <RoleIconComponent role={selectedRole} className={`w-5 h-5 ${selectedRole.color}`} />
+            <span>{selectedRole.label}</span>
+          </div>
+          <svg className="w-5 h-5 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
+            {roles.map((role) => (
+              <button
+                key={role.value}
+                type="button"
+                onClick={() => {
+                  onChange(role.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                  value === role.value ? 'bg-blue-50' : ''
+                }`}
+              >
+                <RoleIconComponent role={role} className={`w-5 h-5 ${role.color}`} />
+                <span className="text-sm">{role.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Кастомный селектор Team Lead с аватарами
+const TeamLeadSelector = ({ value, onChange, teamLeads, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const selectedTeamLead = teamLeads.find(tl => tl.id === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {selectedTeamLead ? (
+              <>
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-green-100 flex items-center justify-center">
+                  {selectedTeamLead.avatar_url ? (
+                    <img
+                      src={selectedTeamLead.avatar_url}
+                      alt={selectedTeamLead.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-full h-full flex items-center justify-center ${selectedTeamLead.avatar_url ? 'hidden' : ''}`}>
+                    <Shield className="w-3.5 h-3.5 text-green-600" />
+                  </div>
+                </div>
+                <span>{selectedTeamLead.name}</span>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                  <User className="w-3.5 h-3.5 text-gray-400" />
+                </div>
+                <span className="text-gray-500">Не выбран</span>
+              </>
+            )}
+          </div>
+          <svg className="w-5 h-5 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+            {/* Опция "Не выбран" */}
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null, null);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                !value ? 'bg-blue-50' : ''
+              }`}
+            >
+              <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+                <User className="w-4 h-4 text-gray-400" />
+              </div>
+              <span className="text-sm text-gray-500">Не выбран</span>
+            </button>
+
+            {/* Список Team Leads */}
+            {teamLeads.map((tl) => (
+              <button
+                key={tl.id}
+                type="button"
+                onClick={() => {
+                  onChange(tl.id, tl.name);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                  value === tl.id ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="w-7 h-7 rounded-full overflow-hidden bg-green-100 flex items-center justify-center">
+                  {tl.avatar_url ? (
+                    <img
+                      src={tl.avatar_url}
+                      alt={tl.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-full h-full flex items-center justify-center ${tl.avatar_url ? 'hidden' : ''}`}>
+                    <Shield className="w-4 h-4 text-green-600" />
+                  </div>
+                </div>
+                <span className="text-sm">{tl.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Кастомный селектор валюты
+const CurrencySelector = ({ value, onChange, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const currencies = [
+    { value: 'USD', label: 'USD', symbol: '$', color: 'text-green-600' },
+    { value: 'EUR', label: 'EUR', symbol: '€', color: 'text-blue-600' },
+    { value: 'UAH', label: 'UAH', symbol: '₴', color: 'text-yellow-600' }
+  ];
+
+  const selectedCurrency = currencies.find(c => c.value === value) || currencies[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-1.5">
+            <span className={`text-lg font-medium ${selectedCurrency.color}`}>{selectedCurrency.symbol}</span>
+            <span>{selectedCurrency.label}</span>
+          </div>
+          <svg className="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+            {currencies.map((currency) => (
+              <button
+                key={currency.value}
+                type="button"
+                onClick={() => {
+                  onChange(currency.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-2 ${
+                  value === currency.value ? 'bg-blue-50' : ''
+                }`}
+              >
+                <span className={`text-lg font-medium ${currency.color}`}>{currency.symbol}</span>
+                <span className="text-sm">{currency.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // Кастомная иконка Ad для Media Buyer
 const AdIcon = ({ className }) => (
   <svg 
@@ -1273,27 +1511,17 @@ function UserManagement({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Роль
                 </label>
-                <select
+                <RoleSelector
                   value={newUser.role}
-                  onChange={(e) => {
-                    setNewUser({ ...newUser, role: e.target.value });
+                  onChange={(newRole) => {
+                    setNewUser({ ...newUser, role: newRole });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="buyer">Media Buyer</option>
-                  <option value="editor">Video Designer</option>
-                  <option value="designer">Designer</option>
-                  <option value="search_manager">Search Manager</option>
-                  <option value="content_manager">Content Manager</option>
-                  <option value="product_manager">Product Manager</option>
-                  <option value="proofreader">Editor</option>
-                  <option value="gif_creator">GIF Creator</option>
-                  <option value="teamlead">Team Lead</option>
-                </select>
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                />
                 <p className="mt-1 text-xs text-gray-500">
                   {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {newUser.role === 'editor' && 'Доступ к управлению креативами'}
@@ -1309,30 +1537,22 @@ function UserManagement({ user }) {
 
               {/* Выбор Team Lead */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Team Lead
                 </label>
-                <select
-                  value={newUser.team_lead_id || ''}
-                  onChange={(e) => {
-                    const selectedId = e.target.value || null;
-                    const selectedTL = teamLeads.find(tl => tl.id === selectedId);
+                <TeamLeadSelector
+                  value={newUser.team_lead_id}
+                  onChange={(selectedId, selectedName) => {
                     setNewUser({
                       ...newUser,
                       team_lead_id: selectedId,
-                      team_lead_name: selectedTL ? selectedTL.name : null
+                      team_lead_name: selectedName
                     });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Не выбран</option>
-                  {teamLeads.map((tl) => (
-                    <option key={tl.id} value={tl.id}>
-                      {tl.name}
-                    </option>
-                  ))}
-                </select>
+                  teamLeads={teamLeads}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                />
                 <p className="mt-1 text-xs text-gray-500">
                   Выберите Team Lead, к которому привязан пользователь
                 </p>
@@ -1400,11 +1620,11 @@ function UserManagement({ user }) {
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
                                 Валюта
                               </label>
-                              <select
+                              <CurrencySelector
                                 value={channel.currency}
-                                onChange={(e) => {
+                                onChange={(newCurrency) => {
                                   const newChannels = [...newUser.buyer_settings.traffic_channels];
-                                  newChannels[index].currency = e.target.value;
+                                  newChannels[index].currency = newCurrency;
                                   setNewUser({
                                     ...newUser,
                                     buyer_settings: {
@@ -1413,12 +1633,8 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
-                              >
-                                <option value="USD">$ USD</option>
-                                <option value="EUR">€ EUR</option>
-                                <option value="UAH">₴ UAH</option>
-                              </select>
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors text-left"
+                              />
                             </div>
                           </div>
 
@@ -1723,27 +1939,17 @@ function UserManagement({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Роль
                 </label>
-                <select
+                <RoleSelector
                   value={editUserData.role}
-                  onChange={(e) => {
-                    setEditUserData({ ...editUserData, role: e.target.value });
+                  onChange={(newRole) => {
+                    setEditUserData({ ...editUserData, role: newRole });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="buyer">Media Buyer</option>
-                  <option value="editor">Video Designer</option>
-                  <option value="designer">Designer</option>
-                  <option value="search_manager">Search Manager</option>
-                  <option value="content_manager">Content Manager</option>
-                  <option value="product_manager">Product Manager</option>
-                  <option value="proofreader">Editor</option>
-                  <option value="gif_creator">GIF Creator</option>
-                  <option value="teamlead">Team Lead</option>
-                </select>
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                />
                 <p className="mt-1 text-xs text-gray-500">
                   {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
                   {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
@@ -1759,30 +1965,22 @@ function UserManagement({ user }) {
 
               {/* Выбор Team Lead */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Team Lead
                 </label>
-                <select
-                  value={editUserData.team_lead_id || ''}
-                  onChange={(e) => {
-                    const selectedId = e.target.value || null;
-                    const selectedTL = teamLeads.find(tl => tl.id === selectedId);
+                <TeamLeadSelector
+                  value={editUserData.team_lead_id}
+                  onChange={(selectedId, selectedName) => {
                     setEditUserData({
                       ...editUserData,
                       team_lead_id: selectedId,
-                      team_lead_name: selectedTL ? selectedTL.name : null
+                      team_lead_name: selectedName
                     });
                     clearMessages();
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Не выбран</option>
-                  {teamLeads.map((tl) => (
-                    <option key={tl.id} value={tl.id}>
-                      {tl.name}
-                    </option>
-                  ))}
-                </select>
+                  teamLeads={teamLeads}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                />
                 <p className="mt-1 text-xs text-gray-500">
                   Выберите Team Lead, к которому привязан пользователь
                 </p>
@@ -1870,11 +2068,11 @@ function UserManagement({ user }) {
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
                                 Валюта
                               </label>
-                              <select
+                              <CurrencySelector
                                 value={channel.currency}
-                                onChange={(e) => {
+                                onChange={(newCurrency) => {
                                   const newChannels = [...editUserData.buyer_settings.traffic_channels];
-                                  newChannels[index].currency = e.target.value;
+                                  newChannels[index].currency = newCurrency;
                                   setEditUserData({
                                     ...editUserData,
                                     buyer_settings: {
@@ -1883,12 +2081,8 @@ function UserManagement({ user }) {
                                     }
                                   });
                                 }}
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors"
-                              >
-                                <option value="USD">$ USD</option>
-                                <option value="EUR">€ EUR</option>
-                                <option value="UAH">₴ UAH</option>
-                              </select>
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hover:border-gray-300 transition-colors text-left"
+                              />
                             </div>
                           </div>
 
