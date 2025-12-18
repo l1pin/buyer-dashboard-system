@@ -1555,22 +1555,10 @@ function UserManagement({ user }) {
                 )}
               </div>
             ) : (
-              <div className="overflow-hidden">
-                {/* Заголовок таблицы */}
-                <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="w-10 mr-3 flex-shrink-0"></div>
-                  <div style={{ width: '180px' }} className="mr-4">Пользователь</div>
-                  <div style={{ width: '140px' }} className="mr-4">Роль</div>
-                  <div style={{ width: '140px' }} className="mr-4">Team Lead</div>
-                  <div style={{ width: '120px' }} className="mr-4 hidden md:block">Создатель</div>
-                  <div style={{ width: '100px' }} className="mr-4 hidden lg:block">Дата</div>
-                  <div className="flex-shrink-0 w-20 text-right">Действия</div>
-                </div>
-
-                {/* Список пользователей */}
-                <div className="divide-y divide-gray-100">
+              <div className="space-y-2">
                 {filteredUsers.map((currentUser) => {
                   const isTeamLead = currentUser.role === 'teamlead';
+                  // Найти тимлида пользователя
                   const userTeamLead = currentUser.team_lead_id
                     ? teamLeads.find(tl => tl.id === currentUser.team_lead_id)
                     : null;
@@ -1578,10 +1566,10 @@ function UserManagement({ user }) {
                   return (
                     <div
                       key={currentUser.id}
-                      className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="group flex items-center p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all duration-200"
                     >
-                      {/* Аватар */}
-                      <div className={`h-10 w-10 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0 mr-3`}>
+                      {/* Аватар - круглый */}
+                      <div className={`h-10 w-10 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
                         {currentUser.avatar_url ? (
                           <img
                             src={currentUser.avatar_url}
@@ -1599,9 +1587,9 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Имя и Email */}
-                      <div className="min-w-0 mr-4" style={{ width: '180px' }}>
+                      <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-gray-900 truncate">
+                          <span className="text-sm font-semibold text-gray-900 truncate">
                             {currentUser.name}
                           </span>
                           {currentUser.is_protected && (
@@ -1612,50 +1600,65 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Роль */}
-                      <div className="mr-4" style={{ width: '140px' }}>
+                      <div className="mr-4" style={{ width: '150px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">Роль</div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
                           {getRoleDisplayWithDepartment(currentUser.role, currentUser.department)}
                         </span>
                       </div>
 
-                      {/* Team Lead */}
-                      <div className="mr-4" style={{ width: '140px' }}>
+                      {/* Team Lead / Команда */}
+                      <div className="mr-4" style={{ width: '150px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">
+                          {isTeamLead ? 'Команда' : 'Team Lead'}
+                        </div>
                         {userTeamLead && !isTeamLead ? (
-                          <span className="text-sm text-gray-700 truncate">{userTeamLead.name}</span>
+                          <div className="flex items-center text-sm">
+                            <Shield className="h-3.5 w-3.5 mr-1 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 truncate text-xs font-medium">{userTeamLead.name}</span>
+                          </div>
                         ) : isTeamLead ? (
-                          <span className="text-sm text-gray-500">{users.filter(u => u.team_lead_id === currentUser.id).length} в команде</span>
+                          <div className="flex items-center text-sm">
+                            <User className="h-3.5 w-3.5 mr-1 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 text-xs font-medium">{users.filter(u => u.team_lead_id === currentUser.id).length} чел.</span>
+                          </div>
                         ) : (
-                          <span className="text-sm text-gray-400">—</span>
+                          <span className="text-xs text-gray-400">Не назначен</span>
                         )}
                       </div>
 
-                      {/* Создатель */}
+                      {/* Дата создания */}
                       <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
-                        <span className="text-sm text-gray-600 truncate">
-                          {currentUser.created_by_name || 'Система'}
-                        </span>
-                      </div>
-
-                      {/* Дата */}
-                      <div className="mr-4 hidden lg:block" style={{ width: '100px' }}>
-                        <span className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-400 mb-0.5">Создан</div>
+                        <div className="text-xs text-gray-700">
                           {formatKyivTime(currentUser.created_at)}
-                        </span>
+                        </div>
                       </div>
 
-                      {/* Действия */}
-                      <div className="flex items-center justify-end space-x-1 flex-shrink-0 w-20">
+                      {/* Создатель */}
+                      <div className="flex-1 min-w-0 mr-2 hidden lg:block">
+                        <div className="text-xs text-gray-400 mb-0.5">Создатель</div>
+                        <div className="text-xs text-gray-700 truncate">
+                          {currentUser.created_by_name || 'Система'}
+                        </div>
+                      </div>
+
+                      {/* Кнопки действий */}
+                      <div className="flex items-center space-x-1 flex-shrink-0">
                         {showArchived ? (
                           <button
                             onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
                             disabled={restoring === currentUser.id}
-                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 transition-colors disabled:opacity-50"
-                            title="Восстановить"
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
+                            title="Восстановить пользователя"
                           >
                             {restoring === currentUser.id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                             ) : (
-                              <RotateCcw className="h-3.5 w-3.5" />
+                              <>
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Восстановить
+                              </>
                             )}
                           </button>
                         ) : (
@@ -1663,22 +1666,22 @@ function UserManagement({ user }) {
                             <button
                               onClick={() => handleEditUser(currentUser)}
                               disabled={currentUser.is_protected}
-                              className={`p-1.5 rounded-md transition-colors ${currentUser.is_protected
+                              className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
                               }`}
-                              title={currentUser.is_protected ? "Защищен" : "Редактировать"}
+                              title={currentUser.is_protected ? "Защищен от редактирования" : "Редактировать"}
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
                               disabled={deleting === currentUser.id || currentUser.is_protected}
-                              className={`p-1.5 rounded-md transition-colors ${currentUser.is_protected
+                              className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                               } disabled:opacity-50`}
-                              title={currentUser.is_protected ? "Защищен" : "Архивировать"}
+                              title={currentUser.is_protected ? "Защищен от удаления" : "Архивировать"}
                             >
                               {deleting === currentUser.id ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
@@ -1692,7 +1695,6 @@ function UserManagement({ user }) {
                     </div>
                   );
                 })}
-                </div>
               </div>
             )}
             </div>
