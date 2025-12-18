@@ -1524,13 +1524,13 @@ function UserManagement({ user }) {
                   return (
                     <div
                       key={currentUser.id}
-                      className="group flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+                      className="group flex items-center p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all duration-200"
                     >
                       {/* Цветная полоска слева */}
-                      <div className={`w-1 h-14 rounded-full ${getRoleStripeColor(currentUser.role)} flex-shrink-0`} />
+                      <div className={`w-1 h-12 rounded-full ${getRoleStripeColor(currentUser.role)} flex-shrink-0 mr-3`} />
 
-                      {/* Аватар */}
-                      <div className={`h-11 w-11 rounded-xl overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
+                      {/* Аватар - круглый */}
+                      <div className={`h-10 w-10 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
                         {currentUser.avatar_url ? (
                           <img
                             src={currentUser.avatar_url}
@@ -1548,61 +1548,64 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Имя и Email */}
-                      <div className="min-w-0 w-48 flex-shrink-0">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
+                        <div className="flex items-center gap-1.5">
                           <span className="text-sm font-semibold text-gray-900 truncate">
                             {currentUser.name}
                           </span>
                           {currentUser.is_protected && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
-                              <Shield className="h-3 w-3" />
-                            </span>
+                            <Shield className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
                           )}
                         </div>
-                        <div className="text-sm text-gray-500 truncate">{currentUser.email}</div>
+                        <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
                       </div>
 
                       {/* Роль */}
-                      <div className="w-32 flex-shrink-0">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
+                      <div className="mr-4" style={{ width: '130px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">Роль</div>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
                           {getRoleDisplayName(currentUser.role)}
                         </span>
                       </div>
 
-                      {/* Team Lead */}
-                      <div className="w-40 flex-shrink-0">
+                      {/* Team Lead / Команда */}
+                      <div className="mr-4" style={{ width: '150px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">
+                          {isTeamLead ? 'Команда' : 'Team Lead'}
+                        </div>
                         {userTeamLead && !isTeamLead ? (
                           <div className="flex items-center text-sm">
-                            <Shield className="h-4 w-4 mr-1.5 text-green-500 flex-shrink-0" />
-                            <span className="text-gray-700 truncate">{userTeamLead.name}</span>
+                            <Shield className="h-3.5 w-3.5 mr-1 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 truncate text-xs font-medium">{userTeamLead.name}</span>
                           </div>
                         ) : isTeamLead ? (
                           <div className="flex items-center text-sm">
-                            <User className="h-4 w-4 mr-1.5 text-green-500 flex-shrink-0" />
-                            <span className="text-gray-700">{users.filter(u => u.team_lead_id === currentUser.id).length} в команде</span>
+                            <User className="h-3.5 w-3.5 mr-1 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 text-xs font-medium">{users.filter(u => u.team_lead_id === currentUser.id).length} чел.</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-400">—</span>
+                          <span className="text-xs text-gray-400">Не назначен</span>
                         )}
                       </div>
 
                       {/* Дата создания */}
-                      <div className="w-36 flex-shrink-0 hidden lg:block">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Calendar className="h-4 w-4 mr-1.5 text-gray-400 flex-shrink-0" />
-                          <span>{formatKyivTime(currentUser.created_at)}</span>
+                      <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">Создан</div>
+                        <div className="text-xs text-gray-700">
+                          {formatKyivTime(currentUser.created_at)}
                         </div>
                       </div>
 
                       {/* Создатель */}
-                      <div className="flex-1 min-w-0 hidden xl:block">
-                        <div className="text-sm text-gray-500 truncate">
+                      <div className="flex-1 min-w-0 mr-2 hidden lg:block">
+                        <div className="text-xs text-gray-400 mb-0.5">Создатель</div>
+                        <div className="text-xs text-gray-700 truncate">
                           {currentUser.created_by_name || 'Система'}
                         </div>
                       </div>
 
                       {/* Кнопки действий */}
-                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <div className="flex items-center space-x-1 flex-shrink-0">
                         {showArchived ? (
                           <button
                             onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
@@ -1624,7 +1627,7 @@ function UserManagement({ user }) {
                             <button
                               onClick={() => handleEditUser(currentUser)}
                               disabled={currentUser.is_protected}
-                              className={`p-2 rounded-lg transition-colors ${currentUser.is_protected
+                              className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
                               }`}
@@ -1635,7 +1638,7 @@ function UserManagement({ user }) {
                             <button
                               onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
                               disabled={deleting === currentUser.id || currentUser.is_protected}
-                              className={`p-2 rounded-lg transition-colors ${currentUser.is_protected
+                              className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected
                                 ? 'text-gray-300 cursor-not-allowed'
                                 : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                               } disabled:opacity-50`}
