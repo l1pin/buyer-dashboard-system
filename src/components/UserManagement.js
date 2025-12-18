@@ -1466,6 +1466,7 @@ function UserManagement({ user }) {
                   onChange={handleSearchChange}
                   placeholder="Поиск по имени или email..."
                   className="block w-64 pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  autoComplete="off"
                 />
                 {searchQuery && (
                   <button
@@ -1729,6 +1730,7 @@ function UserManagement({ user }) {
                   }`}
                   placeholder="Введите имя"
                   maxLength={100}
+                  autoComplete="off"
                 />
               </div>
 
@@ -1750,6 +1752,7 @@ function UserManagement({ user }) {
                   }`}
                   placeholder="user@example.com"
                   maxLength={200}
+                  autoComplete="off"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Используйте корректный email адрес
@@ -1775,6 +1778,7 @@ function UserManagement({ user }) {
                     }`}
                     placeholder="Минимум 6 символов"
                     minLength={6}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -2219,6 +2223,7 @@ function UserManagement({ user }) {
                   }`}
                   placeholder="Введите имя"
                   maxLength={100}
+                  autoComplete="off"
                 />
               </div>
 
@@ -2240,6 +2245,7 @@ function UserManagement({ user }) {
                   }`}
                   placeholder="user@example.com"
                   maxLength={200}
+                  autoComplete="off"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Используйте корректный email адрес
@@ -2265,6 +2271,7 @@ function UserManagement({ user }) {
                     }`}
                     placeholder="Оставьте пустым, чтобы не менять"
                     minLength={6}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
