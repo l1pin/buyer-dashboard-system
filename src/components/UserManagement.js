@@ -906,6 +906,45 @@ function UserManagement({ user }) {
     }
   };
 
+  // Получить сегодняшнюю дату по Киеву в формате YYYY-MM-DD
+  const getTodayKyiv = () => {
+    const now = new Date();
+    const kyivDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+    const year = kyivDate.getFullYear();
+    const month = String(kyivDate.getMonth() + 1).padStart(2, '0');
+    const day = String(kyivDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Проверить, истек ли доступ канала
+  const isChannelExpired = (accessLimited) => {
+    if (!accessLimited) return false;
+    const today = getTodayKyiv();
+    return accessLimited < today;
+  };
+
+  // Получить количество дней с момента истечения доступа
+  const getDaysExpired = (accessLimited) => {
+    if (!accessLimited) return 0;
+    const today = new Date(getTodayKyiv());
+    const expiredDate = new Date(accessLimited);
+    const diffTime = today - expiredDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  // Сортировка каналов: активные сверху, просроченные снизу
+  const sortChannelsByExpiration = (channels) => {
+    if (!channels || channels.length === 0) return [];
+    return [...channels].sort((a, b) => {
+      const aExpired = isChannelExpired(a.access_limited);
+      const bExpired = isChannelExpired(b.access_limited);
+      if (aExpired && !bExpired) return 1;
+      if (!aExpired && bExpired) return -1;
+      return 0;
+    });
+  };
+
   const getRoleDisplayName = (role) => {
     switch (role) {
       case 'buyer':
@@ -1086,15 +1125,8 @@ function UserManagement({ user }) {
         </div>
       </div>
 
-      {/* Error/Success Messages */}
-      {error && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
-          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
-          <div>{error}</div>
-        </div>
-      )}
-
-      {success && (
+      {/* Success Messages - только когда модалки закрыты (ошибки только внутри модалок) */}
+      {success && !showCreateModal && !showEditModal && (
         <div className="mx-6 mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
           <Check className="h-4 w-4 mr-2 flex-shrink-0" />
           {success}
@@ -1671,8 +1703,27 @@ function UserManagement({ user }) {
                   {/* Список каналов */}
                   {newUser.buyer_settings.traffic_channels.length > 0 && (
                     <div className="space-y-3 mb-4">
-                      {newUser.buyer_settings.traffic_channels.map((channel, index) => (
-                        <div key={index} className="relative p-4 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                      {sortChannelsByExpiration(newUser.buyer_settings.traffic_channels).map((channel, sortedIndex) => {
+                        const originalIndex = newUser.buyer_settings.traffic_channels.findIndex(c => c === channel);
+                        const index = originalIndex !== -1 ? originalIndex : sortedIndex;
+                        const expired = isChannelExpired(channel.access_limited);
+                        const daysExpired = getDaysExpired(channel.access_limited);
+
+                        return (
+                        <div key={index} className={`relative p-4 border rounded-xl shadow-sm transition-shadow ${
+                          expired
+                            ? 'bg-gray-100 border-gray-300 opacity-70'
+                            : 'bg-gradient-to-r from-gray-50 to-white border-gray-200 hover:shadow-md'
+                        }`}>
+                          {/* Плашка просроченного канала */}
+                          {expired && (
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-red-100 border border-red-200 rounded-md">
+                              <span className="text-xs font-medium text-red-600">
+                                Неактивен {daysExpired} {daysExpired === 1 ? 'день' : daysExpired < 5 ? 'дня' : 'дней'}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Кнопка удаления */}
                           <button
                             type="button"
@@ -1686,14 +1737,14 @@ function UserManagement({ user }) {
                                 }
                               });
                             }}
-                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            className={`absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ${expired ? 'top-10' : ''}`}
                             title="Удалить канал"
                           >
                             <X className="h-4 w-4" />
                           </button>
 
                           {/* Строка 1: Источник + Валюта */}
-                          <div className="flex gap-3 mb-3">
+                          <div className={`flex gap-3 mb-3 ${expired ? 'mt-6' : ''}`}>
                             <div className="flex-1">
                               <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Источник *
@@ -1853,7 +1904,8 @@ function UserManagement({ user }) {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -1872,7 +1924,7 @@ function UserManagement({ user }) {
                               channel_id: '',
                               account_name: '',
                               currency: 'USD',
-                              access_granted: new Date().toISOString().split('T')[0],
+                              access_granted: getTodayKyiv(),
                               access_limited: null
                             }
                           ]
@@ -2151,8 +2203,27 @@ function UserManagement({ user }) {
                   {/* Список каналов */}
                   {editUserData.buyer_settings.traffic_channels.length > 0 && (
                     <div className="space-y-3 mb-4">
-                      {editUserData.buyer_settings.traffic_channels.map((channel, index) => (
-                        <div key={index} className="relative p-4 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                      {sortChannelsByExpiration(editUserData.buyer_settings.traffic_channels).map((channel, sortedIndex) => {
+                        const originalIndex = editUserData.buyer_settings.traffic_channels.findIndex(c => c === channel);
+                        const index = originalIndex !== -1 ? originalIndex : sortedIndex;
+                        const expired = isChannelExpired(channel.access_limited);
+                        const daysExpired = getDaysExpired(channel.access_limited);
+
+                        return (
+                        <div key={index} className={`relative p-4 border rounded-xl shadow-sm transition-shadow ${
+                          expired
+                            ? 'bg-gray-100 border-gray-300 opacity-70'
+                            : 'bg-gradient-to-r from-gray-50 to-white border-gray-200 hover:shadow-md'
+                        }`}>
+                          {/* Плашка просроченного канала */}
+                          {expired && (
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-red-100 border border-red-200 rounded-md">
+                              <span className="text-xs font-medium text-red-600">
+                                Неактивен {daysExpired} {daysExpired === 1 ? 'день' : daysExpired < 5 ? 'дня' : 'дней'}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Кнопка удаления */}
                           <button
                             type="button"
@@ -2166,14 +2237,14 @@ function UserManagement({ user }) {
                                 }
                               });
                             }}
-                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            className={`absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ${expired ? 'top-10' : ''}`}
                             title="Удалить канал"
                           >
                             <X className="h-4 w-4" />
                           </button>
 
                           {/* Строка 1: Источник + Валюта */}
-                          <div className="flex gap-3 mb-3">
+                          <div className={`flex gap-3 mb-3 ${expired ? 'mt-6' : ''}`}>
                             <div className="flex-1">
                               <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
                                 Источник *
@@ -2333,7 +2404,8 @@ function UserManagement({ user }) {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -2352,7 +2424,7 @@ function UserManagement({ user }) {
                               channel_id: '',
                               account_name: '',
                               currency: 'USD',
-                              access_granted: new Date().toISOString().split('T')[0],
+                              access_granted: getTodayKyiv(),
                               access_limited: null
                             }
                           ]
