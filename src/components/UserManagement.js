@@ -933,6 +933,23 @@ function UserManagement({ user }) {
     return diffDays > 0 ? diffDays : 0;
   };
 
+  // Получить количество дней активности канала (от access_granted до сегодня или access_limited)
+  const getDaysActive = (accessGranted, accessLimited) => {
+    if (!accessGranted) return 0;
+    const startDate = new Date(accessGranted);
+    const endDate = accessLimited ? new Date(accessLimited) : new Date(getTodayKyiv());
+    const diffTime = endDate - startDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  // Склонение дней
+  const pluralizeDays = (days) => {
+    if (days === 1) return 'день';
+    if (days >= 2 && days <= 4) return 'дня';
+    return 'дней';
+  };
+
   // Сортировка каналов: активные сверху, просроченные снизу
   const sortChannelsByExpiration = (channels) => {
     if (!channels || channels.length === 0) return [];
@@ -1708,48 +1725,57 @@ function UserManagement({ user }) {
                         const index = originalIndex !== -1 ? originalIndex : sortedIndex;
                         const expired = isChannelExpired(channel.access_limited);
                         const daysExpired = getDaysExpired(channel.access_limited);
+                        const daysActive = getDaysActive(channel.access_granted, expired ? channel.access_limited : null);
 
                         return (
-                        <div key={index} className={`relative p-4 border rounded-xl shadow-sm transition-shadow ${
+                        <div key={index} className={`relative border rounded-xl shadow-sm transition-shadow overflow-hidden ${
                           expired
-                            ? 'bg-gray-100 border-gray-300 opacity-70'
-                            : 'bg-gradient-to-r from-gray-50 to-white border-gray-200 hover:shadow-md'
+                            ? 'bg-gray-50 border-gray-300 opacity-75'
+                            : 'bg-white border-gray-200 hover:shadow-md'
                         }`}>
-                          {/* Плашка просроченного канала */}
-                          {expired && (
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-red-100 border border-red-200 rounded-md">
-                              <span className="text-xs font-medium text-red-600">
-                                Неактивен {daysExpired} {daysExpired === 1 ? 'день' : daysExpired < 5 ? 'дня' : 'дней'}
-                              </span>
+                          {/* Заголовок карточки с плашкой статуса */}
+                          <div className={`flex items-center justify-between px-4 py-2 ${
+                            expired ? 'bg-red-50 border-b border-red-100' : 'bg-green-50 border-b border-green-100'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              {expired ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                                  Неактивен {daysExpired} {pluralizeDays(daysExpired)}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                  Активен {daysActive} {pluralizeDays(daysActive)}
+                                </span>
+                              )}
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newChannels = newUser.buyer_settings.traffic_channels.filter((_, i) => i !== index);
+                                setNewUser({
+                                  ...newUser,
+                                  buyer_settings: {
+                                    ...newUser.buyer_settings,
+                                    traffic_channels: newChannels
+                                  }
+                                });
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Удалить канал"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
 
-                          {/* Кнопка удаления */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newChannels = newUser.buyer_settings.traffic_channels.filter((_, i) => i !== index);
-                              setNewUser({
-                                ...newUser,
-                                buyer_settings: {
-                                  ...newUser.buyer_settings,
-                                  traffic_channels: newChannels
-                                }
-                              });
-                            }}
-                            className={`absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ${expired ? 'top-10' : ''}`}
-                            title="Удалить канал"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-
-                          {/* Строка 1: Источник + Валюта */}
-                          <div className={`flex gap-3 mb-3 ${expired ? 'mt-6' : ''}`}>
-                            <div className="flex-1">
-                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
-                                Источник *
-                              </label>
-                              <SourceSelector
+                          {/* Содержимое карточки */}
+                          <div className="p-4">
+                            {/* Строка 1: Источник + Валюта */}
+                            <div className="flex gap-3 mb-3">
+                              <div className="flex-1">
+                                <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
+                                  Источник *
+                                </label>
+                                <SourceSelector
                                 value={channel.source}
                                 onChange={(newSource) => {
                                   const newChannels = [...newUser.buyer_settings.traffic_channels];
@@ -1902,6 +1928,7 @@ function UserManagement({ user }) {
                                 placeholder="Не ограничено"
                               />
                             </div>
+                          </div>
                           </div>
                         </div>
                         );
@@ -2208,48 +2235,57 @@ function UserManagement({ user }) {
                         const index = originalIndex !== -1 ? originalIndex : sortedIndex;
                         const expired = isChannelExpired(channel.access_limited);
                         const daysExpired = getDaysExpired(channel.access_limited);
+                        const daysActive = getDaysActive(channel.access_granted, expired ? channel.access_limited : null);
 
                         return (
-                        <div key={index} className={`relative p-4 border rounded-xl shadow-sm transition-shadow ${
+                        <div key={index} className={`relative border rounded-xl shadow-sm transition-shadow overflow-hidden ${
                           expired
-                            ? 'bg-gray-100 border-gray-300 opacity-70'
-                            : 'bg-gradient-to-r from-gray-50 to-white border-gray-200 hover:shadow-md'
+                            ? 'bg-gray-50 border-gray-300 opacity-75'
+                            : 'bg-white border-gray-200 hover:shadow-md'
                         }`}>
-                          {/* Плашка просроченного канала */}
-                          {expired && (
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-red-100 border border-red-200 rounded-md">
-                              <span className="text-xs font-medium text-red-600">
-                                Неактивен {daysExpired} {daysExpired === 1 ? 'день' : daysExpired < 5 ? 'дня' : 'дней'}
-                              </span>
+                          {/* Заголовок карточки с плашкой статуса */}
+                          <div className={`flex items-center justify-between px-4 py-2 ${
+                            expired ? 'bg-red-50 border-b border-red-100' : 'bg-green-50 border-b border-green-100'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              {expired ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                                  Неактивен {daysExpired} {pluralizeDays(daysExpired)}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                  Активен {daysActive} {pluralizeDays(daysActive)}
+                                </span>
+                              )}
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newChannels = editUserData.buyer_settings.traffic_channels.filter((_, i) => i !== index);
+                                setEditUserData({
+                                  ...editUserData,
+                                  buyer_settings: {
+                                    ...editUserData.buyer_settings,
+                                    traffic_channels: newChannels
+                                  }
+                                });
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Удалить канал"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
 
-                          {/* Кнопка удаления */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newChannels = editUserData.buyer_settings.traffic_channels.filter((_, i) => i !== index);
-                              setEditUserData({
-                                ...editUserData,
-                                buyer_settings: {
-                                  ...editUserData.buyer_settings,
-                                  traffic_channels: newChannels
-                                }
-                              });
-                            }}
-                            className={`absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ${expired ? 'top-10' : ''}`}
-                            title="Удалить канал"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-
-                          {/* Строка 1: Источник + Валюта */}
-                          <div className={`flex gap-3 mb-3 ${expired ? 'mt-6' : ''}`}>
-                            <div className="flex-1">
-                              <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
-                                Источник *
-                              </label>
-                              <SourceSelector
+                          {/* Содержимое карточки */}
+                          <div className="p-4">
+                            {/* Строка 1: Источник + Валюта */}
+                            <div className="flex gap-3 mb-3">
+                              <div className="flex-1">
+                                <label className={`block text-xs font-medium mb-1.5 ${fieldErrors[`channel_${index}_source`] ? 'text-red-600' : 'text-gray-600'}`}>
+                                  Источник *
+                                </label>
+                                <SourceSelector
                                 value={channel.source || 'Facebook'}
                                 onChange={(newSource) => {
                                   const newChannels = [...editUserData.buyer_settings.traffic_channels];
@@ -2402,6 +2438,7 @@ function UserManagement({ user }) {
                                 placeholder="Не ограничено"
                               />
                             </div>
+                          </div>
                           </div>
                         </div>
                         );
