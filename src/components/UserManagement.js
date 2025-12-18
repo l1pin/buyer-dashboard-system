@@ -378,6 +378,7 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
+    department: '', // Отдел (обязательно для Team Lead)
     team_lead_id: null,
     team_lead_name: null,
     buyer_settings: {
@@ -391,6 +392,7 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
+    department: '', // Отдел (обязательно для Team Lead)
     is_protected: false,
     team_lead_id: null,
     team_lead_name: null,
@@ -525,6 +527,22 @@ function UserManagement({ user }) {
       return false;
     }
 
+    // Для Team Lead обязателен отдел
+    if (userData.role === 'teamlead' && !userData.department?.trim()) {
+      errors.department = true;
+      setError('Для Team Lead обязательно указать отдел');
+      setFieldErrors(errors);
+      return false;
+    }
+
+    // Для всех ролей кроме Team Lead обязателен выбор Team Lead
+    if (userData.role !== 'teamlead' && !userData.team_lead_id) {
+      errors.team_lead_id = true;
+      setError('Необходимо выбрать Team Lead');
+      setFieldErrors(errors);
+      return false;
+    }
+
     // Проверка каналов трафика для Media Buyer
     if (userData.role === 'buyer' && userData.buyer_settings?.traffic_channels?.length > 0) {
       const channels = userData.buyer_settings.traffic_channels;
@@ -615,11 +633,19 @@ function UserManagement({ user }) {
       });
 
       // Подготавливаем данные для создания пользователя
+      // Для обычных пользователей берем отдел от выбранного Team Lead
+      let userDepartment = newUser.department?.trim() || null;
+      if (newUser.role !== 'teamlead' && newUser.team_lead_id) {
+        const selectedTeamLead = teamLeads.find(tl => tl.id === newUser.team_lead_id);
+        userDepartment = selectedTeamLead?.department || null;
+      }
+
       const userData = {
         name: newUser.name.trim(),
         email: newUser.email.trim(),
         password: newUser.password,
         role: newUser.role,
+        department: userDepartment,
         team_lead_id: newUser.team_lead_id || null,
         team_lead_name: newUser.team_lead_name || null,
         created_by_id: user.id,
@@ -656,6 +682,7 @@ function UserManagement({ user }) {
         email: '',
         password: '',
         role: 'buyer',
+        department: '',
         team_lead_id: null,
         team_lead_name: null,
         buyer_settings: {
@@ -700,6 +727,7 @@ function UserManagement({ user }) {
               email: '',
               password: '',
               role: 'buyer',
+              department: '',
               team_lead_id: null,
               team_lead_name: null,
               buyer_settings: {
@@ -773,6 +801,7 @@ function UserManagement({ user }) {
       email: userToEdit.email || '',
       password: '', // Пароль всегда пустой для безопасности
       role: userToEdit.role || 'buyer',
+      department: userToEdit.department || '',
       is_protected: userToEdit.is_protected || false,
       team_lead_id: userToEdit.team_lead_id || null,
       team_lead_name: userToEdit.team_lead_name || null,
@@ -802,12 +831,20 @@ function UserManagement({ user }) {
       });
 
       // Подготавливаем данные для обновления
+      // Для обычных пользователей берем отдел от выбранного Team Lead
+      let userDepartment = editUserData.department?.trim() || null;
+      if (editUserData.role !== 'teamlead' && editUserData.team_lead_id) {
+        const selectedTeamLead = teamLeads.find(tl => tl.id === editUserData.team_lead_id);
+        userDepartment = selectedTeamLead?.department || null;
+      }
+
       const updateData = {
         id: editUserData.id,
         name: editUserData.name.trim(),
         email: editUserData.email.trim(),
         password: editUserData.password || undefined, // Только если пароль указан
         role: editUserData.role,
+        department: userDepartment,
         is_protected: editUserData.is_protected,
         team_lead_id: editUserData.team_lead_id || null,
         team_lead_name: editUserData.team_lead_name || null
@@ -1027,6 +1064,14 @@ function UserManagement({ user }) {
     }
   };
 
+  // Отображение роли с отделом для Team Lead
+  const getRoleDisplayWithDepartment = (role, department) => {
+    if (role === 'teamlead' && department) {
+      return `TL ${department}`;
+    }
+    return getRoleDisplayName(role);
+  };
+
   const getRoleIcon = (role) => {
     switch (role) {
       case 'buyer':
@@ -1185,30 +1230,6 @@ function UserManagement({ user }) {
             </p>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={() => {
-                setShowArchived(!showArchived);
-                clearMessages();
-              }}
-              className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                showArchived
-                  ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                  : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-              }`}
-            >
-              {showArchived ? (
-                <>
-                  <User className="h-4 w-4 mr-2" />
-                  Активные
-                </>
-              ) : (
-                <>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Архив
-                </>
-              )}
-            </button>
-
             <button
               onClick={loadUsers}
               disabled={loading}
@@ -1451,10 +1472,36 @@ function UserManagement({ user }) {
         {/* Users List */}
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:p-6">
+            {/* Заголовок и вкладки */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Список пользователей
-              </h3>
+              <div className="flex items-center gap-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Пользователи
+                </h3>
+                {/* Вкладки Активные/Архив */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    onClick={() => setShowArchived(false)}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      !showArchived
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Активные
+                  </button>
+                  <button
+                    onClick={() => setShowArchived(true)}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      showArchived
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Архив
+                  </button>
+                </div>
+              </div>
               {/* Поиск пользователей */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1527,9 +1574,6 @@ function UserManagement({ user }) {
                       key={currentUser.id}
                       className="group flex items-center p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all duration-200"
                     >
-                      {/* Цветная полоска слева */}
-                      <div className={`w-1 h-12 rounded-full ${getRoleStripeColor(currentUser.role)} flex-shrink-0 mr-3`} />
-
                       {/* Аватар - круглый */}
                       <div className={`h-10 w-10 rounded-full overflow-hidden ${getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
                         {currentUser.avatar_url ? (
@@ -1562,10 +1606,10 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Роль */}
-                      <div className="mr-4" style={{ width: '130px' }}>
+                      <div className="mr-4" style={{ width: '150px' }}>
                         <div className="text-xs text-gray-400 mb-0.5">Роль</div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
-                          {getRoleDisplayName(currentUser.role)}
+                          {getRoleDisplayWithDepartment(currentUser.role, currentUser.department)}
                         </span>
                       </div>
 
@@ -1680,6 +1724,7 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    department: '',
                     team_lead_id: null,
                     team_lead_name: null,
                     buyer_settings: {
@@ -1822,28 +1867,71 @@ function UserManagement({ user }) {
                 </p>
               </div>
 
-              {/* Выбор Team Lead */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Team Lead
-                </label>
-                <TeamLeadSelector
-                  value={newUser.team_lead_id}
-                  onChange={(selectedId, selectedName) => {
-                    setNewUser({
-                      ...newUser,
-                      team_lead_id: selectedId,
-                      team_lead_name: selectedName
-                    });
-                    clearMessages();
-                  }}
-                  teamLeads={teamLeads}
-                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Выберите Team Lead, к которому привязан пользователь
-                </p>
-              </div>
+              {/* Отдел для Team Lead */}
+              {newUser.role === 'teamlead' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.department ? 'text-red-600' : 'text-gray-700'}`}>
+                    Отдел *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.department}
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, department: e.target.value });
+                      clearMessages();
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                      fieldErrors.department
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                    placeholder="Например: Media Buying, Design, Content"
+                    autoComplete="off"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Название отдела, которым руководит Team Lead
+                  </p>
+                </div>
+              )}
+
+              {/* Выбор Team Lead (только для не-тимлидов) */}
+              {newUser.role !== 'teamlead' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.team_lead_id ? 'text-red-600' : 'text-gray-700'}`}>
+                    Team Lead *
+                  </label>
+                  <TeamLeadSelector
+                    value={newUser.team_lead_id}
+                    onChange={(selectedId, selectedName) => {
+                      setNewUser({
+                        ...newUser,
+                        team_lead_id: selectedId,
+                        team_lead_name: selectedName
+                      });
+                      clearMessages();
+                    }}
+                    teamLeads={teamLeads}
+                    className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors ${
+                      fieldErrors.team_lead_id
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-200 focus:ring-blue-500'
+                    }`}
+                  />
+                  {/* Показываем отдел выбранного Team Lead */}
+                  {newUser.team_lead_id && (() => {
+                    const selectedTL = teamLeads.find(tl => tl.id === newUser.team_lead_id);
+                    return selectedTL?.department ? (
+                      <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="text-xs text-gray-400">Отдел</div>
+                        <div className="text-sm text-gray-700 font-medium">{selectedTL.department}</div>
+                      </div>
+                    ) : null;
+                  })()}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Выберите Team Lead, к которому привязан пользователь
+                  </p>
+                </div>
+              )}
 
               {/* Дополнительные поля для Media Buyer */}
               {newUser.role === 'buyer' && (
@@ -2315,28 +2403,71 @@ function UserManagement({ user }) {
                 </p>
               </div>
 
-              {/* Выбор Team Lead */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Team Lead
-                </label>
-                <TeamLeadSelector
-                  value={editUserData.team_lead_id}
-                  onChange={(selectedId, selectedName) => {
-                    setEditUserData({
-                      ...editUserData,
-                      team_lead_id: selectedId,
-                      team_lead_name: selectedName
-                    });
-                    clearMessages();
-                  }}
-                  teamLeads={teamLeads}
-                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Выберите Team Lead, к которому привязан пользователь
-                </p>
-              </div>
+              {/* Отдел для Team Lead */}
+              {editUserData.role === 'teamlead' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.department ? 'text-red-600' : 'text-gray-700'}`}>
+                    Отдел *
+                  </label>
+                  <input
+                    type="text"
+                    value={editUserData.department}
+                    onChange={(e) => {
+                      setEditUserData({ ...editUserData, department: e.target.value });
+                      clearMessages();
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                      fieldErrors.department
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                    placeholder="Например: Media Buying, Design, Content"
+                    autoComplete="off"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Название отдела, которым руководит Team Lead
+                  </p>
+                </div>
+              )}
+
+              {/* Выбор Team Lead (только для не-тимлидов) */}
+              {editUserData.role !== 'teamlead' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.team_lead_id ? 'text-red-600' : 'text-gray-700'}`}>
+                    Team Lead *
+                  </label>
+                  <TeamLeadSelector
+                    value={editUserData.team_lead_id}
+                    onChange={(selectedId, selectedName) => {
+                      setEditUserData({
+                        ...editUserData,
+                        team_lead_id: selectedId,
+                        team_lead_name: selectedName
+                      });
+                      clearMessages();
+                    }}
+                    teamLeads={teamLeads}
+                    className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors ${
+                      fieldErrors.team_lead_id
+                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                        : 'border-gray-200 focus:ring-blue-500'
+                    }`}
+                  />
+                  {/* Показываем отдел выбранного Team Lead */}
+                  {editUserData.team_lead_id && (() => {
+                    const selectedTL = teamLeads.find(tl => tl.id === editUserData.team_lead_id);
+                    return selectedTL?.department ? (
+                      <div className="mt-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="text-xs text-gray-400">Отдел</div>
+                        <div className="text-sm text-gray-700 font-medium">{selectedTL.department}</div>
+                      </div>
+                    ) : null;
+                  })()}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Выберите Team Lead, к которому привязан пользователь
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="flex items-center">
