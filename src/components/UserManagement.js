@@ -464,10 +464,38 @@ function UserManagement({ user }) {
         return u.email.toLowerCase() === emailToCheck;
       }
     });
-    
+
     if (existingUser) {
       setError('Пользователь с таким email уже существует');
       return false;
+    }
+
+    // Проверка каналов трафика для Media Buyer
+    if (userData.role === 'buyer' && userData.buyer_settings?.traffic_channels?.length > 0) {
+      for (let i = 0; i < userData.buyer_settings.traffic_channels.length; i++) {
+        const channel = userData.buyer_settings.traffic_channels[i];
+        const channelNum = i + 1;
+
+        if (!channel.source) {
+          setError(`Канал ${channelNum}: Источник трафика обязателен`);
+          return false;
+        }
+
+        if (!channel.currency) {
+          setError(`Канал ${channelNum}: Валюта обязательна`);
+          return false;
+        }
+
+        if (!channel.channel_id?.trim()) {
+          setError(`Канал ${channelNum}: ID канала обязателен`);
+          return false;
+        }
+
+        if (!channel.account_name?.trim()) {
+          setError(`Канал ${channelNum}: Название аккаунта обязательно`);
+          return false;
+        }
+      }
     }
 
     return true;
@@ -1598,7 +1626,7 @@ function UserManagement({ user }) {
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Источник
+                                Источник *
                               </label>
                               <SourceSelector
                                 value={channel.source}
@@ -1618,7 +1646,7 @@ function UserManagement({ user }) {
                             </div>
                             <div className="w-28">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Валюта
+                                Валюта *
                               </label>
                               <CurrencySelector
                                 value={channel.currency}
@@ -1664,7 +1692,7 @@ function UserManagement({ user }) {
                             </div>
                             <div className="flex-1">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Название аккаунта
+                                Название аккаунта *
                               </label>
                               <input
                                 type="text"
@@ -2046,7 +2074,7 @@ function UserManagement({ user }) {
                           <div className="flex gap-3 mb-3">
                             <div className="flex-1">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Источник
+                                Источник *
                               </label>
                               <SourceSelector
                                 value={channel.source || 'Facebook'}
@@ -2066,7 +2094,7 @@ function UserManagement({ user }) {
                             </div>
                             <div className="w-28">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Валюта
+                                Валюта *
                               </label>
                               <CurrencySelector
                                 value={channel.currency}
@@ -2112,7 +2140,7 @@ function UserManagement({ user }) {
                             </div>
                             <div className="flex-1">
                               <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Название аккаунта
+                                Название аккаунта *
                               </label>
                               <input
                                 type="text"
