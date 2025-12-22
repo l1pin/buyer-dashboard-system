@@ -247,17 +247,30 @@ const BuyerCard = React.memo(function BuyerCard({
   // Проверяем, есть ли у байера данные в ЕГО периоде доступа
   const hasBuyerDataInAccessPeriod = useMemo(() => {
     // Проверяем через findLastActiveDate - ищет реальную активность в buyerMetricsData
+    // Эта функция уже фильтрует по периодам доступа каждого канала
     const lastActiveDateStr = findLastActiveDate(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
     if (lastActiveDateStr) return true;
 
-    // Проверяем statusData.date - дата из трекера
+    // Проверяем statusData.date - дата из трекера (НО она не фильтруется по периодам доступа!)
+    // Поэтому нужно проверить что дата попадает в период доступа байера
     if (statusData?.date && accessDatesMap) {
       const lastDate = new Date(statusData.date);
       lastDate.setHours(0, 0, 0, 0);
 
-      // Находим максимальный access_limited
+      // Находим границы доступа: минимальный access_granted и максимальный access_limited
+      let earliestAccessGranted = null;
       let latestAccessLimited = null;
+
       Object.values(accessDatesMap).forEach(access => {
+        // Нижняя граница (access_granted)
+        if (access.accessGranted) {
+          const accessStart = new Date(access.accessGranted);
+          accessStart.setHours(0, 0, 0, 0);
+          if (!earliestAccessGranted || accessStart < earliestAccessGranted) {
+            earliestAccessGranted = accessStart;
+          }
+        }
+        // Верхняя граница (access_limited)
         if (access.accessLimited) {
           const accessEnd = new Date(access.accessLimited);
           accessEnd.setHours(23, 59, 59, 999);
@@ -267,8 +280,11 @@ const BuyerCard = React.memo(function BuyerCard({
         }
       });
 
-      // Если дата в пределах доступа - данные есть
-      if (!latestAccessLimited || lastDate <= latestAccessLimited) {
+      // Дата должна быть МЕЖДУ access_granted и access_limited
+      const isAfterStart = !earliestAccessGranted || lastDate >= earliestAccessGranted;
+      const isBeforeEnd = !latestAccessLimited || lastDate <= latestAccessLimited;
+
+      if (isAfterStart && isBeforeEnd) {
         return true;
       }
     }
