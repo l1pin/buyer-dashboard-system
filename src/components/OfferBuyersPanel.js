@@ -281,12 +281,19 @@ const BuyerCard = React.memo(function BuyerCard({
     return false;
   }, [offerArticle, sourceIds, buyerMetricsData, accessDatesMap, statusData?.date]);
 
-  // Логика определения статуса:
-  // 1. Если архивирован - 'archived'
-  // 2. Если статусы или метрики ещё загружаются - 'loading' (ждём данные для корректного определения)
-  // 3. Если доступ истёк (access_limited в прошлом) И есть данные - 'not_configured' (не может быть active!)
-  // 4. Если трекер говорит 'active' или 'not_configured', но у байера НЕТ данных в его периоде - 'not_in_tracker'
-  // 5. Иначе используем статус из трекера
+  // ЛОГИКА ОПРЕДЕЛЕНИЯ СТАТУСА (с учётом периодов доступа channel_id):
+  //
+  // Важно: один channel_id может быть у разных байеров в разные периоды времени!
+  // Поэтому статус определяется на основе данных ТОЛЬКО в период доступа этого байера.
+  //
+  // 1. 'archived' - байер архивирован
+  // 2. 'loading' - статусы или метрики ещё загружаются
+  // 3. 'not_in_tracker' - НЕТ активных дней (метрик с cost > 0) в период доступа байера
+  // 4. 'not_configured' - БЫЛИ активные дни в период доступа, но сегодня расхода нет
+  //    (включая случай когда доступ истёк - байер работал раньше)
+  // 5. 'active' - есть расход сегодня
+  //
+  // Для статусов 'not_configured' и 'not_in_tracker' показываем дни с момента привязки (created_at)
   const statusType = isArchived
     ? 'archived'
     : (loadingBuyerStatuses || loadingBuyerMetrics)
@@ -309,49 +316,23 @@ const BuyerCard = React.memo(function BuyerCard({
     if (statusType === 'active') {
       daysToShow = calculateConsecutiveActiveDays(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
     } else if (statusType === 'not_configured') {
-      // Для "Не настроено" находим РЕАЛЬНЫЙ последний активный день в пределах периода доступа
-      const lastActiveDateStr = findLastActiveDate(offerArticle, sourceIds, buyerMetricsData, accessDatesMap);
-
-      if (lastActiveDateStr) {
-        // Считаем дни от последнего активного дня до сегодня
-        const lastActiveDate = new Date(lastActiveDateStr);
-        lastActiveDate.setHours(0, 0, 0, 0);
-        daysToShow = Math.floor((today - lastActiveDate) / (1000 * 60 * 60 * 24));
-      } else if (statusData?.date) {
-        // Если нет данных в buyerMetricsData, проверяем что дата из трекера в пределах доступа байера
-        const lastDate = new Date(statusData.date);
-        lastDate.setHours(0, 0, 0, 0);
-
-        // Находим максимальный access_limited из всех каналов байера
-        let latestAccessLimited = null;
-        if (accessDatesMap) {
-          Object.values(accessDatesMap).forEach(access => {
-            if (access.accessLimited) {
-              const accessEnd = new Date(access.accessLimited);
-              accessEnd.setHours(23, 59, 59, 999);
-              if (!latestAccessLimited || accessEnd > latestAccessLimited) {
-                latestAccessLimited = accessEnd;
-              }
-            }
-          });
-        }
-
-        // Если дата из трекера ПОЗЖЕ окончания доступа - не используем её
-        // (это активность другого байера с тем же source_id)
-        if (!latestAccessLimited || lastDate <= latestAccessLimited) {
-          daysToShow = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-        }
-        // Иначе daysToShow остаётся 0 - у этого байера не было активности
+      // Для "Не настроено" показываем дни с момента ПРИВЯЗКИ байера к офферу
+      if (assignment.created_at) {
+        const createdDate = new Date(assignment.created_at);
+        createdDate.setHours(0, 0, 0, 0);
+        daysToShow = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
       }
     } else if (statusType === 'not_in_tracker' && assignment.created_at) {
+      // Для "Нет в трекере" тоже показываем дни с момента привязки
       const createdDate = new Date(assignment.created_at);
-      daysToShow = Math.floor(Math.abs(new Date() - createdDate) / (1000 * 60 * 60 * 24));
+      createdDate.setHours(0, 0, 0, 0);
+      daysToShow = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
     } else if (statusType === 'archived' && assignment.archived_at) {
       const archivedDate = new Date(assignment.archived_at);
       daysToShow = Math.floor(Math.abs(new Date() - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return daysToShow > 0 ? `${daysToShow} д` : '';
-  }, [statusType, statusData, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDatesMap]);
+  }, [statusType, offerArticle, sourceIds, buyerMetricsData, assignment.created_at, assignment.archived_at, accessDatesMap]);
 
   const statusBarColor = STATUS_BAR_COLORS[isArchived ? 'archived' : statusType] || STATUS_BAR_COLORS.default;
 
