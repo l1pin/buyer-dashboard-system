@@ -619,14 +619,19 @@ export const userService = {
     return data;
   },
 
-  // Получить пользователей по роли (только активные, без архивированных)
-  async getUsersByRole(role) {
-    const { data, error } = await supabase
+  // Получить пользователей по роли
+  // includeArchived = true - включая архивированных (для доступа к buyer_settings)
+  async getUsersByRole(role, includeArchived = false) {
+    let query = supabase
       .from('users')
       .select('*')
-      .eq('role', role)
-      .eq('archived', false)
-      .order('created_at', { ascending: false });
+      .eq('role', role);
+
+    if (!includeArchived) {
+      query = query.eq('archived', false);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;

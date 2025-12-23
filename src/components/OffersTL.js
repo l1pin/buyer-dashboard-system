@@ -403,9 +403,11 @@ function OffersTL({ user }) {
       setError('');
 
       // Запускаем ВСЕ запросы параллельно
+      // ВАЖНО: загружаем ВСЕХ байеров включая архивированных, чтобы иметь доступ к их buyer_settings
+      // для корректного отображения метрик (archived байеры могут быть привязаны к офферам)
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetrics().catch(e => ({ metrics: [], error: e })),
-        userService.getUsersByRole('buyer').catch(e => []),
+        userService.getUsersByRole('buyer', true).catch(e => []),  // includeArchived = true
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
         articleOfferMappingService.getAllMappings().catch(e => ({})),
