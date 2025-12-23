@@ -54,18 +54,40 @@ function addDays(dateStr, days) {
  * @param {Array} allAssignments - Все привязки байеров [{offer_id, buyer_id, source_ids, ...}]
  * @param {Object} articleOfferMap - Маппинг article -> offer_id_tracker (из Supabase)
  * @param {Array} metrics - Массив метрик офферов (для получения article по offer_id)
+ * @param {Array} allBuyers - Все байеры с buyer_settings (для получения traffic_channels)
  * @returns {Promise<Object>} - Map: assignmentKey -> {status, date}
  */
-export async function updateBuyerStatuses(allAssignments = [], articleOfferMap = {}, metrics = []) {
+export async function updateBuyerStatuses(allAssignments = [], articleOfferMap = {}, metrics = [], allBuyers = []) {
   try {
     console.log('🔄 Начинаем обновление статусов байеров...');
     console.log(`📊 articleOfferMap keys (первые 5):`, Object.keys(articleOfferMap).slice(0, 5));
     console.log(`📊 metrics count:`, metrics.length);
+    console.log(`📊 allBuyers count:`, allBuyers.length);
 
     if (!allAssignments || allAssignments.length === 0) {
       console.log('⚠️ Нет привязок байеров для обработки');
       return {};
     }
+
+    // Создаём маппинг buyer_id -> buyer для быстрого поиска
+    const buyersMap = {};
+    allBuyers.forEach(buyer => {
+      if (buyer.id) {
+        buyersMap[buyer.id] = buyer;
+      }
+    });
+
+    // Хелпер: получить sourceIds из traffic_channels байера
+    const getSourceIdsFromTrafficChannels = (buyerId, source) => {
+      const buyer = buyersMap[buyerId];
+      if (!buyer?.buyer_settings?.traffic_channels) {
+        return [];
+      }
+      const matchingChannels = buyer.buyer_settings.traffic_channels.filter(
+        ch => ch.source === source && ch.channel_id
+      );
+      return matchingChannels.map(ch => ch.channel_id);
+    };
 
     // Создаем маппинг: offer_id (ID в системе) -> article (из metrics)
     const offerIdToArticle = {};
@@ -84,6 +106,7 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
     const statusesMap = {};
     let skippedNoArticle = 0;
     let skippedNoOfferIdTracker = 0;
+    let skippedNoSourceIds = 0;
 
     allAssignments.forEach(assignment => {
       const assignmentKey = `${assignment.offer_id}-${assignment.buyer_id}-${assignment.source}`;
@@ -124,19 +147,26 @@ export async function updateBuyerStatuses(allAssignments = [], articleOfferMap =
         };
       }
 
-      // Добавляем source_ids байера
-      if (assignment.source_ids && Array.isArray(assignment.source_ids)) {
-        assignment.source_ids.forEach(id => trackerGroups[offerIdTracker].sourceIds.add(id));
+      // ВАЖНО: Берём sourceIds из traffic_channels, а НЕ из assignment.source_ids!
+      // assignment.source_ids - устаревшая копия на момент привязки
+      const sourceIds = getSourceIdsFromTrafficChannels(assignment.buyer_id, assignment.source);
+
+      if (sourceIds.length === 0) {
+        skippedNoSourceIds++;
+        console.warn(`⚠️ Нет sourceIds для байера ${assignment.buyer_id} (source: ${assignment.source})`);
       }
+
+      sourceIds.forEach(id => trackerGroups[offerIdTracker].sourceIds.add(id));
 
       trackerGroups[offerIdTracker].assignments.push({
         ...assignment,
         article: article,
-        offerIdTracker: offerIdTracker
+        offerIdTracker: offerIdTracker,
+        sourceIdsFromTrafficChannels: sourceIds // Сохраняем актуальные sourceIds
       });
     });
 
-    console.log(`📊 Пропущено: без артикула=${skippedNoArticle}, без offer_id_tracker=${skippedNoOfferIdTracker}`);
+    console.log(`📊 Пропущено: без артикула=${skippedNoArticle}, без offer_id_tracker=${skippedNoOfferIdTracker}, без sourceIds=${skippedNoSourceIds}`);
 
     const offerIdTrackers = Object.keys(trackerGroups);
     console.log(`📊 Уникальных offer_id_tracker: ${offerIdTrackers.length}`);
