@@ -244,11 +244,11 @@ function OffersTL({ user }) {
   }, []);
 
   // 🔴 REALTIME & AUTO-UPDATE: ref для доступа к актуальным данным внутри callbacks
-  // Используем ref чтобы избежать stale closure в useCallback с пустыми зависимостями
-  const realtimeDataRef = useRef({ metrics, articleOfferMap, allAssignments });
+  // Используем ref чтобы избежать stale closure когда данные ещё не загружены при первом вызове
+  const realtimeDataRef = useRef({ metrics, articleOfferMap, allAssignments, allBuyers });
   useEffect(() => {
-    realtimeDataRef.current = { metrics, articleOfferMap, allAssignments };
-  }, [metrics, articleOfferMap, allAssignments]);
+    realtimeDataRef.current = { metrics, articleOfferMap, allAssignments, allBuyers };
+  }, [metrics, articleOfferMap, allAssignments, allBuyers]);
 
   useEffect(() => {
     const subscription = offerBuyersService.subscribeToChanges(
@@ -683,7 +683,7 @@ function OffersTL({ user }) {
   const autoUpdateMetrics = useCallback(async () => {
     // ВАЖНО: Получаем актуальные данные из ref, а не из замыкания!
     // Это решает проблему stale closure когда данные ещё не загружены при первом вызове
-    const { metrics: currentMetrics, articleOfferMap: currentArticleOfferMap, allAssignments: currentAssignments } = realtimeDataRef.current;
+    const { metrics: currentMetrics, articleOfferMap: currentArticleOfferMap, allAssignments: currentAssignments, allBuyers: currentBuyers } = realtimeDataRef.current;
 
     // Проверяем что есть данные для обновления
     if (!currentMetrics || currentMetrics.length === 0) {
@@ -741,7 +741,8 @@ function OffersTL({ user }) {
           try {
             const flatAssignments = Object.values(currentAssignments).flat();
             if (flatAssignments.length > 0) {
-              const statuses = await updateBuyerStatusesScript(flatAssignments, currentArticleOfferMap, currentMetrics);
+              // ВАЖНО: передаём currentBuyers для получения sourceIds из traffic_channels
+              const statuses = await updateBuyerStatusesScript(flatAssignments, currentArticleOfferMap, currentMetrics, currentBuyers);
               setBuyerStatuses(statuses);
               return statuses;
             }
@@ -957,8 +958,8 @@ function OffersTL({ user }) {
         return;
       }
 
-      // Передаем metrics для получения артикула по offer_id
-      const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics);
+      // Передаем metrics и allBuyers для получения sourceIds из traffic_channels
+      const statuses = await updateBuyerStatusesScript(flatAssignments, articleOfferMap, metrics, allBuyers);
       setBuyerStatuses(statuses);
 
     } catch (error) {
