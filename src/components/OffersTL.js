@@ -426,12 +426,14 @@ function OffersTL({ user }) {
   useEffect(() => {
     // Проверяем что ВСЕ данные загружены и автообновление еще не запускалось
     // ВАЖНО: allBuyers должен быть загружен для корректного определения статусов!
+    // ВАЖНО: НЕ запускаем пока идёт background refresh - иначе используем устаревшие данные из кэша!
     if (
       metrics.length > 0 &&
       allBuyers.length > 0 &&
       Object.keys(allAssignments).length > 0 &&
       Object.keys(articleOfferMap).length > 0 &&
       !loading &&
+      !isBackgroundRefresh &&  // 🔴 КРИТИЧНО: ждём завершения фоновой загрузки свежих данных!
       !hasAutoUpdatedRef.current
     ) {
       // 🔴 КРИТИЧНО: Обновляем ref СИНХРОННО перед вызовом autoUpdateMetrics!
@@ -442,7 +444,7 @@ function OffersTL({ user }) {
       autoUpdateMetrics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metrics, allBuyers, allAssignments, articleOfferMap, loading]);
+  }, [metrics, allBuyers, allAssignments, articleOfferMap, loading, isBackgroundRefresh]);
 
   // Главная функция загрузки данных
   const loadAllData = async (isBackground = false) => {
