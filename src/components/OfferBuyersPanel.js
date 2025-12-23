@@ -873,7 +873,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
           avatar_url: null
         },
         offer_id: assignment.offer_id,
-        source_ids: assignment.source_ids || [], // Массив source_id
+        source_ids: assignment.source_ids || [], // Массив source_id (устаревшая копия, НЕ использовать!)
         created_at: assignment.created_at, // Дата привязки
         archived: assignment.archived || false, // Флаг архивации
         archived_at: assignment.archived_at, // Дата архивации
@@ -881,6 +881,31 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         history: assignment.history || [] // История привязки/удаления
       };
     });
+
+    // ГЛАВНАЯ ФУНКЦИЯ: получение sourceIds И accessDatesMap из ОДНОГО источника (traffic_channels)
+    // ВАЖНО: НЕ используем assignment.source_ids - это устаревшая копия на момент привязки!
+    const getSourceIdsAndAccessDatesMap = (assignment) => {
+      const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
+      const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
+
+      const ids = [];
+      const map = {};
+
+      matchingChannels.forEach(ch => {
+        if (ch.channel_id) {
+          ids.push(ch.channel_id);
+          map[ch.channel_id] = {
+            accessGranted: ch.access_granted || null,
+            accessLimited: ch.access_limited || null
+          };
+        }
+      });
+
+      return {
+        sourceIds: ids,
+        accessDatesMap: Object.keys(map).length > 0 ? map : null
+      };
+    };
 
     // Функция для проверки, истёк ли доступ байера
     const checkIsAccessExpired = (accessDatesMap) => {
@@ -901,7 +926,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
     // Функция для проверки, есть ли у байера данные в его периоде доступа
     const checkHasBuyerDataInAccessPeriod = (assignment, accessDatesMap, statusData) => {
-      const sourceIds = assignment.source_ids || [];
+      // ВАЖНО: берём sourceIds из traffic_channels, а не из assignment.source_ids!
+      const { sourceIds } = getSourceIdsAndAccessDatesMap(assignment);
       const offerArticle = offer?.article || '';
 
       // Проверяем через findLastActiveDate
@@ -971,26 +997,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
     // Функция для получения дат доступа из traffic_channels - возвращает маппинг channel_id -> {accessGranted, accessLimited}
     const getAccessDatesMap = (assignment) => {
-      const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
-      const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
-      if (matchingChannels.length === 0) {
-        return null;
-      }
-      const map = {};
-      matchingChannels.forEach(ch => {
-        if (ch.channel_id) {
-          map[ch.channel_id] = {
-            accessGranted: ch.access_granted || null,
-            accessLimited: ch.access_limited || null
-          };
-        }
-      });
-      return Object.keys(map).length > 0 ? map : null;
+      return getSourceIdsAndAccessDatesMap(assignment).accessDatesMap;
     };
 
     // Функция для получения количества дней для сортировки
     const getDaysForSorting = (assignment) => {
-      const sourceIds = assignment.source_ids || [];
+      // ВАЖНО: берём sourceIds из traffic_channels!
+      const { sourceIds } = getSourceIdsAndAccessDatesMap(assignment);
       const offerArticle = offer?.article || '';
       const statusKey = getAssignmentKey(offer.id, assignment.buyer.id, assignment.source);
       const statusData = buyerStatuses[statusKey];
@@ -1298,7 +1311,10 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setShowRemovalReasonModal(null);
 
     try {
-      const sourceIds = assignment.source_ids || [];
+      // ВАЖНО: берём sourceIds из traffic_channels, а не из assignment.source_ids!
+      const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
+      const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
+      const sourceIds = matchingChannels.filter(ch => ch.channel_id).map(ch => ch.channel_id);
       const offerIdTracker = articleOfferMap[offer.article];
 
       console.log(`🗑️ Проверяем расход для байера ${assignment.buyer.name}...`);
@@ -1353,17 +1369,22 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     console.log('📊 Всего привязок оффера:', assignedBuyers.length);
 
     // Собираем данные по всем байерам оффера (включая архивированных)
+    // ВАЖНО: берём sourceIds из traffic_channels, а не из a.source_ids!
     const allBuyersData = assignedBuyers
-      .map(a => ({
-        buyerId: a.buyer.id,
-        buyerName: a.buyer.name,
-        avatarUrl: a.buyer.avatar_url,
-        sourceIds: a.source_ids || [],
-        source: a.source,
-        archived: a.archived || false,
-        // Добавляем traffic_channels для определения дат доступа к каналам
-        trafficChannels: a.buyer.buyer_settings?.traffic_channels || []
-      }));
+      .map(a => {
+        const trafficChannels = a.buyer?.buyer_settings?.traffic_channels || [];
+        const matchingChannels = trafficChannels.filter(ch => ch.source === a.source);
+        const sourceIds = matchingChannels.filter(ch => ch.channel_id).map(ch => ch.channel_id);
+        return {
+          buyerId: a.buyer.id,
+          buyerName: a.buyer.name,
+          avatarUrl: a.buyer.avatar_url,
+          sourceIds: sourceIds,
+          source: a.source,
+          archived: a.archived || false,
+          trafficChannels: trafficChannels
+        };
+      });
 
     setSelectedBuyerForCalendar({
       selectedBuyerName: assignment.buyer.name, // Выбранный байер (будет вверху)
@@ -1398,9 +1419,18 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     return Object.keys(map).length > 0 ? map : null;
   }, []);
 
+  // Функция для получения sourceIds из traffic_channels
+  // ВАЖНО: НЕ используем assignment.source_ids - это устаревшая копия на момент привязки!
+  const getSourceIdsForAssignment = useCallback((assignment) => {
+    const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
+    const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
+    return matchingChannels.filter(ch => ch.channel_id).map(ch => ch.channel_id);
+  }, []);
+
   // Функция для проверки, есть ли у байера данные в его периоде доступа (для фильтрации/сортировки)
   const checkBuyerHasDataInAccessPeriod = useCallback((assignment, accessDatesMap, statusData) => {
-    const sourceIds = assignment.source_ids || [];
+    // ВАЖНО: берём sourceIds из traffic_channels, а не из assignment.source_ids!
+    const sourceIds = getSourceIdsForAssignment(assignment);
 
     // Проверяем через findLastActiveDate
     const lastActiveDateStr = findLastActiveDate(offer.article, sourceIds, buyerMetricsData, accessDatesMap);
@@ -1432,7 +1462,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     }
 
     return false;
-  }, [offer.article, buyerMetricsData]);
+  }, [offer.article, buyerMetricsData, getSourceIdsForAssignment]);
 
   // Функция для проверки, истёк ли доступ байера
   const checkIsAccessExpiredForAssignment = useCallback((accessDatesMap) => {
@@ -1510,12 +1540,14 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
     if (status === 'active') {
       // Для активных - дни активности из buyerMetricsData (с учётом дат доступа каждого канала)
-      const sourceIds = assignment.source_ids || [];
+      // ВАЖНО: берём sourceIds из traffic_channels!
+      const sourceIds = getSourceIdsForAssignment(assignment);
       const accessDatesMap = getAccessDatesMapForAssignment(assignment);
       return calculateConsecutiveActiveDays(offer.article, sourceIds, buyerMetricsData, accessDatesMap);
     } else if (status === 'not_configured') {
       // Для "не настроено" - находим РЕАЛЬНЫЙ последний активный день
-      const sourceIds = assignment.source_ids || [];
+      // ВАЖНО: берём sourceIds из traffic_channels!
+      const sourceIds = getSourceIdsForAssignment(assignment);
       const accessDatesMap = getAccessDatesMapForAssignment(assignment);
       const lastActiveDateStr = findLastActiveDate(offer.article, sourceIds, buyerMetricsData, accessDatesMap);
 
@@ -1558,7 +1590,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       return Math.floor(Math.abs(today - archivedDate) / (1000 * 60 * 60 * 24));
     }
     return 0;
-  }, [offer.id, offer.article, buyerStatuses, buyerMetricsData, getAccessDatesMapForAssignment]);
+  }, [offer.id, offer.article, buyerStatuses, buyerMetricsData, getAccessDatesMapForAssignment, getSourceIdsForAssignment]);
 
   // Сортируем байеров по статусу, затем по дням (от большего к меньшему)
   const sortBuyersByStatus = useCallback((buyers) => {
