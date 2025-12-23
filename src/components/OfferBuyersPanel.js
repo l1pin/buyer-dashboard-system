@@ -189,28 +189,33 @@ const BuyerCard = React.memo(function BuyerCard({
   onShowHistory
 }) {
   const { date, days } = formatAssignmentDateStatic(assignment.created_at);
-  const sourceIds = assignment.source_ids || [];
   const isArchived = assignment.archived;
 
-  // Получаем даты доступа из traffic_channels байера - маппинг channel_id -> {accessGranted, accessLimited}
-  const accessDatesMap = useMemo(() => {
+  // ВАЖНО: Берём sourceIds и accessDatesMap из ОДНОГО источника - traffic_channels байера
+  // Это гарантирует что мы ищем данные по тем же каналам, для которых знаем периоды доступа
+  // НЕ используем assignment.source_ids - это устаревшая копия на момент привязки!
+  const { sourceIds, accessDatesMap } = useMemo(() => {
     const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
     // Находим каналы для текущего источника (assignment.source)
     const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
-    if (matchingChannels.length === 0) {
-      return null;
-    }
-    // Строим маппинг: channel_id -> {accessGranted, accessLimited}
+
+    const ids = [];
     const map = {};
+
     matchingChannels.forEach(ch => {
       if (ch.channel_id) {
+        ids.push(ch.channel_id);
         map[ch.channel_id] = {
           accessGranted: ch.access_granted || null,
           accessLimited: ch.access_limited || null
         };
       }
     });
-    return Object.keys(map).length > 0 ? map : null;
+
+    return {
+      sourceIds: ids,
+      accessDatesMap: Object.keys(map).length > 0 ? map : null
+    };
   }, [assignment.buyer?.buyer_settings?.traffic_channels, assignment.source]);
 
   // Мемоизируем метрики для этого байера (с учётом дат доступа каждого канала)
