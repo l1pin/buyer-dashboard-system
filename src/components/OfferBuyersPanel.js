@@ -2046,15 +2046,13 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                   <span className="text-gray-700">Другое</span>
                 </label>
 
-                {removalReason === 'other' && (
-                  <textarea
-                    value={removalReasonDetails}
-                    onChange={(e) => setRemovalReasonDetails(e.target.value)}
-                    placeholder="Укажите причину..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
-                  />
-                )}
+                <textarea
+                  value={removalReasonDetails}
+                  onChange={(e) => setRemovalReasonDetails(e.target.value)}
+                  placeholder="Укажите причину..."
+                  className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${removalReason !== 'other' ? 'hidden' : ''}`}
+                  rows={3}
+                />
               </div>
 
               <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
