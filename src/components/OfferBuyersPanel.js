@@ -212,17 +212,36 @@ const BuyerCard = React.memo(function BuyerCard({
       }
     });
 
+    // Debug: логируем если sourceIds пустой
+    if (ids.length === 0) {
+      console.warn(`⚠️ BuyerCard: нет sourceIds для ${assignment.buyer?.name}`, {
+        buyerHasSettings: !!assignment.buyer?.buyer_settings,
+        trafficChannelsCount: trafficChannels.length,
+        source: assignment.source,
+        matchingChannelsCount: matchingChannels.length
+      });
+    }
+
     return {
       sourceIds: ids,
       accessDatesMap: Object.keys(map).length > 0 ? map : null
     };
-  }, [assignment.buyer?.buyer_settings?.traffic_channels, assignment.source]);
+  }, [assignment.buyer?.buyer_settings?.traffic_channels, assignment.source, assignment.buyer?.name]);
 
   // Мемоизируем метрики для этого байера (с учётом дат доступа каждого канала)
-  const metrics = useMemo(() =>
-    aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14, accessDatesMap),
-    [offerArticle, sourceIds, buyerMetricsData, accessDatesMap]
-  );
+  const metrics = useMemo(() => {
+    const result = aggregateMetricsByActiveDays(offerArticle, sourceIds, buyerMetricsData, 14, accessDatesMap);
+    // Debug: логируем если метрики пустые при наличии sourceIds
+    if (sourceIds.length > 0 && result.cost === 0 && result.leads === 0) {
+      console.warn(`⚠️ BuyerCard: нет метрик для ${assignment.buyer?.name}`, {
+        article: offerArticle,
+        sourceIds,
+        hasArticleData: !!buyerMetricsData[offerArticle],
+        accessDatesMap
+      });
+    }
+    return result;
+  }, [offerArticle, sourceIds, buyerMetricsData, accessDatesMap, assignment.buyer?.name]);
 
   const hasData = metrics.leads > 0 || metrics.cost > 0;
   const hasLessActiveDays = metrics.activeDays > 0 && metrics.activeDays < 14;
@@ -1100,8 +1119,12 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setLoadingBuyers(true);
 
     try {
-      // Фильтруем байеров по источнику
+      // Фильтруем байеров по источнику (только НЕ архивированные для добавления)
       const filtered = allBuyers.filter(buyer => {
+        // Исключаем архивированных байеров из списка для добавления
+        if (buyer.archived) {
+          return false;
+        }
         if (!buyer.buyer_settings || !buyer.buyer_settings.traffic_channels) {
           return false;
         }
@@ -1311,16 +1334,28 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setShowRemovalReasonModal(null);
 
     try {
-      // ВАЖНО: берём sourceIds из traffic_channels, а не из assignment.source_ids!
+      // ВАЖНО: берём sourceIds и accessDatesMap из traffic_channels!
       const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
       const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
       const sourceIds = matchingChannels.filter(ch => ch.channel_id).map(ch => ch.channel_id);
+
+      // Строим accessDatesMap для проверки расхода с учётом дат доступа
+      const accessDatesMap = {};
+      matchingChannels.forEach(ch => {
+        if (ch.channel_id) {
+          accessDatesMap[ch.channel_id] = {
+            accessGranted: ch.access_granted || null,
+            accessLimited: ch.access_limited || null
+          };
+        }
+      });
+
       const offerIdTracker = articleOfferMap[offer.article];
 
       console.log(`🗑️ Проверяем расход для байера ${assignment.buyer.name}...`);
 
-      // Проверяем был ли расход у байера за все время
-      const { hasSpend, totalCost } = await checkBuyerHasSpend(sourceIds, offerIdTracker);
+      // Проверяем был ли расход у байера В ЕГО ПЕРИОД ДОСТУПА
+      const { hasSpend, totalCost } = await checkBuyerHasSpend(sourceIds, offerIdTracker, accessDatesMap);
 
       if (hasSpend) {
         // Был расход - архивируем с причиной

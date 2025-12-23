@@ -567,14 +567,15 @@ export async function updateSingleBuyerStatus(assignment, article, offerIdTracke
 }
 
 /**
- * Проверяет, был ли у байера расход (cost > 0) за все время
+ * Проверяет, был ли у байера расход (cost > 0) В ЕГО ПЕРИОД ДОСТУПА
  * Используется для определения: архивировать или полностью удалять байера
  *
  * @param {Array} sourceIds - Массив source_id байера
  * @param {string} offerIdTracker - ID оффера в трекере
+ * @param {Object} accessDatesMap - Маппинг channel_id -> {accessGranted, accessLimited}
  * @returns {Promise<{hasSpend: boolean, totalCost: number}>}
  */
-export async function checkBuyerHasSpend(sourceIds, offerIdTracker) {
+export async function checkBuyerHasSpend(sourceIds, offerIdTracker, accessDatesMap = null) {
   try {
     console.log(`🔍 Проверяем расход байера: ${sourceIds.length} source_ids, offer: ${offerIdTracker}`);
 
@@ -583,25 +584,65 @@ export async function checkBuyerHasSpend(sourceIds, offerIdTracker) {
       return { hasSpend: false, totalCost: 0 };
     }
 
-    const sourceIdsSql = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
     const offerIdSql = `'${offerIdTracker.replace(/'/g, "''")}'`;
 
-    // SQL запрос - проверяем был ли расход за все время
-    const sql = `
-      SELECT
-        SUM(cost) AS total_cost
-      FROM ads_collection
-      WHERE source_id_tracker IN (${sourceIdsSql})
-        AND offer_id_tracker = ${offerIdSql}
-        AND cost > 0
-    `;
+    let sql;
+
+    if (accessDatesMap && Object.keys(accessDatesMap).length > 0) {
+      // Если есть даты доступа - строим условия для каждого канала
+      const conditions = sourceIds.map(sourceId => {
+        const sourceIdSql = `'${sourceId.replace(/'/g, "''")}'`;
+        const access = accessDatesMap[sourceId];
+
+        if (!access) {
+          // Нет дат доступа для этого канала - берём все данные
+          return `source_id_tracker = ${sourceIdSql}`;
+        }
+
+        const parts = [`source_id_tracker = ${sourceIdSql}`];
+
+        if (access.accessGranted) {
+          parts.push(`adv_date >= '${access.accessGranted}'`);
+        }
+        if (access.accessLimited) {
+          parts.push(`adv_date <= '${access.accessLimited}'`);
+        }
+
+        return `(${parts.join(' AND ')})`;
+      }).filter(Boolean);
+
+      if (conditions.length === 0) {
+        console.log('⚠️ Нет условий для проверки расхода');
+        return { hasSpend: false, totalCost: 0 };
+      }
+
+      sql = `
+        SELECT SUM(cost) AS total_cost
+        FROM ads_collection
+        WHERE offer_id_tracker = ${offerIdSql}
+          AND cost > 0
+          AND (${conditions.join(' OR ')})
+      `;
+      console.log('📊 Проверка расхода С учётом дат доступа');
+    } else {
+      // Нет дат доступа - проверяем за всё время (обратная совместимость)
+      const sourceIdsSql = sourceIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+      sql = `
+        SELECT SUM(cost) AS total_cost
+        FROM ads_collection
+        WHERE source_id_tracker IN (${sourceIdsSql})
+          AND offer_id_tracker = ${offerIdSql}
+          AND cost > 0
+      `;
+      console.log('📊 Проверка расхода за ВСЁ время (без дат доступа)');
+    }
 
     const rows = await getDataBySql(sql);
 
     const totalCost = Number(rows[0]?.total_cost || 0);
     const hasSpend = totalCost > 0;
 
-    console.log(`✅ Расход байера за все время: $${totalCost.toFixed(2)}, hasSpend: ${hasSpend}`);
+    console.log(`✅ Расход байера: $${totalCost.toFixed(2)}, hasSpend: ${hasSpend}`);
 
     return { hasSpend, totalCost };
 

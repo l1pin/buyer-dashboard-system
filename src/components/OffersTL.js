@@ -114,8 +114,13 @@ function OffersTL({ user }) {
   const listRef = useRef(null);
   const [listHeight, setListHeight] = useState(600);
 
+  // Версия кэша - увеличивать при изменении структуры данных!
+  // v2: добавлены архивированные байеры в allBuyers
+  const CACHE_VERSION = 2;
+
   // Ключи для кэша в sessionStorage
   const CACHE_KEYS = {
+    version: 'offersTL_version',
     metrics: 'offersTL_metrics',
     buyers: 'offersTL_buyers',
     statuses: 'offersTL_statuses',
@@ -125,9 +130,37 @@ function OffersTL({ user }) {
     timestamp: 'offersTL_cacheTimestamp'
   };
 
+  // Очистка кэша
+  const clearCache = () => {
+    Object.values(CACHE_KEYS).forEach(key => {
+      sessionStorage.removeItem(key);
+    });
+  };
+
+  // Проверка валидности кэша байеров
+  const isBuyersCacheValid = (buyers) => {
+    if (!buyers || !Array.isArray(buyers) || buyers.length === 0) {
+      return false;
+    }
+    // Проверяем что в кэше есть архивированные байеры (новый формат)
+    // Если их нет - кэш устаревший
+    const hasArchivedBuyers = buyers.some(b => b.archived === true);
+    // Также проверяем что у байеров есть buyer_settings
+    const hasBuyerSettings = buyers.some(b => b.buyer_settings);
+    return hasArchivedBuyers || hasBuyerSettings;
+  };
+
   // Загрузка из кэша
   const loadFromCache = () => {
     try {
+      // Проверяем версию кэша
+      const cachedVersion = sessionStorage.getItem(CACHE_KEYS.version);
+      if (cachedVersion !== String(CACHE_VERSION)) {
+        console.log(`🔄 Кэш устарел (версия ${cachedVersion} → ${CACHE_VERSION}), очищаем...`);
+        clearCache();
+        return null;
+      }
+
       const cached = {
         metrics: sessionStorage.getItem(CACHE_KEYS.metrics),
         buyers: sessionStorage.getItem(CACHE_KEYS.buyers),
@@ -144,9 +177,18 @@ function OffersTL({ user }) {
         const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
         if (cacheAge < CACHE_TTL) {
+          const buyers = JSON.parse(cached.buyers || '[]');
+
+          // Дополнительная проверка валидности байеров
+          if (!isBuyersCacheValid(buyers)) {
+            console.log('🔄 Кэш байеров невалидный (нет архивированных), очищаем...');
+            clearCache();
+            return null;
+          }
+
           return {
             metrics: JSON.parse(cached.metrics),
-            buyers: JSON.parse(cached.buyers || '[]'),
+            buyers: buyers,
             statuses: JSON.parse(cached.statuses || '{}'),
             assignments: JSON.parse(cached.assignments || '{}'),
             mappings: JSON.parse(cached.mappings || '{}'),
@@ -156,6 +198,7 @@ function OffersTL({ user }) {
       }
       return null;
     } catch (e) {
+      clearCache();
       return null;
     }
   };
@@ -163,6 +206,7 @@ function OffersTL({ user }) {
   // Сохранение в кэш
   const saveToCache = (data) => {
     try {
+      sessionStorage.setItem(CACHE_KEYS.version, String(CACHE_VERSION));
       sessionStorage.setItem(CACHE_KEYS.metrics, JSON.stringify(data.metrics));
       sessionStorage.setItem(CACHE_KEYS.buyers, JSON.stringify(data.buyers));
       sessionStorage.setItem(CACHE_KEYS.statuses, JSON.stringify(data.statuses));
@@ -403,9 +447,11 @@ function OffersTL({ user }) {
       setError('');
 
       // Запускаем ВСЕ запросы параллельно
+      // ВАЖНО: загружаем ВСЕХ байеров включая архивированных, чтобы иметь доступ к их buyer_settings
+      // для корректного отображения метрик (archived байеры могут быть привязаны к офферам)
       const [metricsResult, buyersResult, statusesResult, assignmentsResult, mappingsResult, seasonsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetrics().catch(e => ({ metrics: [], error: e })),
-        userService.getUsersByRole('buyer').catch(e => []),
+        userService.getUsersByRole('buyer', true).catch(e => []),  // includeArchived = true
         offerStatusService.getAllStatuses().catch(e => []),
         offerBuyersService.getAllAssignments().catch(e => []),
         articleOfferMappingService.getAllMappings().catch(e => ({})),
