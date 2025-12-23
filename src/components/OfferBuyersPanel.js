@@ -13,6 +13,105 @@ import { MiniSpinner, LoadingDots, SkeletonMetrics, Skeleton } from './LoadingSp
 
 // Порог для виртуализации - виртуализируем только если байеров больше этого числа
 const VIRTUALIZATION_THRESHOLD = 5;
+
+// Модальное окно выбора причины удаления - изолированный компонент для предотвращения потери фокуса
+const RemovalReasonModal = React.memo(function RemovalReasonModal({
+  buyerName,
+  onConfirm,
+  onCancel
+}) {
+  const [reason, setReason] = useState('');
+  const [details, setDetails] = useState('');
+  const textareaRef = useRef(null);
+
+  const handleConfirm = useCallback(() => {
+    const finalReason = reason === 'other' ? 'Другое' : reason;
+    onConfirm(finalReason, details);
+  }, [reason, details, onConfirm]);
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Укажите причину удаления
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Байер: {buyerName}
+            </p>
+          </div>
+
+          <div className="px-6 py-4 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
+                value="Передумал"
+                checked={reason === 'Передумал'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">Передумал</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
+                value="Мисклик"
+                checked={reason === 'Мисклик'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">Мисклик</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
+                value="other"
+                checked={reason === 'other'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">Другое</span>
+            </label>
+
+            {reason === 'other' && (
+              <textarea
+                ref={textareaRef}
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                placeholder="Укажите причину..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                autoFocus
+              />
+            )}
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={!reason || (reason === 'other' && !details.trim())}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+});
 // Ширина одной карточки байера (w-32 = 128px + gap 10px)
 const BUYER_CARD_WIDTH = 138;
 
@@ -1314,21 +1413,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   }, [isWithinEarlyRemovalPeriod, user, offer.id, initialAssignments, onAssignmentsChange]);
 
   // Обработчик подтверждения удаления с причиной (после 3 минут)
-  const handleConfirmRemoval = useCallback(async () => {
+  const handleConfirmRemoval = useCallback(async (reason, reasonDetails) => {
     if (!showRemovalReasonModal) return;
-    if (!removalReason) {
-      alert('Выберите причину удаления');
-      return;
-    }
-    if (removalReason === 'other' && !removalReasonDetails.trim()) {
-      alert('Укажите причину удаления');
-      return;
-    }
 
     const { assignmentId, assignment } = showRemovalReasonModal;
     const removedBy = user?.name || user?.email || 'Неизвестно';
-    const reason = removalReason === 'other' ? 'Другое' : removalReason;
-    const reasonDetails = removalReason === 'other' ? removalReasonDetails.trim() : null;
 
     setRemovingBuyerId(assignmentId);
     setShowRemovalReasonModal(null);
@@ -1395,7 +1484,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       setRemovalReason('');
       setRemovalReasonDetails('');
     }
-  }, [showRemovalReasonModal, removalReason, removalReasonDetails, user, offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
+  }, [showRemovalReasonModal, user, offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
@@ -1997,86 +2086,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
       {/* Модальное окно выбора причины удаления */}
       {showRemovalReasonModal && (
-        <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Укажите причину удаления
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Байер: {showRemovalReasonModal.assignment?.buyer?.name}
-                </p>
-              </div>
-
-              <div className="px-6 py-4 space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="removalReason"
-                    value="Передумал"
-                    checked={removalReason === 'Передумал'}
-                    onChange={(e) => setRemovalReason(e.target.value)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-gray-700">Передумал</span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="removalReason"
-                    value="Мисклик"
-                    checked={removalReason === 'Мисклик'}
-                    onChange={(e) => setRemovalReason(e.target.value)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-gray-700">Мисклик</span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="removalReason"
-                    value="other"
-                    checked={removalReason === 'other'}
-                    onChange={(e) => setRemovalReason(e.target.value)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-gray-700">Другое</span>
-                </label>
-
-                <textarea
-                  value={removalReasonDetails}
-                  onChange={(e) => setRemovalReasonDetails(e.target.value)}
-                  placeholder="Укажите причину..."
-                  className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${removalReason !== 'other' ? 'hidden' : ''}`}
-                  rows={3}
-                />
-              </div>
-
-              <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setShowRemovalReasonModal(null);
-                    setRemovalReason('');
-                    setRemovalReasonDetails('');
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleConfirmRemoval}
-                  disabled={!removalReason || (removalReason === 'other' && !removalReasonDetails.trim())}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        </Portal>
+        <RemovalReasonModal
+          buyerName={showRemovalReasonModal.assignment?.buyer?.name}
+          onConfirm={handleConfirmRemoval}
+          onCancel={() => {
+            setShowRemovalReasonModal(null);
+            setRemovalReason('');
+            setRemovalReasonDetails('');
+          }}
+        />
       )}
     </>
   );

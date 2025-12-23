@@ -1,5 +1,5 @@
 // src/components/Portal.js
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 /**
@@ -8,14 +8,20 @@ import { createPortal } from 'react-dom';
  */
 function Portal({ children }) {
   const mount = document.body;
-  const el = document.createElement('div');
+  // Используем useRef чтобы div создавался только ОДИН раз, а не при каждом рендере
+  const elRef = useRef(null);
+
+  if (!elRef.current) {
+    elRef.current = document.createElement('div');
+  }
 
   useEffect(() => {
+    const el = elRef.current;
     mount.appendChild(el);
     return () => mount.removeChild(el);
-  }, [el, mount]);
+  }, [mount]);
 
-  return createPortal(children, el);
+  return createPortal(children, elRef.current);
 }
 
 export default Portal;
