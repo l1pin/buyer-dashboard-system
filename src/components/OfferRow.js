@@ -306,7 +306,9 @@ const OfferRow = memo(({
           {metric.red_zone_price != null ? (
             <>
               <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${redZoneColors.bg} ${redZoneColors.text} ${redZoneColors.border}`}>
-                ${Number(metric.red_zone_price).toFixed(2)}
+                {metric.zone_roi_type === 'UAH'
+                  ? `${Number(metric.red_zone_price).toFixed(2)}₴`
+                  : `$${Number(metric.red_zone_price).toFixed(2)}`}
               </span>
               <InfoIcon onClick={handleZoneClick} />
             </>

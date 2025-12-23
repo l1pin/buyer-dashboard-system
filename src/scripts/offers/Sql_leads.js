@@ -1122,3 +1122,95 @@ export async function fetchBuyerMetricsAllTime(articleOfferMap = {}, onProgress 
 
   return grouped;
 }
+
+/**
+ * Загружает данные зон эффективности (effectivity_zone) из таблицы last_result_conversions
+ * @param {Object} articleOfferMap - Маппинг article -> offer_id_tracker
+ * @returns {Promise<Map>} - Map: article -> { roi_type, red_zone, pink_zone, gold_zone, green_zone }
+ */
+export async function fetchEffectivityZoneData(articleOfferMap = {}) {
+  try {
+    const offerIds = Object.values(articleOfferMap).filter(id => id);
+
+    if (offerIds.length === 0) {
+      console.warn('⚠️ fetchEffectivityZoneData: Нет offer_id для загрузки');
+      return new Map();
+    }
+
+    console.log(`🎯 Загрузка effectivity_zone для ${offerIds.length} офферов...`);
+
+    // SQL запрос для получения effectivity_zone из last_result_conversions
+    const offerIdsList = offerIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+
+    const sql = `
+      SELECT offer_id, effectivity_zone
+      FROM last_result_conversions
+      WHERE offer_id IN (${offerIdsList})
+    `;
+
+    const rawData = await getDataBySql(sql);
+    console.log(`✅ Получено ${rawData.length} записей с effectivity_zone`);
+
+    // Создаем обратный маппинг: offer_id -> article
+    const offerIdArticleMap = {};
+    Object.entries(articleOfferMap).forEach(([article, offerId]) => {
+      if (offerId) {
+        offerIdArticleMap[offerId] = article;
+      }
+    });
+
+    // Парсим и группируем данные
+    const zoneDataMap = new Map();
+
+    rawData.forEach(row => {
+      const offerId = row.offer_id;
+      const article = offerIdArticleMap[offerId];
+
+      if (!article) return;
+
+      // Парсим JSON из effectivity_zone
+      let zoneData = null;
+      try {
+        if (row.effectivity_zone) {
+          zoneData = typeof row.effectivity_zone === 'string'
+            ? JSON.parse(row.effectivity_zone)
+            : row.effectivity_zone;
+        }
+      } catch (parseError) {
+        console.warn(`⚠️ Ошибка парсинга effectivity_zone для ${article}:`, parseError.message);
+        return;
+      }
+
+      if (!zoneData) return;
+
+      // Извлекаем пороговые значения зон
+      // Структура: { roi_type: "%" or "UAH", zones: { red: value, pink: value, gold: value, green: value } }
+      // Или другая структура - нужно адаптировать
+      const parsed = {
+        roi_type: zoneData.roi_type || zoneData.type || '%',
+        red_zone_price: parseFloat(zoneData.red_zone) || parseFloat(zoneData.red) || parseFloat(zoneData.zones?.red) || null,
+        pink_zone_price: parseFloat(zoneData.pink_zone) || parseFloat(zoneData.pink) || parseFloat(zoneData.zones?.pink) || null,
+        gold_zone_price: parseFloat(zoneData.gold_zone) || parseFloat(zoneData.gold) || parseFloat(zoneData.zones?.gold) || null,
+        green_zone_price: parseFloat(zoneData.green_zone) || parseFloat(zoneData.green) || parseFloat(zoneData.zones?.green) || null,
+        // Сохраняем сырые данные для отладки
+        raw: zoneData
+      };
+
+      zoneDataMap.set(article, parsed);
+    });
+
+    console.log(`✅ Распарсено ${zoneDataMap.size} записей effectivity_zone`);
+
+    // Логируем примеры для отладки
+    if (zoneDataMap.size > 0) {
+      const [firstArticle, firstData] = zoneDataMap.entries().next().value;
+      console.log(`📋 Пример effectivity_zone для ${firstArticle}:`, firstData);
+    }
+
+    return zoneDataMap;
+
+  } catch (error) {
+    console.error('❌ Ошибка загрузки effectivity_zone:', error);
+    return new Map();
+  }
+}

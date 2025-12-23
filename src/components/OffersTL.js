@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
-import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer, fetchBuyerMetricsAllTime, clearMetricsCache } from '../scripts/offers/Sql_leads';
+import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBuyer, fetchBuyerMetricsAllTime, clearMetricsCache, fetchEffectivityZoneData } from '../scripts/offers/Sql_leads';
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
@@ -730,7 +730,7 @@ function OffersTL({ user }) {
       setLoadingStocks(true);
       setLoadingBuyerStatuses(true);
 
-      const [stocksResult, buyerStatusesResult] = await Promise.all([
+      const [stocksResult, buyerStatusesResult, zoneDataResult] = await Promise.all([
         // Обновление остатков
         (async () => {
           try {
@@ -760,6 +760,18 @@ function OffersTL({ user }) {
           } finally {
             setLoadingBuyerStatuses(false);
           }
+        })(),
+
+        // Загрузка зон эффективности из API
+        (async () => {
+          try {
+            const zoneData = await fetchEffectivityZoneData(currentArticleOfferMap);
+            console.log(`✅ Загружены зоны эффективности: ${zoneData.size} артикулов`);
+            return zoneData;
+          } catch (error) {
+            console.warn('⚠️ Ошибка загрузки зон эффективности:', error.message);
+            return new Map();
+          }
         })()
       ]);
 
@@ -787,10 +799,21 @@ function OffersTL({ user }) {
           const leadsMetric = leadsResult.metrics.find(m => m.id === metric.id);
           const daysMetric = daysResult.metrics.find(m => m.id === metric.id);
 
+          // Получаем данные зон из API (если есть)
+          const zoneData = metric.article ? zoneDataResult.get(metric.article) : null;
+
           return {
             ...metric,
             ...(leadsMetric || {}),
-            ...(daysMetric || {})
+            ...(daysMetric || {}),
+            // Если есть данные зон из API - используем их, иначе оставляем существующие
+            ...(zoneData ? {
+              red_zone_price: zoneData.red_zone_price ?? metric.red_zone_price,
+              pink_zone_price: zoneData.pink_zone_price ?? metric.pink_zone_price,
+              gold_zone_price: zoneData.gold_zone_price ?? metric.gold_zone_price,
+              green_zone_price: zoneData.green_zone_price ?? metric.green_zone_price,
+              zone_roi_type: zoneData.roi_type
+            } : {})
           };
         });
 
@@ -830,6 +853,12 @@ function OffersTL({ user }) {
 
       const buyerMetricsPromise = fetchBuyerMetricsAllTime(articleOfferMap, onBuyerMetricsProgress);
 
+      // Параллельно загружаем зоны эффективности из API
+      const zoneDataPromise = fetchEffectivityZoneData(articleOfferMap).catch(error => {
+        console.warn('⚠️ Ошибка загрузки зон эффективности:', error.message);
+        return new Map();
+      });
+
       // ШАГ 1: Обновляем остатки
       setLoadingStocks(true);
       const stocksResult = await updateStocksFromYmlScript(metrics);
@@ -853,15 +882,30 @@ function OffersTL({ user }) {
 
       setLoadingLeadsData(false);
 
+      // Получаем результат загрузки зон
+      const zoneDataResult = await zoneDataPromise;
+      console.log(`✅ Загружены зоны эффективности: ${zoneDataResult.size} артикулов`);
+
       // Объединяем результаты
       updatedMetrics = updatedMetrics.map(metric => {
         const leadsMetric = leadsResult.metrics.find(m => m.id === metric.id);
         const daysMetric = daysResult.metrics.find(m => m.id === metric.id);
 
+        // Получаем данные зон из API (если есть)
+        const zoneData = metric.article ? zoneDataResult.get(metric.article) : null;
+
         return {
           ...metric,
           ...(leadsMetric || {}),
-          ...(daysMetric || {})
+          ...(daysMetric || {}),
+          // Если есть данные зон из API - используем их, иначе оставляем существующие
+          ...(zoneData ? {
+            red_zone_price: zoneData.red_zone_price ?? metric.red_zone_price,
+            pink_zone_price: zoneData.pink_zone_price ?? metric.pink_zone_price,
+            gold_zone_price: zoneData.gold_zone_price ?? metric.gold_zone_price,
+            green_zone_price: zoneData.green_zone_price ?? metric.green_zone_price,
+            zone_roi_type: zoneData.roi_type
+          } : {})
         };
       });
 
@@ -1112,14 +1156,25 @@ function OffersTL({ user }) {
         return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
       case 'zone':
         const m = data.metric;
+        const roiType = m.zone_roi_type || '%';
+        const formatZoneValue = (value) => {
+          if (value == null) return '—';
+          const num = Number(value);
+          return roiType === 'UAH' ? `${num.toFixed(2)} ₴` : `$${num.toFixed(2)}`;
+        };
         return <div className="flex flex-col gap-2">
+          {m.zone_roi_type && (
+            <div className="text-xs text-gray-500 mb-1">
+              Тип ROI: <span className="font-medium">{roiType === 'UAH' ? 'Гривна' : 'Процент'}</span>
+            </div>
+          )}
           {['red', 'pink', 'gold', 'green'].map(z => {
             const price = m[`${z}_zone_price`];
             if (price == null) return null;
             const c = getZoneColorsLocal(z);
             return <div key={z} className="flex items-center gap-2">
               <span className="text-xs text-gray-600 w-20 capitalize">{z === 'red' ? 'Красная' : z === 'pink' ? 'Розовая' : z === 'gold' ? 'Золотая' : 'Зеленая'}:</span>
-              <span className={`font-mono px-2 py-1 rounded-full text-xs border ${c.bg} ${c.text} ${c.border}`}>${Number(price).toFixed(2)}</span>
+              <span className={`font-mono px-2 py-1 rounded-full text-xs border ${c.bg} ${c.text} ${c.border}`}>{formatZoneValue(price)}</span>
             </div>;
           })}
         </div>;
