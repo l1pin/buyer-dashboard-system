@@ -252,39 +252,29 @@ const BuyerCard = React.memo(function BuyerCard({
     if (lastActiveDateStr) return true;
 
     // Проверяем statusData.date - дата из трекера (НО она не фильтруется по периодам доступа!)
-    // Поэтому нужно проверить что дата попадает в период доступа байера
+    // Поэтому нужно проверить что дата попадает ХОТЯ БЫ В ОДИН период доступа байера
     if (statusData?.date && accessDatesMap) {
       const lastDate = new Date(statusData.date);
       lastDate.setHours(0, 0, 0, 0);
 
-      // Находим границы доступа: минимальный access_granted и максимальный access_limited
-      let earliestAccessGranted = null;
-      let latestAccessLimited = null;
+      // Проверяем что дата попадает ХОТЯ БЫ В ОДИН из периодов доступа каналов
+      // (а не в общий диапазон, потому что каналы могут иметь разные периоды)
+      const isDateInAnyAccessPeriod = Object.values(accessDatesMap).some(access => {
+        // Если access_granted = null — нет нижней границы (доступ с начала времён)
+        // Если access_limited = null — нет верхней границы (доступ до сих пор)
+        const accessStart = access.accessGranted ? new Date(access.accessGranted) : null;
+        const accessEnd = access.accessLimited ? new Date(access.accessLimited) : null;
 
-      Object.values(accessDatesMap).forEach(access => {
-        // Нижняя граница (access_granted)
-        if (access.accessGranted) {
-          const accessStart = new Date(access.accessGranted);
-          accessStart.setHours(0, 0, 0, 0);
-          if (!earliestAccessGranted || accessStart < earliestAccessGranted) {
-            earliestAccessGranted = accessStart;
-          }
-        }
-        // Верхняя граница (access_limited)
-        if (access.accessLimited) {
-          const accessEnd = new Date(access.accessLimited);
-          accessEnd.setHours(23, 59, 59, 999);
-          if (!latestAccessLimited || accessEnd > latestAccessLimited) {
-            latestAccessLimited = accessEnd;
-          }
-        }
+        if (accessStart) accessStart.setHours(0, 0, 0, 0);
+        if (accessEnd) accessEnd.setHours(23, 59, 59, 999);
+
+        const isAfterStart = !accessStart || lastDate >= accessStart;
+        const isBeforeEnd = !accessEnd || lastDate <= accessEnd;
+
+        return isAfterStart && isBeforeEnd;
       });
 
-      // Дата должна быть МЕЖДУ access_granted и access_limited
-      const isAfterStart = !earliestAccessGranted || lastDate >= earliestAccessGranted;
-      const isBeforeEnd = !latestAccessLimited || lastDate <= latestAccessLimited;
-
-      if (isAfterStart && isBeforeEnd) {
+      if (isDateInAnyAccessPeriod) {
         return true;
       }
     }
