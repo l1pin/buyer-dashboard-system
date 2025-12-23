@@ -533,10 +533,13 @@ export const userService = {
       // Обновляем профиль в таблице users
       console.log('👤 Обновление профиля пользователя...');
 
+      // Исключаем поля, которых нет в таблице users
+      const { department, ...safeProfileUpdates } = profileUpdates;
+
       const { data: updatedProfile, error: profileError } = await supabase
         .from('users')
         .update({
-          ...profileUpdates,
+          ...safeProfileUpdates,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
