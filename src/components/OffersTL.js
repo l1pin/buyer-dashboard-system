@@ -434,6 +434,10 @@ function OffersTL({ user }) {
       !loading &&
       !hasAutoUpdatedRef.current
     ) {
+      // 🔴 КРИТИЧНО: Обновляем ref СИНХРОННО перед вызовом autoUpdateMetrics!
+      // Это решает race condition - другой useEffect может ещё не обновить ref,
+      // а autoUpdateMetrics читает allBuyers из ref
+      realtimeDataRef.current = { metrics, articleOfferMap, allAssignments, allBuyers };
       hasAutoUpdatedRef.current = true;
       autoUpdateMetrics();
     }
