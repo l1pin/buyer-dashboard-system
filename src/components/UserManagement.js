@@ -118,7 +118,7 @@ const ROLE_ICONS = {
 };
 
 // Кастомный селектор роли пользователя (динамический из БД)
-const RoleSelector = ({ value, onChange, roles, className }) => {
+const RoleSelector = ({ value, onChange, roles, className, disabled = false }) => {
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Преобразуем роли из БД в формат для отображения
@@ -142,21 +142,22 @@ const RoleSelector = ({ value, onChange, roles, className }) => {
     <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={className}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`${className} ${disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <RoleIconComponent role={selectedRole} className={`w-5 h-5 ${selectedRole.color}`} />
-            <span>{selectedRole.label}</span>
+            <RoleIconComponent role={selectedRole} className={`w-5 h-5 ${disabled ? 'text-gray-400' : selectedRole.color}`} />
+            <span className={disabled ? 'text-gray-500' : ''}>{selectedRole.label}</span>
           </div>
-          <svg className="w-5 h-5 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-5 h-5 ml-2 ${disabled ? 'text-gray-300' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
           <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
@@ -3680,10 +3681,11 @@ function UserManagement({ user }) {
                     clearMessages();
                   }}
                   roles={roles}
+                  disabled={true}
                   className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  {roles.find(r => r.code === editUserData.role)?.description || 'Выберите роль'}
+                  Роль нельзя изменить после создания пользователя
                 </p>
               </div>
 
