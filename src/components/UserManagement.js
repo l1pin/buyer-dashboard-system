@@ -1500,14 +1500,6 @@ function UserManagement({ user }) {
       return false;
     }
 
-    // Для всех ролей кроме Team Lead обязателен выбор Team Lead
-    if (userData.role !== 'teamlead' && !userData.team_lead_id) {
-      errors.team_lead_id = true;
-      setError('Необходимо выбрать Team Lead');
-      setFieldErrors(errors);
-      return false;
-    }
-
     // Проверка каналов трафика для Media Buyer
     if (userData.role === 'buyer' && userData.buyer_settings?.traffic_channels?.length > 0) {
       const channels = userData.buyer_settings.traffic_channels;
@@ -3149,8 +3141,8 @@ function UserManagement({ user }) {
               {/* Выбор Team Lead (только для не-тимлидов) */}
               {newUser.role !== 'teamlead' && (
                 <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.team_lead_id ? 'text-red-600' : 'text-gray-700'}`}>
-                    Team Lead *
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Team Lead
                   </label>
                   <TeamLeadSelector
                     value={newUser.team_lead_id}
@@ -3692,8 +3684,8 @@ function UserManagement({ user }) {
               {/* Выбор Team Lead (только для не-тимлидов) */}
               {editUserData.role !== 'teamlead' && (
                 <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.team_lead_id ? 'text-red-600' : 'text-gray-700'}`}>
-                    Team Lead *
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Team Lead
                   </label>
                   <TeamLeadSelector
                     value={editUserData.team_lead_id}
