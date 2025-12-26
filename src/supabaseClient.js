@@ -987,10 +987,7 @@ export const userService = {
         .insert({
           code: code,
           name: roleData.name,
-          display_name: roleData.display_name || roleData.name,
           description: roleData.description || null,
-          icon: roleData.icon || 'User',
-          color: roleData.color || 'gray',
           is_system: false // Новые роли всегда не системные
         })
         .select()
