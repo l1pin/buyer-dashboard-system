@@ -39,12 +39,27 @@ const SECTIONS = [
 // Группы действий
 const ACTION_GROUPS = [
   {
-    name: 'Пользователи',
+    name: 'Просмотр пользователей',
     actions: [
-      { code: 'users.view', name: 'Просмотр', icon: Eye },
+      { code: 'users.view.own_department', name: 'Свой отдел', icon: Eye, description: 'Видеть пользователей своего отдела' },
+      { code: 'users.view.all', name: 'Все отделы', icon: Eye, description: 'Видеть всех пользователей' },
+    ]
+  },
+  {
+    name: 'Редактирование пользователей',
+    actions: [
+      { code: 'users.edit.subordinates', name: 'Только подчинённые', icon: Edit3, description: 'Редактировать только тех, где вы - тимлид' },
+      { code: 'users.edit.own_department', name: 'Свой отдел', icon: Edit3, description: 'Редактировать пользователей своего отдела' },
+      { code: 'users.edit.all', name: 'Все пользователи', icon: Edit3, description: 'Редактировать любых пользователей' },
+    ]
+  },
+  {
+    name: 'Управление пользователями',
+    actions: [
       { code: 'users.create', name: 'Создание', icon: Edit3 },
-      { code: 'users.edit', name: 'Редактирование', icon: Edit3 },
       { code: 'users.delete', name: 'Архивирование', icon: Edit3 },
+      { code: 'users.manage_roles', name: 'Управление ролями', icon: Edit3 },
+      { code: 'users.manage_departments', name: 'Управление отделами', icon: Edit3 },
     ]
   },
   {
