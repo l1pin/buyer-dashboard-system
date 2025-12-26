@@ -1385,7 +1385,8 @@ const RolesPanel = ({ user }) => {
                   </div>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
