@@ -23,18 +23,24 @@ function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Обновляем сессию только при реальных изменениях
-      setSession(session);
+      // Игнорируем события которые не требуют обновления UI
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        return;
+      }
 
-      if (session) {
-        // Загружаем профиль только если это новый пользователь или вход
-        if (event === 'SIGNED_IN' || currentUserIdRef.current !== session.user.id) {
-          currentUserIdRef.current = session.user.id;
-          fetchUserProfile(session.user.id);
-        }
-      } else {
+      // Для SIGNED_OUT - очищаем состояние
+      if (event === 'SIGNED_OUT' || !session) {
         currentUserIdRef.current = null;
+        setSession(null);
         setUser(null);
+        return;
+      }
+
+      // Для SIGNED_IN или INITIAL_SESSION - загружаем профиль только если это новый пользователь
+      if (currentUserIdRef.current !== session.user.id) {
+        currentUserIdRef.current = session.user.id;
+        setSession(session);
+        fetchUserProfile(session.user.id);
       }
     });
 

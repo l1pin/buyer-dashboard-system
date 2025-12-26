@@ -49,6 +49,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     storageKey: 'supabase.auth.token',
     storage: window.localStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: false, // Не проверять URL при каждом фокусе
   },
   realtime: {
     params: {
