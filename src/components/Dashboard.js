@@ -24,7 +24,7 @@ function Dashboard({ user, session, updateUser }) {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const { canAccessSection, loading: permissionsLoading } = usePermissions(user);
+  const { canAccessSection, hasPermission, loading: permissionsLoading } = usePermissions(user);
 
   // Маппинг URL путей к внутренним секциям
   const urlToSection = {
@@ -197,15 +197,16 @@ function Dashboard({ user, session, updateUser }) {
         return hasAccess('users') ? <UserManagement user={user} /> : null;
       case 'creatives':
         if (!hasAccess('creatives')) return null;
-        // Для creatives определяем компонент по роли
-        if (user?.role === 'editor') {
+        // Определяем компонент по правам, а не по роли
+        // Если есть право создавать/редактировать — показываем полную панель
+        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
           return <CreativePanel user={user} />;
-        } else if (user?.role === 'search_manager') {
-          return <CreativeSearch user={user} />;
-        } else if (user?.role === 'buyer') {
-          return <CreativeBuyer user={user} />;
         }
-        // Fallback — если есть доступ, но роль не определена
+        // Для search_manager — специальный компонент поиска
+        if (user?.role === 'search_manager') {
+          return <CreativeSearch user={user} />;
+        }
+        // Для остальных (только просмотр) — показываем CreativeBuyer
         return <CreativeBuyer user={user} />;
       case 'landings':
         return hasAccess('landings') ? <LandingPanel user={user} /> : null;
@@ -226,18 +227,18 @@ function Dashboard({ user, session, updateUser }) {
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
-        // Определяем дефолтную секцию по роли
-        if (user?.role === 'editor') {
+        // Определяем дефолтную секцию по правам
+        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
-        } else if (user?.role === 'buyer') {
+        } else if (hasPermission('creatives.view')) {
           return <CreativeBuyer user={user} />;
-        } else if (user?.role === 'content_manager') {
+        } else if (hasPermission('landings.edit') || hasPermission('landings.create')) {
           return <LandingPanel user={user} />;
         } else if (user?.role === 'proofreader') {
           return <LandingEditor user={user} />;
-        } else if (user?.role === 'teamlead') {
+        } else if (user?.role === 'teamlead' || user?.is_protected) {
           return <LandingTeamLead user={user} />;
         } else {
           return <Settings user={user} updateUser={updateUser} />;
