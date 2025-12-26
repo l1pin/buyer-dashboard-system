@@ -36,7 +36,8 @@ export const useUserManagement = (currentUser) => {
     canCreateUsers,
     canDeleteUsers,
     canManageRoles,
-    canManageDepartments
+    canManageDepartments,
+    loading: permissionsLoading
   } = usePermissions(currentUser);
 
   // Загрузка данных
@@ -246,6 +247,7 @@ export const useUserManagement = (currentUser) => {
   return {
     // Состояние
     loading,
+    permissionsLoading,
     error,
     departments,
     roles,

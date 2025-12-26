@@ -9,20 +9,31 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  // Ref для отслеживания текущего userId чтобы не перезагружать профиль лишний раз
+  const currentUserIdRef = React.useRef(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
+        currentUserIdRef.current = session.user.id;
         fetchUserProfile(session.user.id);
       }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Обновляем сессию только при реальных изменениях
       setSession(session);
+
       if (session) {
-        fetchUserProfile(session.user.id);
+        // Загружаем профиль только если это новый пользователь или вход
+        if (event === 'SIGNED_IN' || currentUserIdRef.current !== session.user.id) {
+          currentUserIdRef.current = session.user.id;
+          fetchUserProfile(session.user.id);
+        }
       } else {
+        currentUserIdRef.current = null;
         setUser(null);
       }
     });

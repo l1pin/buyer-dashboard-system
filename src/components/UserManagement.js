@@ -1176,7 +1176,8 @@ function UserManagement({ user }) {
     canManageDepartments,
     canCreateUsers,
     getVisibleUsers,
-    hasPermission
+    hasPermission,
+    permissionsLoading
   } = useUserManagement(user);
 
   const [newUser, setNewUser] = useState({
@@ -1212,14 +1213,24 @@ function UserManagement({ user }) {
     }
   });
 
+  // Загружаем роли и тим лидов один раз при монтировании
   useEffect(() => {
-    // Показываем loading только при первой загрузке, не при переключении вкладок
+    loadTeamLeads();
+    loadRoles();
+  }, []);
+
+  // Загружаем пользователей когда права загружены
+  useEffect(() => {
+    // Ждём пока права загрузятся
+    if (permissionsLoading) {
+      return;
+    }
+
+    // Показываем loading только при первой загрузке
     const showLoading = isFirstLoadRef.current;
     loadUsers(showLoading);
-    loadTeamLeads(); // Загружаем Team Leads при инициализации
-    loadRoles(); // Загружаем роли из БД
     isFirstLoadRef.current = false;
-  }, [showArchived]); // Перезагружаем при переключении архива
+  }, [showArchived, permissionsLoading]); // Перезагружаем при переключении архива или загрузке прав
 
   const loadTeamLeads = async () => {
     try {
