@@ -332,39 +332,65 @@ DROP FUNCTION IF EXISTS add_role_permission(TEXT, TEXT);
 -- ============================================
 
 -- Создаём отделы из существующих уникальных значений
-INSERT INTO departments (name)
-SELECT DISTINCT department
-FROM users
-WHERE department IS NOT NULL
-  AND department != ''
-  AND department NOT IN (SELECT name FROM departments)
-ON CONFLICT (name) DO NOTHING;
+-- (только если колонка department существует)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'users' AND column_name = 'department'
+  ) THEN
+    INSERT INTO departments (name)
+    SELECT DISTINCT department
+    FROM users
+    WHERE department IS NOT NULL
+      AND department != ''
+      AND department NOT IN (SELECT name FROM departments)
+    ON CONFLICT (name) DO NOTHING;
 
--- Заполняем department_id на основе текстового поля department
-UPDATE users u
-SET department_id = d.id
-FROM departments d
-WHERE u.department = d.name
-  AND u.department_id IS NULL;
+    -- Заполняем department_id на основе текстового поля department
+    UPDATE users u
+    SET department_id = d.id
+    FROM departments d
+    WHERE u.department = d.name
+      AND u.department_id IS NULL;
+  END IF;
+END $$;
 
 -- Заполняем role_id на основе текстового поля role
-UPDATE users u
-SET role_id = r.id
-FROM roles r
-WHERE u.role = r.code
-  AND u.role_id IS NULL;
+-- (только если колонка role существует)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'users' AND column_name = 'role'
+  ) THEN
+    UPDATE users u
+    SET role_id = r.id
+    FROM roles r
+    WHERE u.role = r.code
+      AND u.role_id IS NULL;
 
--- Устанавливаем access_level
--- Первый пользователь (is_protected + teamlead) становится admin
--- Остальные teamlead становятся teamlead
--- Все остальные — member
-UPDATE users
-SET access_level = CASE
-  WHEN role = 'teamlead' AND is_protected = true THEN 'admin'
-  WHEN role = 'teamlead' THEN 'teamlead'
-  ELSE 'member'
-END
-WHERE access_level IS NULL OR access_level = 'member';
+    -- Устанавливаем access_level
+    -- Первый пользователь (is_protected + teamlead) становится admin
+    -- Остальные teamlead становятся teamlead
+    -- Все остальные — member
+    UPDATE users
+    SET access_level = CASE
+      WHEN role = 'teamlead' AND is_protected = true THEN 'admin'
+      WHEN role = 'teamlead' THEN 'teamlead'
+      ELSE 'member'
+    END
+    WHERE access_level IS NULL OR access_level = 'member';
+  ELSE
+    -- Если нет колонки role, устанавливаем access_level на основе is_protected
+    UPDATE users
+    SET access_level = CASE
+      WHEN is_protected = true THEN 'admin'
+      ELSE 'member'
+    END
+    WHERE access_level IS NULL OR access_level = 'member';
+  END IF;
+END $$;
 
 
 -- ============================================
