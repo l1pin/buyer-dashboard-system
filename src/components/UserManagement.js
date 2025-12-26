@@ -553,15 +553,20 @@ const DepartmentsPanel = ({ user }) => {
       const data = await userService.getAllDepartments();
       setDepartments(data || []);
 
+      // Загружаем количество пользователей параллельно
+      const countsResults = await Promise.all(
+        (data || []).map(async (dept) => {
+          try {
+            const users = await userService.getUsersByDepartment(dept.id);
+            return { id: dept.id, count: users?.length || 0 };
+          } catch (e) {
+            return { id: dept.id, count: 0 };
+          }
+        })
+      );
+
       const counts = {};
-      for (const dept of (data || [])) {
-        try {
-          const users = await userService.getUsersByDepartment(dept.id);
-          counts[dept.id] = users?.length || 0;
-        } catch (e) {
-          counts[dept.id] = 0;
-        }
-      }
+      countsResults.forEach(r => { counts[r.id] = r.count; });
       setUserCounts(counts);
     } catch (err) {
       console.error('Error loading departments:', err);
@@ -812,6 +817,147 @@ const DepartmentsPanel = ({ user }) => {
 };
 
 // ============================================
+// ДОСТУПНЫЕ ИКОНКИ И ЦВЕТА ДЛЯ РОЛЕЙ
+// ============================================
+const AVAILABLE_ICONS = [
+  { name: 'User', icon: User },
+  { name: 'Shield', icon: Shield },
+  { name: 'Video', icon: Video },
+  { name: 'Palette', icon: Palette },
+  { name: 'Search', icon: Search },
+  { name: 'Code2', icon: Code2 },
+  { name: 'Package', icon: Package },
+  { name: 'Pencil', icon: Pencil },
+  { name: 'Image', icon: Image },
+  { name: 'Crown', icon: Crown },
+  { name: 'Building2', icon: Building2 },
+  { name: 'Calendar', icon: Calendar },
+  { name: 'DollarSign', icon: DollarSign },
+  { name: 'Euro', icon: Euro },
+];
+
+const AVAILABLE_COLORS = [
+  { name: 'gray', bg: 'bg-gray-100', text: 'text-gray-600', label: 'Серый' },
+  { name: 'blue', bg: 'bg-blue-100', text: 'text-blue-600', label: 'Синий' },
+  { name: 'green', bg: 'bg-green-100', text: 'text-green-600', label: 'Зелёный' },
+  { name: 'purple', bg: 'bg-purple-100', text: 'text-purple-600', label: 'Фиолетовый' },
+  { name: 'pink', bg: 'bg-pink-100', text: 'text-pink-600', label: 'Розовый' },
+  { name: 'orange', bg: 'bg-orange-100', text: 'text-orange-600', label: 'Оранжевый' },
+  { name: 'indigo', bg: 'bg-indigo-100', text: 'text-indigo-600', label: 'Индиго' },
+  { name: 'amber', bg: 'bg-amber-100', text: 'text-amber-600', label: 'Янтарный' },
+  { name: 'teal', bg: 'bg-teal-100', text: 'text-teal-600', label: 'Бирюзовый' },
+  { name: 'cyan', bg: 'bg-cyan-100', text: 'text-cyan-600', label: 'Голубой' },
+  { name: 'red', bg: 'bg-red-100', text: 'text-red-600', label: 'Красный' },
+];
+
+const getColorClasses = (colorName) => {
+  return AVAILABLE_COLORS.find(c => c.name === colorName) || AVAILABLE_COLORS[0];
+};
+
+const getIconComponent = (iconName) => {
+  const found = AVAILABLE_ICONS.find(i => i.name === iconName);
+  return found ? found.icon : User;
+};
+
+// Селектор иконки
+const IconSelector = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const SelectedIcon = getIconComponent(value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg flex items-center justify-between hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <div className="flex items-center gap-2">
+          <SelectedIcon className="h-5 w-5 text-gray-600" />
+          <span className="text-sm">{value || 'Выберите иконку'}</span>
+        </div>
+        <ChevronDown className="h-4 w-4 text-gray-400" />
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+            <div className="grid grid-cols-4 gap-1 p-2">
+              {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    onChange(name);
+                    setIsOpen(false);
+                  }}
+                  className={`p-2 rounded-lg flex items-center justify-center hover:bg-gray-100 ${
+                    value === name ? 'bg-blue-100 ring-2 ring-blue-500' : ''
+                  }`}
+                  title={name}
+                >
+                  <Icon className="h-5 w-5 text-gray-700" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Селектор цвета
+const ColorSelector = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const currentColor = getColorClasses(value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg flex items-center justify-between hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <div className="flex items-center gap-2">
+          <div className={`w-5 h-5 rounded ${currentColor.bg}`}></div>
+          <span className="text-sm">{currentColor.label}</span>
+        </div>
+        <ChevronDown className="h-4 w-4 text-gray-400" />
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+            <div className="grid grid-cols-4 gap-1 p-2">
+              {AVAILABLE_COLORS.map((color) => (
+                <button
+                  key={color.name}
+                  type="button"
+                  onClick={() => {
+                    onChange(color.name);
+                    setIsOpen(false);
+                  }}
+                  className={`p-2 rounded-lg flex items-center justify-center hover:bg-gray-50 ${
+                    value === color.name ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                  title={color.label}
+                >
+                  <div className={`w-6 h-6 rounded-full ${color.bg} ${color.text} flex items-center justify-center`}>
+                    {value === color.name && <Check className="h-3 w-3" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ============================================
 // ПАНЕЛЬ РОЛЕЙ
 // ============================================
 const RolesPanel = ({ user }) => {
@@ -821,12 +967,12 @@ const RolesPanel = ({ user }) => {
   const [success, setSuccess] = useState('');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newRole, setNewRole] = useState({ name: '', description: '' });
+  const [newRole, setNewRole] = useState({ name: '', description: '', icon: 'User', color: 'gray' });
   const [creating, setCreating] = useState(false);
 
   const [expandedRoleId, setExpandedRoleId] = useState(null);
   const [editingRoleId, setEditingRoleId] = useState(null);
-  const [editData, setEditData] = useState({ display_name: '', description: '' });
+  const [editData, setEditData] = useState({ display_name: '', description: '', icon: 'User', color: 'gray' });
   const [updating, setUpdating] = useState(false);
 
   const [deletingId, setDeletingId] = useState(null);
@@ -841,21 +987,31 @@ const RolesPanel = ({ user }) => {
       const data = await userService.getAllRoles();
       setRoles(data || []);
 
+      // Загружаем всё параллельно
+      const [countsResults, permsResults] = await Promise.all([
+        // Загрузка количества пользователей
+        Promise.all((data || []).map(async (role) => {
+          const count = await userService.getUserCountByRole(role.code);
+          return { id: role.id, count };
+        })),
+        // Загрузка прав
+        Promise.all((data || []).map(async (role) => {
+          try {
+            const rolePerms = await userService.getRolePermissions(role.id);
+            return { id: role.id, perms: rolePerms.map(p => p.code) };
+          } catch (e) {
+            return { id: role.id, perms: [] };
+          }
+        }))
+      ]);
+
+      // Преобразуем в объекты
       const counts = {};
-      for (const role of (data || [])) {
-        counts[role.id] = await userService.getUserCountByRole(role.code);
-      }
+      countsResults.forEach(r => { counts[r.id] = r.count; });
       setUserCounts(counts);
 
       const perms = {};
-      for (const role of (data || [])) {
-        try {
-          const rolePerms = await userService.getRolePermissions(role.id);
-          perms[role.id] = rolePerms.map(p => p.code);
-        } catch (e) {
-          perms[role.id] = [];
-        }
-      }
+      permsResults.forEach(r => { perms[r.id] = r.perms; });
       setRolePermissions(perms);
     } catch (err) {
       console.error('Error loading roles:', err);
@@ -881,9 +1037,11 @@ const RolesPanel = ({ user }) => {
       await userService.createRole({
         name: newRole.name.trim(),
         display_name: newRole.name.trim(),
-        description: newRole.description.trim() || null
+        description: newRole.description.trim() || null,
+        icon: newRole.icon,
+        color: newRole.color
       });
-      setNewRole({ name: '', description: '' });
+      setNewRole({ name: '', description: '', icon: 'User', color: 'gray' });
       setShowCreateForm(false);
       setSuccess('Роль создана');
       await loadRoles();
@@ -907,10 +1065,12 @@ const RolesPanel = ({ user }) => {
       setError('');
       await userService.updateRole(roleId, {
         display_name: editData.display_name.trim(),
-        description: editData.description.trim() || null
+        description: editData.description.trim() || null,
+        icon: editData.icon,
+        color: editData.color
       });
       setEditingRoleId(null);
-      setEditData({ display_name: '', description: '' });
+      setEditData({ display_name: '', description: '', icon: 'User', color: 'gray' });
       setSuccess('Роль обновлена');
       await loadRoles();
       setTimeout(() => setSuccess(''), 3000);
@@ -1011,6 +1171,22 @@ const RolesPanel = ({ user }) => {
                 placeholder="Описание (опционально)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Иконка</label>
+                  <IconSelector
+                    value={newRole.icon}
+                    onChange={(icon) => setNewRole({ ...newRole, icon })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Цвет</label>
+                  <ColorSelector
+                    value={newRole.color}
+                    onChange={(color) => setNewRole({ ...newRole, color })}
+                  />
+                </div>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleCreate}
@@ -1027,7 +1203,7 @@ const RolesPanel = ({ user }) => {
                 <button
                   onClick={() => {
                     setShowCreateForm(false);
-                    setNewRole({ name: '', description: '' });
+                    setNewRole({ name: '', description: '', icon: 'User', color: 'gray' });
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
@@ -1045,68 +1221,82 @@ const RolesPanel = ({ user }) => {
               <p>Роли не найдены</p>
             </div>
           ) : (
-            roles.map((role) => (
-              <div
-                key={role.id}
-                className="bg-white border border-gray-200 rounded-xl overflow-hidden"
-              >
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${role.is_system ? 'bg-amber-100' : 'bg-green-100'}`}>
-                      {role.is_system ? (
-                        <Lock className="h-5 w-5 text-amber-600" />
-                      ) : (
-                        <Shield className="h-5 w-5 text-green-600" />
-                      )}
-                    </div>
-                    <div>
-                      {editingRoleId === role.id ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editData.display_name}
-                            onChange={(e) => setEditData({ ...editData, display_name: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            autoFocus
-                          />
-                          <input
-                            type="text"
-                            value={editData.description}
-                            onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                            placeholder="Описание"
-                            className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleUpdate(role.id)}
-                              disabled={updating}
-                              className="p-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                            >
-                              <Check className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingRoleId(null);
-                                setEditData({ display_name: '', description: '' });
-                              }}
-                              className="p-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+            roles.map((role) => {
+              const colorClasses = getColorClasses(role.color);
+              const IconComponent = getIconComponent(role.icon);
+
+              return (
+                <div
+                  key={role.id}
+                  className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+                >
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${colorClasses.bg}`}>
+                        {role.is_system ? (
+                          <Lock className={`h-5 w-5 ${colorClasses.text}`} />
+                        ) : (
+                          <IconComponent className={`h-5 w-5 ${colorClasses.text}`} />
+                        )}
+                      </div>
+                      <div>
+                        {editingRoleId === role.id ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editData.display_name}
+                              onChange={(e) => setEditData({ ...editData, display_name: e.target.value })}
+                              className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              autoFocus
+                            />
+                            <input
+                              type="text"
+                              value={editData.description}
+                              onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                              placeholder="Описание"
+                              className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <IconSelector
+                                value={editData.icon}
+                                onChange={(icon) => setEditData({ ...editData, icon })}
+                              />
+                              <ColorSelector
+                                value={editData.color}
+                                onChange={(color) => setEditData({ ...editData, color })}
+                              />
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleUpdate(role.id)}
+                                disabled={updating}
+                                className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingRoleId(null);
+                                  setEditData({ display_name: '', description: '', icon: 'User', color: 'gray' });
+                                }}
+                                className="p-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="font-medium text-gray-900 flex items-center gap-2">
-                            {role.display_name || role.name}
-                            {role.is_system && (
-                              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                                системная
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {role.description || `Код: ${role.code}`}
+                        ) : (
+                          <>
+                            <div className="font-medium text-gray-900 flex items-center gap-2">
+                              {role.display_name || role.name}
+                              {role.is_system && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                  системная
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {role.description || `Код: ${role.code}`}
                           </div>
                           <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                             <Users className="h-3 w-3" />
@@ -1124,7 +1314,9 @@ const RolesPanel = ({ user }) => {
                             setEditingRoleId(role.id);
                             setEditData({
                               display_name: role.display_name || role.name,
-                              description: role.description || ''
+                              description: role.description || '',
+                              icon: role.icon || 'User',
+                              color: role.color || 'gray'
                             });
                           }}
                           className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
