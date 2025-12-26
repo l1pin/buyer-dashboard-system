@@ -1169,10 +1169,14 @@ function UserManagement({ user }) {
   const {
     departments,
     canEditUser,
+    canArchiveUser,
     canChangeDepartment,
     isFullAdmin,
     canManageRoles,
-    canManageDepartments
+    canManageDepartments,
+    canCreateUsers,
+    getVisibleUsers,
+    hasPermission
   } = useUserManagement(user);
 
   const [newUser, setNewUser] = useState({
@@ -1240,11 +1244,23 @@ function UserManagement({ user }) {
       if (showLoadingState) {
         setLoading(true);
       }
-      const usersData = showArchived
-        ? await userService.getArchivedUsers()
-        : await userService.getAllUsers();
-      // Показываем всех пользователей, включая тимлидов
-      setUsers(usersData);
+
+      let usersData;
+      if (showArchived) {
+        // Для архива — пока загружаем всех архивных (можно потом добавить фильтрацию)
+        usersData = await userService.getArchivedUsers();
+      } else {
+        // Используем getVisibleUsers для фильтрации по правам
+        // Если есть право users.view.all — видит всех
+        // Если users.view.own_department — только свой отдел
+        if (hasPermission('users.view.all') || isFullAdmin) {
+          usersData = await userService.getAllUsers();
+        } else {
+          usersData = await getVisibleUsers(false);
+        }
+      }
+
+      setUsers(usersData || []);
     } catch (error) {
       setError('Ошибка загрузки пользователей: ' + error.message);
     } finally {
@@ -2230,7 +2246,7 @@ function UserManagement({ user }) {
               </p>
             </div>
             <div className="flex space-x-3">
-              {activeTab === 'users' && !showArchived && (
+              {activeTab === 'users' && !showArchived && canCreateUsers && (
                 <button
                   onClick={() => {
                     setShowCreateModal(true);
@@ -2724,22 +2740,26 @@ function UserManagement({ user }) {
                               </button>
                             ) : (
                               <>
-                                <button
-                                  onClick={() => handleEditUser(currentUser)}
-                                  disabled={currentUser.is_protected}
-                                  className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                  title="Редактировать"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
-                                  disabled={deleting === currentUser.id || currentUser.is_protected}
-                                  className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                                  title="В архив"
-                                >
-                                  <Archive className="h-4 w-4" />
-                                </button>
+                                {canEditUser(currentUser) && (
+                                  <button
+                                    onClick={() => handleEditUser(currentUser)}
+                                    disabled={currentUser.is_protected}
+                                    className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                    title="Редактировать"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {canArchiveUser(currentUser) && (
+                                  <button
+                                    onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
+                                    disabled={deleting === currentUser.id || currentUser.is_protected}
+                                    className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                                    title="В архив"
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -2890,8 +2910,12 @@ function UserManagement({ user }) {
                                         </button>
                                       ) : (
                                         <>
-                                          <button onClick={() => handleEditUser(teamLead)} disabled={teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
-                                          <button onClick={() => handleDeleteUser(teamLead.id, teamLead.name, teamLead.role, teamLead.is_protected)} disabled={deleting === teamLead.id || teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                          {canEditUser(teamLead) && (
+                                            <button onClick={() => handleEditUser(teamLead)} disabled={teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
+                                          )}
+                                          {canArchiveUser(teamLead) && (
+                                            <button onClick={() => handleDeleteUser(teamLead.id, teamLead.name, teamLead.role, teamLead.is_protected)} disabled={deleting === teamLead.id || teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                          )}
                                         </>
                                       )}
                                     </div>
@@ -2934,8 +2958,12 @@ function UserManagement({ user }) {
                                           </button>
                                         ) : (
                                           <>
-                                            <button onClick={() => handleEditUser(sub)} disabled={sub.is_protected} className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
-                                            <button onClick={() => handleDeleteUser(sub.id, sub.name, sub.role, sub.is_protected)} disabled={deleting === sub.id || sub.is_protected} className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                            {canEditUser(sub) && (
+                                              <button onClick={() => handleEditUser(sub)} disabled={sub.is_protected} className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
+                                            )}
+                                            {canArchiveUser(sub) && (
+                                              <button onClick={() => handleDeleteUser(sub.id, sub.name, sub.role, sub.is_protected)} disabled={deleting === sub.id || sub.is_protected} className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                            )}
                                           </>
                                         )}
                                       </div>
@@ -2977,8 +3005,12 @@ function UserManagement({ user }) {
                                   </button>
                                 ) : (
                                   <>
-                                    <button onClick={() => handleEditUser(u)} disabled={u.is_protected} className={`p-1.5 rounded-lg transition-colors ${u.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
-                                    <button onClick={() => handleDeleteUser(u.id, u.name, u.role, u.is_protected)} disabled={deleting === u.id || u.is_protected} className={`p-1.5 rounded-lg transition-colors ${u.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                    {canEditUser(u) && (
+                                      <button onClick={() => handleEditUser(u)} disabled={u.is_protected} className={`p-1.5 rounded-lg transition-colors ${u.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
+                                    )}
+                                    {canArchiveUser(u) && (
+                                      <button onClick={() => handleDeleteUser(u.id, u.name, u.role, u.is_protected)} disabled={deleting === u.id || u.is_protected} className={`p-1.5 rounded-lg transition-colors ${u.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                    )}
                                   </>
                                 )}
                               </div>
