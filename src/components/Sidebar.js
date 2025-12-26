@@ -16,7 +16,8 @@ import {
   Pencil,
   Globe,
   Image,
-  Crown
+  Crown,
+  Cog
 } from 'lucide-react';
 import usePermissions from '../hooks/usePermissions';
 
@@ -121,12 +122,18 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       show: canShowSection('landing-editor', user?.role === 'proofreader')
     },
     {
+      id: 'admin-settings',
+      label: 'Управление',
+      icon: Cog,
+      show: user?.access_level === 'admin' // Только для админа
+    },
+    {
       id: 'settings',
       label: 'Настройки',
       icon: Settings,
       show: true // Настройки доступны всем
     }
-  ], [user?.role, canAccessSection, permissionsLoading]);
+  ], [user?.role, user?.access_level, canAccessSection, permissionsLoading]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
