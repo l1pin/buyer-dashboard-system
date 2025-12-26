@@ -5,15 +5,22 @@
  * - Новую систему (role_id + permissions)
  * - Fallback на старую систему (role текстом)
  *
+ * Права на пользователей:
+ * - users.view.own_department - видеть пользователей своего отдела
+ * - users.view.all - видеть всех пользователей
+ * - users.edit.subordinates - редактировать только подчинённых (team_lead_id)
+ * - users.edit.own_department - редактировать пользователей своего отдела
+ * - users.edit.all - редактировать любых пользователей
+ * - users.create - создавать пользователей
+ * - users.delete - архивировать пользователей
+ * - users.manage_roles - управлять ролями
+ * - users.manage_departments - управлять отделами
+ *
  * @example
  * const { hasPermission, hasAnyPermission, loading } = usePermissions(user);
  *
  * if (hasPermission('section.creatives')) {
  *   // показываем вкладку
- * }
- *
- * if (hasAnyPermission(['section.analytics', 'section.metrics_analytics'])) {
- *   // показываем хотя бы одну из вкладок
  * }
  */
 
@@ -30,9 +37,10 @@ const LEGACY_ROLE_PERMISSIONS = {
     'section.metrics_analytics',
     'section.users',
     'section.settings',
-    'users.view',
+    // Новые granular права
+    'users.view.all',
+    'users.edit.all',
     'users.create',
-    'users.edit',
     'users.delete',
     'users.manage_roles',
     'users.manage_departments',
@@ -91,13 +99,48 @@ const LEGACY_ROLE_PERMISSIONS = {
   ]
 };
 
-// Права по уровню доступа
-const ACCESS_LEVEL_PERMISSIONS = {
-  admin: ['users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles', 'users.manage_departments'],
-  head: ['users.view', 'users.create', 'users.edit', 'users.delete'],
-  teamlead: ['users.view'],
-  member: []
-};
+// Все права для "полного админа" (используется для is_protected пользователей)
+const ALL_ADMIN_PERMISSIONS = [
+  // Секции
+  'section.offers_tl',
+  'section.offers_buyer',
+  'section.landing_teamlead',
+  'section.landings',
+  'section.landing_editor',
+  'section.landing_analytics',
+  'section.analytics',
+  'section.metrics_analytics',
+  'section.users',
+  'section.creatives',
+  'section.settings',
+  // Пользователи
+  'users.view.own_department',
+  'users.view.all',
+  'users.edit.subordinates',
+  'users.edit.own_department',
+  'users.edit.all',
+  'users.create',
+  'users.delete',
+  'users.manage_roles',
+  'users.manage_departments',
+  // Офферы
+  'offers.view',
+  'offers.create',
+  'offers.edit',
+  'offers.assign',
+  // Лендинги
+  'landings.view',
+  'landings.create',
+  'landings.edit',
+  'landings.delete',
+  // Креативы
+  'creatives.view',
+  'creatives.create',
+  'creatives.edit',
+  // Аналитика
+  'analytics.view',
+  'analytics.export'
+];
 
 export const usePermissions = (user) => {
   const [permissions, setPermissions] = useState([]);
@@ -119,8 +162,9 @@ export const usePermissions = (user) => {
 
         let userPermissions = [];
 
-        // 1. Проверяем access_level = 'admin' — все права
-        if (user.access_level === 'admin') {
+        // 1. Проверяем is_protected - это "суперадмин", все права
+        if (user.is_protected) {
+          // Загружаем все права из БД
           const { data: allPermissions } = await supabase
             .from('permissions')
             .select('code');
@@ -128,8 +172,8 @@ export const usePermissions = (user) => {
           if (allPermissions) {
             userPermissions = allPermissions.map(p => p.code);
           } else {
-            // Fallback: если таблица permissions ещё не существует
-            userPermissions = Object.values(LEGACY_ROLE_PERMISSIONS).flat();
+            // Fallback если таблица не существует
+            userPermissions = ALL_ADMIN_PERMISSIONS;
           }
 
           setPermissions([...new Set(userPermissions)]);
@@ -156,15 +200,7 @@ export const usePermissions = (user) => {
           userPermissions = LEGACY_ROLE_PERMISSIONS[user.role] || [];
         }
 
-        // 4. Добавляем права по access_level
-        if (user.access_level && ACCESS_LEVEL_PERMISSIONS[user.access_level]) {
-          userPermissions = [
-            ...userPermissions,
-            ...ACCESS_LEVEL_PERMISSIONS[user.access_level]
-          ];
-        }
-
-        // 5. Добавляем индивидуальные права
+        // 4. Добавляем индивидуальные права (custom_permissions)
         if (user.custom_permissions?.length > 0) {
           userPermissions = [...userPermissions, ...user.custom_permissions];
         }
@@ -188,7 +224,7 @@ export const usePermissions = (user) => {
     };
 
     loadPermissions();
-  }, [user?.id, user?.role_id, user?.role, user?.access_level, user?.custom_permissions]);
+  }, [user?.id, user?.role_id, user?.role, user?.is_protected, user?.custom_permissions]);
 
   // Проверка конкретного права
   const hasPermission = useCallback((permissionCode) => {
@@ -241,6 +277,21 @@ export const usePermissions = (user) => {
   // Мемоизированный объект для оптимизации
   const permissionsSet = useMemo(() => new Set(permissions), [permissions]);
 
+  // Проверка прав на просмотр пользователей
+  const canViewUsers = useMemo(() => {
+    return hasAnyPermission(['users.view.own_department', 'users.view.all']);
+  }, [hasAnyPermission]);
+
+  // Проверка прав на редактирование пользователей
+  const canEditUsers = useMemo(() => {
+    return hasAnyPermission(['users.edit.subordinates', 'users.edit.own_department', 'users.edit.all']);
+  }, [hasAnyPermission]);
+
+  // Проверка на "полного админа" (есть все права на пользователей)
+  const isFullAdmin = useMemo(() => {
+    return user?.is_protected || hasPermission('users.edit.all');
+  }, [user?.is_protected, hasPermission]);
+
   return {
     permissions,
     permissionsSet,
@@ -252,12 +303,16 @@ export const usePermissions = (user) => {
     getPermissionsByCategory,
     canAccessSection,
 
-    // Удобные шорткаты
-    canManageUsers: hasPermission('users.edit') || hasPermission('users.create'),
-    canViewUsers: hasPermission('users.view'),
+    // Удобные шорткаты для пользователей
+    canViewUsers,
+    canEditUsers,
+    canCreateUsers: hasPermission('users.create'),
+    canDeleteUsers: hasPermission('users.delete'),
     canManageRoles: hasPermission('users.manage_roles'),
     canManageDepartments: hasPermission('users.manage_departments'),
-    isAdmin: user?.access_level === 'admin'
+
+    // Полный админ
+    isFullAdmin
   };
 };
 

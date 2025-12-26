@@ -296,83 +296,6 @@ const TeamLeadSelector = ({ value, onChange, teamLeads, className }) => {
   );
 };
 
-// Кастомный селектор уровня доступа
-const AccessLevelSelector = ({ value, onChange, availableLevels, disabled, className }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  const allLevels = [
-    { value: 'member', label: 'Member', icon: User, color: 'text-gray-600', description: 'Обычный пользователь' },
-    { value: 'teamlead', label: 'Team Lead', icon: Shield, color: 'text-green-600', description: 'Руководитель команды' },
-    { value: 'head', label: 'Head of Department', icon: Building2, color: 'text-blue-600', description: 'Руководитель отдела' },
-    { value: 'admin', label: 'Главный админ', icon: Crown, color: 'text-yellow-600', description: 'Полный доступ ко всему' }
-  ];
-
-  // Фильтруем по доступным уровням
-  const levels = allLevels.filter(l => availableLevels.includes(l.value));
-  const selectedLevel = allLevels.find(l => l.value === value) || allLevels[0];
-
-  if (disabled || levels.length === 0) {
-    return (
-      <div className={className}>
-        <div className="flex items-center space-x-2 opacity-60">
-          <selectedLevel.icon className={`w-5 h-5 ${selectedLevel.color}`} />
-          <span>{selectedLevel.label}</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={className}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <selectedLevel.icon className={`w-5 h-5 ${selectedLevel.color}`} />
-            <span>{selectedLevel.label}</span>
-          </div>
-          <ChevronDown className="w-5 h-5 ml-2 text-gray-400" />
-        </div>
-      </button>
-
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
-            {levels.map((level) => {
-              const Icon = level.icon;
-              return (
-                <button
-                  key={level.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(level.value);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 ${
-                    value === level.value ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon className={`w-5 h-5 ${level.color}`} />
-                    <div>
-                      <div className="text-sm font-medium">{level.label}</div>
-                      <div className="text-xs text-gray-500">{level.description}</div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
 // Кастомный селектор отдела
 const DepartmentSelector = ({ value, onChange, departments, disabled, className }) => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -1245,9 +1168,10 @@ function UserManagement({ user }) {
   const {
     departments,
     canEditUser,
-    canChangeAccessLevel,
     canChangeDepartment,
-    getAvailableAccessLevels
+    isFullAdmin,
+    canManageRoles,
+    canManageDepartments
   } = useUserManagement(user);
 
   const [newUser, setNewUser] = useState({
@@ -1256,7 +1180,6 @@ function UserManagement({ user }) {
     password: '',
     role: 'buyer',
     department: '', // Отдел (обязательно для Team Lead) - legacy
-    access_level: 'member', // Уровень доступа
     department_id: null, // ID отдела
     custom_permissions: [], // Дополнительные права
     team_lead_id: null,
@@ -1274,7 +1197,6 @@ function UserManagement({ user }) {
     password: '',
     role: 'buyer',
     department: '', // Отдел (обязательно для Team Lead) - legacy
-    access_level: 'member', // Уровень доступа
     department_id: null, // ID отдела
     custom_permissions: [], // Дополнительные права
     is_protected: false,
@@ -1545,7 +1467,6 @@ function UserManagement({ user }) {
         password: newUser.password,
         role: newUser.role,
         department: userDepartment,
-        access_level: newUser.access_level || 'member',
         department_id: newUser.department_id || null,
         custom_permissions: newUser.custom_permissions || [],
         team_lead_id: newUser.team_lead_id || null,
@@ -1585,7 +1506,6 @@ function UserManagement({ user }) {
         password: '',
         role: 'buyer',
         department: '',
-        access_level: 'member',
         department_id: null,
         custom_permissions: [],
         team_lead_id: null,
@@ -1721,7 +1641,6 @@ function UserManagement({ user }) {
       password: '', // Пароль всегда пустой для безопасности
       role: userToEdit.role || 'buyer',
       department: userToEdit.department || '', // legacy
-      access_level: userToEdit.access_level || 'member',
       department_id: userToEdit.department_id || null,
       custom_permissions: userToEdit.custom_permissions || [],
       is_protected: userToEdit.is_protected || false,
@@ -1767,7 +1686,6 @@ function UserManagement({ user }) {
         password: editUserData.password || undefined, // Только если пароль указан
         role: editUserData.role,
         department: userDepartment,
-        access_level: editUserData.access_level || 'member',
         department_id: editUserData.department_id || null,
         custom_permissions: editUserData.custom_permissions || [],
         is_protected: editUserData.is_protected,
@@ -1807,7 +1725,6 @@ function UserManagement({ user }) {
         password: '',
         role: 'buyer',
         department: '',
-        access_level: 'member',
         department_id: null,
         custom_permissions: [],
         is_protected: false,
@@ -2706,7 +2623,6 @@ function UserManagement({ user }) {
                     password: '',
                     role: 'buyer',
                     department: '',
-                    access_level: 'member',
                     department_id: null,
                     custom_permissions: [],
                     team_lead_id: null,
@@ -2911,30 +2827,8 @@ function UserManagement({ user }) {
                 </div>
               )}
 
-              {/* Уровень доступа (только для админа) */}
-              {user?.access_level === 'admin' && (
-                <div>
-                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
-                    Уровень доступа
-                  </label>
-                  <AccessLevelSelector
-                    value={newUser.access_level}
-                    onChange={(newLevel) => {
-                      setNewUser({ ...newUser, access_level: newLevel });
-                      clearMessages();
-                    }}
-                    availableLevels={['member', 'teamlead', 'head']}
-                    disabled={false}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Определяет полномочия в системе: admin &gt; head &gt; teamlead &gt; member
-                  </p>
-                </div>
-              )}
-
-              {/* Отдел (только для админа) */}
-              {user?.access_level === 'admin' && departments.length > 0 && (
+              {/* Отдел (для пользователей с полными правами) */}
+              {isFullAdmin && departments.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium mb-1.5 text-gray-700">
                     Отдел
@@ -2955,8 +2849,8 @@ function UserManagement({ user }) {
                 </div>
               )}
 
-              {/* Права доступа (только для админа) */}
-              {user?.access_level === 'admin' && (
+              {/* Права доступа (для пользователей с полными правами) */}
+              {isFullAdmin && (
                 <div className="pt-4 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">
                     Дополнительные права доступа
@@ -3502,30 +3396,8 @@ function UserManagement({ user }) {
                 </div>
               )}
 
-              {/* Уровень доступа */}
-              {user?.access_level === 'admin' && (
-                <div>
-                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
-                    Уровень доступа
-                  </label>
-                  <AccessLevelSelector
-                    value={editUserData.access_level}
-                    onChange={(newLevel) => {
-                      setEditUserData({ ...editUserData, access_level: newLevel });
-                      clearMessages();
-                    }}
-                    availableLevels={getAvailableAccessLevels(editingUser) || ['member', 'teamlead']}
-                    disabled={!canChangeAccessLevel(editingUser, editUserData.access_level)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Определяет полномочия в системе: admin &gt; head &gt; teamlead &gt; member
-                  </p>
-                </div>
-              )}
-
               {/* Отдел */}
-              {user?.access_level === 'admin' && departments.length > 0 && (
+              {isFullAdmin && departments.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium mb-1.5 text-gray-700">
                     Отдел
@@ -3547,7 +3419,7 @@ function UserManagement({ user }) {
               )}
 
               {/* Права доступа (Permissions Matrix) */}
-              {user?.access_level === 'admin' && (
+              {isFullAdmin && (
                 <div className="pt-4 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">
                     Дополнительные права доступа

@@ -1,41 +1,43 @@
 /**
  * useUserManagement - Хук для логики управления пользователями
  *
- * Определяет:
- * - Кого текущий пользователь может видеть
- * - Кого может редактировать
- * - Может ли создавать новых
- * - Может ли менять уровень доступа
+ * Использует granular permissions вместо access_level:
+ * - users.view.own_department - видеть пользователей своего отдела
+ * - users.view.all - видеть всех пользователей
+ * - users.edit.subordinates - редактировать только подчинённых (team_lead_id)
+ * - users.edit.own_department - редактировать пользователей своего отдела
+ * - users.edit.all - редактировать любых пользователей
+ * - users.create - создавать пользователей
+ * - users.delete - архивировать пользователей
  *
- * Иерархия:
- * - admin: всё
- * - head: свой отдел
- * - teamlead: видит отдел, редактирует только своих подчинённых
- * - member: ничего (только свой профиль)
+ * Приоритет прав редактирования:
+ * 1. users.edit.all - может редактировать всех
+ * 2. users.edit.own_department - может редактировать в своём отделе
+ * 3. users.edit.subordinates - может редактировать только своих подчинённых
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
-
-// Иерархия уровней доступа (для сравнения)
-const ACCESS_LEVEL_HIERARCHY = {
-  admin: 4,
-  head: 3,
-  teamlead: 2,
-  member: 1
-};
+import { usePermissions } from './usePermissions';
 
 export const useUserManagement = (currentUser) => {
-  const [visibleUsers, setVisibleUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Получить уровень в иерархии
-  const getAccessLevelRank = useCallback((level) => {
-    return ACCESS_LEVEL_HIERARCHY[level] || 0;
-  }, []);
+  // Получаем права текущего пользователя
+  const {
+    hasPermission,
+    hasAnyPermission,
+    isFullAdmin,
+    canViewUsers,
+    canEditUsers,
+    canCreateUsers,
+    canDeleteUsers,
+    canManageRoles,
+    canManageDepartments
+  } = usePermissions(currentUser);
 
   // Загрузка данных
   useEffect(() => {
@@ -55,7 +57,6 @@ export const useUserManagement = (currentUser) => {
           supabase.from('roles').select('*').order('sort_order')
         ]);
 
-        // Если таблицы ещё не существуют — fallback
         if (!depsResult.error) {
           setDepartments(depsResult.data || []);
         }
@@ -79,71 +80,43 @@ export const useUserManagement = (currentUser) => {
   const canViewUsersTab = useMemo(() => {
     if (!currentUser) return false;
 
-    const accessLevel = currentUser.access_level || 'member';
-
-    // Fallback на старую систему
-    if (!currentUser.access_level && currentUser.role === 'teamlead') {
-      return true;
-    }
-
-    return ['admin', 'head', 'teamlead'].includes(accessLevel);
-  }, [currentUser]);
-
-  // Может ли создавать пользователей
-  const canCreateUsers = useMemo(() => {
-    if (!currentUser) return false;
-
-    const accessLevel = currentUser.access_level || 'member';
-
-    // Fallback на старую систему
-    if (!currentUser.access_level && currentUser.role === 'teamlead') {
-      return true;
-    }
-
-    return ['admin', 'head'].includes(accessLevel);
-  }, [currentUser]);
+    // Если есть любое право на просмотр пользователей
+    return canViewUsers || hasPermission('section.users');
+  }, [currentUser, canViewUsers, hasPermission]);
 
   // Может ли редактировать конкретного пользователя
   const canEditUser = useCallback((targetUser) => {
     if (!currentUser || !targetUser) return false;
 
     // Нельзя редактировать самого себя через этот интерфейс
-    // (для этого есть Settings)
     if (currentUser.id === targetUser.id) return false;
 
-    // Нельзя редактировать защищённых пользователей (кроме admin)
-    if (targetUser.is_protected && currentUser.access_level !== 'admin') {
+    // Нельзя редактировать защищённых пользователей (кроме других protected)
+    if (targetUser.is_protected && !currentUser.is_protected) {
       return false;
     }
 
-    const accessLevel = currentUser.access_level || 'member';
-
-    // Fallback на старую систему
-    if (!currentUser.access_level && currentUser.role === 'teamlead') {
-      return true; // старые teamlead могли редактировать всех
+    // 1. Полный доступ - может редактировать всех
+    if (hasPermission('users.edit.all')) {
+      return true;
     }
 
-    switch (accessLevel) {
-      case 'admin':
-        // Admin может редактировать всех
-        return true;
+    // 2. Доступ к своему отделу
+    if (hasPermission('users.edit.own_department')) {
+      const sameDepart = currentUser.department_id && targetUser.department_id
+        ? currentUser.department_id === targetUser.department_id
+        : currentUser.department === targetUser.department;
 
-      case 'head':
-        // Head может редактировать только в своём отделе
-        // Сравниваем по department_id или fallback на department (текст)
-        if (currentUser.department_id && targetUser.department_id) {
-          return currentUser.department_id === targetUser.department_id;
-        }
-        return currentUser.department === targetUser.department;
-
-      case 'teamlead':
-        // Team Lead может редактировать только своих подчинённых
-        return targetUser.team_lead_id === currentUser.id;
-
-      default:
-        return false;
+      if (sameDepart) return true;
     }
-  }, [currentUser]);
+
+    // 3. Доступ только к подчинённым
+    if (hasPermission('users.edit.subordinates')) {
+      return targetUser.team_lead_id === currentUser.id;
+    }
+
+    return false;
+  }, [currentUser, hasPermission]);
 
   // Может ли архивировать пользователя
   const canArchiveUser = useCallback((targetUser) => {
@@ -155,113 +128,53 @@ export const useUserManagement = (currentUser) => {
     // Нельзя архивировать защищённых
     if (targetUser.is_protected) return false;
 
+    // Должно быть право на удаление
+    if (!hasPermission('users.delete')) return false;
+
     // Те же правила, что и для редактирования
     return canEditUser(targetUser);
-  }, [currentUser, canEditUser]);
-
-  // Может ли менять уровень доступа пользователя
-  const canChangeAccessLevel = useCallback((targetUser, newLevel) => {
-    if (!currentUser || !targetUser) return false;
-
-    const currentRank = getAccessLevelRank(currentUser.access_level);
-    const targetCurrentRank = getAccessLevelRank(targetUser.access_level);
-    const newRank = getAccessLevelRank(newLevel);
-
-    // Нельзя назначить уровень выше или равный своему
-    if (newRank >= currentRank) return false;
-
-    // Нельзя менять уровень у того, кто на том же или выше уровне
-    if (targetCurrentRank >= currentRank) return false;
-
-    // Только admin может назначать head
-    if (newLevel === 'head' && currentUser.access_level !== 'admin') {
-      return false;
-    }
-
-    // Head может назначать только teamlead и member в своём отделе
-    if (currentUser.access_level === 'head') {
-      const sameDepart = currentUser.department_id === targetUser.department_id ||
-        currentUser.department === targetUser.department;
-
-      if (!sameDepart) return false;
-      if (!['teamlead', 'member'].includes(newLevel)) return false;
-    }
-
-    return true;
-  }, [currentUser, getAccessLevelRank]);
+  }, [currentUser, hasPermission, canEditUser]);
 
   // Может ли менять отдел пользователя
   const canChangeDepartment = useCallback((targetUser) => {
     if (!currentUser || !targetUser) return false;
 
-    const accessLevel = currentUser.access_level || 'member';
-
-    // Только admin может перемещать между отделами
-    return accessLevel === 'admin';
-  }, [currentUser]);
+    // Только пользователи с полным доступом могут перемещать между отделами
+    return hasPermission('users.edit.all');
+  }, [currentUser, hasPermission]);
 
   // Может ли назначить роль
-  const canAssignRole = useCallback((targetUser, roleId) => {
+  const canAssignRole = useCallback((targetUser) => {
     // Базовая проверка — можем ли редактировать
     return canEditUser(targetUser);
   }, [canEditUser]);
-
-  // Может ли управлять ролями (создавать/редактировать роли)
-  const canManageRoles = useMemo(() => {
-    return currentUser?.access_level === 'admin';
-  }, [currentUser]);
-
-  // Может ли управлять отделами
-  const canManageDepartments = useMemo(() => {
-    return currentUser?.access_level === 'admin';
-  }, [currentUser]);
 
   // Получить список пользователей, которых можно видеть
   const getVisibleUsers = useCallback(async (includeArchived = false) => {
     if (!currentUser) return [];
 
     try {
-      const accessLevel = currentUser.access_level || 'member';
-
-      // Fallback на старую систему
-      let isLegacyTeamLead = !currentUser.access_level && currentUser.role === 'teamlead';
-
       let query = supabase.from('users').select('*');
 
       if (!includeArchived) {
         query = query.eq('archived', false);
       }
 
-      switch (accessLevel) {
-        case 'admin':
-          // Видит всех
-          break;
-
-        case 'head':
-          // Видит только свой отдел
-          if (currentUser.department_id) {
-            query = query.eq('department_id', currentUser.department_id);
-          } else if (currentUser.department) {
-            query = query.eq('department', currentUser.department);
-          }
-          break;
-
-        case 'teamlead':
-          // Видит свой отдел
-          if (currentUser.department_id) {
-            query = query.eq('department_id', currentUser.department_id);
-          } else if (currentUser.department) {
-            query = query.eq('department', currentUser.department);
-          }
-          break;
-
-        default:
-          if (isLegacyTeamLead) {
-            // Старые teamlead видят всех
-            break;
-          }
-          // member — никого не видит
-          return [];
+      // 1. Полный доступ - видит всех
+      if (hasPermission('users.view.all')) {
+        // Никаких фильтров
+      }
+      // 2. Доступ к своему отделу
+      else if (hasPermission('users.view.own_department')) {
+        if (currentUser.department_id) {
+          query = query.eq('department_id', currentUser.department_id);
+        } else if (currentUser.department) {
+          query = query.eq('department', currentUser.department);
+        }
+      }
+      // 3. Нет прав на просмотр - возвращаем пустой массив
+      else {
+        return [];
       }
 
       const { data, error } = await query.order('name');
@@ -274,7 +187,7 @@ export const useUserManagement = (currentUser) => {
       console.error('Error fetching visible users:', err);
       return [];
     }
-  }, [currentUser]);
+  }, [currentUser, hasPermission]);
 
   // Получить подчинённых текущего пользователя
   const getSubordinates = useCallback(async () => {
@@ -322,20 +235,13 @@ export const useUserManagement = (currentUser) => {
     }
   }, []);
 
-  // Получить доступные уровни доступа для назначения
-  const getAvailableAccessLevels = useCallback((targetUser) => {
-    if (!currentUser) return [];
+  // Получить пользователей которых можно редактировать
+  const getEditableUsers = useCallback(async (includeArchived = false) => {
+    const visibleUsers = await getVisibleUsers(includeArchived);
 
-    const allLevels = ['member', 'teamlead', 'head', 'admin'];
-    const currentRank = getAccessLevelRank(currentUser.access_level);
-
-    // Фильтруем уровни, которые можем назначить
-    return allLevels.filter(level => {
-      const levelRank = getAccessLevelRank(level);
-      // Можно назначить только уровни ниже своего
-      return levelRank < currentRank;
-    });
-  }, [currentUser, getAccessLevelRank]);
+    // Фильтруем только тех, кого можно редактировать
+    return visibleUsers.filter(user => canEditUser(user));
+  }, [getVisibleUsers, canEditUser]);
 
   return {
     // Состояние
@@ -344,26 +250,26 @@ export const useUserManagement = (currentUser) => {
     departments,
     roles,
 
-    // Проверки прав
+    // Проверки прав (из usePermissions)
     canViewUsersTab,
     canCreateUsers,
     canEditUser,
     canArchiveUser,
-    canChangeAccessLevel,
     canChangeDepartment,
     canAssignRole,
     canManageRoles,
     canManageDepartments,
+    isFullAdmin,
 
     // Действия
     getVisibleUsers,
+    getEditableUsers,
     getSubordinates,
     checkCanArchive,
-    getAvailableAccessLevels,
 
-    // Хелперы
-    getAccessLevelRank,
-    accessLevelHierarchy: ACCESS_LEVEL_HIERARCHY
+    // Хелперы из usePermissions
+    hasPermission,
+    hasAnyPermission
   };
 };
 
