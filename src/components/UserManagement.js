@@ -26,9 +26,14 @@ import {
   Euro,
   Minus,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Crown,
+  Building2,
+  ChevronDown
 } from 'lucide-react';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
+import PermissionsMatrix from './PermissionsMatrix';
+import { useUserManagement } from '../hooks/useUserManagement';
 
 // Кастомный селектор источника трафика с иконками
 const SourceSelector = ({ value, onChange, className }) => {
@@ -274,6 +279,158 @@ const TeamLeadSelector = ({ value, onChange, teamLeads, className }) => {
   );
 };
 
+// Кастомный селектор уровня доступа
+const AccessLevelSelector = ({ value, onChange, availableLevels, disabled, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const allLevels = [
+    { value: 'member', label: 'Member', icon: User, color: 'text-gray-600', description: 'Обычный пользователь' },
+    { value: 'teamlead', label: 'Team Lead', icon: Shield, color: 'text-green-600', description: 'Руководитель команды' },
+    { value: 'head', label: 'Head of Department', icon: Building2, color: 'text-blue-600', description: 'Руководитель отдела' },
+    { value: 'admin', label: 'Главный админ', icon: Crown, color: 'text-yellow-600', description: 'Полный доступ ко всему' }
+  ];
+
+  // Фильтруем по доступным уровням
+  const levels = allLevels.filter(l => availableLevels.includes(l.value));
+  const selectedLevel = allLevels.find(l => l.value === value) || allLevels[0];
+
+  if (disabled || levels.length === 0) {
+    return (
+      <div className={className}>
+        <div className="flex items-center space-x-2 opacity-60">
+          <selectedLevel.icon className={`w-5 h-5 ${selectedLevel.color}`} />
+          <span>{selectedLevel.label}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <selectedLevel.icon className={`w-5 h-5 ${selectedLevel.color}`} />
+            <span>{selectedLevel.label}</span>
+          </div>
+          <ChevronDown className="w-5 h-5 ml-2 text-gray-400" />
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
+            {levels.map((level) => {
+              const Icon = level.icon;
+              return (
+                <button
+                  key={level.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(level.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 ${
+                    value === level.value ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Icon className={`w-5 h-5 ${level.color}`} />
+                    <div>
+                      <div className="text-sm font-medium">{level.label}</div>
+                      <div className="text-xs text-gray-500">{level.description}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Кастомный селектор отдела
+const DepartmentSelector = ({ value, onChange, departments, disabled, className }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const selectedDepartment = departments.find(d => d.id === value);
+
+  if (disabled) {
+    return (
+      <div className={className}>
+        <div className="flex items-center space-x-2 opacity-60">
+          <Building2 className="w-5 h-5 text-gray-500" />
+          <span>{selectedDepartment?.name || 'Не выбран'}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={className}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Building2 className="w-5 h-5 text-gray-500" />
+            <span>{selectedDepartment?.name || 'Выберите отдел'}</span>
+          </div>
+          <ChevronDown className="w-5 h-5 ml-2 text-gray-400" />
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+            {/* Опция "Не выбран" */}
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                !value ? 'bg-blue-50' : ''
+              }`}
+            >
+              <Building2 className="w-5 h-5 text-gray-400" />
+              <span className="text-sm text-gray-500">Не выбран</span>
+            </button>
+
+            {departments.map((dept) => (
+              <button
+                key={dept.id}
+                type="button"
+                onClick={() => {
+                  onChange(dept.id);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                  value === dept.id ? 'bg-blue-50' : ''
+                }`}
+              >
+                <Building2 className="w-5 h-5 text-blue-500" />
+                <span className="text-sm">{dept.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // Кастомный селектор валюты
 const CurrencySelector = ({ value, onChange, className }) => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -373,6 +530,16 @@ function UserManagement({ user }) {
   const [debouncedSearch, setDebouncedSearch] = useState(''); // Дебаунсированный поиск
   const searchTimeoutRef = useRef(null); // Ref для таймаута дебаунса
   const isFirstLoadRef = useRef(true); // Ref для отслеживания первой загрузки
+  const [rolePermissions, setRolePermissions] = useState([]); // Права от роли
+
+  // Хук для управления пользователями
+  const {
+    departments,
+    canEditUser,
+    canChangeAccessLevel,
+    canChangeDepartment,
+    getAvailableAccessLevels
+  } = useUserManagement(user);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -393,7 +560,10 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
-    department: '', // Отдел (обязательно для Team Lead)
+    department: '', // Отдел (обязательно для Team Lead) - legacy
+    access_level: 'member', // Уровень доступа
+    department_id: null, // ID отдела
+    custom_permissions: [], // Дополнительные права
     is_protected: false,
     team_lead_id: null,
     team_lead_name: null,
@@ -773,7 +943,7 @@ function UserManagement({ user }) {
     }
   };
 
-  const handleEditUser = (userToEdit) => {
+  const handleEditUser = async (userToEdit) => {
     // Запрещаем редактирование защищенных пользователей
     if (userToEdit.is_protected) {
       setError('Редактирование защищенного пользователя запрещено');
@@ -801,13 +971,29 @@ function UserManagement({ user }) {
           traffic_channels: [] // Пустой массив
         };
 
+    // Загружаем права роли для отображения
+    try {
+      if (userToEdit.role_id) {
+        const perms = await userService.getRolePermissions(userToEdit.role_id);
+        setRolePermissions(perms.map(p => p.code));
+      } else {
+        setRolePermissions([]);
+      }
+    } catch (err) {
+      console.error('Error loading role permissions:', err);
+      setRolePermissions([]);
+    }
+
     setEditUserData({
       id: userToEdit.id,
       name: userToEdit.name || '',
       email: userToEdit.email || '',
       password: '', // Пароль всегда пустой для безопасности
       role: userToEdit.role || 'buyer',
-      department: userToEdit.department || '',
+      department: userToEdit.department || '', // legacy
+      access_level: userToEdit.access_level || 'member',
+      department_id: userToEdit.department_id || null,
+      custom_permissions: userToEdit.custom_permissions || [],
       is_protected: userToEdit.is_protected || false,
       team_lead_id: userToEdit.team_lead_id || null,
       team_lead_name: userToEdit.team_lead_name || null,
@@ -851,6 +1037,9 @@ function UserManagement({ user }) {
         password: editUserData.password || undefined, // Только если пароль указан
         role: editUserData.role,
         department: userDepartment,
+        access_level: editUserData.access_level || 'member',
+        department_id: editUserData.department_id || null,
+        custom_permissions: editUserData.custom_permissions || [],
         is_protected: editUserData.is_protected,
         team_lead_id: editUserData.team_lead_id || null,
         team_lead_name: editUserData.team_lead_name || null
@@ -887,6 +1076,10 @@ function UserManagement({ user }) {
         email: '',
         password: '',
         role: 'buyer',
+        department: '',
+        access_level: 'member',
+        department_id: null,
+        custom_permissions: [],
         is_protected: false,
         team_lead_id: null,
         team_lead_name: null,
@@ -894,6 +1087,7 @@ function UserManagement({ user }) {
           traffic_channels: []
         }
       });
+      setRolePermissions([]);
       setEditingUser(null);
       setShowEditModal(false);
       setShowPassword(false);
@@ -2461,6 +2655,68 @@ function UserManagement({ user }) {
                   <p className="mt-1 text-xs text-gray-500">
                     Выберите Team Lead, к которому привязан пользователь
                   </p>
+                </div>
+              )}
+
+              {/* Уровень доступа */}
+              {user?.access_level === 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Уровень доступа
+                  </label>
+                  <AccessLevelSelector
+                    value={editUserData.access_level}
+                    onChange={(newLevel) => {
+                      setEditUserData({ ...editUserData, access_level: newLevel });
+                      clearMessages();
+                    }}
+                    availableLevels={getAvailableAccessLevels(editingUser) || ['member', 'teamlead']}
+                    disabled={!canChangeAccessLevel(editingUser, editUserData.access_level)}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Определяет полномочия в системе: admin &gt; head &gt; teamlead &gt; member
+                  </p>
+                </div>
+              )}
+
+              {/* Отдел */}
+              {user?.access_level === 'admin' && departments.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Отдел
+                  </label>
+                  <DepartmentSelector
+                    value={editUserData.department_id}
+                    onChange={(deptId) => {
+                      setEditUserData({ ...editUserData, department_id: deptId });
+                      clearMessages();
+                    }}
+                    departments={departments}
+                    disabled={!canChangeDepartment(editingUser)}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Отдел, к которому принадлежит пользователь
+                  </p>
+                </div>
+              )}
+
+              {/* Права доступа (Permissions Matrix) */}
+              {user?.access_level === 'admin' && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                    Дополнительные права доступа
+                  </h4>
+                  <PermissionsMatrix
+                    permissions={editUserData.custom_permissions}
+                    onChange={(newPermissions) => {
+                      setEditUserData({ ...editUserData, custom_permissions: newPermissions });
+                    }}
+                    rolePermissions={rolePermissions}
+                    disabled={!canEditUser(editingUser)}
+                    showRolePermissions={rolePermissions.length > 0}
+                  />
                 </div>
               )}
 
