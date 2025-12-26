@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Settings,
@@ -17,6 +17,7 @@ import {
   Globe,
   Image
 } from 'lucide-react';
+import usePermissions from '../hooks/usePermissions';
 
 // Кастомная иконка Ad для Media Buyer
 const AdIcon = ({ className }) => (
@@ -42,75 +43,89 @@ const AdIcon = ({ className }) => (
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { canAccessSection, loading: permissionsLoading } = usePermissions(user);
 
-  const menuItems = [
+  // Fallback на старую систему если новая ещё не загружена
+  const canShowSection = (sectionId, legacyCheck) => {
+    // Если права загружаются — используем старую логику
+    if (permissionsLoading) {
+      return legacyCheck;
+    }
+    // Пробуем новую систему, fallback на старую
+    const newSystemResult = canAccessSection(sectionId);
+    // Если новая система вернула true — используем её
+    // Иначе — проверяем старую (для обратной совместимости)
+    return newSystemResult || legacyCheck;
+  };
+
+  const menuItems = useMemo(() => [
     {
       id: 'offers-tl',
       label: 'Офферы',
       icon: Package,
-      show: user?.role === 'teamlead'
+      show: canShowSection('offers-tl', user?.role === 'teamlead')
     },
     {
       id: 'offers-buyer',
       label: 'Мои офферы',
       icon: Package,
-      show: user?.role === 'buyer'
+      show: canShowSection('offers-buyer', user?.role === 'buyer')
     },
     {
       id: 'landing-teamlead',
       label: 'Лендинги',
       icon: Globe,
-      show: user?.role === 'teamlead'
+      show: canShowSection('landing-teamlead', user?.role === 'teamlead')
     },
     {
       id: 'landing-analytics',
       label: 'Аналитика лендингов',
       icon: BarChart3,
-      show: user?.role === 'teamlead'
+      show: canShowSection('landing-analytics', user?.role === 'teamlead')
     },
     {
       id: 'analytics',
       label: 'Аналитика креативов',
       icon: BarChart3,
-      show: user?.role === 'teamlead'
+      show: canShowSection('analytics', user?.role === 'teamlead')
     },
     {
       id: 'metrics-analytics',
       label: 'Метрики аналитика',
       icon: Activity,
-      show: user?.role === 'teamlead'
+      show: canShowSection('metrics-analytics', user?.role === 'teamlead')
     },
     {
       id: 'users',
       label: 'Пользователи',
       icon: Users,
-      show: user?.role === 'teamlead'
+      show: canShowSection('users', user?.role === 'teamlead')
     },
     {
       id: 'creatives',
       label: 'Креативы',
       icon: Video,
-      show: user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer'
+      show: canShowSection('creatives', user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer')
     },
     {
       id: 'landings',
       label: 'Лендинги',
       icon: Globe,
-      show: user?.role === 'content_manager'
+      show: canShowSection('landings', user?.role === 'content_manager')
     },
     {
       id: 'landing-editor',
       label: 'Лендинги',
       icon: Globe,
-      show: user?.role === 'proofreader'
+      show: canShowSection('landing-editor', user?.role === 'proofreader')
     },
     {
       id: 'settings',
       label: 'Настройки',
       icon: Settings,
-      show: true
+      show: true // Настройки доступны всем
     }
-  ];
+  ], [user?.role, canAccessSection, permissionsLoading]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);

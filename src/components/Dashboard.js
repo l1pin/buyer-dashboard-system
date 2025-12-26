@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Sidebar from './Sidebar';
@@ -17,12 +17,14 @@ import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
 import LandingAnalytics from './LandingAnalytics';
 import Settings from './Settings';
+import usePermissions from '../hooks/usePermissions';
 
 function Dashboard({ user, session, updateUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
+  const { canAccessSection, loading: permissionsLoading } = usePermissions(user);
 
   // Маппинг URL путей к внутренним секциям
   const urlToSection = {
@@ -70,8 +72,8 @@ function Dashboard({ user, session, updateUser }) {
     return 'settings';
   };
 
-  // Функция для проверки доступности раздела для роли
-  const isSectionAvailableForRole = (section, role) => {
+  // Старая логика проверки доступности (для fallback)
+  const legacySectionCheck = useCallback((section, role) => {
     switch (section) {
       case 'table':
         return role === 'teamlead';
@@ -100,7 +102,22 @@ function Dashboard({ user, session, updateUser }) {
       default:
         return false;
     }
-  };
+  }, []);
+
+  // Функция для проверки доступности раздела (новая система + fallback)
+  const isSectionAvailableForRole = useCallback((section, role) => {
+    // Если права ещё загружаются — используем старую логику
+    if (permissionsLoading) {
+      return legacySectionCheck(section, role);
+    }
+
+    // Пробуем новую систему
+    const newSystemResult = canAccessSection(section);
+
+    // Если новая система вернула true — используем её
+    // Иначе — проверяем старую логику (для обратной совместимости)
+    return newSystemResult || legacySectionCheck(section, role);
+  }, [canAccessSection, permissionsLoading, legacySectionCheck]);
 
   // Определяем секцию из URL при загрузке
   React.useEffect(() => {
@@ -170,12 +187,17 @@ function Dashboard({ user, session, updateUser }) {
   };
 
   const renderActiveSection = () => {
+    // Проверка доступа через новую систему с fallback
+    const hasAccess = (section) => isSectionAvailableForRole(section, user?.role);
+
     switch (activeSection) {
       case 'table':
-        return user?.role === 'teamlead' ? <AdminPanel user={user} /> : null;
+        return hasAccess('table') ? <AdminPanel user={user} /> : null;
       case 'users':
-        return user?.role === 'teamlead' ? <UserManagement user={user} /> : null;
+        return hasAccess('users') ? <UserManagement user={user} /> : null;
       case 'creatives':
+        if (!hasAccess('creatives')) return null;
+        // Для creatives определяем компонент по роли
         if (user?.role === 'editor') {
           return <CreativePanel user={user} />;
         } else if (user?.role === 'search_manager') {
@@ -183,23 +205,24 @@ function Dashboard({ user, session, updateUser }) {
         } else if (user?.role === 'buyer') {
           return <CreativeBuyer user={user} />;
         }
-        return null;
+        // Fallback — если есть доступ, но роль не определена
+        return <CreativeBuyer user={user} />;
       case 'landings':
-        return user?.role === 'content_manager' ? <LandingPanel user={user} /> : null;
+        return hasAccess('landings') ? <LandingPanel user={user} /> : null;
       case 'landing-editor':
-        return user?.role === 'proofreader' ? <LandingEditor user={user} /> : null;
+        return hasAccess('landing-editor') ? <LandingEditor user={user} /> : null;
       case 'landing-teamlead':
-        return user?.role === 'teamlead' ? <LandingTeamLead user={user} /> : null;
+        return hasAccess('landing-teamlead') ? <LandingTeamLead user={user} /> : null;
       case 'landing-analytics':
-        return user?.role === 'teamlead' ? <LandingAnalytics user={user} /> : null;
+        return hasAccess('landing-analytics') ? <LandingAnalytics user={user} /> : null;
       case 'analytics':
-        return user?.role === 'teamlead' ? <CreativeAnalytics user={user} /> : null;
+        return hasAccess('analytics') ? <CreativeAnalytics user={user} /> : null;
       case 'metrics-analytics':
-        return user?.role === 'teamlead' ? <MetricsAnalytics user={user} /> : null;
+        return hasAccess('metrics-analytics') ? <MetricsAnalytics user={user} /> : null;
       case 'offers-tl':
-        return user?.role === 'teamlead' ? <OffersTL user={user} /> : null;
+        return hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
       case 'offers-buyer':
-        return user?.role === 'buyer' ? <OffersBuyer user={user} /> : null;
+        return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
