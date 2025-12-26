@@ -1,46 +1,20 @@
 -- ============================================
--- Миграция 002: Исправление access_level и добавление отделов
+-- Миграция 002: Исправление access_level
 -- ============================================
 
--- ============================================
--- 1. СБРОС access_level для всех кроме явного админа
--- ============================================
+-- Сначала сбрасываем всех на member (кроме явного админа)
+UPDATE users SET access_level = 'member' WHERE access_level IS NULL OR access_level = '';
 
--- Сначала сбрасываем всех на member
-UPDATE users SET access_level = 'member' WHERE access_level != 'admin';
-
--- Устанавливаем teamlead access_level только для тех, у кого role='teamlead'
+-- Устанавливаем access_level='teamlead' только для тех, у кого role='teamlead'
 UPDATE users
 SET access_level = 'teamlead'
-WHERE role = 'teamlead' AND access_level = 'member';
+WHERE role = 'teamlead' AND (access_level IS NULL OR access_level = 'member' OR access_level = '');
 
--- ВАЖНО: admin access_level должен быть установлен вручную!
--- Только один пользователь должен быть admin
-
--- ============================================
--- 2. СОЗДАЁМ ДЕФОЛТНЫЕ ОТДЕЛЫ
--- ============================================
-
-INSERT INTO departments (name, description) VALUES
-  ('Креативщики', 'Отдел креативов: монтажёры, дизайнеры, GIF-мейкеры')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO departments (name, description) VALUES
-  ('Media Buying', 'Отдел закупки трафика: байеры, аналитики')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO departments (name, description) VALUES
-  ('Контент', 'Отдел контента: редакторы, копирайтеры')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO departments (name, description) VALUES
-  ('Продукт', 'Отдел продукта: продакт-менеджеры, поиск')
-ON CONFLICT DO NOTHING;
+-- ВАЖНО: admin access_level должен быть установлен ВРУЧНУЮ!
+-- Выполните после миграции:
+-- UPDATE users SET access_level = 'admin' WHERE email = 'ваш@email.com';
 
 -- ============================================
--- 3. ПРОВЕРКА: показать текущее состояние
+-- Отделы и роли создаются через UI админом!
+-- Никаких дефолтных значений здесь нет.
 -- ============================================
-
--- Эти запросы можно выполнить для проверки:
--- SELECT id, name, email, role, access_level, department_id FROM users ORDER BY access_level, role;
--- SELECT * FROM departments;
