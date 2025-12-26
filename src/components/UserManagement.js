@@ -2552,284 +2552,239 @@ function UserManagement({ user }) {
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Отделы */}
                 {Object.entries(groupedUsers.departments).map(([deptName, dept]) => {
-                  const isExpanded = expandedDepartments[deptName] !== false; // По умолчанию раскрыт
+                  const isExpanded = expandedDepartments[deptName] !== false;
                   const totalUsers = Object.values(dept.teamLeads).reduce((sum, tl) => sum + (tl.user ? 1 : 0) + tl.subordinates.length, 0) + dept.noTeamLead.length;
 
+                  // Собираем всех пользователей отдела для отображения
+                  const renderUserRow = (currentUser, indent = false, teamLeadUser = null) => {
+                    const isTeamLead = currentUser.role === 'teamlead' || users.some(u => u.team_lead_id === currentUser.id);
+                    const subordinateCount = users.filter(u => u.team_lead_id === currentUser.id).length;
+
+                    return (
+                      <div
+                        key={currentUser.id}
+                        className={`group flex items-center p-3 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors ${indent ? 'pl-10 bg-gray-50/50' : ''}`}
+                      >
+                        {/* Индикатор тимлида/подчинённого */}
+                        {indent && (
+                          <div className="absolute left-4 w-4 h-4 border-l-2 border-b-2 border-gray-200 rounded-bl" />
+                        )}
+
+                        {/* Аватар */}
+                        <div className={`h-10 w-10 rounded-full overflow-hidden ${isTeamLead && !indent ? 'bg-green-100' : getRoleAvatarBg(currentUser.role)} flex items-center justify-center flex-shrink-0`}>
+                          {isTeamLead && !indent ? (
+                            <Shield className="h-5 w-5 text-green-600" />
+                          ) : (
+                            getRoleIcon(currentUser.role)
+                          )}
+                        </div>
+
+                        {/* Имя и Email */}
+                        <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-semibold text-gray-900 truncate">{currentUser.name}</span>
+                            {currentUser.is_protected && <Shield className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
+                        </div>
+
+                        {/* Роль */}
+                        <div className="mr-4" style={{ width: '140px' }}>
+                          <div className="text-xs text-gray-400 mb-0.5">Роль</div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
+                            {getRoleDisplayName(currentUser.role)}
+                          </span>
+                        </div>
+
+                        {/* Team Lead / Команда */}
+                        <div className="mr-4" style={{ width: '140px' }}>
+                          <div className="text-xs text-gray-400 mb-0.5">
+                            {isTeamLead && !indent ? 'Команда' : 'Team Lead'}
+                          </div>
+                          {isTeamLead && !indent ? (
+                            <div className="flex items-center text-sm">
+                              <Users className="h-3.5 w-3.5 mr-1 text-green-500" />
+                              <span className="text-gray-700 text-xs font-medium">{subordinateCount} чел.</span>
+                            </div>
+                          ) : teamLeadUser ? (
+                            <div className="flex items-center text-sm">
+                              <Shield className="h-3.5 w-3.5 mr-1 text-green-500" />
+                              <span className="text-gray-700 truncate text-xs font-medium">{teamLeadUser.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </div>
+
+                        {/* Дата создания */}
+                        <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
+                          <div className="text-xs text-gray-400 mb-0.5">Создан</div>
+                          <div className="text-xs text-gray-700">{formatKyivTime(currentUser.created_at)}</div>
+                        </div>
+
+                        {/* Создатель */}
+                        <div className="flex-1 min-w-0 mr-2 hidden lg:block">
+                          <div className="text-xs text-gray-400 mb-0.5">Создатель</div>
+                          <div className="text-xs text-gray-700 truncate">{currentUser.created_by_name || 'Система'}</div>
+                        </div>
+
+                        {/* Действия */}
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          {showArchived ? (
+                            <button
+                              onClick={() => handleRestoreUser(currentUser.id, currentUser.name)}
+                              disabled={restoring === currentUser.id}
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-1" />
+                              Восстановить
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditUser(currentUser)}
+                                disabled={currentUser.is_protected}
+                                className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(currentUser.id, currentUser.name, currentUser.role, currentUser.is_protected)}
+                                disabled={deleting === currentUser.id || currentUser.is_protected}
+                                className={`p-1.5 rounded-lg transition-colors ${currentUser.is_protected ? 'text-gray-300' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                              >
+                                <Archive className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  };
+
                   return (
-                    <div key={deptName} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                    <div key={deptName} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
                       {/* Заголовок отдела */}
                       <button
                         onClick={() => toggleDepartment(deptName)}
-                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-100 hover:bg-slate-200 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <Building2 className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div className="text-left">
-                            <div className="font-semibold text-gray-900">{deptName}</div>
-                            <div className="text-xs text-gray-500">{totalUsers} сотрудников</div>
-                          </div>
+                          <Building2 className="h-5 w-5 text-slate-600" />
+                          <span className="font-semibold text-gray-900">{deptName}</span>
+                          <span className="text-sm text-gray-500 bg-white px-2 py-0.5 rounded-full">{totalUsers}</span>
                         </div>
-                        {isExpanded ? (
-                          <ChevronUp className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-400" />
-                        )}
+                        {isExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
                       </button>
 
                       {/* Содержимое отдела */}
                       {isExpanded && (
-                        <div className="p-3 space-y-2">
-                          {/* Тимлиды с подчинёнными */}
+                        <div>
                           {Object.entries(dept.teamLeads).map(([tlId, tlData]) => {
-                            const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
                             const teamLead = tlData.user;
                             const subordinates = tlData.subordinates;
+                            const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
 
-                            // Если тимлида нет в этом отделе, но есть подчинённые
                             if (!teamLead && subordinates.length === 0) return null;
 
                             return (
-                              <div key={tlId} className="border border-gray-100 rounded-lg overflow-hidden">
-                                {/* Тимлид */}
+                              <div key={tlId}>
                                 {teamLead && (
-                                  <div className="bg-green-50 border-b border-green-100">
-                                    <div className="flex items-center p-3">
-                                      {subordinates.length > 0 && (
-                                        <button
-                                          onClick={() => toggleTeamLead(tlId)}
-                                          className="mr-2 p-1 hover:bg-green-100 rounded"
-                                        >
-                                          {isTeamLeadExpanded ? (
-                                            <ChevronDown className="h-4 w-4 text-green-600" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4 text-green-600" />
-                                          )}
-                                        </button>
-                                      )}
-                                      {subordinates.length === 0 && <div className="w-8" />}
-
-                                      {/* Аватар */}
-                                      <div className={`h-9 w-9 rounded-full overflow-hidden bg-green-100 flex items-center justify-center flex-shrink-0`}>
-                                        <Shield className="h-5 w-5 text-green-600" />
-                                      </div>
-
-                                      {/* Имя */}
-                                      <div className="min-w-0 ml-3 flex-1">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm font-semibold text-gray-900">{teamLead.name}</span>
-                                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Team Lead</span>
-                                          {teamLead.is_protected && (
-                                            <Shield className="h-3.5 w-3.5 text-yellow-500" />
-                                          )}
-                                        </div>
-                                        <div className="text-xs text-gray-500">{teamLead.email}</div>
-                                      </div>
-
-                                      {/* Роль */}
-                                      <div className="mr-4 hidden sm:block">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(teamLead.role)}`}>
-                                          {getRoleDisplayName(teamLead.role)}
-                                        </span>
-                                      </div>
-
-                                      {/* Команда */}
-                                      <div className="mr-4 text-xs text-gray-500">
-                                        <Users className="h-3.5 w-3.5 inline mr-1" />
-                                        {subordinates.length} чел.
-                                      </div>
-
-                                      {/* Действия */}
-                                      <div className="flex items-center space-x-1">
-                                        {!showArchived && (
-                                          <>
-                                            <button
-                                              onClick={() => handleEditUser(teamLead)}
-                                              disabled={teamLead.is_protected}
-                                              className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                            >
-                                              <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                              onClick={() => handleDeleteUser(teamLead.id, teamLead.name, teamLead.role, teamLead.is_protected)}
-                                              disabled={deleting === teamLead.id || teamLead.is_protected}
-                                              className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                                            >
-                                              <Archive className="h-4 w-4" />
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Подчинённые */}
-                                {isTeamLeadExpanded && subordinates.length > 0 && (
-                                  <div className="bg-gray-50">
-                                    {subordinates.map((sub, idx) => (
-                                      <div
-                                        key={sub.id}
-                                        className={`flex items-center p-3 pl-12 hover:bg-gray-100 transition-colors ${idx !== subordinates.length - 1 ? 'border-b border-gray-100' : ''}`}
+                                  <div className="relative">
+                                    {subordinates.length > 0 && (
+                                      <button
+                                        onClick={() => toggleTeamLead(tlId)}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded z-10"
                                       >
-                                        {/* Линия связи */}
-                                        <div className="absolute left-6 w-4 border-l-2 border-b-2 border-gray-300 h-4 rounded-bl" style={{ marginTop: '-8px' }} />
-
-                                        {/* Аватар */}
-                                        <div className={`h-8 w-8 rounded-full overflow-hidden ${getRoleAvatarBg(sub.role)} flex items-center justify-center flex-shrink-0`}>
-                                          {getRoleIcon(sub.role)}
-                                        </div>
-
-                                        {/* Имя */}
-                                        <div className="min-w-0 ml-3 flex-1">
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="text-sm font-medium text-gray-900">{sub.name}</span>
-                                            {sub.is_protected && (
-                                              <Shield className="h-3 w-3 text-yellow-500" />
-                                            )}
-                                          </div>
-                                          <div className="text-xs text-gray-500">{sub.email}</div>
-                                        </div>
-
-                                        {/* Роль */}
-                                        <div className="mr-4 hidden sm:block">
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(sub.role)}`}>
-                                            {getRoleDisplayName(sub.role)}
-                                          </span>
-                                        </div>
-
-                                        {/* Действия */}
-                                        <div className="flex items-center space-x-1">
-                                          {showArchived ? (
-                                            <button
-                                              onClick={() => handleRestoreUser(sub.id, sub.name)}
-                                              disabled={restoring === sub.id}
-                                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700"
-                                            >
-                                              <RotateCcw className="h-3 w-3 mr-1" />
-                                              Восстановить
-                                            </button>
-                                          ) : (
-                                            <>
-                                              <button
-                                                onClick={() => handleEditUser(sub)}
-                                                disabled={sub.is_protected}
-                                                className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                              >
-                                                <Edit className="h-4 w-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteUser(sub.id, sub.name, sub.role, sub.is_protected)}
-                                                disabled={deleting === sub.id || sub.is_protected}
-                                                className={`p-1.5 rounded-lg transition-colors ${sub.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                                              >
-                                                <Archive className="h-4 w-4" />
-                                              </button>
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
+                                        {isTeamLeadExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                                      </button>
+                                    )}
+                                    {renderUserRow(teamLead, false, null)}
                                   </div>
                                 )}
+                                {isTeamLeadExpanded && subordinates.map(sub => renderUserRow(sub, true, teamLead))}
                               </div>
                             );
                           })}
-
-                          {/* Пользователи без тимлида */}
-                          {dept.noTeamLead.length > 0 && (
-                            <div className="border border-dashed border-gray-200 rounded-lg p-3">
-                              <div className="text-xs text-gray-400 mb-2 flex items-center gap-1">
-                                <AlertCircle className="h-3 w-3" />
-                                Без Team Lead
-                              </div>
-                              <div className="space-y-2">
-                                {dept.noTeamLead.map(u => (
-                                  <div key={u.id} className="flex items-center p-2 bg-white rounded-lg border border-gray-100">
-                                    <div className={`h-8 w-8 rounded-full overflow-hidden ${getRoleAvatarBg(u.role)} flex items-center justify-center flex-shrink-0`}>
-                                      {getRoleIcon(u.role)}
-                                    </div>
-                                    <div className="min-w-0 ml-3 flex-1">
-                                      <div className="text-sm font-medium text-gray-900">{u.name}</div>
-                                      <div className="text-xs text-gray-500">{u.email}</div>
-                                    </div>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium mr-3 ${getRoleBadgeColor(u.role)}`}>
-                                      {getRoleDisplayName(u.role)}
-                                    </span>
-                                    <div className="flex items-center space-x-1">
-                                      <button onClick={() => handleEditUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                                        <Edit className="h-4 w-4" />
-                                      </button>
-                                      <button onClick={() => handleDeleteUser(u.id, u.name, u.role, u.is_protected)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                        <Archive className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          {dept.noTeamLead.map(u => renderUserRow(u, false, null))}
                         </div>
                       )}
                     </div>
                   );
                 })}
 
-                {/* Пользователи без отдела */}
+                {/* Без отдела */}
                 {(Object.keys(groupedUsers.noDepartment.teamLeads).length > 0 || groupedUsers.noDepartment.noTeamLead.length > 0) && (
                   <div className="border border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50">
-                    <div className="p-4 border-b border-gray-200 bg-gray-100">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-200 rounded-lg">
-                          <AlertCircle className="h-5 w-5 text-gray-500" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-700">Без отдела</div>
-                          <div className="text-xs text-gray-500">Пользователи не привязаны к отделу</div>
-                        </div>
-                      </div>
+                    <div className="px-4 py-3 bg-gray-100 flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-gray-400" />
+                      <span className="font-medium text-gray-600">Без отдела</span>
                     </div>
-                    <div className="p-3 space-y-2">
+                    <div>
                       {Object.entries(groupedUsers.noDepartment.teamLeads).map(([tlId, tlData]) => {
-                        if (!tlData.user && tlData.subordinates.length === 0) return null;
+                        const teamLead = tlData.user;
+                        const subordinates = tlData.subordinates;
+                        if (!teamLead && subordinates.length === 0) return null;
+
+                        const renderUserRowNoDept = (u, indent, tl) => (
+                          <div key={u.id} className={`flex items-center p-3 bg-white border-b border-gray-100 hover:bg-gray-50 ${indent ? 'pl-10' : ''}`}>
+                            <div className={`h-10 w-10 rounded-full ${indent ? getRoleAvatarBg(u.role) : 'bg-green-100'} flex items-center justify-center flex-shrink-0`}>
+                              {indent ? getRoleIcon(u.role) : <Shield className="h-5 w-5 text-green-600" />}
+                            </div>
+                            <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
+                              <div className="text-sm font-semibold text-gray-900 truncate">{u.name}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email}</div>
+                            </div>
+                            <div className="mr-4" style={{ width: '140px' }}>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(u.role)}`}>{getRoleDisplayName(u.role)}</span>
+                            </div>
+                            <div className="mr-4" style={{ width: '140px' }}>
+                              {tl ? <span className="text-xs text-gray-500">{tl.name}</span> : <span className="text-xs text-gray-400">—</span>}
+                            </div>
+                            <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
+                              <div className="text-xs text-gray-700">{formatKyivTime(u.created_at)}</div>
+                            </div>
+                            <div className="flex-1 min-w-0 mr-2 hidden lg:block">
+                              <div className="text-xs text-gray-700 truncate">{u.created_by_name || 'Система'}</div>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <button onClick={() => handleEditUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"><Edit className="h-4 w-4" /></button>
+                              <button onClick={() => handleDeleteUser(u.id, u.name, u.role, u.is_protected)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Archive className="h-4 w-4" /></button>
+                            </div>
+                          </div>
+                        );
+
                         return (
-                          <div key={tlId} className="bg-white rounded-lg border border-gray-200 p-3">
-                            {tlData.user && (
-                              <div className="flex items-center mb-2">
-                                <Shield className="h-5 w-5 text-green-600 mr-2" />
-                                <span className="font-medium">{tlData.user.name}</span>
-                                <span className="text-xs text-gray-500 ml-2">({tlData.subordinates.length} подчинённых)</span>
-                              </div>
-                            )}
-                            {tlData.subordinates.map(sub => (
-                              <div key={sub.id} className="flex items-center p-2 pl-8 border-t border-gray-100">
-                                <div className={`h-7 w-7 rounded-full ${getRoleAvatarBg(sub.role)} flex items-center justify-center mr-2`}>
-                                  {getRoleIcon(sub.role)}
-                                </div>
-                                <span className="text-sm flex-1">{sub.name}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded ${getRoleBadgeColor(sub.role)}`}>{getRoleDisplayName(sub.role)}</span>
-                              </div>
-                            ))}
+                          <div key={tlId}>
+                            {teamLead && renderUserRowNoDept(teamLead, false, null)}
+                            {subordinates.map(sub => renderUserRowNoDept(sub, true, teamLead))}
                           </div>
                         );
                       })}
                       {groupedUsers.noDepartment.noTeamLead.map(u => (
-                        <div key={u.id} className="flex items-center p-3 bg-white rounded-lg border border-gray-200">
-                          <div className={`h-8 w-8 rounded-full ${getRoleAvatarBg(u.role)} flex items-center justify-center mr-3`}>
-                            {getRoleIcon(u.role)}
+                        <div key={u.id} className="flex items-center p-3 bg-white border-b border-gray-100 hover:bg-gray-50">
+                          <div className={`h-10 w-10 rounded-full ${getRoleAvatarBg(u.role)} flex items-center justify-center flex-shrink-0`}>{getRoleIcon(u.role)}</div>
+                          <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
+                            <div className="text-sm font-semibold text-gray-900 truncate">{u.name}</div>
+                            <div className="text-xs text-gray-500 truncate">{u.email}</div>
                           </div>
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">{u.name}</div>
-                            <div className="text-xs text-gray-500">{u.email}</div>
+                          <div className="mr-4" style={{ width: '140px' }}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(u.role)}`}>{getRoleDisplayName(u.role)}</span>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded mr-3 ${getRoleBadgeColor(u.role)}`}>{getRoleDisplayName(u.role)}</span>
-                          <button onClick={() => handleEditUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          <div className="mr-4" style={{ width: '140px' }}><span className="text-xs text-gray-400">—</span></div>
+                          <div className="mr-4 hidden md:block" style={{ width: '120px' }}>
+                            <div className="text-xs text-gray-700">{formatKyivTime(u.created_at)}</div>
+                          </div>
+                          <div className="flex-1 min-w-0 mr-2 hidden lg:block">
+                            <div className="text-xs text-gray-700 truncate">{u.created_by_name || 'Система'}</div>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <button onClick={() => handleEditUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"><Edit className="h-4 w-4" /></button>
+                            <button onClick={() => handleDeleteUser(u.id, u.name, u.role, u.is_protected)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Archive className="h-4 w-4" /></button>
+                          </div>
                         </div>
                       ))}
                     </div>
