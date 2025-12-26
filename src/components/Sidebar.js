@@ -139,7 +139,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       return 'Администратор';
     }
 
-    // Показываем роль
+    // Если есть role_name из связанной таблицы roles - используем его
+    if (user?.role_name) {
+      return user.role_name;
+    }
+
+    // Fallback на старые хардкод-значения
     switch (user?.role) {
       case 'teamlead':
         return 'Team Lead';
@@ -160,7 +165,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'gif_creator':
         return 'GIF Creator';
       default:
-        return 'Пользователь';
+        return user?.role || 'Пользователь';
     }
   };
 

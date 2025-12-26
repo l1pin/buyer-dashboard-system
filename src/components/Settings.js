@@ -357,7 +357,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : user?.role === 'product_manager' ? 'Product Manager' : user?.role === 'proofreader' ? 'Editor' : user?.role === 'gif_creator' ? 'GIF Creator' : 'Unknown'}
+                      value={user?.role_name || user?.role || 'Пользователь'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -427,7 +427,7 @@ function Settings({ user, updateUser }) {
                     </label>
                     <input
                       type="text"
-                      value={user?.role === 'teamlead' ? 'Team Lead' : user?.role === 'editor' ? 'Video Designer' : user?.role === 'designer' ? 'Designer' : user?.role === 'buyer' ? 'Media Buyer' : user?.role === 'search_manager' ? 'Search Manager' : user?.role === 'content_manager' ? 'Content Manager' : user?.role === 'product_manager' ? 'Product Manager' : user?.role === 'proofreader' ? 'Editor' : user?.role === 'gif_creator' ? 'GIF Creator' : 'Unknown'}
+                      value={user?.role_name || user?.role || 'Пользователь'}
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                     />

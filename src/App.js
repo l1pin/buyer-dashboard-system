@@ -34,7 +34,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select('*, roles:role_id(id, code, name, icon, color)')
         .eq('id', userId)
         .single();
 
@@ -50,7 +50,12 @@ function App() {
           setUser(null);
           return;
         }
-        setUser(data);
+        // Добавляем role_name из связанной таблицы roles
+        const userWithRoleName = {
+          ...data,
+          role_name: data.roles?.name || null
+        };
+        setUser(userWithRoleName);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
