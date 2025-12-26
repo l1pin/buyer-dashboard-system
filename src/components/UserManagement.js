@@ -1597,11 +1597,15 @@ function UserManagement({ user }) {
         userDepartment = selectedTeamLead?.department || null;
       }
 
+      // Находим role_id по коду роли
+      const selectedRole = roles.find(r => r.code === newUser.role);
+
       const userData = {
         name: newUser.name.trim(),
         email: newUser.email.trim(),
         password: newUser.password,
         role: newUser.role,
+        role_id: selectedRole?.id || null,
         department: userDepartment,
         department_id: newUser.department_id || null,
         custom_permissions: newUser.custom_permissions || [],
