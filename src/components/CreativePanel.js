@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, creativeService, userService, creativeHistoryService, metricsAnalyticsService, trelloService } from '../supabaseClient';
-import { 
-  processLinksAndExtractTitles, 
-  formatFileName, 
+import {
+  processLinksAndExtractTitles,
+  formatFileName,
   ensureGoogleAuth,
   isGoogleDriveUrl
 } from '../utils/googleDriveUtils';
@@ -13,6 +13,7 @@ import CreativeMetrics from './CreativeMetrics';
 import MetricsLastUpdateBadge from './MetricsLastUpdateBadge';
 import { useBatchMetrics, useMetricsStats } from '../hooks/useMetrics';
 import { useZoneData } from '../hooks/useZoneData';
+import { usePermissions } from '../hooks/usePermissions';
 import { MetricsService } from '../services/metricsService';
 import {
   Plus,
@@ -55,6 +56,11 @@ import {
 } from 'lucide-react';
 
 function CreativePanel({ user }) {
+  // Права доступа для креативов
+  const { hasPermission } = usePermissions(user);
+  const canCreateCreatives = hasPermission('creatives.create');
+  const canEditCreatives = hasPermission('creatives.edit');
+
   const [creatives, setCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -2684,21 +2690,25 @@ function CreativePanel({ user }) {
             </button>
 
             {/* Кнопка "Добавить правку" - желтая с иконкой карандаша */}
-            <button
-              onClick={() => setShowAddEditModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Добавить правку
-            </button>
+            {canEditCreatives && (
+              <button
+                onClick={() => setShowAddEditModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Добавить правку
+              </button>
+            )}
 
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Создать креатив
-            </button>
+            {canCreateCreatives && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Создать креатив
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -3343,24 +3353,30 @@ function CreativePanel({ user }) {
               Нет креативов
             </h3>
             <p className="text-gray-600 mb-4">
-              Создайте свой первый креатив с Google Drive ссылками
+              {canCreateCreatives ? 'Создайте свой первый креатив с Google Drive ссылками' : 'Креативы пока отсутствуют'}
             </p>
-            <div className="flex items-center justify-center space-x-3">
-              <button
-                onClick={() => setShowAddEditModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500"
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Добавить правку
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Создать креатив
-              </button>
-            </div>
+            {(canCreateCreatives || canEditCreatives) && (
+              <div className="flex items-center justify-center space-x-3">
+                {canEditCreatives && (
+                  <button
+                    onClick={() => setShowAddEditModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-900 bg-yellow-400 hover:bg-yellow-500"
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Добавить правку
+                  </button>
+                )}
+                {canCreateCreatives && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Создать креатив
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -3715,17 +3731,27 @@ function CreativePanel({ user }) {
                             </td>
 
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                              <button
-                                onClick={() => handleEditCreative(creative)}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                                title="Редактировать креатив"
-                              >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                                  <path stroke="none" d="M0 0h24v24H0z"/>
-                                  <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
-                                  <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
-                                </svg>
-                              </button>
+                              {canEditCreatives ? (
+                                <button
+                                  onClick={() => handleEditCreative(creative)}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                                  title="Редактировать креатив"
+                                >
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z"/>
+                                    <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                    <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                                  </svg>
+                                </button>
+                              ) : (
+                                <span className="text-gray-300 p-1">
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z"/>
+                                    <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" />
+                                    <line x1="13.5" y1="6.5" x2="17.5" y2="10.5" />
+                                  </svg>
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                               <div className="cursor-text select-text">
