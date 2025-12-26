@@ -2029,8 +2029,15 @@ function UserManagement({ user }) {
     });
   };
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
+  const getRoleDisplayName = (roleCode) => {
+    // Сначала ищем в загруженных ролях
+    const foundRole = roles.find(r => r.code === roleCode);
+    if (foundRole) {
+      return foundRole.name;
+    }
+
+    // Fallback для стандартных ролей (если roles ещё не загружены)
+    switch (roleCode) {
       case 'buyer':
         return 'Media Buyer';
       case 'editor':
@@ -2050,7 +2057,7 @@ function UserManagement({ user }) {
       case 'gif_creator':
         return 'GIF Creator';
       default:
-        return 'Unknown';
+        return roleCode || 'Unknown';
     }
   };
 
