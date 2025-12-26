@@ -546,13 +546,17 @@ function UserManagement({ user }) {
     email: '',
     password: '',
     role: 'buyer',
-    department: '', // Отдел (обязательно для Team Lead)
+    department: '', // Отдел (обязательно для Team Lead) - legacy
+    access_level: 'member', // Уровень доступа
+    department_id: null, // ID отдела
+    custom_permissions: [], // Дополнительные права
     team_lead_id: null,
     team_lead_name: null,
     buyer_settings: {
       traffic_channels: [] // Пустой по умолчанию - каналы добавляются по кнопке
     }
   });
+  const [newUserRolePermissions, setNewUserRolePermissions] = useState([]); // Права роли для нового пользователя
 
   const [editUserData, setEditUserData] = useState({
     id: '',
@@ -822,6 +826,9 @@ function UserManagement({ user }) {
         password: newUser.password,
         role: newUser.role,
         department: userDepartment,
+        access_level: newUser.access_level || 'member',
+        department_id: newUser.department_id || null,
+        custom_permissions: newUser.custom_permissions || [],
         team_lead_id: newUser.team_lead_id || null,
         team_lead_name: newUser.team_lead_name || null,
         created_by_id: user.id,
@@ -859,12 +866,16 @@ function UserManagement({ user }) {
         password: '',
         role: 'buyer',
         department: '',
+        access_level: 'member',
+        department_id: null,
+        custom_permissions: [],
         team_lead_id: null,
         team_lead_name: null,
         buyer_settings: {
           traffic_channels: []
         }
       });
+      setNewUserRolePermissions([]);
       setShowCreateModal(false);
 
       // Обновляем список пользователей
@@ -1914,12 +1925,16 @@ function UserManagement({ user }) {
                     password: '',
                     role: 'buyer',
                     department: '',
+                    access_level: 'member',
+                    department_id: null,
+                    custom_permissions: [],
                     team_lead_id: null,
                     team_lead_name: null,
                     buyer_settings: {
                       traffic_channels: []
                     }
                   });
+                  setNewUserRolePermissions([]);
                   clearMessages();
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -2119,6 +2134,68 @@ function UserManagement({ user }) {
                   <p className="mt-1 text-xs text-gray-500">
                     Выберите Team Lead, к которому привязан пользователь
                   </p>
+                </div>
+              )}
+
+              {/* Уровень доступа (только для админа) */}
+              {user?.access_level === 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Уровень доступа
+                  </label>
+                  <AccessLevelSelector
+                    value={newUser.access_level}
+                    onChange={(newLevel) => {
+                      setNewUser({ ...newUser, access_level: newLevel });
+                      clearMessages();
+                    }}
+                    availableLevels={['member', 'teamlead', 'head']}
+                    disabled={false}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Определяет полномочия в системе: admin &gt; head &gt; teamlead &gt; member
+                  </p>
+                </div>
+              )}
+
+              {/* Отдел (только для админа) */}
+              {user?.access_level === 'admin' && departments.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">
+                    Отдел
+                  </label>
+                  <DepartmentSelector
+                    value={newUser.department_id}
+                    onChange={(deptId) => {
+                      setNewUser({ ...newUser, department_id: deptId });
+                      clearMessages();
+                    }}
+                    departments={departments}
+                    disabled={false}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Отдел, к которому принадлежит пользователь
+                  </p>
+                </div>
+              )}
+
+              {/* Права доступа (только для админа) */}
+              {user?.access_level === 'admin' && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                    Дополнительные права доступа
+                  </h4>
+                  <PermissionsMatrix
+                    permissions={newUser.custom_permissions}
+                    onChange={(newPermissions) => {
+                      setNewUser({ ...newUser, custom_permissions: newPermissions });
+                    }}
+                    rolePermissions={newUserRolePermissions}
+                    disabled={false}
+                    showRolePermissions={newUserRolePermissions.length > 0}
+                  />
                 </div>
               )}
 

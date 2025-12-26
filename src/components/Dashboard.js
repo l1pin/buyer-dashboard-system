@@ -17,6 +17,7 @@ import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
 import LandingAnalytics from './LandingAnalytics';
 import Settings from './Settings';
+import AdminSettings from './AdminSettings';
 import usePermissions from '../hooks/usePermissions';
 
 function Dashboard({ user, session, updateUser }) {
@@ -30,6 +31,7 @@ function Dashboard({ user, session, updateUser }) {
   const urlToSection = {
     '/admin/tables': 'table',
     '/admin/users': 'users',
+    '/admin/settings': 'admin-settings',
     '/workspace/creatives': 'creatives',
     '/workspace/landings': 'landings',
     '/workspace/landing-editor': 'landing-editor',
@@ -46,6 +48,7 @@ function Dashboard({ user, session, updateUser }) {
   const sectionToUrl = {
     'table': '/admin/tables',
     'users': '/admin/users',
+    'admin-settings': '/admin/settings',
     'creatives': '/workspace/creatives',
     'landings': '/workspace/landings',
     'landing-editor': '/workspace/landing-editor',
@@ -223,6 +226,8 @@ function Dashboard({ user, session, updateUser }) {
         return hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
       case 'offers-buyer':
         return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
+      case 'admin-settings':
+        return user?.access_level === 'admin' ? <AdminSettings user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
