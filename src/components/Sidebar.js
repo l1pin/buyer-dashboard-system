@@ -16,8 +16,7 @@ import {
   Pencil,
   Globe,
   Image,
-  Crown,
-  Cog
+  Crown
 } from 'lucide-react';
 import usePermissions from '../hooks/usePermissions';
 
@@ -120,12 +119,6 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       label: 'Лендинги',
       icon: Globe,
       show: canShowSection('landing-editor', user?.role === 'proofreader')
-    },
-    {
-      id: 'admin-settings',
-      label: 'Управление',
-      icon: Cog,
-      show: user?.access_level === 'admin' // Только для админа
     },
     {
       id: 'settings',
