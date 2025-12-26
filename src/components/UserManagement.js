@@ -1297,62 +1297,62 @@ const RolesPanel = ({ user }) => {
                             </div>
                             <div className="text-xs text-gray-500">
                               {role.description || `Код: ${role.code}`}
-                          </div>
-                          <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                            <Users className="h-3 w-3" />
-                            {userCounts[role.id] || 0} пользователей
-                          </div>
+                            </div>
+                            <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                              <Users className="h-3 w-3" />
+                              {userCounts[role.id] || 0} пользователей
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {editingRoleId !== role.id && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditingRoleId(role.id);
+                              setEditData({
+                                display_name: role.display_name || role.name,
+                                description: role.description || '',
+                                icon: role.icon || 'User',
+                                color: role.color || 'gray'
+                              });
+                            }}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Редактировать"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          {!role.is_system && (
+                            <button
+                              onClick={() => handleDelete(role.id)}
+                              disabled={deletingId === role.id || (userCounts[role.id] || 0) > 0}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={(userCounts[role.id] || 0) > 0 ? 'Нельзя удалить: есть пользователи' : 'Удалить'}
+                            >
+                              {deletingId === role.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
                         </>
                       )}
+                      <button
+                        onClick={() => setExpandedRoleId(expandedRoleId === role.id ? null : role.id)}
+                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Настроить права"
+                      >
+                        {expandedRoleId === role.id ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {editingRoleId !== role.id && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingRoleId(role.id);
-                            setEditData({
-                              display_name: role.display_name || role.name,
-                              description: role.description || '',
-                              icon: role.icon || 'User',
-                              color: role.color || 'gray'
-                            });
-                          }}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Редактировать"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        {!role.is_system && (
-                          <button
-                            onClick={() => handleDelete(role.id)}
-                            disabled={deletingId === role.id || (userCounts[role.id] || 0) > 0}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={(userCounts[role.id] || 0) > 0 ? 'Нельзя удалить: есть пользователи' : 'Удалить'}
-                          >
-                            {deletingId === role.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
-                      </>
-                    )}
-                    <button
-                      onClick={() => setExpandedRoleId(expandedRoleId === role.id ? null : role.id)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Настроить права"
-                    >
-                      {expandedRoleId === role.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
 
                 {expandedRoleId === role.id && (
                   <div className="border-t border-gray-200 p-4 bg-gray-50">
