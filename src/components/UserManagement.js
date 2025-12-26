@@ -123,7 +123,7 @@ const RoleSelector = ({ value, onChange, roles, className }) => {
   // Преобразуем роли из БД в формат для отображения
   const displayRoles = (roles || []).map(r => ({
     value: r.code,
-    label: r.display_name || r.name || r.code,
+    label: r.name || r.code,
     ...(ROLE_ICONS[r.code] || ROLE_ICONS.default)
   }));
 
@@ -755,7 +755,7 @@ const RolesPanel = ({ user }) => {
 
   const [expandedRoleId, setExpandedRoleId] = useState(null);
   const [editingRoleId, setEditingRoleId] = useState(null);
-  const [editData, setEditData] = useState({ display_name: '', description: '' });
+  const [editData, setEditData] = useState({ name: '', description: '' });
   const [updating, setUpdating] = useState(false);
 
   const [deletingId, setDeletingId] = useState(null);
@@ -819,7 +819,6 @@ const RolesPanel = ({ user }) => {
       setError('');
       await userService.createRole({
         name: newRole.name.trim(),
-        display_name: newRole.name.trim(),
         description: newRole.description.trim() || null
       });
       setNewRole({ name: '', description: '' });
@@ -836,7 +835,7 @@ const RolesPanel = ({ user }) => {
   };
 
   const handleUpdate = async (roleId) => {
-    if (!editData.display_name.trim()) {
+    if (!editData.name.trim()) {
       setError('Введите название роли');
       return;
     }
@@ -845,11 +844,11 @@ const RolesPanel = ({ user }) => {
       setUpdating(true);
       setError('');
       await userService.updateRole(roleId, {
-        display_name: editData.display_name.trim(),
+        name: editData.name.trim(),
         description: editData.description.trim() || null
       });
       setEditingRoleId(null);
-      setEditData({ display_name: '', description: '' });
+      setEditData({ name: '', description: '' });
       setSuccess('Роль обновлена');
       await loadRoles();
       setTimeout(() => setSuccess(''), 3000);
@@ -1003,8 +1002,8 @@ const RolesPanel = ({ user }) => {
                           <div className="space-y-2">
                             <input
                               type="text"
-                              value={editData.display_name}
-                              onChange={(e) => setEditData({ ...editData, display_name: e.target.value })}
+                              value={editData.name}
+                              onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                               className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                               autoFocus
                             />
@@ -1026,7 +1025,7 @@ const RolesPanel = ({ user }) => {
                               <button
                                 onClick={() => {
                                   setEditingRoleId(null);
-                                  setEditData({ display_name: '', description: '' });
+                                  setEditData({ name: '', description: '' });
                                 }}
                                 className="p-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                               >
@@ -1037,7 +1036,7 @@ const RolesPanel = ({ user }) => {
                         ) : (
                           <>
                             <div className="font-medium text-gray-900 flex items-center gap-2">
-                              {role.display_name || role.name}
+                              {role.name}
                               {role.is_system && (
                                 <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                                   системная
@@ -1062,7 +1061,7 @@ const RolesPanel = ({ user }) => {
                             onClick={() => {
                               setEditingRoleId(role.id);
                               setEditData({
-                                display_name: role.display_name || role.name,
+                                name: role.name,
                                 description: role.description || ''
                               });
                             }}
