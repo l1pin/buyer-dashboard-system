@@ -1333,6 +1333,20 @@ function UserManagement({ user }) {
     }
   };
 
+  // Плашка уровня доступа
+  const getAccessLevelBadge = (accessLevel) => {
+    switch (accessLevel) {
+      case 'admin':
+        return { label: 'Главный админ', color: 'bg-yellow-100 text-yellow-800 border border-yellow-300', icon: Crown };
+      case 'head':
+        return { label: 'Head', color: 'bg-blue-100 text-blue-800 border border-blue-300', icon: Building2 };
+      case 'teamlead':
+        return { label: 'Team Lead', color: 'bg-green-100 text-green-800 border border-green-300', icon: Shield };
+      default:
+        return null; // member не показываем
+    }
+  };
+
   // Цвет фона аватара по роли
   const getRoleAvatarBg = (role) => {
     switch (role) {
@@ -1792,7 +1806,7 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Имя и Email */}
-                      <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
+                      <div className="min-w-0 ml-3 mr-4" style={{ width: '180px' }}>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-semibold text-gray-900 truncate">
                             {currentUser.name}
@@ -1804,12 +1818,44 @@ function UserManagement({ user }) {
                         <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
                       </div>
 
+                      {/* Уровень доступа */}
+                      <div className="mr-3" style={{ width: '120px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">Доступ</div>
+                        {(() => {
+                          const badge = getAccessLevelBadge(currentUser.access_level);
+                          if (badge) {
+                            const IconComp = badge.icon;
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${badge.color}`}>
+                                <IconComp className="h-3 w-3" />
+                                {badge.label}
+                              </span>
+                            );
+                          }
+                          return <span className="text-xs text-gray-400">—</span>;
+                        })()}
+                      </div>
+
                       {/* Роль */}
-                      <div className="mr-4" style={{ width: '150px' }}>
+                      <div className="mr-3" style={{ width: '130px' }}>
                         <div className="text-xs text-gray-400 mb-0.5">Роль</div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
-                          {getRoleDisplayWithDepartment(currentUser.role, currentUser.department)}
+                          {getRoleDisplayName(currentUser.role)}
                         </span>
+                      </div>
+
+                      {/* Отдел */}
+                      <div className="mr-3" style={{ width: '120px' }}>
+                        <div className="text-xs text-gray-400 mb-0.5">Отдел</div>
+                        {currentUser.department_id ? (
+                          <span className="text-xs text-gray-700 truncate block">
+                            {departments.find(d => d.id === currentUser.department_id)?.name || '—'}
+                          </span>
+                        ) : currentUser.department ? (
+                          <span className="text-xs text-gray-700 truncate block">{currentUser.department}</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
                       </div>
 
                       {/* Team Lead / Команда */}
