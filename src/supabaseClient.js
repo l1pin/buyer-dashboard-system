@@ -1105,8 +1105,8 @@ export const userService = {
     }
   },
 
-  // Установить права роли
-  async setRolePermissions(roleId, permissionIds) {
+  // Установить права роли (принимает коды пермишенов)
+  async setRolePermissions(roleId, permissionCodes) {
     try {
       // Удаляем старые права
       await supabase
@@ -1115,17 +1115,36 @@ export const userService = {
         .eq('role_id', roleId);
 
       // Добавляем новые
-      if (permissionIds.length > 0) {
-        const toInsert = permissionIds.map(permissionId => ({
-          role_id: roleId,
-          permission_id: permissionId
-        }));
+      if (permissionCodes.length > 0) {
+        // Получаем UUID пермишенов по их кодам
+        const { data: permissions, error: permError } = await supabase
+          .from('permissions')
+          .select('id, code')
+          .in('code', permissionCodes);
 
-        const { error } = await supabase
-          .from('role_permissions')
-          .insert(toInsert);
+        if (permError) throw permError;
 
-        if (error) throw error;
+        // Создаём маппинг code -> id
+        const codeToId = {};
+        permissions.forEach(p => {
+          codeToId[p.code] = p.id;
+        });
+
+        // Фильтруем только существующие пермишены
+        const toInsert = permissionCodes
+          .filter(code => codeToId[code])
+          .map(code => ({
+            role_id: roleId,
+            permission_id: codeToId[code]
+          }));
+
+        if (toInsert.length > 0) {
+          const { error } = await supabase
+            .from('role_permissions')
+            .insert(toInsert);
+
+          if (error) throw error;
+        }
       }
 
       return true;
