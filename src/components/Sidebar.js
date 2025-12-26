@@ -15,7 +15,8 @@ import {
   Package,
   Pencil,
   Globe,
-  Image
+  Image,
+  Crown
 } from 'lucide-react';
 import usePermissions from '../hooks/usePermissions';
 
@@ -131,8 +132,23 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     setIsCollapsed(!isCollapsed);
   };
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
+  // Получаем отображаемое имя с учётом access_level
+  const getDisplayName = () => {
+    // Сначала проверяем access_level
+    switch (user?.access_level) {
+      case 'admin':
+        return 'Главный админ';
+      case 'head':
+        return 'Head of Department';
+      case 'teamlead':
+        return 'Team Lead';
+      default:
+        // Fallback на роль
+        break;
+    }
+
+    // Если access_level не определён или member — показываем роль
+    switch (user?.role) {
       case 'teamlead':
         return 'Team Lead';
       case 'buyer':
@@ -152,12 +168,21 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       case 'gif_creator':
         return 'GIF Creator';
       default:
-        return 'Unknown';
+        return 'Пользователь';
     }
   };
 
-  const getRoleIcon = (role) => {
-    switch (role) {
+  const getRoleIcon = () => {
+    // Для админа — корона
+    if (user?.access_level === 'admin') {
+      return <Crown className="h-5 w-5 text-yellow-500" />;
+    }
+    if (user?.access_level === 'head') {
+      return <Shield className="h-5 w-5 text-blue-500" />;
+    }
+
+    // Иначе — иконка по роли
+    switch (user?.role) {
       case 'teamlead':
         return <Shield className="h-5 w-5 text-gray-600" />;
       case 'buyer':
@@ -235,7 +260,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
                 />
               ) : null}
               <div className={`w-full h-full flex items-center justify-center ${user?.avatar_url ? 'hidden' : ''}`}>
-                {getRoleIcon(user?.role)}
+                {getRoleIcon()}
               </div>
             </div>
             <div className="flex-1 min-w-0">
@@ -243,7 +268,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
                 {user?.name || 'Пользователь'}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {getRoleDisplayName(user?.role)}
+                {getDisplayName()}
               </p>
               <p className="text-xs text-gray-400 truncate">
                 {user?.email}
