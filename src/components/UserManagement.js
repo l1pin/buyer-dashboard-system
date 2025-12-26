@@ -1312,8 +1312,8 @@ function UserManagement({ user }) {
         ? (departments.find(d => d.id === user.department_id)?.name || 'Неизвестный отдел')
         : (user.department || null);
 
-      // Определяем, является ли пользователь тимлидом
-      const isTeamLead = user.role === 'teamlead' || teamLeadIds.has(user.id);
+      // Определяем, является ли пользователь тимлидом (только если у него реально есть подчинённые)
+      const isTeamLead = teamLeadIds.has(user.id);
 
       if (deptName) {
         // Есть отдел
@@ -2704,35 +2704,6 @@ function UserManagement({ user }) {
                     );
                   };
 
-                  // Собираем все строки для отдела
-                  const renderDepartmentRows = () => {
-                    const rows = [];
-
-                    Object.entries(dept.teamLeads).forEach(([tlId, tlData]) => {
-                      const teamLead = tlData.user;
-                      const subordinates = tlData.subordinates;
-                      const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
-
-                      if (!teamLead && subordinates.length === 0) return;
-
-                      if (teamLead) {
-                        rows.push(renderUserRow(teamLead, false, null, false, subordinates.length > 0));
-
-                        if (isTeamLeadExpanded) {
-                          subordinates.forEach((sub, idx) => {
-                            rows.push(renderUserRow(sub, true, teamLead, idx === subordinates.length - 1));
-                          });
-                        }
-                      }
-                    });
-
-                    dept.noTeamLead.forEach(u => {
-                      rows.push(renderUserRow(u, false, null));
-                    });
-
-                    return rows;
-                  };
-
                   return (
                     <div key={deptName} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
                       {/* Заголовок отдела */}
@@ -2764,7 +2735,25 @@ function UserManagement({ user }) {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
-                            {renderDepartmentRows()}
+                            {/* Тимлиды с подчинёнными */}
+                            {Object.entries(dept.teamLeads).map(([tlId, tlData]) => {
+                              const teamLead = tlData.user;
+                              const subordinates = tlData.subordinates;
+                              const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
+
+                              if (!teamLead && subordinates.length === 0) return null;
+
+                              return (
+                                <React.Fragment key={tlId}>
+                                  {teamLead && renderUserRow(teamLead, false, null, false, subordinates.length > 0)}
+                                  {teamLead && isTeamLeadExpanded && subordinates.map((sub, idx) =>
+                                    renderUserRow(sub, true, teamLead, idx === subordinates.length - 1)
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                            {/* Пользователи без тимлида */}
+                            {dept.noTeamLead.map(u => renderUserRow(u, false, null))}
                           </tbody>
                         </table>
                       )}
