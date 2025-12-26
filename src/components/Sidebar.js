@@ -132,22 +132,14 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Получаем отображаемое имя с учётом access_level
+  // Получаем отображаемое имя по роли
   const getDisplayName = () => {
-    // Сначала проверяем access_level
-    switch (user?.access_level) {
-      case 'admin':
-        return 'Главный админ';
-      case 'head':
-        return 'Head of Department';
-      case 'teamlead':
-        return 'Team Lead';
-      default:
-        // Fallback на роль
-        break;
+    // Для защищённых пользователей показываем "Администратор"
+    if (user?.is_protected) {
+      return 'Администратор';
     }
 
-    // Если access_level не определён или member — показываем роль
+    // Показываем роль
     switch (user?.role) {
       case 'teamlead':
         return 'Team Lead';
@@ -173,18 +165,15 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   };
 
   const getRoleIcon = () => {
-    // Для админа — корона
-    if (user?.access_level === 'admin') {
+    // Для защищённых пользователей — корона
+    if (user?.is_protected) {
       return <Crown className="h-5 w-5 text-yellow-500" />;
     }
-    if (user?.access_level === 'head') {
-      return <Shield className="h-5 w-5 text-blue-500" />;
-    }
 
-    // Иначе — иконка по роли
+    // Иконка по роли
     switch (user?.role) {
       case 'teamlead':
-        return <Shield className="h-5 w-5 text-gray-600" />;
+        return <Shield className="h-5 w-5 text-green-600" />;
       case 'buyer':
         return <AdIcon className="h-5 w-5 text-gray-600" />;
       case 'editor':

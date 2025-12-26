@@ -1276,6 +1276,49 @@ function UserManagement({ user }) {
     };
   }, []);
 
+  // Автозагрузка прав роли при смене роли в форме создания
+  useEffect(() => {
+    const loadRolePerms = async () => {
+      if (!newUser.role || !roles.length) {
+        setNewUserRolePermissions([]);
+        return;
+      }
+      const selectedRole = roles.find(r => r.code === newUser.role);
+      if (selectedRole?.id) {
+        try {
+          const perms = await userService.getRolePermissions(selectedRole.id);
+          setNewUserRolePermissions(perms.map(p => p.code));
+        } catch (err) {
+          console.error('Error loading role permissions:', err);
+          setNewUserRolePermissions([]);
+        }
+      } else {
+        setNewUserRolePermissions([]);
+      }
+    };
+    loadRolePerms();
+  }, [newUser.role, roles]);
+
+  // Автозагрузка прав роли при смене роли в форме редактирования
+  useEffect(() => {
+    const loadRolePerms = async () => {
+      if (!showEditModal || !editUserData.role || !roles.length) return;
+      const selectedRole = roles.find(r => r.code === editUserData.role);
+      if (selectedRole?.id) {
+        try {
+          const perms = await userService.getRolePermissions(selectedRole.id);
+          setRolePermissions(perms.map(p => p.code));
+        } catch (err) {
+          console.error('Error loading role permissions:', err);
+          setRolePermissions([]);
+        }
+      } else {
+        setRolePermissions([]);
+      }
+    };
+    loadRolePerms();
+  }, [editUserData.role, roles, showEditModal]);
+
   // Фильтрация пользователей по поисковому запросу
   const filteredUsers = useMemo(() => {
     if (!debouncedSearch.trim()) {
