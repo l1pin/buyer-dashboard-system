@@ -1708,9 +1708,9 @@ function UserManagement({ user }) {
       
       // Показываем ошибку только если это реальная проблема
       let errorMessage = 'Неизвестная ошибка создания пользователя';
-      
+
       if (error.message) {
-        if (error.message.includes('уже существует') || 
+        if (error.message.includes('уже существует') ||
             error.message.includes('already registered') ||
             error.message.includes('already exists')) {
           errorMessage = error.message;
@@ -1718,8 +1718,11 @@ function UserManagement({ user }) {
           errorMessage = 'Регистрация новых пользователей отключена в настройках Supabase. Обратитесь к системному администратору.';
         } else if (error.message.includes('invalid')) {
           errorMessage = `Неверный формат email адреса "${newUser.email}". Проверьте правильность введенного email.`;
+        } else if (error.message.includes('базы данных') || error.message.includes('Database error')) {
+          errorMessage = error.message;
         } else {
-          errorMessage = `Ошибка создания пользователя: ${error.message}`;
+          // Не дублируем префикс если он уже есть
+          errorMessage = error.message;
         }
       }
       

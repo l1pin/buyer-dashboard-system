@@ -139,6 +139,7 @@ export const userService = {
 
         if (authError) {
           console.error('❌ Ошибка админ API:', authError);
+          console.error('❌ Детали ошибки:', JSON.stringify(authError, null, 2));
 
           if (authError.message?.includes('already registered') ||
             authError.message?.includes('already exists') ||
@@ -146,7 +147,13 @@ export const userService = {
             throw new Error(`Пользователь с email "${userData.email}" уже зарегистрирован в системе.`);
           }
 
-          throw new Error(`Ошибка создания пользователя: ${authError.message}`);
+          // "Database error creating new user" - ошибка триггера в Supabase
+          if (authError.message?.includes('Database error')) {
+            console.error('⚠️ Ошибка триггера базы данных. Проверьте триггер handle_new_user в Supabase.');
+            throw new Error('Ошибка базы данных при создании пользователя. Возможно, в Supabase есть триггер handle_new_user, который нужно проверить или отключить.');
+          }
+
+          throw new Error(authError.message || 'Неизвестная ошибка создания пользователя');
         }
 
         if (!authData.user) {
