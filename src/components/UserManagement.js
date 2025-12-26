@@ -2740,14 +2740,16 @@ function UserManagement({ user }) {
                               const teamLead = tlData.user;
                               const subordinates = tlData.subordinates;
                               const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
+                              // Находим тимлида из общего списка, если он в другом отделе
+                              const teamLeadFromList = teamLead || users.find(u => u.id === tlId);
 
                               if (!teamLead && subordinates.length === 0) return null;
 
                               return (
                                 <React.Fragment key={tlId}>
                                   {teamLead && renderUserRow(teamLead, false, null, false, subordinates.length > 0)}
-                                  {teamLead && isTeamLeadExpanded && subordinates.map((sub, idx) =>
-                                    renderUserRow(sub, true, teamLead, idx === subordinates.length - 1)
+                                  {isTeamLeadExpanded && subordinates.map((sub, idx) =>
+                                    renderUserRow(sub, true, teamLeadFromList, idx === subordinates.length - 1)
                                   )}
                                 </React.Fragment>
                               );
@@ -2786,73 +2788,73 @@ function UserManagement({ user }) {
                           const teamLead = tlData.user;
                           const subordinates = tlData.subordinates;
                           const isTeamLeadExpanded = expandedTeamLeads[tlId] !== false;
+                          // Находим тимлида из общего списка, если он в другом отделе
+                          const teamLeadFromList = teamLead || users.find(u => u.id === tlId);
                           if (!teamLead && subordinates.length === 0) return null;
 
-                          const rows = [];
-                          if (teamLead) {
-                            const isTeamLeadUser = users.some(u => u.team_lead_id === teamLead.id);
-                            const subordinateCount = users.filter(u => u.team_lead_id === teamLead.id).length;
+                          const isTeamLeadUser = teamLead ? users.some(u => u.team_lead_id === teamLead.id) : false;
+                          const subordinateCount = teamLead ? users.filter(u => u.team_lead_id === teamLead.id).length : subordinates.length;
 
-                            rows.push(
-                              <tr key={teamLead.id} className="group hover:bg-blue-50/50 transition-colors bg-white">
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="relative flex items-center" style={{ width: '24px' }}>
-                                      {isTeamLeadUser && subordinateCount > 0 && (
-                                        <button
-                                          onClick={() => toggleTeamLead(teamLead.id)}
-                                          className="p-0.5 hover:bg-green-100 rounded transition-colors"
-                                        >
-                                          {isTeamLeadExpanded ? <ChevronDown className="h-4 w-4 text-green-600" /> : <ChevronRight className="h-4 w-4 text-green-600" />}
+                          return (
+                            <React.Fragment key={tlId}>
+                              {teamLead && (
+                                <tr className="group hover:bg-blue-50/50 transition-colors bg-white">
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                      <div className="relative flex items-center" style={{ width: '24px' }}>
+                                        {isTeamLeadUser && subordinateCount > 0 && (
+                                          <button
+                                            onClick={() => toggleTeamLead(teamLead.id)}
+                                            className="p-0.5 hover:bg-green-100 rounded transition-colors"
+                                          >
+                                            {isTeamLeadExpanded ? <ChevronDown className="h-4 w-4 text-green-600" /> : <ChevronRight className="h-4 w-4 text-green-600" />}
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${isTeamLeadUser ? 'bg-green-100 ring-2 ring-green-300' : getRoleAvatarBg(teamLead.role)}`}>
+                                        {isTeamLeadUser ? <Shield className="h-4 w-4 text-green-600" /> : getRoleIcon(teamLead.role)}
+                                      </div>
+                                      <div className="ml-3 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-sm font-medium text-gray-900 truncate">{teamLead.name}</span>
+                                          {teamLead.is_protected && <Shield className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
+                                        </div>
+                                        <div className="text-xs text-gray-500 truncate">{teamLead.email}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${getRoleBadgeColor(teamLead.role)}`}>{getRoleDisplayName(teamLead.role)}</span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {isTeamLeadUser ? (
+                                      <div className="flex items-center gap-1.5 text-green-700">
+                                        <Users className="h-4 w-4" />
+                                        <span className="text-sm font-medium">{subordinateCount} чел.</span>
+                                      </div>
+                                    ) : <span className="text-gray-400">—</span>}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{formatKyivTime(teamLead.created_at)}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">{teamLead.created_by_name || 'Система'}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      {showArchived ? (
+                                        <button onClick={() => handleRestoreUser(teamLead.id, teamLead.name)} disabled={restoring === teamLead.id} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
+                                          <RotateCcw className="h-3.5 w-3.5 mr-1" />Восстановить
                                         </button>
+                                      ) : (
+                                        <>
+                                          <button onClick={() => handleEditUser(teamLead)} disabled={teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
+                                          <button onClick={() => handleDeleteUser(teamLead.id, teamLead.name, teamLead.role, teamLead.is_protected)} disabled={deleting === teamLead.id || teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
+                                        </>
                                       )}
                                     </div>
-                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${isTeamLeadUser ? 'bg-green-100 ring-2 ring-green-300' : getRoleAvatarBg(teamLead.role)}`}>
-                                      {isTeamLeadUser ? <Shield className="h-4 w-4 text-green-600" /> : getRoleIcon(teamLead.role)}
-                                    </div>
-                                    <div className="ml-3 min-w-0">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-sm font-medium text-gray-900 truncate">{teamLead.name}</span>
-                                        {teamLead.is_protected && <Shield className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
-                                      </div>
-                                      <div className="text-xs text-gray-500 truncate">{teamLead.email}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${getRoleBadgeColor(teamLead.role)}`}>{getRoleDisplayName(teamLead.role)}</span>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  {isTeamLeadUser ? (
-                                    <div className="flex items-center gap-1.5 text-green-700">
-                                      <Users className="h-4 w-4" />
-                                      <span className="text-sm font-medium">{subordinateCount} чел.</span>
-                                    </div>
-                                  ) : <span className="text-gray-400">—</span>}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{formatKyivTime(teamLead.created_at)}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">{teamLead.created_by_name || 'Система'}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    {showArchived ? (
-                                      <button onClick={() => handleRestoreUser(teamLead.id, teamLead.name)} disabled={restoring === teamLead.id} className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
-                                        <RotateCcw className="h-3.5 w-3.5 mr-1" />Восстановить
-                                      </button>
-                                    ) : (
-                                      <>
-                                        <button onClick={() => handleEditUser(teamLead)} disabled={teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}><Edit className="h-4 w-4" /></button>
-                                        <button onClick={() => handleDeleteUser(teamLead.id, teamLead.name, teamLead.role, teamLead.is_protected)} disabled={deleting === teamLead.id || teamLead.is_protected} className={`p-1.5 rounded-lg transition-colors ${teamLead.is_protected ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}><Archive className="h-4 w-4" /></button>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-
-                            if (isTeamLeadExpanded) {
-                              subordinates.forEach((sub, idx) => {
+                                  </td>
+                                </tr>
+                              )}
+                              {isTeamLeadExpanded && subordinates.map((sub, idx) => {
                                 const isLast = idx === subordinates.length - 1;
-                                rows.push(
+                                return (
                                   <tr key={sub.id} className="group hover:bg-blue-50/50 transition-colors bg-gray-50/30">
                                     <td className="px-4 py-3 whitespace-nowrap">
                                       <div className="flex items-center">
@@ -2871,7 +2873,7 @@ function UserManagement({ user }) {
                                       </div>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap"><span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${getRoleBadgeColor(sub.role)}`}>{getRoleDisplayName(sub.role)}</span></td>
-                                    <td className="px-4 py-3 whitespace-nowrap"><span className="text-sm text-gray-600">{teamLead.name}</span></td>
+                                    <td className="px-4 py-3 whitespace-nowrap"><span className="text-sm text-gray-600">{teamLeadFromList?.name || '—'}</span></td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">{formatKyivTime(sub.created_at)}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">{sub.created_by_name || 'Система'}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-right">
@@ -2890,10 +2892,9 @@ function UserManagement({ user }) {
                                     </td>
                                   </tr>
                                 );
-                              });
-                            }
-                          }
-                          return rows;
+                              })}
+                            </React.Fragment>
+                          );
                         })}
                         {groupedUsers.noDepartment.noTeamLead.map(u => (
                           <tr key={u.id} className="group hover:bg-blue-50/50 transition-colors bg-white">
@@ -3096,33 +3097,6 @@ function UserManagement({ user }) {
                   {roles.find(r => r.code === newUser.role)?.description || 'Выберите роль'}
                 </p>
               </div>
-
-              {/* Отдел для Team Lead */}
-              {newUser.role === 'teamlead' && (
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.department ? 'text-red-600' : 'text-gray-700'}`}>
-                    Отдел *
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.department}
-                    onChange={(e) => {
-                      setNewUser({ ...newUser, department: e.target.value });
-                      clearMessages();
-                    }}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
-                      fieldErrors.department
-                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                        : 'border-gray-300 focus:ring-blue-500'
-                    }`}
-                    placeholder="Например: Media Buying, Design, Content"
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Название отдела, которым руководит Team Lead
-                  </p>
-                </div>
-              )}
 
               {/* Выбор Team Lead (только для не-тимлидов) */}
               {newUser.role !== 'teamlead' && (
@@ -3665,33 +3639,6 @@ function UserManagement({ user }) {
                   {roles.find(r => r.code === editUserData.role)?.description || 'Выберите роль'}
                 </p>
               </div>
-
-              {/* Отдел для Team Lead */}
-              {editUserData.role === 'teamlead' && (
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${fieldErrors.department ? 'text-red-600' : 'text-gray-700'}`}>
-                    Отдел *
-                  </label>
-                  <input
-                    type="text"
-                    value={editUserData.department}
-                    onChange={(e) => {
-                      setEditUserData({ ...editUserData, department: e.target.value });
-                      clearMessages();
-                    }}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
-                      fieldErrors.department
-                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                        : 'border-gray-300 focus:ring-blue-500'
-                    }`}
-                    placeholder="Например: Media Buying, Design, Content"
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Название отдела, которым руководит Team Lead
-                  </p>
-                </div>
-              )}
 
               {/* Выбор Team Lead (только для не-тимлидов) */}
               {editUserData.role !== 'teamlead' && (
