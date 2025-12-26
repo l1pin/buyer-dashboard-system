@@ -721,6 +721,387 @@ export const userService = {
       console.error('💥 Ошибка в getArchivedUsers:', error);
       return [];
     }
+  },
+
+  // ============================================
+  // НОВЫЕ МЕТОДЫ ДЛЯ СИСТЕМЫ РОЛЕЙ И ПРАВ
+  // ============================================
+
+  // Получить пользователей по коду роли (новая система с fallback)
+  async getUsersByRoleCode(roleCode, includeArchived = false) {
+    try {
+      // Сначала пробуем найти role_id по коду
+      const { data: roleData } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('code', roleCode)
+        .single();
+
+      if (roleData?.id) {
+        let query = supabase
+          .from('users')
+          .select('*')
+          .eq('role_id', roleData.id);
+
+        if (!includeArchived) {
+          query = query.eq('archived', false);
+        }
+
+        const { data, error } = await query.order('name');
+        if (!error && data) {
+          return data;
+        }
+      }
+
+      // Fallback на старое поле role
+      return this.getUsersByRole(roleCode, includeArchived);
+
+    } catch (error) {
+      console.error('Error in getUsersByRoleCode:', error);
+      // Fallback на старую систему
+      return this.getUsersByRole(roleCode, includeArchived);
+    }
+  },
+
+  // Получить пользователей по отделу
+  async getUsersByDepartment(departmentId, includeArchived = false) {
+    try {
+      let query = supabase
+        .from('users')
+        .select('*')
+        .eq('department_id', departmentId);
+
+      if (!includeArchived) {
+        query = query.eq('archived', false);
+      }
+
+      const { data, error } = await query.order('name');
+
+      if (error) throw error;
+      return data || [];
+
+    } catch (error) {
+      console.error('Error in getUsersByDepartment:', error);
+      return [];
+    }
+  },
+
+  // Получить подчинённых пользователя
+  async getSubordinates(teamLeadId) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('team_lead_id', teamLeadId)
+        .eq('archived', false)
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+
+    } catch (error) {
+      console.error('Error in getSubordinates:', error);
+      return [];
+    }
+  },
+
+  // Проверить, можно ли архивировать (есть ли подчинённые)
+  async checkCanArchive(userId) {
+    try {
+      const subordinates = await this.getSubordinates(userId);
+
+      return {
+        canArchive: subordinates.length === 0,
+        subordinates,
+        message: subordinates.length > 0
+          ? `Нельзя архивировать: есть ${subordinates.length} подчинённых`
+          : null
+      };
+
+    } catch (error) {
+      console.error('Error in checkCanArchive:', error);
+      return { canArchive: false, subordinates: [], message: 'Ошибка проверки' };
+    }
+  },
+
+  // Получить все отделы
+  async getAllDepartments() {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        // Если таблица не существует — возвращаем пустой массив
+        if (error.code === '42P01') {
+          console.warn('Таблица departments ещё не создана');
+          return [];
+        }
+        throw error;
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error('Error in getAllDepartments:', error);
+      return [];
+    }
+  },
+
+  // Создать отдел
+  async createDepartment(name, description = null) {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .insert([{ name, description }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in createDepartment:', error);
+      throw error;
+    }
+  },
+
+  // Обновить отдел
+  async updateDepartment(id, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in updateDepartment:', error);
+      throw error;
+    }
+  },
+
+  // Удалить отдел (только если нет пользователей)
+  async deleteDepartment(id) {
+    try {
+      // Проверяем, есть ли пользователи в отделе
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .eq('department_id', id)
+        .limit(1);
+
+      if (users?.length > 0) {
+        throw new Error('Нельзя удалить отдел с пользователями');
+      }
+
+      const { error } = await supabase
+        .from('departments')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('Error in deleteDepartment:', error);
+      throw error;
+    }
+  },
+
+  // Получить все роли
+  async getAllRoles() {
+    try {
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*')
+        .order('sort_order');
+
+      if (error) {
+        // Если таблица не существует — возвращаем fallback
+        if (error.code === '42P01') {
+          console.warn('Таблица roles ещё не создана, возвращаем fallback');
+          return this.getLegacyRoles();
+        }
+        throw error;
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error('Error in getAllRoles:', error);
+      return this.getLegacyRoles();
+    }
+  },
+
+  // Fallback роли (старая система)
+  getLegacyRoles() {
+    return [
+      { code: 'teamlead', name: 'Team Lead', icon: 'Shield', color: 'green', is_system: true },
+      { code: 'buyer', name: 'Media Buyer', icon: 'Megaphone', color: 'blue', is_system: true },
+      { code: 'editor', name: 'Video Designer', icon: 'Video', color: 'purple', is_system: true },
+      { code: 'designer', name: 'Designer', icon: 'Palette', color: 'pink', is_system: true },
+      { code: 'search_manager', name: 'Search Manager', icon: 'Search', color: 'orange', is_system: true },
+      { code: 'content_manager', name: 'Content Manager', icon: 'Code2', color: 'indigo', is_system: true },
+      { code: 'product_manager', name: 'Product Manager', icon: 'Package', color: 'yellow', is_system: true },
+      { code: 'proofreader', name: 'Editor', icon: 'Pencil', color: 'teal', is_system: true },
+      { code: 'gif_creator', name: 'GIF Creator', icon: 'Image', color: 'cyan', is_system: true }
+    ];
+  },
+
+  // Обновить роль (только имя и описание, не код!)
+  async updateRole(id, updates) {
+    try {
+      // Не позволяем менять code
+      const { code, ...safeUpdates } = updates;
+
+      const { data, error } = await supabase
+        .from('roles')
+        .update(safeUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in updateRole:', error);
+      throw error;
+    }
+  },
+
+  // Получить все права
+  async getAllPermissions() {
+    try {
+      const { data, error } = await supabase
+        .from('permissions')
+        .select('*')
+        .order('category, sort_order');
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('Таблица permissions ещё не создана');
+          return [];
+        }
+        throw error;
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error('Error in getAllPermissions:', error);
+      return [];
+    }
+  },
+
+  // Получить права роли
+  async getRolePermissions(roleId) {
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('permission_id, permissions(code, name, category)')
+        .eq('role_id', roleId);
+
+      if (error) throw error;
+
+      return data?.map(rp => rp.permissions) || [];
+
+    } catch (error) {
+      console.error('Error in getRolePermissions:', error);
+      return [];
+    }
+  },
+
+  // Установить права роли
+  async setRolePermissions(roleId, permissionIds) {
+    try {
+      // Удаляем старые права
+      await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('role_id', roleId);
+
+      // Добавляем новые
+      if (permissionIds.length > 0) {
+        const toInsert = permissionIds.map(permissionId => ({
+          role_id: roleId,
+          permission_id: permissionId
+        }));
+
+        const { error } = await supabase
+          .from('role_permissions')
+          .insert(toInsert);
+
+        if (error) throw error;
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('Error in setRolePermissions:', error);
+      throw error;
+    }
+  },
+
+  // Получить права пользователя (все: роль + индивидуальные + access_level)
+  async getUserPermissions(userId) {
+    try {
+      // Пробуем использовать функцию в БД
+      const { data, error } = await supabase
+        .rpc('get_user_permissions', { p_user_id: userId });
+
+      if (!error && data) {
+        return data;
+      }
+
+      // Fallback: загружаем вручную
+      const user = await this.getUserProfile(userId);
+      if (!user) return [];
+
+      let permissions = [];
+
+      // Права от роли
+      if (user.role_id) {
+        const rolePerms = await this.getRolePermissions(user.role_id);
+        permissions = rolePerms.map(p => p.code);
+      }
+
+      // Индивидуальные права
+      if (user.custom_permissions?.length > 0) {
+        permissions = [...permissions, ...user.custom_permissions];
+      }
+
+      return [...new Set(permissions)];
+
+    } catch (error) {
+      console.error('Error in getUserPermissions:', error);
+      return [];
+    }
+  },
+
+  // Обновить индивидуальные права пользователя
+  async updateUserCustomPermissions(userId, permissions) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ custom_permissions: permissions })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in updateUserCustomPermissions:', error);
+      throw error;
+    }
   }
 };
 
