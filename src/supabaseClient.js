@@ -171,6 +171,7 @@ export const userService = {
               email: emailToCheck,
               name: userData.name.trim(),
               role: userData.role,
+              role_id: userData.role_id || null,
               department_id: userData.department_id || null,
               team_lead_id: userData.team_lead_id || null,
               team_lead_name: userData.team_lead_name || null,
@@ -188,6 +189,7 @@ export const userService = {
 
         if (profileError) {
           console.error('❌ Ошибка создания/обновления профиля:', profileError);
+          console.error('❌ Детали:', JSON.stringify(profileError, null, 2));
 
           // Проверяем, может профиль уже существует и нужно просто его получить
           const { data: existingProfile, error: getProfileError } = await supabase
@@ -274,6 +276,7 @@ export const userService = {
             email: emailToCheck,
             name: userData.name.trim(),
             role: userData.role,
+            role_id: userData.role_id || null,
             department_id: userData.department_id || null,
             team_lead_id: userData.team_lead_id || null,
             team_lead_name: userData.team_lead_name || null,
@@ -290,6 +293,7 @@ export const userService = {
         .single();
 
       if (profileError) {
+        console.error('❌ Детали:', JSON.stringify(profileError, null, 2));
         console.error('❌ Ошибка создания/обновления профиля:', profileError);
 
         // Проверяем, может профиль уже существует и нужно просто его получить
