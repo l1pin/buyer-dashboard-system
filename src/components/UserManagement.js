@@ -98,23 +98,32 @@ const SourceSelector = ({ value, onChange, className }) => {
   );
 };
 
-// Кастомный селектор роли пользователя
-const RoleSelector = ({ value, onChange, className }) => {
+// Маппинг иконок для ролей
+const ROLE_ICONS = {
+  'buyer': { icon: 'ad', color: 'text-blue-600' },
+  'editor': { icon: Video, color: 'text-purple-600' },
+  'designer': { icon: Palette, color: 'text-pink-600' },
+  'search_manager': { icon: Search, color: 'text-orange-600' },
+  'content_manager': { icon: Code2, color: 'text-indigo-600' },
+  'product_manager': { icon: Package, color: 'text-amber-600' },
+  'proofreader': { icon: Pencil, color: 'text-teal-600' },
+  'gif_creator': { icon: Image, color: 'text-cyan-600' },
+  'teamlead': { icon: Shield, color: 'text-green-600' },
+  'default': { icon: User, color: 'text-gray-600' }
+};
+
+// Кастомный селектор роли пользователя (динамический из БД)
+const RoleSelector = ({ value, onChange, roles, className }) => {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const roles = [
-    { value: 'buyer', label: 'Media Buyer', icon: 'ad', color: 'text-blue-600' },
-    { value: 'editor', label: 'Video Designer', icon: Video, color: 'text-purple-600' },
-    { value: 'designer', label: 'Designer', icon: Palette, color: 'text-pink-600' },
-    { value: 'search_manager', label: 'Search Manager', icon: Search, color: 'text-orange-600' },
-    { value: 'content_manager', label: 'Content Manager', icon: Code2, color: 'text-indigo-600' },
-    { value: 'product_manager', label: 'Product Manager', icon: Package, color: 'text-amber-600' },
-    { value: 'proofreader', label: 'Editor', icon: Pencil, color: 'text-teal-600' },
-    { value: 'gif_creator', label: 'GIF Creator', icon: Image, color: 'text-cyan-600' },
-    { value: 'teamlead', label: 'Team Lead', icon: Shield, color: 'text-green-600' }
-  ];
+  // Преобразуем роли из БД в формат для отображения
+  const displayRoles = (roles || []).map(r => ({
+    value: r.code,
+    label: r.display_name || r.name || r.code,
+    ...(ROLE_ICONS[r.code] || ROLE_ICONS.default)
+  }));
 
-  const selectedRole = roles.find(r => r.value === value) || roles[0];
+  const selectedRole = displayRoles.find(r => r.value === value) || displayRoles[0] || { value: '', label: 'Не выбрано', ...ROLE_ICONS.default };
 
   const RoleIconComponent = ({ role, className: iconClassName }) => {
     if (role.icon === 'ad') {
@@ -146,22 +155,26 @@ const RoleSelector = ({ value, onChange, className }) => {
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
           <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
-            {roles.map((role) => (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => {
-                  onChange(role.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
-                  value === role.value ? 'bg-blue-50' : ''
-                }`}
-              >
-                <RoleIconComponent role={role} className={`w-5 h-5 ${role.color}`} />
-                <span className="text-sm">{role.label}</span>
-              </button>
-            ))}
+            {displayRoles.length === 0 ? (
+              <div className="px-3 py-2.5 text-sm text-gray-500">Нет ролей</div>
+            ) : (
+              displayRoles.map((role) => (
+                <button
+                  key={role.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(role.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                    value === role.value ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <RoleIconComponent role={role} className={`w-5 h-5 ${role.color}`} />
+                  <span className="text-sm">{role.label}</span>
+                </button>
+              ))
+            )}
           </div>
         </>
       )}
@@ -513,6 +526,7 @@ const AdIcon = ({ className }) => (
 function UserManagement({ user }) {
   const [users, setUsers] = useState([]);
   const [teamLeads, setTeamLeads] = useState([]); // Список Team Leads для дропдауна
+  const [roles, setRoles] = useState([]); // Список ролей из БД
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -581,6 +595,7 @@ function UserManagement({ user }) {
     const showLoading = isFirstLoadRef.current;
     loadUsers(showLoading);
     loadTeamLeads(); // Загружаем Team Leads при инициализации
+    loadRoles(); // Загружаем роли из БД
     isFirstLoadRef.current = false;
   }, [showArchived]); // Перезагружаем при переключении архива
 
@@ -590,6 +605,15 @@ function UserManagement({ user }) {
       setTeamLeads(teamLeadsData || []);
     } catch (error) {
       console.error('Ошибка загрузки Team Leads:', error);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const rolesData = await userService.getAllRoles();
+      setRoles(rolesData || []);
+    } catch (error) {
+      console.error('Ошибка загрузки ролей:', error);
     }
   };
 
@@ -1333,20 +1357,6 @@ function UserManagement({ user }) {
     }
   };
 
-  // Плашка уровня доступа
-  const getAccessLevelBadge = (accessLevel) => {
-    switch (accessLevel) {
-      case 'admin':
-        return { label: 'Главный админ', color: 'bg-yellow-100 text-yellow-800 border border-yellow-300', icon: Crown };
-      case 'head':
-        return { label: 'Head', color: 'bg-blue-100 text-blue-800 border border-blue-300', icon: Building2 };
-      case 'teamlead':
-        return { label: 'Team Lead', color: 'bg-green-100 text-green-800 border border-green-300', icon: Shield };
-      default:
-        return null; // member не показываем
-    }
-  };
-
   // Цвет фона аватара по роли
   const getRoleAvatarBg = (role) => {
     switch (role) {
@@ -1806,7 +1816,7 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Имя и Email */}
-                      <div className="min-w-0 ml-3 mr-4" style={{ width: '180px' }}>
+                      <div className="min-w-0 ml-3 mr-4" style={{ width: '200px' }}>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-semibold text-gray-900 truncate">
                             {currentUser.name}
@@ -1818,26 +1828,8 @@ function UserManagement({ user }) {
                         <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
                       </div>
 
-                      {/* Уровень доступа */}
-                      <div className="mr-3" style={{ width: '120px' }}>
-                        <div className="text-xs text-gray-400 mb-0.5">Доступ</div>
-                        {(() => {
-                          const badge = getAccessLevelBadge(currentUser.access_level);
-                          if (badge) {
-                            const IconComp = badge.icon;
-                            return (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${badge.color}`}>
-                                <IconComp className="h-3 w-3" />
-                                {badge.label}
-                              </span>
-                            );
-                          }
-                          return <span className="text-xs text-gray-400">—</span>;
-                        })()}
-                      </div>
-
                       {/* Роль */}
-                      <div className="mr-3" style={{ width: '130px' }}>
+                      <div className="mr-4" style={{ width: '140px' }}>
                         <div className="text-xs text-gray-400 mb-0.5">Роль</div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${getRoleBadgeColor(currentUser.role)}`}>
                           {getRoleDisplayName(currentUser.role)}
@@ -1845,7 +1837,7 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Отдел */}
-                      <div className="mr-3" style={{ width: '120px' }}>
+                      <div className="mr-4" style={{ width: '130px' }}>
                         <div className="text-xs text-gray-400 mb-0.5">Отдел</div>
                         {currentUser.department_id ? (
                           <span className="text-xs text-gray-700 truncate block">
@@ -1859,7 +1851,7 @@ function UserManagement({ user }) {
                       </div>
 
                       {/* Team Lead / Команда */}
-                      <div className="mr-4" style={{ width: '150px' }}>
+                      <div className="mr-4" style={{ width: '140px' }}>
                         <div className="text-xs text-gray-400 mb-0.5">
                           {isTeamLead ? 'Команда' : 'Team Lead'}
                         </div>
@@ -2102,18 +2094,11 @@ function UserManagement({ user }) {
                     setNewUser({ ...newUser, role: newRole });
                     clearMessages();
                   }}
+                  roles={roles}
                   className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  {newUser.role === 'buyer' && 'Доступ к рабочим таблицам'}
-                  {newUser.role === 'editor' && 'Доступ к управлению креативами'}
-                  {newUser.role === 'designer' && 'Доступ к дизайну и креативам'}
-                  {newUser.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
-                  {newUser.role === 'content_manager' && 'Доступ к управлению контентом'}
-                  {newUser.role === 'product_manager' && 'Доступ к управлению продуктами'}
-                  {newUser.role === 'proofreader' && 'Доступ к редактированию контента'}
-                  {newUser.role === 'gif_creator' && 'Доступ к созданию GIF-файлов'}
-                  {newUser.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                  {roles.find(r => r.code === newUser.role)?.description || 'Выберите роль'}
                 </p>
               </div>
 
@@ -2700,18 +2685,11 @@ function UserManagement({ user }) {
                     setEditUserData({ ...editUserData, role: newRole });
                     clearMessages();
                   }}
+                  roles={roles}
                   className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-left hover:border-gray-300 transition-colors"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  {editUserData.role === 'buyer' && 'Доступ к рабочим таблицам'}
-                  {editUserData.role === 'editor' && 'Доступ к управлению креативами'}
-                  {editUserData.role === 'designer' && 'Доступ к дизайну и креативам'}
-                  {editUserData.role === 'search_manager' && 'Доступ к поисковым кампаниям'}
-                  {editUserData.role === 'content_manager' && 'Доступ к управлению контентом'}
-                  {editUserData.role === 'product_manager' && 'Доступ к управлению продуктами'}
-                  {editUserData.role === 'proofreader' && 'Доступ к редактированию контента'}
-                  {editUserData.role === 'gif_creator' && 'Доступ к созданию GIF-файлов'}
-                  {editUserData.role === 'teamlead' && 'Полный доступ ко всем функциям'}
+                  {roles.find(r => r.code === editUserData.role)?.description || 'Выберите роль'}
                 </p>
               </div>
 

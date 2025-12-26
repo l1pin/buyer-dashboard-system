@@ -976,6 +976,96 @@ export const userService = {
     }
   },
 
+  // Создать новую роль
+  async createRole(roleData) {
+    try {
+      // Генерируем code из имени если не указан
+      const code = roleData.code || roleData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+      const { data, error } = await supabase
+        .from('roles')
+        .insert({
+          code: code,
+          name: roleData.name,
+          display_name: roleData.display_name || roleData.name,
+          description: roleData.description || null,
+          icon: roleData.icon || 'User',
+          color: roleData.color || 'gray',
+          is_system: false // Новые роли всегда не системные
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in createRole:', error);
+      throw error;
+    }
+  },
+
+  // Удалить роль (только если нет пользователей)
+  async deleteRole(id) {
+    try {
+      // Проверяем, что роль не системная
+      const { data: role, error: roleError } = await supabase
+        .from('roles')
+        .select('is_system, code')
+        .eq('id', id)
+        .single();
+
+      if (roleError) throw roleError;
+
+      if (role.is_system) {
+        throw new Error('Нельзя удалить системную роль');
+      }
+
+      // Проверяем, есть ли пользователи с этой ролью
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', role.code)
+        .limit(1);
+
+      if (usersError) throw usersError;
+
+      if (users && users.length > 0) {
+        throw new Error('Нельзя удалить роль: есть пользователи с этой ролью');
+      }
+
+      // Удаляем роль
+      const { error } = await supabase
+        .from('roles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('Error in deleteRole:', error);
+      throw error;
+    }
+  },
+
+  // Получить количество пользователей с ролью
+  async getUserCountByRole(roleCode) {
+    try {
+      const { count, error } = await supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', roleCode);
+
+      if (error) throw error;
+      return count || 0;
+
+    } catch (error) {
+      console.error('Error in getUserCountByRole:', error);
+      return 0;
+    }
+  },
+
   // Получить все права
   async getAllPermissions() {
     try {
