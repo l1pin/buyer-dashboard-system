@@ -2604,10 +2604,12 @@ function UserManagement({ user }) {
                             </div>
 
                             {/* Аватар */}
-                            <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            <div className={`h-9 w-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${
                               isTeamLead && !isSubordinate ? 'bg-green-100 ring-2 ring-green-300' : getRoleAvatarBg(currentUser.role)
                             }`}>
-                              {isTeamLead && !isSubordinate ? (
+                              {currentUser.avatar_url ? (
+                                <img src={currentUser.avatar_url} alt={currentUser.name} className="w-full h-full object-cover" />
+                              ) : isTeamLead && !isSubordinate ? (
                                 <Shield className="h-4 w-4 text-green-600" />
                               ) : (
                                 getRoleIcon(currentUser.role)
@@ -2803,8 +2805,10 @@ function UserManagement({ user }) {
                                           </button>
                                         )}
                                       </div>
-                                      <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${isTeamLeadUser ? 'bg-green-100 ring-2 ring-green-300' : getRoleAvatarBg(teamLead.role)}`}>
-                                        {isTeamLeadUser ? <Shield className="h-4 w-4 text-green-600" /> : getRoleIcon(teamLead.role)}
+                                      <div className={`h-9 w-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${isTeamLeadUser ? 'bg-green-100 ring-2 ring-green-300' : getRoleAvatarBg(teamLead.role)}`}>
+                                        {teamLead.avatar_url ? (
+                                          <img src={teamLead.avatar_url} alt={teamLead.name} className="w-full h-full object-cover" />
+                                        ) : isTeamLeadUser ? <Shield className="h-4 w-4 text-green-600" /> : getRoleIcon(teamLead.role)}
                                       </div>
                                       <div className="ml-3 min-w-0">
                                         <div className="flex items-center gap-1.5">
@@ -2854,7 +2858,11 @@ function UserManagement({ user }) {
                                           <div className="absolute left-3 bg-green-300" style={{ width: '2px', top: isLast ? '-50%' : '-50%', height: isLast ? '50%' : '100%' }} />
                                           <div className="absolute bg-green-300" style={{ left: '12px', width: '20px', height: '2px', top: '50%' }} />
                                         </div>
-                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${getRoleAvatarBg(sub.role)}`}>{getRoleIcon(sub.role)}</div>
+                                        <div className={`h-9 w-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${getRoleAvatarBg(sub.role)}`}>
+                                          {sub.avatar_url ? (
+                                            <img src={sub.avatar_url} alt={sub.name} className="w-full h-full object-cover" />
+                                          ) : getRoleIcon(sub.role)}
+                                        </div>
                                         <div className="ml-3 min-w-0">
                                           <div className="flex items-center gap-1.5">
                                             <span className="text-sm font-medium text-gray-900 truncate">{sub.name}</span>
@@ -2893,7 +2901,11 @@ function UserManagement({ user }) {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div style={{ width: '24px' }} />
-                                <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${getRoleAvatarBg(u.role)}`}>{getRoleIcon(u.role)}</div>
+                                <div className={`h-9 w-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${getRoleAvatarBg(u.role)}`}>
+                                  {u.avatar_url ? (
+                                    <img src={u.avatar_url} alt={u.name} className="w-full h-full object-cover" />
+                                  ) : getRoleIcon(u.role)}
+                                </div>
                                 <div className="ml-3 min-w-0">
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-sm font-medium text-gray-900 truncate">{u.name}</span>
