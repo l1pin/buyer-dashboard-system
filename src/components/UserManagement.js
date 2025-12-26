@@ -1456,14 +1456,6 @@ function UserManagement({ user }) {
       return false;
     }
 
-    // Для Team Lead обязателен отдел
-    if (userData.role === 'teamlead' && !userData.department?.trim()) {
-      errors.department = true;
-      setError('Для Team Lead обязательно указать отдел');
-      setFieldErrors(errors);
-      return false;
-    }
-
     // Для всех ролей кроме Team Lead обязателен выбор Team Lead
     if (userData.role !== 'teamlead' && !userData.team_lead_id) {
       errors.team_lead_id = true;
