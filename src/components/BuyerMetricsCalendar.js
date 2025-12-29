@@ -650,8 +650,9 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     const levelIndent = 24; // Отступ на каждый уровень
     const expandButtonWidth = 32; // Кнопка развёртывания + gap
     const avatarWidth = 48; // Аватарка + gap (только для байеров)
-    const paddingRight = 16; // Отступ справа
-    const charWidth = 7.5; // Примерная ширина символа (14px font)
+    const paddingRight = 24; // Отступ справа (увеличен для запаса)
+    const charWidth = 9; // Ширина символа (увеличено для надёжности)
+    const extraBuffer = 20; // Дополнительный буфер
     const minWidth = 280; // Минимальная ширина
 
     let maxWidth = minWidth;
@@ -663,12 +664,12 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       const name = item.name || '';
 
       // Рассчитываем ширину для этого элемента:
-      // отступ уровня + кнопка + аватарка (для байера) + текст + паддинг
+      // отступ уровня + кнопка + аватарка (для байера) + текст + паддинг + буфер
       const indent = baseIndent + (level * levelIndent);
       const avatar = item.type === 'buyer' ? avatarWidth : 0;
       const textWidth = name.length * charWidth;
 
-      const itemWidth = indent + expandButtonWidth + avatar + textWidth + paddingRight;
+      const itemWidth = indent + expandButtonWidth + avatar + textWidth + paddingRight + extraBuffer;
 
       if (itemWidth > maxWidth) {
         maxWidth = itemWidth;
@@ -676,7 +677,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     });
 
     // Ограничиваем максимальную ширину
-    return Math.min(maxWidth, 500);
+    return Math.min(maxWidth, 650);
   }, [flatHierarchy]);
 
   // Ширина колонки "Итого"
