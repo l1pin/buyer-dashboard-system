@@ -93,14 +93,13 @@ class EffectivityZonesService {
             investPrice
           );
 
-          // Рассчитываем Отказ и Невыкуп
+          // Получаем Апрув и Выкуп напрямую
           const approvePercent = parseFloat(row.approve_percent_oper);
           const soldPercent = parseFloat(row.sold_percent_oper);
 
-          // Отказ = 100% - approve%
-          const refusalPercent = !isNaN(approvePercent) ? Math.round((100 - approvePercent) * 100) / 100 : null;
-          // Невыкуп = 100% - sold%
-          const noPickupPercent = !isNaN(soldPercent) ? Math.round((100 - soldPercent) * 100) / 100 : null;
+          // Апрув и Выкуп - просто значения из API
+          const approveValue = !isNaN(approvePercent) ? Math.round(approvePercent * 100) / 100 : null;
+          const soldValue = !isNaN(soldPercent) ? Math.round(soldPercent * 100) / 100 : null;
 
           zonesMap.set(sku, {
             sku,
@@ -108,9 +107,9 @@ class EffectivityZonesService {
             invest_price: investPrice,
             effectivity_zone: effectivityZone,
             roi_type: lastResultConversions?.effectivity_zone?.roi_type || lastResultConversions?.roi_type || 'UAH',
-            // Отказ и Невыкуп
-            refusal_sales_percent: refusalPercent,
-            no_pickup_percent: noPickupPercent,
+            // Апрув и Выкуп (напрямую из API)
+            approve_percent: approveValue,
+            sold_percent: soldValue,
             ...zonePrices
           });
 
@@ -137,10 +136,10 @@ class EffectivityZonesService {
   calculateZonePrices(effectivityZone, lastResultConversions, investPrice) {
     if (!effectivityZone) {
       return {
-        green_zone_price: null,  // first = зелёная (лучшая)
-        gold_zone_price: null,   // second = золотая
-        pink_zone_price: null,   // third = розовая
-        red_zone_price: null,    // fourth = красная (худшая)
+        red_zone_price: null,    // first = красная (худшая)
+        pink_zone_price: null,   // second = розовая
+        gold_zone_price: null,   // third = золотая
+        green_zone_price: null,  // fourth = зелёная (лучшая)
         zone_thresholds: null
       };
     }
@@ -163,16 +162,16 @@ class EffectivityZonesService {
     };
 
     return {
-      // Маппинг: first=зелёная, second=золотая, third=розовая, fourth=красная
-      green_zone_price: calculatePrice(effectivityZone.first),
-      gold_zone_price: calculatePrice(effectivityZone.second),
-      pink_zone_price: calculatePrice(effectivityZone.third),
-      red_zone_price: calculatePrice(effectivityZone.fourth),
+      // Маппинг ОБРАТНЫЙ: first=красная, second=розовая, third=золотая, fourth=зелёная
+      red_zone_price: calculatePrice(effectivityZone.first),
+      pink_zone_price: calculatePrice(effectivityZone.second),
+      gold_zone_price: calculatePrice(effectivityZone.third),
+      green_zone_price: calculatePrice(effectivityZone.fourth),
       zone_thresholds: {
-        green: effectivityZone.first,
-        gold: effectivityZone.second,
-        pink: effectivityZone.third,
-        red: effectivityZone.fourth
+        red: effectivityZone.first,
+        pink: effectivityZone.second,
+        gold: effectivityZone.third,
+        green: effectivityZone.fourth
       },
       roi_type: roiType
     };
@@ -187,7 +186,7 @@ class EffectivityZonesService {
   determineOfferZone(actualRoi, thresholds) {
     if (!thresholds || actualRoi == null) return null;
 
-    // Зоны от лучшей к худшей: green > gold > pink > red > SOS
+    // Зоны от лучшей к худшей: green (fourth) > gold (third) > pink (second) > red (first) > SOS
     if (actualRoi >= thresholds.green) return 'Зелёная зона';
     if (actualRoi >= thresholds.gold) return 'Золотая зона';
     if (actualRoi >= thresholds.pink) return 'Розовая зона';
@@ -241,9 +240,9 @@ class EffectivityZonesService {
           green_zone_price: zoneData.green_zone_price,
           // Обновляем зону если есть факт. ROI
           offer_zone: currentZone || metric.offer_zone,
-          // Обновляем Отказ и Невыкуп
-          refusal_sales_percent: zoneData.refusal_sales_percent,
-          no_pickup_percent: zoneData.no_pickup_percent,
+          // Обновляем Апрув и Выкуп (напрямую из API)
+          approve_percent: zoneData.approve_percent,
+          sold_percent: zoneData.sold_percent,
           // Дополнительные данные
           zone_thresholds: zoneData.zone_thresholds,
           zone_roi_type: zoneData.roi_type,

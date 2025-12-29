@@ -479,9 +479,9 @@ function OffersTL({ user }) {
         pink_zone_price: null,
         gold_zone_price: null,
         green_zone_price: null,
-        // Очищаем Отказ и Невыкуп (тоже из API)
-        refusal_sales_percent: null,
-        no_pickup_percent: null
+        // Очищаем Апрув и Выкуп (тоже из API)
+        approve_percent: null,
+        sold_percent: null
       }));
       setMetrics(metricsData);
       setLastUpdated(metricsResult.lastUpdated);
@@ -1432,8 +1432,8 @@ function OffersTL({ user }) {
                 <div className="w-[5%] min-w-[48px]" title="Дней продаж">Дни</div>
                 <div className="w-[5%] min-w-[48px]" title="Остаток">Ост.</div>
                 <div className="w-[5%] min-w-[44px]" title="Дней до прихода">Приход</div>
-                <div className="w-[5%] min-w-[44px]" title="% отказа">Отказ</div>
-                <div className="w-[5%] min-w-[44px]" title="% невыкупа">Невык.</div>
+                <div className="w-[5%] min-w-[44px]" title="% апрува">Апрув</div>
+                <div className="w-[5%] min-w-[44px]" title="% выкупа">Выкуп</div>
                 <div className="w-[5%] min-w-[44px]">Сезон</div>
                 <div className="w-[6%] min-w-[50px]" title="Цена">Цена</div>
               </div>
