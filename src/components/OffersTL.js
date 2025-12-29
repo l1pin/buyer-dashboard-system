@@ -470,7 +470,19 @@ function OffersTL({ user }) {
       ]);
 
       // Устанавливаем метрики
-      const metricsData = metricsResult.metrics || [];
+      // ВАЖНО: Очищаем поля зон - они должны загружаться только через API offers_collection
+      const metricsData = (metricsResult.metrics || []).map(m => ({
+        ...m,
+        // Очищаем поля зон эффективности (будут заполнены через "Обновить зоны")
+        offer_zone: null,
+        red_zone_price: null,
+        pink_zone_price: null,
+        gold_zone_price: null,
+        green_zone_price: null,
+        // Очищаем Отказ и Невыкуп (тоже из API)
+        refusal_sales_percent: null,
+        no_pickup_percent: null
+      }));
       setMetrics(metricsData);
       setLastUpdated(metricsResult.lastUpdated);
 
