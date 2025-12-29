@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { FixedSizeList } from 'react-window';
 import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
-import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock, RotateCcw } from 'lucide-react';
+import { Plus, X, Loader2, Archive, AlertTriangle, Info, Clock, RotateCcw, Search, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { offerBuyersService } from '../services/OffersSupabase';
 import { aggregateMetricsByActiveDays, calculateConsecutiveActiveDays, findLastActiveDate } from '../scripts/offers/Sql_leads';
 import { getAssignmentKey, BUYER_STATUS_CONFIG, checkBuyerHasSpend } from '../scripts/offers/Update_buyer_statuses';
@@ -963,6 +963,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [showEarlyRemovalModal, setShowEarlyRemovalModal] = useState(null); // {assignmentId, assignment} для модалки раннего удаления
   const [removalReason, setRemovalReason] = useState(''); // Выбранная причина удаления
   const [removalReasonDetails, setRemovalReasonDetails] = useState(''); // Детали причины "Другое"
+  const [buyerSearchQuery, setBuyerSearchQuery] = useState(''); // Поиск байера по имени
+  const [expandedTeamLeads, setExpandedTeamLeads] = useState(new Set()); // Развёрнутые секции Team Lead
 
   // Получаем уникальных Team Leads из списка байеров
   const teamLeads = useMemo(() => {
@@ -1916,189 +1918,373 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
       {/* Модальное окно выбора байера */}
       {showModal && (() => {
-        // Фильтрация по Team Lead
-        const filteredAvailableBuyers = selectedTeamLead
-          ? availableBuyers.filter(buyer => buyer.team_lead_id === selectedTeamLead)
-          : availableBuyers;
+        // Поиск по имени
+        const searchLower = buyerSearchQuery.toLowerCase().trim();
 
-        const filteredArchivedBuyers = selectedTeamLead
-          ? archivedBuyersForOffer.filter(buyer => buyer.team_lead_id === selectedTeamLead)
-          : archivedBuyersForOffer;
+        // Фильтрация по поиску и Team Lead
+        const filterBuyers = (buyers) => {
+          let result = buyers;
 
-        const renderBuyerItem = (buyer) => {
+          // Фильтр по поиску
+          if (searchLower) {
+            result = result.filter(buyer =>
+              buyer.name?.toLowerCase().includes(searchLower) ||
+              buyer.email?.toLowerCase().includes(searchLower)
+            );
+          }
+
+          // Фильтр по Team Lead
+          if (selectedTeamLead) {
+            result = result.filter(buyer => buyer.team_lead_id === selectedTeamLead);
+          }
+
+          return result;
+        };
+
+        const filteredAvailableBuyers = filterBuyers(availableBuyers);
+        const filteredArchivedBuyers = filterBuyers(archivedBuyersForOffer);
+
+        // Группировка по Team Lead
+        const groupByTeamLead = (buyers) => {
+          const groups = new Map();
+          const noTeamLead = [];
+
+          buyers.forEach(buyer => {
+            if (buyer.team_lead_id && buyer.team_lead_name) {
+              if (!groups.has(buyer.team_lead_id)) {
+                groups.set(buyer.team_lead_id, {
+                  id: buyer.team_lead_id,
+                  name: buyer.team_lead_name,
+                  buyers: []
+                });
+              }
+              groups.get(buyer.team_lead_id).buyers.push(buyer);
+            } else {
+              noTeamLead.push(buyer);
+            }
+          });
+
+          // Сортируем группы по имени TL
+          const sortedGroups = Array.from(groups.values()).sort((a, b) =>
+            a.name.localeCompare(b.name, 'ru')
+          );
+
+          // Добавляем группу без TL в конец, если есть
+          if (noTeamLead.length > 0) {
+            sortedGroups.push({
+              id: 'no-team-lead',
+              name: 'Без Team Lead',
+              buyers: noTeamLead
+            });
+          }
+
+          return sortedGroups;
+        };
+
+        const availableGroups = groupByTeamLead(filteredAvailableBuyers);
+        const archivedGroups = groupByTeamLead(filteredArchivedBuyers);
+
+        // Проверка развёрнутости секции
+        const isExpanded = (sectionKey) => expandedTeamLeads.has(sectionKey);
+
+        const toggleExpanded = (sectionKey) => {
+          setExpandedTeamLeads(prev => {
+            const next = new Set(prev);
+            if (next.has(sectionKey)) {
+              next.delete(sectionKey);
+            } else {
+              next.add(sectionKey);
+            }
+            return next;
+          });
+        };
+
+        const renderBuyerCard = (buyer) => {
           const channels = buyer.buyer_settings?.traffic_channels?.filter(
             ch => ch.source === selectedSource
           ) || [];
-          const sourceIds = channels.map(ch => ch.channel_id).filter(id => id);
+
+          // Получаем названия аккаунтов вместо ID
+          const accountNames = channels
+            .filter(ch => ch.account_name)
+            .map(ch => ch.account_name);
 
           return (
             <button
               key={buyer.id}
               onClick={() => handleSelectBuyer(buyer)}
               disabled={savingAssignment}
-              className="w-full bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl p-3 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed group"
             >
-              <div className="flex items-center space-x-3">
-                {/* Оптимизированный аватар */}
-                <OptimizedAvatar
-                  src={buyer.avatar_url}
-                  alt={buyer.name}
-                  fallbackLetter={buyer.name?.charAt(0)?.toUpperCase()}
-                  size={40}
-                />
+              <div className="flex items-center gap-3">
+                {/* Аватар */}
+                <div className="flex-shrink-0">
+                  <OptimizedAvatar
+                    src={buyer.avatar_url}
+                    alt={buyer.name}
+                    fallbackLetter={buyer.name?.charAt(0)?.toUpperCase()}
+                    size={44}
+                  />
+                </div>
 
                 {/* Информация */}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900">{buyer.name}</div>
-                  <div className="text-sm text-gray-500 truncate">{buyer.email}</div>
-                  {buyer.team_lead_name && (
-                    <div className="text-xs text-blue-500 mt-0.5">
-                      TL: {buyer.team_lead_name}
-                    </div>
-                  )}
-                  {sourceIds.length > 0 && (
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {sourceIds.length} Source ID{sourceIds.length > 1 ? 's' : ''}:
-                      <span className="ml-1 font-mono">
-                        {sourceIds.length <= 2
-                          ? sourceIds.join(', ')
-                          : `${sourceIds[0]}, +${sourceIds.length - 1}`
-                        }
-                      </span>
+                  <div className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors">
+                    {buyer.name}
+                  </div>
+
+                  {/* Аккаунты */}
+                  {accountNames.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {accountNames.slice(0, 3).map((name, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-md"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                      {accountNames.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-md">
+                          +{accountNames.length - 3}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {savingAssignment && (
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500 flex-shrink-0" />
                 )}
               </div>
             </button>
           );
         };
 
+        const renderTeamLeadSection = (group, sectionPrefix, dotColor) => {
+          const sectionKey = `${sectionPrefix}-${group.id}`;
+          const expanded = isExpanded(sectionKey);
+
+          return (
+            <div key={group.id} className="border border-gray-200 rounded-xl overflow-hidden">
+              {/* Заголовок группы */}
+              <button
+                onClick={() => toggleExpanded(sectionKey)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-2.5 h-2.5 rounded-full ${dotColor}`}></div>
+                  <Users className="w-4 h-4 text-gray-400" />
+                  <span className="font-medium text-gray-700">{group.name}</span>
+                  <span className="text-sm text-gray-500">({group.buyers.length})</span>
+                </div>
+                {expanded ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+
+              {/* Список байеров */}
+              {expanded && (
+                <div className="p-3 grid grid-cols-2 gap-2 bg-white">
+                  {group.buyers.map(renderBuyerCard)}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const totalAvailable = filteredAvailableBuyers.length;
+        const totalArchived = filteredArchivedBuyers.length;
+        const totalBuyers = totalAvailable + totalArchived;
+
         return (
           <Portal>
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-              {/* Заголовок */}
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Выбрать байера для {selectedSource}
-                  </h3>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                {/* Заголовок */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedSource === 'Facebook' && <FacebookIcon className="w-6 h-6" />}
+                      {selectedSource === 'Google' && <GoogleIcon className="w-6 h-6" />}
+                      {selectedSource === 'TikTok' && <TiktokIcon className="w-6 h-6" />}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Выбрать байера
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Источник: {selectedSource} • {totalBuyers} доступно
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowModal(false);
+                        setSelectedSource(null);
+                        setBuyerSearchQuery('');
+                        setSelectedTeamLead('');
+                        setExpandedTeamLeads(new Set());
+                      }}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      disabled={savingAssignment}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Панель фильтров */}
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 space-y-3">
+                  {/* Поиск */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={buyerSearchQuery}
+                      onChange={(e) => setBuyerSearchQuery(e.target.value)}
+                      placeholder="Поиск по имени..."
+                      className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      autoFocus
+                    />
+                    {buyerSearchQuery && (
+                      <button
+                        onClick={() => setBuyerSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Team Lead фильтр - горизонтальные чипсы */}
+                  {teamLeads.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedTeamLead('')}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                          !selectedTeamLead
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                        }`}
+                      >
+                        Все TL
+                      </button>
+                      {teamLeads.map((tl) => (
+                        <button
+                          key={tl.id}
+                          onClick={() => setSelectedTeamLead(tl.id === selectedTeamLead ? '' : tl.id)}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                            selectedTeamLead === tl.id
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                          }`}
+                        >
+                          {tl.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Список байеров */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  {loadingBuyers ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="bg-white border border-gray-200 rounded-xl p-3">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="w-11 h-11 flex-shrink-0" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : totalBuyers === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Users className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">
+                        {buyerSearchQuery
+                          ? 'Байеры не найдены'
+                          : `Нет доступных байеров с источником ${selectedSource}`
+                        }
+                      </p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {buyerSearchQuery
+                          ? 'Попробуйте изменить поисковый запрос'
+                          : selectedTeamLead
+                            ? 'Попробуйте выбрать другого Team Lead'
+                            : 'У байеров нет настроенных каналов с этим источником'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Секция "Не отливали" */}
+                      {availableGroups.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="text-sm font-semibold text-gray-700">
+                              Не отливали на этот оффер
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              ({totalAvailable})
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {availableGroups.map(group =>
+                              renderTeamLeadSection(group, 'available', 'bg-green-500')
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Секция "Уже отливали" */}
+                      {archivedGroups.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                            <span className="text-sm font-semibold text-gray-700">
+                              Уже отливали на этот оффер
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              ({totalArchived})
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {archivedGroups.map(group =>
+                              renderTeamLeadSection(group, 'archived', 'bg-orange-500')
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Футер */}
+                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                   <button
                     onClick={() => {
                       setShowModal(false);
                       setSelectedSource(null);
+                      setBuyerSearchQuery('');
+                      setSelectedTeamLead('');
+                      setExpandedTeamLeads(new Set());
                     }}
-                    className="text-gray-400 hover:text-gray-600"
                     disabled={savingAssignment}
+                    className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
                   >
-                    <X className="w-5 h-5" />
+                    Закрыть
                   </button>
                 </div>
-
-                {/* Фильтр по Team Lead */}
-                {teamLeads.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Фильтр по Team Lead
-                    </label>
-                    <select
-                      value={selectedTeamLead}
-                      onChange={(e) => setSelectedTeamLead(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Все Team Leads</option>
-                      {teamLeads.map((tl) => (
-                        <option key={tl.id} value={tl.id}>
-                          {tl.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
-
-              {/* Список байеров */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {loadingBuyers ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center space-x-3">
-                          <Skeleton className="w-10 h-10 flex-shrink-0" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredAvailableBuyers.length === 0 && filteredArchivedBuyers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">
-                      Нет доступных байеров с источником {selectedSource}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {selectedTeamLead
-                        ? 'Попробуйте выбрать другого Team Lead'
-                        : assignedBuyers.filter(b => b.source === selectedSource).length > 0
-                          ? 'Все подходящие байеры уже привязаны к этому офферу'
-                          : 'У байеров нет настроенных каналов с этим источником'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Секция "Не отливали" */}
-                    {filteredAvailableBuyers.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <span className="text-sm font-medium text-gray-700">
-                            Не отливали ({filteredAvailableBuyers.length})
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {filteredAvailableBuyers.map(renderBuyerItem)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Секция "Уже отливали" */}
-                    {filteredArchivedBuyers.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2 mt-4">
-                          <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                          <span className="text-sm font-medium text-gray-700">
-                            Уже отливали ({filteredArchivedBuyers.length})
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {filteredArchivedBuyers.map(renderBuyerItem)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Футер */}
-              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    setSelectedSource(null);
-                  }}
-                  disabled={savingAssignment}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
             </div>
           </Portal>
         );
