@@ -1590,12 +1590,12 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
     console.log('📊 Article:', offer.article);
-    console.log('📊 Source IDs:', assignment.source_ids);
-    console.log('📊 Всего привязок оффера:', assignedBuyers.length);
+    console.log('📊 Source:', assignment.source);
 
-    // Собираем данные по всем байерам оффера (включая архивированных)
+    // Собираем данные ТОЛЬКО по байерам с тем же источником (включая архивированных)
     // ВАЖНО: берём sourceIds из traffic_channels, а не из a.source_ids!
     const allBuyersData = assignedBuyers
+      .filter(a => a.source === assignment.source) // Фильтруем по источнику!
       .map(a => {
         const trafficChannels = a.buyer?.buyer_settings?.traffic_channels || [];
         const matchingChannels = trafficChannels.filter(ch => ch.source === a.source);
@@ -1611,9 +1611,11 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         };
       });
 
+    console.log('📊 Байеров для источника', assignment.source + ':', allBuyersData.length);
+
     setSelectedBuyerForCalendar({
       selectedBuyerName: assignment.buyer.name, // Выбранный байер (будет вверху)
-      allBuyers: allBuyersData, // Все байеры оффера
+      allBuyers: allBuyersData, // Только байеры того же источника
       article: offer.article,
       source: assignment.source
     });
