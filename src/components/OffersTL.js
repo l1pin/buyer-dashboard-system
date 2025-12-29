@@ -22,6 +22,7 @@ import { updateLeadsFromSql as updateLeadsFromSqlScript, fetchMetricsForSingleBu
 import { updateBuyerStatuses as updateBuyerStatusesScript, updateSingleBuyerStatus } from '../scripts/offers/Update_buyer_statuses';
 import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
+import OffersFilterPanel from './OffersFilterPanel';
 import { SkeletonOffersPage, MiniSpinner } from './LoadingSpinner';
 
 // Lazy loading для модального окна миграции - загружается только при открытии
@@ -76,7 +77,7 @@ const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }
   );
 });
 
-function OffersTL({ user }) {
+function OffersTL({ user, onToggleFilters }) {
   const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,6 +99,7 @@ function OffersTL({ user }) {
   const [buyerStatuses, setBuyerStatuses] = useState({});
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(true);
   const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set());
+  const [showFilters, setShowFilters] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [offerSeasons, setOfferSeasons] = useState({});
@@ -1295,7 +1297,18 @@ function OffersTL({ user }) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
+    <div className="h-full flex bg-slate-50">
+      {/* Панель фильтров */}
+      <OffersFilterPanel
+        isOpen={showFilters}
+        onClose={() => {
+          setShowFilters(false);
+          onToggleFilters?.(false);
+        }}
+      />
+
+      {/* Основной контент */}
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
@@ -1362,6 +1375,31 @@ function OffersTL({ user }) {
       {/* Filters */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
         <div className="flex items-center space-x-4">
+          {/* Кнопка фильтров */}
+          <button
+            onClick={() => {
+              setShowFilters(!showFilters);
+              onToggleFilters?.(!showFilters);
+            }}
+            className={`p-2.5 rounded-lg border transition-all duration-200 ${
+              showFilters
+                ? 'bg-blue-50 border-blue-300 text-blue-600'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+            }`}
+            title="Фильтры"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M5 12L5 4" />
+              <path d="M19 20L19 17" />
+              <path d="M5 20L5 16" />
+              <path d="M19 13L19 4" />
+              <path d="M12 7L12 4" />
+              <path d="M12 20L12 11" />
+              <circle cx="5" cy="14" r="2" />
+              <circle cx="12" cy="9" r="2" />
+              <circle cx="19" cy="15" r="2" />
+            </svg>
+          </button>
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -1493,6 +1531,7 @@ function OffersTL({ user }) {
           />
         </Suspense>
       )}
+      </div>
     </div>
   );
 }
