@@ -1524,17 +1524,58 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     setShowEarlyRemovalModal(null);
 
     try {
-      console.log(`👻 Раннее удаление байера ${assignment.buyer.name} (в пределах 3 минут)`);
+      // ВАЖНО: берём sourceIds и accessDatesMap из traffic_channels!
+      const trafficChannels = assignment.buyer?.buyer_settings?.traffic_channels || [];
+      const matchingChannels = trafficChannels.filter(ch => ch.source === assignment.source);
+      const sourceIds = matchingChannels.filter(ch => ch.channel_id).map(ch => ch.channel_id);
 
-      // Скрываем запись (не удаляем из БД)
-      await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
+      // Строим accessDatesMap для проверки расхода с учётом дат доступа
+      const accessDatesMap = {};
+      matchingChannels.forEach(ch => {
+        if (ch.channel_id) {
+          accessDatesMap[ch.channel_id] = {
+            accessGranted: ch.access_granted || null,
+            accessLimited: ch.access_limited || null
+          };
+        }
+      });
 
-      // Уведомляем родительский компонент - убираем из отображения
-      if (onAssignmentsChange) {
-        const updatedAssignments = initialAssignments.map(a =>
-          a.id === assignmentId ? { ...a, hidden: true } : a
+      const offerIdTracker = articleOfferMap[offer.article];
+
+      console.log(`🗑️ Раннее удаление: проверяем расход для байера ${assignment.buyer.name}...`);
+
+      // Проверяем был ли расход у байера В ЕГО ПЕРИОД ДОСТУПА
+      const { hasSpend, totalCost } = await checkBuyerHasSpend(sourceIds, offerIdTracker, accessDatesMap);
+
+      if (hasSpend) {
+        // Был расход - архивируем БЕЗ причины (раннее удаление)
+        console.log(`📦 Архивируем байера ${assignment.buyer.name} (расход: $${totalCost.toFixed(2)}) - раннее удаление`);
+        const archivedAssignment = await offerBuyersService.archiveAssignment(
+          assignmentId,
+          removedBy,
+          null, // без причины
+          null  // без деталей
         );
-        onAssignmentsChange(offer.id, updatedAssignments);
+
+        // Уведомляем родительский компонент об архивации
+        if (onAssignmentsChange) {
+          const updatedAssignments = initialAssignments.map(a =>
+            a.id === assignmentId ? { ...a, archived: true, archived_at: archivedAssignment.archived_at, history: archivedAssignment.history } : a
+          );
+          onAssignmentsChange(offer.id, updatedAssignments);
+        }
+      } else {
+        // Не было расхода - скрываем (раннее удаление)
+        console.log(`👻 Скрываем байера ${assignment.buyer.name} (расход: $0) - раннее удаление`);
+        await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
+
+        // Уведомляем родительский компонент - убираем из отображения
+        if (onAssignmentsChange) {
+          const updatedAssignments = initialAssignments.map(a =>
+            a.id === assignmentId ? { ...a, hidden: true } : a
+          );
+          onAssignmentsChange(offer.id, updatedAssignments);
+        }
       }
     } catch (error) {
       console.error('Ошибка раннего удаления привязки:', error);
@@ -1542,7 +1583,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
     } finally {
       setRemovingBuyerId(null);
     }
-  }, [showEarlyRemovalModal, user, offer.id, initialAssignments, onAssignmentsChange]);
+  }, [showEarlyRemovalModal, user, offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
