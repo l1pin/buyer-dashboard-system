@@ -116,18 +116,16 @@ class EffectivityZonesService {
             : row.last_result_conversions;
         }
 
-        // ВАЖНО: Берём зоны из last_result_conversions.effectivity_zone (там реальные данные!)
-        // Корневой effectivity_zone часто содержит нули
-        const effectivityZone = lastResultConversions?.effectivity_zone || effectivityZoneRoot;
+        // ВАЖНО: Берём зоны напрямую из effectivity_zone (там CPL зоны!)
+        const effectivityZone = effectivityZoneRoot;
 
-        const investPrice = parseFloat(row.av_offer_invest_price) || 0;
-
-        // Рассчитываем цены лидов для каждой зоны
-        const zonePrices = this.calculateZonePrices(
-          effectivityZone,
-          lastResultConversions,
-          investPrice
-        );
+        // Цены зон берём напрямую (это уже CPL значения)
+        const zonePrices = {
+          red_zone_price: effectivityZone?.first ? parseFloat(effectivityZone.first) : null,
+          pink_zone_price: effectivityZone?.second ? parseFloat(effectivityZone.second) : null,
+          gold_zone_price: effectivityZone?.third ? parseFloat(effectivityZone.third) : null,
+          green_zone_price: effectivityZone?.fourth ? parseFloat(effectivityZone.fourth) : null,
+        };
 
         // Получаем Апрув и Выкуп напрямую
         const approvePercent = parseFloat(row.approve_percent_oper);
@@ -140,12 +138,10 @@ class EffectivityZonesService {
         zonesMap.set(sku, {
           sku,
           offer_name: row.offer_name,
-          invest_price: investPrice,
-          effectivity_zone: effectivityZone,
-          roi_type: lastResultConversions?.effectivity_zone?.roi_type || lastResultConversions?.roi_type || 'UAH',
           // Апрув и Выкуп (напрямую из API)
           approve_percent: approveValue,
           sold_percent: soldValue,
+          // CPL зоны
           ...zonePrices
         });
 
@@ -256,28 +252,16 @@ class EffectivityZonesService {
           return metric; // Оставляем как есть если нет данных
         }
 
-        // Определяем текущую зону по факт. ROI
-        const currentZone = this.determineOfferZone(
-          metric.actual_roi_percent,
-          zoneData.zone_thresholds
-        );
-
         return {
           ...metric,
-          // Обновляем цены зон
+          // CPL зоны (напрямую из effectivity_zone)
           red_zone_price: zoneData.red_zone_price,
           pink_zone_price: zoneData.pink_zone_price,
           gold_zone_price: zoneData.gold_zone_price,
           green_zone_price: zoneData.green_zone_price,
-          // Обновляем зону если есть факт. ROI
-          offer_zone: currentZone || metric.offer_zone,
-          // Обновляем Апрув и Выкуп (напрямую из API)
+          // Апрув и Выкуп (напрямую из API)
           approve_percent: zoneData.approve_percent,
           sold_percent: zoneData.sold_percent,
-          // Дополнительные данные
-          zone_thresholds: zoneData.zone_thresholds,
-          zone_roi_type: zoneData.roi_type,
-          invest_price: zoneData.invest_price,
           // Флаг что данные обновлены из API
           zones_from_api: true
         };
