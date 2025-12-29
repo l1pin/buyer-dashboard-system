@@ -1471,23 +1471,6 @@ function OffersTL({ user, onToggleFilters }) {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 ml-auto">
-            <span className="text-sm text-slate-500 font-medium">Сортировка:</span>
-            <button
-              onClick={() => handleSort('id')}
-              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${sortField === 'id' ? 'bg-blue-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              По №
-              {sortField === 'id' && (sortDirection === 'asc' ? <ChevronUp className="inline h-3 w-3 ml-1" /> : <ChevronDown className="inline h-3 w-3 ml-1" />)}
-            </button>
-            <button
-              onClick={() => handleSort('article')}
-              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${sortField === 'article' ? 'bg-blue-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              По артикулу
-              {sortField === 'article' && (sortDirection === 'asc' ? <ChevronUp className="inline h-3 w-3 ml-1" /> : <ChevronDown className="inline h-3 w-3 ml-1" />)}
-            </button>
-          </div>
         </div>
       </div>
 
