@@ -318,6 +318,17 @@ const OfferRow = memo(({
           )}
         </div>
 
+        {/* Прибыль */}
+        <div className="w-[5%] min-w-[48px] font-mono text-xs text-center">
+          {metric.profit != null ? (
+            <span className={metric.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {Number(metric.profit).toFixed(2)}₴
+            </span>
+          ) : (
+            <span className="text-slate-400">—</span>
+          )}
+        </div>
+
         {/* Дней продаж */}
         <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center">
           {loadingDays ? (
