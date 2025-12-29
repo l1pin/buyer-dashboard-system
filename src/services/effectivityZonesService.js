@@ -43,8 +43,7 @@ class EffectivityZonesService {
         last_result_conversions,
         av_offer_invest_price,
         approve_percent_oper,
-        sold_percent_oper,
-        profit
+        sold_percent_oper
       FROM offers_collection
       WHERE salesdrive_sku IN (${inClause})
     `;
@@ -138,10 +137,6 @@ class EffectivityZonesService {
         const approveValue = !isNaN(approvePercent) ? Math.round(approvePercent * 100) / 100 : null;
         const soldValue = !isNaN(soldPercent) ? Math.round(soldPercent * 100) / 100 : null;
 
-        // Прибыль из API
-        const profitValue = parseFloat(row.profit);
-        const profit = !isNaN(profitValue) ? Math.round(profitValue * 100) / 100 : null;
-
         zonesMap.set(sku, {
           sku,
           offer_name: row.offer_name,
@@ -151,8 +146,6 @@ class EffectivityZonesService {
           // Апрув и Выкуп (напрямую из API)
           approve_percent: approveValue,
           sold_percent: soldValue,
-          // Прибыль
-          profit: profit,
           ...zonePrices
         });
 
@@ -281,8 +274,6 @@ class EffectivityZonesService {
           // Обновляем Апрув и Выкуп (напрямую из API)
           approve_percent: zoneData.approve_percent,
           sold_percent: zoneData.sold_percent,
-          // Прибыль из API
-          profit: zoneData.profit,
           // Дополнительные данные
           zone_thresholds: zoneData.zone_thresholds,
           zone_roi_type: zoneData.roi_type,
