@@ -644,23 +644,40 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
   const flatHierarchy = buildFlatHierarchy();
 
-  // Вычисляем максимальный уровень вложенности для динамической ширины колонки иерархии
-  const maxLevel = useMemo(() => {
-    let max = 0;
+  // Динамическая ширина колонки иерархии на основе самого длинного элемента
+  const hierarchyColumnWidth = useMemo(() => {
+    const baseIndent = 16; // Базовый отступ слева
+    const levelIndent = 24; // Отступ на каждый уровень
+    const expandButtonWidth = 32; // Кнопка развёртывания + gap
+    const avatarWidth = 48; // Аватарка + gap (только для байеров)
+    const paddingRight = 16; // Отступ справа
+    const charWidth = 7.5; // Примерная ширина символа (14px font)
+    const minWidth = 280; // Минимальная ширина
+
+    let maxWidth = minWidth;
+
     flatHierarchy.forEach(item => {
-      if (item.level !== undefined && item.level > max) {
-        max = item.level;
+      if (item.type === 'separator') return;
+
+      const level = item.level || 0;
+      const name = item.name || '';
+
+      // Рассчитываем ширину для этого элемента:
+      // отступ уровня + кнопка + аватарка (для байера) + текст + паддинг
+      const indent = baseIndent + (level * levelIndent);
+      const avatar = item.type === 'buyer' ? avatarWidth : 0;
+      const textWidth = name.length * charWidth;
+
+      const itemWidth = indent + expandButtonWidth + avatar + textWidth + paddingRight;
+
+      if (itemWidth > maxWidth) {
+        maxWidth = itemWidth;
       }
     });
-    return max;
-  }, [flatHierarchy]);
 
-  // Динамическая ширина колонки иерархии: базовая + отступ на каждый уровень
-  const hierarchyColumnWidth = useMemo(() => {
-    const baseWidth = 280; // Базовая ширина для имени + аватарки + кнопки
-    const levelIndent = 24; // Отступ на каждый уровень
-    return baseWidth + (maxLevel * levelIndent);
-  }, [maxLevel]);
+    // Ограничиваем максимальную ширину
+    return Math.min(maxWidth, 500);
+  }, [flatHierarchy]);
 
   // Ширина колонки "Итого"
   const periodColumnWidth = 170;
