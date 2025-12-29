@@ -50,6 +50,14 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPeriodDropdown]);
 
+  // Скролл вправо при загрузке данных (свежие даты справа)
+  useEffect(() => {
+    if (!loading && data && scrollContainerRef.current) {
+      // Мгновенный скролл вправо без анимации
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [loading, data]);
+
   const loadData = async () => {
     try {
       setLoading(true);
