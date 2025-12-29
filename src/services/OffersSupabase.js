@@ -461,25 +461,17 @@ export const offerBuyersService = {
 
       const now = new Date().toISOString();
       let previousHistory = [];
-      let originalCreatedAt = null;
 
       // Если есть существующая запись
       if (existingRecord) {
         previousHistory = existingRecord.history || [];
 
-        // Если запись скрытая (удалена в первые 3 минуты) - сохраняем оригинальную дату
+        // Если запись скрытая (удалена в первые 3 минуты)
         if (existingRecord.hidden) {
           console.log(`🗑️ Найдена скрытая запись ${existingRecord.id}, удаляем перед повторной привязкой`);
-          // Проверяем, прошло ли 3 минуты с момента создания
-          const createdAt = new Date(existingRecord.created_at).getTime();
-          const elapsed = Date.now() - createdAt;
-          if (elapsed < 3 * 60 * 1000) {
-            // Меньше 3 минут - сохраняем оригинальную дату
-            originalCreatedAt = existingRecord.created_at;
-          }
         }
 
-        // Если запись архивированная - используем новую дату
+        // Если запись архивированная
         if (existingRecord.archived) {
           console.log(`📦 Найдена архивированная запись ${existingRecord.id}, удаляем перед повторной привязкой`);
         }
@@ -505,7 +497,7 @@ export const offerBuyersService = {
       // Объединяем предыдущую историю с новой записью
       const fullHistory = [...previousHistory, historyEntry];
 
-      // Создаём новую запись
+      // Создаём новую запись (всегда с новой датой created_at для сброса таймера)
       const insertData = {
         offer_id: offerId,
         buyer_id: buyerId,
@@ -514,11 +506,6 @@ export const offerBuyersService = {
         source_ids: sourceIds,
         history: fullHistory
       };
-
-      // Если нужно сохранить оригинальную дату (повторная привязка в первые 3 минуты)
-      if (originalCreatedAt) {
-        insertData.created_at = originalCreatedAt;
-      }
 
       const { data, error } = await supabase
         .from('offer_buyers')
