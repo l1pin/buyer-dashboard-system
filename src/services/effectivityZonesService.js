@@ -66,75 +66,102 @@ class EffectivityZonesService {
       }
 
       const data = await response.json();
-      console.log(`✅ Получены данные для ${data.length} офферов`);
 
-      // Преобразуем в Map для быстрого доступа по SKU
-      const zonesMap = new Map();
-
-      for (const row of data) {
-        const sku = row.salesdrive_sku;
-        if (!sku) continue;
-
-        try {
-          // Парсим JSON поля
-          const effectivityZoneRoot = row.effectivity_zone
-            ? JSON.parse(row.effectivity_zone)
-            : null;
-
-          const lastResultConversions = row.last_result_conversions
-            ? JSON.parse(row.last_result_conversions)
-            : null;
-
-          // ВАЖНО: Берём зоны из last_result_conversions.effectivity_zone (там реальные данные!)
-          // Корневой effectivity_zone часто содержит нули
-          const effectivityZone = lastResultConversions?.effectivity_zone || effectivityZoneRoot;
-
-          const investPrice = parseFloat(row.av_offer_invest_price) || 0;
-
-          // Рассчитываем цены лидов для каждой зоны
-          const zonePrices = this.calculateZonePrices(
-            effectivityZone,
-            lastResultConversions,
-            investPrice
-          );
-
-          // Получаем Апрув и Выкуп напрямую
-          const approvePercent = parseFloat(row.approve_percent_oper);
-          const soldPercent = parseFloat(row.sold_percent_oper);
-
-          // Апрув и Выкуп - просто значения из API
-          const approveValue = !isNaN(approvePercent) ? Math.round(approvePercent * 100) / 100 : null;
-          const soldValue = !isNaN(soldPercent) ? Math.round(soldPercent * 100) / 100 : null;
-
-          // Прибыль из API
-          const profitValue = parseFloat(row.profit);
-          const profit = !isNaN(profitValue) ? Math.round(profitValue * 100) / 100 : null;
-
-          zonesMap.set(sku, {
-            sku,
-            offer_name: row.offer_name,
-            invest_price: investPrice,
-            effectivity_zone: effectivityZone,
-            roi_type: lastResultConversions?.effectivity_zone?.roi_type || lastResultConversions?.roi_type || 'UAH',
-            // Апрув и Выкуп (напрямую из API)
-            approve_percent: approveValue,
-            sold_percent: soldValue,
-            // Прибыль
-            profit: profit,
-            ...zonePrices
-          });
-
-        } catch (parseError) {
-          console.warn(`⚠️ Ошибка парсинга данных для SKU ${sku}:`, parseError);
+      // Проверяем что data - это массив
+      if (!Array.isArray(data)) {
+        console.warn('⚠️ API вернул не массив:', typeof data, data);
+        // Если это объект с полем data - используем его
+        const dataArray = data?.data || data?.rows || data?.result || [];
+        if (!Array.isArray(dataArray)) {
+          console.error('❌ Не удалось получить массив данных из API');
+          return new Map();
         }
+        console.log(`✅ Получены данные для ${dataArray.length} офферов (из вложенного поля)`);
+        return this.processApiData(dataArray);
       }
 
-      return zonesMap;
+      console.log(`✅ Получены данные для ${data.length} офферов`);
+      return this.processApiData(data);
 
     } catch (error) {
       console.error('❌ Ошибка получения зон эффективности:', error);
       throw error;
     }
+  }
+
+  /**
+   * Обработать массив данных от API и преобразовать в Map
+   * @param {array} data - массив данных от API
+   * @returns {Map} - Map с данными по SKU
+   */
+  processApiData(data) {
+    const zonesMap = new Map();
+
+    for (const row of data) {
+      const sku = row.salesdrive_sku;
+      if (!sku) continue;
+
+      try {
+        // Парсим JSON поля (могут быть строками или уже объектами)
+        let effectivityZoneRoot = null;
+        if (row.effectivity_zone) {
+          effectivityZoneRoot = typeof row.effectivity_zone === 'string'
+            ? JSON.parse(row.effectivity_zone)
+            : row.effectivity_zone;
+        }
+
+        let lastResultConversions = null;
+        if (row.last_result_conversions) {
+          lastResultConversions = typeof row.last_result_conversions === 'string'
+            ? JSON.parse(row.last_result_conversions)
+            : row.last_result_conversions;
+        }
+
+        // ВАЖНО: Берём зоны из last_result_conversions.effectivity_zone (там реальные данные!)
+        // Корневой effectivity_zone часто содержит нули
+        const effectivityZone = lastResultConversions?.effectivity_zone || effectivityZoneRoot;
+
+        const investPrice = parseFloat(row.av_offer_invest_price) || 0;
+
+        // Рассчитываем цены лидов для каждой зоны
+        const zonePrices = this.calculateZonePrices(
+          effectivityZone,
+          lastResultConversions,
+          investPrice
+        );
+
+        // Получаем Апрув и Выкуп напрямую
+        const approvePercent = parseFloat(row.approve_percent_oper);
+        const soldPercent = parseFloat(row.sold_percent_oper);
+
+        // Апрув и Выкуп - просто значения из API
+        const approveValue = !isNaN(approvePercent) ? Math.round(approvePercent * 100) / 100 : null;
+        const soldValue = !isNaN(soldPercent) ? Math.round(soldPercent * 100) / 100 : null;
+
+        // Прибыль из API
+        const profitValue = parseFloat(row.profit);
+        const profit = !isNaN(profitValue) ? Math.round(profitValue * 100) / 100 : null;
+
+        zonesMap.set(sku, {
+          sku,
+          offer_name: row.offer_name,
+          invest_price: investPrice,
+          effectivity_zone: effectivityZone,
+          roi_type: lastResultConversions?.effectivity_zone?.roi_type || lastResultConversions?.roi_type || 'UAH',
+          // Апрув и Выкуп (напрямую из API)
+          approve_percent: approveValue,
+          sold_percent: soldValue,
+          // Прибыль
+          profit: profit,
+          ...zonePrices
+        });
+
+      } catch (parseError) {
+        console.warn(`⚠️ Ошибка парсинга данных для SKU ${sku}:`, parseError);
+      }
+    }
+
+    return zonesMap;
   }
 
   /**
