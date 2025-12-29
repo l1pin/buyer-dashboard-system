@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, useTransition
 import { VariableSizeList as List } from 'react-window';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, offerBuyersService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
+import { effectivityZonesService } from '../services/effectivityZonesService';
 import {
   RefreshCw,
   AlertCircle,
@@ -12,7 +13,8 @@ import {
   Package,
   Star,
   Tv,
-  X
+  X,
+  Target
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
@@ -86,6 +88,7 @@ function OffersTL({ user }) {
   const [loadingStocks, setLoadingStocks] = useState(true);
   const [loadingDays, setLoadingDays] = useState(true);
   const [loadingLeadsData, setLoadingLeadsData] = useState(true);
+  const [loadingZones, setLoadingZones] = useState(false);
   const [stockData, setStockData] = useState({});
   const [allBuyers, setAllBuyers] = useState([]);
   const [offerStatuses, setOfferStatuses] = useState({});
@@ -977,6 +980,35 @@ function OffersTL({ user }) {
     }
   };
 
+  // Функция обновления зон эффективности из API offers_collection
+  const updateEffectivityZones = async () => {
+    try {
+      setLoadingZones(true);
+      setError('');
+
+      if (metrics.length === 0) {
+        console.log('⚠️ Нет метрик для обновления зон');
+        return;
+      }
+
+      console.log(`🔄 Обновление зон эффективности для ${metrics.length} офферов`);
+
+      // Обогащаем метрики данными зон из API
+      const enrichedMetrics = await effectivityZonesService.enrichMetricsWithZones(metrics);
+
+      // Обновляем метрики в стейте
+      setMetrics(enrichedMetrics);
+
+      console.log('✅ Зоны эффективности обновлены');
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления зон:', error);
+      setError('Ошибка обновления зон: ' + error.message);
+    } finally {
+      setLoadingZones(false);
+    }
+  };
+
   const formatKyivTime = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -1292,6 +1324,15 @@ function OffersTL({ user }) {
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(loadingStocks || loadingLeadsData || loadingDays) ? 'animate-spin' : ''}`} />
               Обновить метрики
+            </button>
+            <button
+              onClick={updateEffectivityZones}
+              disabled={loadingZones || metrics.length === 0}
+              className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
+              title="Обновить зоны эффективности из API offers_collection"
+            >
+              <Target className={`h-4 w-4 mr-2 ${loadingZones ? 'animate-pulse' : ''}`} />
+              Обновить зоны
             </button>
           </div>
         </div>
