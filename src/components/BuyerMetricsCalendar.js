@@ -644,6 +644,27 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
 
   const flatHierarchy = buildFlatHierarchy();
 
+  // Вычисляем максимальный уровень вложенности для динамической ширины колонки иерархии
+  const maxLevel = useMemo(() => {
+    let max = 0;
+    flatHierarchy.forEach(item => {
+      if (item.level !== undefined && item.level > max) {
+        max = item.level;
+      }
+    });
+    return max;
+  }, [flatHierarchy]);
+
+  // Динамическая ширина колонки иерархии: базовая + отступ на каждый уровень
+  const hierarchyColumnWidth = useMemo(() => {
+    const baseWidth = 280; // Базовая ширина для имени + аватарки + кнопки
+    const levelIndent = 24; // Отступ на каждый уровень
+    return baseWidth + (maxLevel * levelIndent);
+  }, [maxLevel]);
+
+  // Ширина колонки "Итого"
+  const periodColumnWidth = 170;
+
   if (loading) {
     return (
       <Portal>
@@ -772,14 +793,14 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                   {/* Sticky: Иерархия */}
                   <th
                     className="sticky left-0 z-30 bg-slate-100 border-b-2 border-slate-300 px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide"
-                    style={{ minWidth: '300px', boxShadow: '2px 0 8px -2px rgba(0,0,0,0.1)' }}
+                    style={{ width: `${hierarchyColumnWidth}px`, minWidth: `${hierarchyColumnWidth}px`, boxShadow: '2px 0 8px -2px rgba(0,0,0,0.1)' }}
                   >
                     Иерархия
                   </th>
-                  {/* Итого за период - НЕ sticky */}
+                  {/* Sticky: Итого за период */}
                   <th
-                    className="bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
-                    style={{ minWidth: '160px' }}
+                    className="sticky z-30 bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
+                    style={{ left: `${hierarchyColumnWidth}px`, width: `${periodColumnWidth}px`, minWidth: `${periodColumnWidth}px`, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.15)' }}
                   >
                     <div className="relative" ref={dropdownRef}>
                       <button
@@ -890,7 +911,7 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                       {/* Колонка иерархии - STICKY */}
                       <td
                         className="sticky left-0 z-20 bg-white px-4 py-2.5"
-                        style={{ minWidth: '300px', boxShadow: '2px 0 8px -2px rgba(0,0,0,0.08)' }}
+                        style={{ width: `${hierarchyColumnWidth}px`, minWidth: `${hierarchyColumnWidth}px`, boxShadow: '2px 0 8px -2px rgba(0,0,0,0.08)' }}
                       >
                         <div className="flex items-center gap-2 relative" style={{ paddingLeft: `${paddingLeft}px` }}>
                           {/* Визуальные линии иерархии */}
@@ -975,10 +996,10 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
                         </div>
                       </td>
 
-                      {/* Колонка периода - тёмная карточка */}
+                      {/* Колонка периода - STICKY тёмная карточка */}
                       <td
-                        className="px-2 py-2 bg-white"
-                        style={{ minWidth: '160px' }}
+                        className="sticky z-20 px-2 py-2 bg-white"
+                        style={{ left: `${hierarchyColumnWidth}px`, width: `${periodColumnWidth}px`, minWidth: `${periodColumnWidth}px`, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)' }}
                       >
                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-2.5 shadow-lg">
                           <div className="space-y-1.5">
