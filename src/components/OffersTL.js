@@ -475,6 +475,7 @@ function OffersTL({ user }) {
         ...m,
         // Очищаем поля зон эффективности (будут заполнены через "Обновить зоны")
         offer_zone: null,
+        actual_roi_percent: null,  // ROI тоже очищаем
         red_zone_price: null,
         pink_zone_price: null,
         gold_zone_price: null,
@@ -1427,7 +1428,7 @@ function OffersTL({ user }) {
                 <div className="w-[4%] min-w-[36px]" title="Реклама">
                   <Tv className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>
-                <div className="w-[5%] min-w-[44px]" title="Зона эффективности">Зона</div>
+                <div className="w-[5%] min-w-[44px]" title="ROI зона эффективности">ROI</div>
                 <div className="w-[6%] min-w-[56px]" title="Цена лида в зоне">CPL зона</div>
                 <div className="w-[5%] min-w-[48px]" title="Дней продаж">Дни</div>
                 <div className="w-[5%] min-w-[48px]" title="Остаток">Ост.</div>
