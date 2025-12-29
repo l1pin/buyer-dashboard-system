@@ -1430,6 +1430,7 @@ function OffersTL({ user }) {
                 </div>
                 <div className="w-[5%] min-w-[44px]" title="ROI зона эффективности">ROI</div>
                 <div className="w-[6%] min-w-[56px]" title="Цена лида в зоне">CPL зона</div>
+                <div className="w-[5%] min-w-[48px]" title="Прибыль">Прибыль</div>
                 <div className="w-[5%] min-w-[48px]" title="Дней продаж">Дни</div>
                 <div className="w-[5%] min-w-[48px]" title="Остаток">Ост.</div>
                 <div className="w-[5%] min-w-[44px]" title="Дней до прихода">Приход</div>

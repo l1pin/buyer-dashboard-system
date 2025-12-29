@@ -318,6 +318,9 @@ const OfferRow = memo(({
           )}
         </div>
 
+        {/* Прибыль */}
+        <div className="w-[5%] min-w-[48px] font-mono text-xs text-slate-400 text-center">—</div>
+
         {/* Дней продаж */}
         <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center">
           {loadingDays ? (
