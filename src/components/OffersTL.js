@@ -10,11 +10,14 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Package,
   Star,
   Tv,
   X,
-  Target
+  Target,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
@@ -100,6 +103,7 @@ function OffersTL({ user, onToggleFilters }) {
   const [loadingBuyerStatuses, setLoadingBuyerStatuses] = useState(true);
   const [loadingBuyerIds, setLoadingBuyerIds] = useState(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [offerSeasons, setOfferSeasons] = useState({});
@@ -1400,17 +1404,74 @@ function OffersTL({ user, onToggleFilters }) {
               <circle cx="19" cy="15" r="2" />
             </svg>
           </button>
-          <div className="flex-1 relative">
+          <div className="w-72 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по артикулу или названию оффера..."
+              placeholder="Поиск по артикулу или названию..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 hover:bg-white transition-colors"
             />
           </div>
-          <div className="flex items-center space-x-2">
+
+          {/* Кнопка пресетов и панель пресетов */}
+          <div className="flex items-center">
+            <button
+              onClick={() => setShowPresets(!showPresets)}
+              className={`flex items-center gap-1 px-3 py-2.5 text-sm font-medium rounded-lg border transition-all duration-200 ${
+                showPresets
+                  ? 'bg-blue-50 border-blue-300 text-blue-600'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+              }`}
+            >
+              Пресеты
+              <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${showPresets ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Панель пресетов с анимацией */}
+            <div className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${
+              showPresets ? 'max-w-[600px] opacity-100 ml-3' : 'max-w-0 opacity-0 ml-0'
+            }`}>
+              {['Пресет 1', 'Пресет 2', 'Пресет 3', 'Пресет 4', 'Пресет 5'].map((preset, index) => (
+                <div
+                  key={index}
+                  className="group relative flex items-center"
+                >
+                  <button
+                    className="px-3 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors whitespace-nowrap"
+                  >
+                    {preset}
+                  </button>
+                  {/* Иконки редактирования при наведении */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-0.5 ml-1 pl-1">
+                    <button
+                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600 transition-colors"
+                      title="Редактировать"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // TODO: редактирование пресета
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-red-600 transition-colors"
+                      title="Удалить"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // TODO: удаление пресета
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 ml-auto">
             <span className="text-sm text-slate-500 font-medium">Сортировка:</span>
             <button
               onClick={() => handleSort('id')}
