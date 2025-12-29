@@ -359,14 +359,14 @@ const OfferRow = memo(({
           )}
         </div>
 
-        {/* % отказа от продаж */}
+        {/* % апрува */}
         <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
-          {metric.refusal_sales_percent ? `${Number(metric.refusal_sales_percent).toFixed(2)}%` : '—'}
+          {metric.approve_percent != null ? `${Number(metric.approve_percent).toFixed(2)}%` : '—'}
         </div>
 
-        {/* % невыкупа */}
+        {/* % выкупа */}
         <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
-          {metric.no_pickup_percent ? `${Number(metric.no_pickup_percent).toFixed(2)}%` : '—'}
+          {metric.sold_percent != null ? `${Number(metric.sold_percent).toFixed(2)}%` : '—'}
         </div>
 
         {/* Сезон */}
