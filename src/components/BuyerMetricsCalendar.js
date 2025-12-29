@@ -650,8 +650,8 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
     const levelIndent = 24; // Отступ на каждый уровень
     const expandButtonWidth = 32; // Кнопка развёртывания + gap
     const avatarWidth = 48; // Аватарка + gap (только для байеров)
-    const paddingRight = 40; // Отступ справа
-    const charWidth = 10; // Ширина символа (кириллица шире латиницы)
+    const paddingRight = 24; // Отступ справа
+    const charWidth = 8; // Ширина символа
     const minWidth = 280; // Минимальная ширина
 
     let maxWidth = minWidth;
@@ -674,7 +674,6 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
       }
     });
 
-    // Возвращаем реальную ширину без жёсткого ограничения
     return maxWidth;
   }, [flatHierarchy]);
 
