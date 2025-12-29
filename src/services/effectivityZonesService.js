@@ -41,7 +41,9 @@ class EffectivityZonesService {
         offer_name,
         effectivity_zone,
         last_result_conversions,
-        av_offer_invest_price
+        av_offer_invest_price,
+        approve_percent_oper,
+        sold_percent_oper
       FROM offers_collection
       WHERE salesdrive_sku IN (${inClause})
     `;
@@ -91,12 +93,24 @@ class EffectivityZonesService {
             investPrice
           );
 
+          // Рассчитываем Отказ и Невыкуп
+          const approvePercent = parseFloat(row.approve_percent_oper);
+          const soldPercent = parseFloat(row.sold_percent_oper);
+
+          // Отказ = 100% - approve%
+          const refusalPercent = !isNaN(approvePercent) ? Math.round((100 - approvePercent) * 100) / 100 : null;
+          // Невыкуп = 100% - sold%
+          const noPickupPercent = !isNaN(soldPercent) ? Math.round((100 - soldPercent) * 100) / 100 : null;
+
           zonesMap.set(sku, {
             sku,
             offer_name: row.offer_name,
             invest_price: investPrice,
             effectivity_zone: effectivityZone,
             roi_type: lastResultConversions?.effectivity_zone?.roi_type || lastResultConversions?.roi_type || 'UAH',
+            // Отказ и Невыкуп
+            refusal_sales_percent: refusalPercent,
+            no_pickup_percent: noPickupPercent,
             ...zonePrices
           });
 
@@ -227,6 +241,9 @@ class EffectivityZonesService {
           green_zone_price: zoneData.green_zone_price,
           // Обновляем зону если есть факт. ROI
           offer_zone: currentZone || metric.offer_zone,
+          // Обновляем Отказ и Невыкуп
+          refusal_sales_percent: zoneData.refusal_sales_percent,
+          no_pickup_percent: zoneData.no_pickup_percent,
           // Дополнительные данные
           zone_thresholds: zoneData.zone_thresholds,
           zone_roi_type: zoneData.roi_type,
