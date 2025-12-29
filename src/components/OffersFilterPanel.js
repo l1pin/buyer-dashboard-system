@@ -53,10 +53,18 @@ const OffersFilterPanel = ({ isOpen, onClose }) => {
   const [selectedZones, setSelectedZones] = useState([]);
   const [selectedBuyers, setSelectedBuyers] = useState([]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="w-72 bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden">
+    <div
+      className={`bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out ${
+        isOpen
+          ? 'w-72 min-w-[288px] opacity-100'
+          : 'w-0 min-w-0 opacity-0 border-r-0'
+      }`}
+      style={{
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+      }}
+    >
+      <div className={`flex flex-col h-full transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-150' : 'opacity-0'}`}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">Фильтры</h2>
@@ -322,6 +330,7 @@ const OffersFilterPanel = ({ isOpen, onClose }) => {
         <button className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
           Применить фильтры
         </button>
+      </div>
       </div>
     </div>
   );
