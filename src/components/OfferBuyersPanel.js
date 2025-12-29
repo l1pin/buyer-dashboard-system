@@ -1987,7 +1987,23 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
         const archivedGroups = groupByTeamLead(filteredArchivedBuyers);
 
         // Проверка развёрнутости секции
-        const isExpanded = (sectionKey) => expandedTeamLeads.has(sectionKey);
+        const isExpanded = (sectionKey) => {
+          // Если вручную развёрнуто - показываем
+          if (expandedTeamLeads.has(sectionKey)) return true;
+
+          // Извлекаем group.id из sectionKey (формат: "available-{id}" или "archived-{id}")
+          const groupId = sectionKey.startsWith('available-')
+            ? sectionKey.slice('available-'.length)
+            : sectionKey.slice('archived-'.length);
+
+          // Авто-раскрытие при выборе Team Lead
+          if (selectedTeamLead && selectedTeamLead === groupId) return true;
+
+          // Авто-раскрытие при поиске (все группы с совпадениями показаны, значит раскрываем все)
+          if (buyerSearchQuery.trim()) return true;
+
+          return false;
+        };
 
         const toggleExpanded = (sectionKey) => {
           setExpandedTeamLeads(prev => {
@@ -2270,22 +2286,6 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
                   )}
                 </div>
 
-                {/* Футер */}
-                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                  <button
-                    onClick={() => {
-                      setShowModal(false);
-                      setSelectedSource(null);
-                      setBuyerSearchQuery('');
-                      setSelectedTeamLead('');
-                      setExpandedTeamLeads(new Set());
-                    }}
-                    disabled={savingAssignment}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-                  >
-                    Закрыть
-                  </button>
-                </div>
               </div>
             </div>
           </Portal>
