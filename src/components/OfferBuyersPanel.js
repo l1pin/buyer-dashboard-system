@@ -112,6 +112,55 @@ const RemovalReasonModal = React.memo(function RemovalReasonModal({
     </Portal>
   );
 });
+
+// Модальное окно для раннего удаления (в первые 3 минуты) - простое подтверждение
+const EarlyRemovalModal = React.memo(function EarlyRemovalModal({
+  buyerName,
+  onConfirm,
+  onCancel
+}) {
+  return (
+    <Portal>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Удалить привязку?
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Байер: <span className="font-medium text-gray-700">{buyerName}</span>
+            </p>
+          </div>
+
+          <div className="px-6 py-4">
+            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+              <Clock className="w-5 h-5 text-orange-500 flex-shrink-0" />
+              <p className="text-sm text-orange-800">
+                Удаление в первые 3 минуты — без указания причины
+              </p>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+});
+
 // Ширина одной карточки байера (w-32 = 128px + gap 10px)
 const BUYER_CARD_WIDTH = 138;
 
@@ -911,6 +960,7 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   const [warningTooltip, setWarningTooltip] = useState(null); // {text, x, y} для tooltip предупреждения
   const [historyWindow, setHistoryWindow] = useState(null); // {history, buyerName, x, y} для перетаскиваемого окна истории
   const [showRemovalReasonModal, setShowRemovalReasonModal] = useState(null); // {assignmentId, assignment} для модалки причины
+  const [showEarlyRemovalModal, setShowEarlyRemovalModal] = useState(null); // {assignmentId, assignment} для модалки раннего удаления
   const [removalReason, setRemovalReason] = useState(''); // Выбранная причина удаления
   const [removalReasonDetails, setRemovalReasonDetails] = useState(''); // Детали причины "Другое"
 
@@ -1377,40 +1427,17 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
   // Обработчик удаления байера - новая логика с таймером и причинами
   const handleRemoveBuyer = useCallback(async (assignmentId, assignment) => {
     const isEarly = isWithinEarlyRemovalPeriod(assignment);
-    const removedBy = user?.name || user?.email || 'Неизвестно';
 
-    // Если в первые 3 минуты - удаляем без модалки
+    // Если в первые 3 минуты - показываем модалку раннего удаления
     if (isEarly) {
-      if (!window.confirm('Удалить привязку байера? (в первые 3 минуты)')) return;
-
-      setRemovingBuyerId(assignmentId);
-
-      try {
-        console.log(`👻 Раннее удаление байера ${assignment.buyer.name} (в пределах 3 минут)`);
-
-        // Скрываем запись (не удаляем из БД)
-        await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
-
-        // Уведомляем родительский компонент - убираем из отображения
-        if (onAssignmentsChange) {
-          const updatedAssignments = initialAssignments.map(a =>
-            a.id === assignmentId ? { ...a, hidden: true } : a
-          );
-          onAssignmentsChange(offer.id, updatedAssignments);
-        }
-      } catch (error) {
-        console.error('Ошибка раннего удаления привязки:', error);
-        alert('Ошибка удаления привязки');
-      } finally {
-        setRemovingBuyerId(null);
-      }
+      setShowEarlyRemovalModal({ assignmentId, assignment });
     } else {
       // После 3 минут - показываем модалку с выбором причины
       setShowRemovalReasonModal({ assignmentId, assignment });
       setRemovalReason('');
       setRemovalReasonDetails('');
     }
-  }, [isWithinEarlyRemovalPeriod, user, offer.id, initialAssignments, onAssignmentsChange]);
+  }, [isWithinEarlyRemovalPeriod]);
 
   // Обработчик подтверждения удаления с причиной (после 3 минут)
   const handleConfirmRemoval = useCallback(async (reason, reasonDetails) => {
@@ -1485,6 +1512,37 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
       setRemovalReasonDetails('');
     }
   }, [showRemovalReasonModal, user, offer.id, offer.article, initialAssignments, onAssignmentsChange, articleOfferMap]);
+
+  // Обработчик подтверждения раннего удаления (в первые 3 минуты)
+  const handleConfirmEarlyRemoval = useCallback(async () => {
+    if (!showEarlyRemovalModal) return;
+
+    const { assignmentId, assignment } = showEarlyRemovalModal;
+    const removedBy = user?.name || user?.email || 'Неизвестно';
+
+    setRemovingBuyerId(assignmentId);
+    setShowEarlyRemovalModal(null);
+
+    try {
+      console.log(`👻 Раннее удаление байера ${assignment.buyer.name} (в пределах 3 минут)`);
+
+      // Скрываем запись (не удаляем из БД)
+      await offerBuyersService.hideEarlyAssignment(assignmentId, removedBy);
+
+      // Уведомляем родительский компонент - убираем из отображения
+      if (onAssignmentsChange) {
+        const updatedAssignments = initialAssignments.map(a =>
+          a.id === assignmentId ? { ...a, hidden: true } : a
+        );
+        onAssignmentsChange(offer.id, updatedAssignments);
+      }
+    } catch (error) {
+      console.error('Ошибка раннего удаления привязки:', error);
+      alert('Ошибка удаления привязки');
+    } finally {
+      setRemovingBuyerId(null);
+    }
+  }, [showEarlyRemovalModal, user, offer.id, initialAssignments, onAssignmentsChange]);
 
   const handleOpenCalendar = useCallback((assignment) => {
     console.log('📊 Открываем календарь для байера:', assignment.buyer.name);
@@ -2094,6 +2152,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             setRemovalReason('');
             setRemovalReasonDetails('');
           }}
+        />
+      )}
+
+      {/* Модальное окно раннего удаления (в первые 3 минуты) */}
+      {showEarlyRemovalModal && (
+        <EarlyRemovalModal
+          buyerName={showEarlyRemovalModal.assignment?.buyer?.name}
+          onConfirm={handleConfirmEarlyRemoval}
+          onCancel={() => setShowEarlyRemovalModal(null)}
         />
       )}
     </>
