@@ -1,8 +1,18 @@
 // src/components/OffersFilterPanel.js
 // Панель фильтров для страницы офферов
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
+
+// Конфигурация статусов с цветами (как в OffersSupabase)
+const STATUS_CONFIG = [
+  { value: 'Активный', label: 'Активный', color: 'bg-green-500' },
+  { value: 'Пауза', label: 'Пауза', color: 'bg-yellow-500' },
+  { value: 'Закончился', label: 'Закончился', color: 'bg-red-500' },
+  { value: 'Отлежка', label: 'Отлежка', color: 'bg-purple-500' },
+  { value: 'Передел', label: 'Передел', color: 'bg-blue-400' },
+  { value: 'КЦ', label: 'КЦ', color: 'bg-teal-700' }
+];
 
 // Компонент сворачиваемой секции
 const FilterSection = ({ title, children, defaultOpen = false, count = null }) => {
@@ -16,7 +26,7 @@ const FilterSection = ({ title, children, defaultOpen = false, count = null }) =
       >
         <span className="text-sm font-medium text-slate-700">{title}</span>
         <div className="flex items-center gap-2">
-          {count !== null && (
+          {count !== null && count > 0 && (
             <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
               {count}
             </span>
@@ -38,8 +48,9 @@ const FilterSection = ({ title, children, defaultOpen = false, count = null }) =
 };
 
 // Компонент тега фильтра
-const FilterTag = ({ label, onRemove }) => (
-  <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md">
+const FilterTag = ({ label, color, onRemove }) => (
+  <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md">
+    {color && <span className={`w-2 h-2 rounded-full ${color}`}></span>}
     {label}
     <button onClick={onRemove} className="hover:text-slate-900">
       <X className="h-3 w-3" />
@@ -47,11 +58,110 @@ const FilterTag = ({ label, onRemove }) => (
   </span>
 );
 
-const OffersFilterPanel = ({ isOpen, onClose }) => {
-  // Заглушки для состояния фильтров
-  const [selectedStatuses, setSelectedStatuses] = useState(['Активный', 'На паузе']);
-  const [selectedZones, setSelectedZones] = useState([]);
-  const [selectedBuyers, setSelectedBuyers] = useState([]);
+// Компонент ввода только чисел
+const NumberInput = ({ value, onChange, placeholder, className = '' }) => {
+  const handleChange = (e) => {
+    const val = e.target.value;
+    // Разрешаем только цифры или пустую строку
+    if (val === '' || /^\d+$/.test(val)) {
+      onChange(val);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={`px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${className}`}
+    />
+  );
+};
+
+const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyFilters }) => {
+  // Локальное состояние фильтров (до применения)
+  const [localFilters, setLocalFilters] = useState({
+    statuses: [],
+    daysInStatusFrom: '',
+    daysInStatusTo: '',
+    zones: [],
+    ratings: [],
+    cplFrom: '',
+    cplTo: '',
+    leadsFrom: '',
+    leadsTo: '',
+    stockFrom: '',
+    stockTo: '',
+    daysRemainingFrom: '',
+    daysRemainingTo: '',
+    approveFrom: '',
+    approveTo: '',
+    soldFrom: '',
+    soldTo: '',
+  });
+
+  // Синхронизируем с внешними фильтрами при открытии
+  useEffect(() => {
+    if (filters) {
+      setLocalFilters(filters);
+    }
+  }, [filters, isOpen]);
+
+  // Обработчик изменения статусов
+  const handleStatusChange = (statusValue, checked) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      statuses: checked
+        ? [...prev.statuses, statusValue]
+        : prev.statuses.filter(s => s !== statusValue)
+    }));
+  };
+
+  // Удаление статуса из тегов
+  const handleRemoveStatus = (statusValue) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      statuses: prev.statuses.filter(s => s !== statusValue)
+    }));
+  };
+
+  // Обработчик применения фильтров
+  const handleApply = () => {
+    onFiltersChange(localFilters);
+    onApplyFilters();
+  };
+
+  // Обработчик сброса фильтров
+  const handleReset = () => {
+    const emptyFilters = {
+      statuses: [],
+      daysInStatusFrom: '',
+      daysInStatusTo: '',
+      zones: [],
+      ratings: [],
+      cplFrom: '',
+      cplTo: '',
+      leadsFrom: '',
+      leadsTo: '',
+      stockFrom: '',
+      stockTo: '',
+      daysRemainingFrom: '',
+      daysRemainingTo: '',
+      approveFrom: '',
+      approveTo: '',
+      soldFrom: '',
+      soldTo: '',
+    };
+    setLocalFilters(emptyFilters);
+    onFiltersChange(emptyFilters);
+    onApplyFilters();
+  };
+
+  // Подсчёт активных фильтров по секциям
+  const statusFiltersCount = localFilters.statuses.length +
+    (localFilters.daysInStatusFrom || localFilters.daysInStatusTo ? 1 : 0);
 
   return (
     <div
@@ -65,272 +175,288 @@ const OffersFilterPanel = ({ isOpen, onClose }) => {
       }}
     >
       <div className={`flex flex-col h-full transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-150' : 'opacity-0'}`}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Фильтры</h2>
-        <div className="flex items-center gap-3">
-          <button className="text-xs text-slate-500 hover:text-slate-700">
-            Сбросить
-          </button>
-          <span className="text-slate-300">•</span>
-          <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-            Сохранить
-          </button>
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-800">Фильтры</h2>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleReset}
+              className="text-xs text-slate-500 hover:text-slate-700"
+            >
+              Сбросить
+            </button>
+            <span className="text-slate-300">•</span>
+            <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+              Сохранить
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Saved Filters */}
-      <div className="px-4 py-3 border-b border-slate-200">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">Загрузить фильтр</span>
-          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">1</span>
-          <ChevronDown className="h-3 w-3 text-slate-400 ml-auto" />
+        {/* Saved Filters */}
+        <div className="px-4 py-3 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Загрузить фильтр</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">1</span>
+            <ChevronDown className="h-3 w-3 text-slate-400 ml-auto" />
+          </div>
+          <input
+            type="text"
+            placeholder="Название фильтра..."
+            className="mt-2 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
-        <input
-          type="text"
-          placeholder="Название фильтра..."
-          className="mt-2 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Статусы */}
-        <FilterSection title="Статусы" defaultOpen={true} count={selectedStatuses.length}>
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1.5">
-              {selectedStatuses.map((status, i) => (
-                <FilterTag
-                  key={i}
-                  label={status}
-                  onRemove={() => setSelectedStatuses(prev => prev.filter((_, idx) => idx !== i))}
-                />
-              ))}
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Статусы */}
+          <FilterSection title="Статусы" defaultOpen={true} count={statusFiltersCount}>
+            <div className="space-y-3">
+              {/* Выбранные статусы в виде тегов */}
+              {localFilters.statuses.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {localFilters.statuses.map((statusValue) => {
+                    const statusConfig = STATUS_CONFIG.find(s => s.value === statusValue);
+                    return (
+                      <FilterTag
+                        key={statusValue}
+                        label={statusConfig?.label || statusValue}
+                        color={statusConfig?.color}
+                        onRemove={() => handleRemoveStatus(statusValue)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Чекбоксы статусов */}
+              <div className="space-y-1.5">
+                {STATUS_CONFIG.map(status => (
+                  <label
+                    key={status.value}
+                    className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800 py-1"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={localFilters.statuses.includes(status.value)}
+                      onChange={(e) => handleStatusChange(status.value, e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={`w-2.5 h-2.5 rounded-full ${status.color}`}></span>
+                    {status.label}
+                  </label>
+                ))}
+              </div>
+
+              {/* Диапазон дней в статусе */}
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <label className="text-xs font-medium text-slate-500 mb-2 block">
+                  Количество дней в статусе
+                </label>
+                <div className="flex items-center gap-2">
+                  <NumberInput
+                    value={localFilters.daysInStatusFrom}
+                    onChange={(val) => setLocalFilters(prev => ({ ...prev, daysInStatusFrom: val }))}
+                    placeholder="От"
+                    className="w-full"
+                  />
+                  <span className="text-slate-400">—</span>
+                  <NumberInput
+                    value={localFilters.daysInStatusTo}
+                    onChange={(val) => setLocalFilters(prev => ({ ...prev, daysInStatusTo: val }))}
+                    placeholder="До"
+                    className="w-full"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5 mt-2">
-              {['Активный', 'На паузе', 'Тест', 'Стоп', 'Архив'].map(status => (
-                <label key={status} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
+          </FilterSection>
+
+          {/* Зоны */}
+          <FilterSection title="Зоны эффективности" count={localFilters.zones?.length || 0}>
+            <div className="space-y-1.5">
+              {[
+                { id: 'green', label: 'Зелёная зона', color: 'bg-green-500' },
+                { id: 'gold', label: 'Золотая зона', color: 'bg-yellow-500' },
+                { id: 'pink', label: 'Розовая зона', color: 'bg-pink-500' },
+                { id: 'red', label: 'Красная зона', color: 'bg-red-500' },
+                { id: 'sos', label: 'SOS зона', color: 'bg-black' },
+              ].map(zone => (
+                <label key={zone.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
                   <input
                     type="checkbox"
-                    checked={selectedStatuses.includes(status)}
+                    checked={localFilters.zones?.includes(zone.id) || false}
                     onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedStatuses(prev => [...prev, status]);
-                      } else {
-                        setSelectedStatuses(prev => prev.filter(s => s !== status));
-                      }
+                      setLocalFilters(prev => ({
+                        ...prev,
+                        zones: e.target.checked
+                          ? [...(prev.zones || []), zone.id]
+                          : (prev.zones || []).filter(z => z !== zone.id)
+                      }));
                     }}
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
-                  {status}
+                  <span className={`w-2.5 h-2.5 rounded-full ${zone.color}`}></span>
+                  {zone.label}
                 </label>
               ))}
             </div>
-          </div>
-        </FilterSection>
+          </FilterSection>
 
-        {/* Зоны */}
-        <FilterSection title="Зоны эффективности" count={selectedZones.length}>
-          <div className="space-y-1.5">
-            {[
-              { id: 'green', label: 'Зелёная зона', color: 'bg-green-500' },
-              { id: 'gold', label: 'Золотая зона', color: 'bg-yellow-500' },
-              { id: 'pink', label: 'Розовая зона', color: 'bg-pink-500' },
-              { id: 'red', label: 'Красная зона', color: 'bg-red-500' },
-              { id: 'sos', label: 'SOS зона', color: 'bg-black' },
-            ].map(zone => (
-              <label key={zone.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={selectedZones.includes(zone.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedZones(prev => [...prev, zone.id]);
-                    } else {
-                      setSelectedZones(prev => prev.filter(z => z !== zone.id));
-                    }
-                  }}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className={`w-2.5 h-2.5 rounded-full ${zone.color}`}></span>
-                {zone.label}
-              </label>
-            ))}
-          </div>
-        </FilterSection>
+          {/* Рейтинг */}
+          <FilterSection title="Рейтинг" count={localFilters.ratings?.length || 0}>
+            <div className="flex flex-wrap gap-2">
+              {['A', 'B', 'C', 'D'].map(rating => (
+                <label key={rating} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={localFilters.ratings?.includes(rating) || false}
+                    onChange={(e) => {
+                      setLocalFilters(prev => ({
+                        ...prev,
+                        ratings: e.target.checked
+                          ? [...(prev.ratings || []), rating]
+                          : (prev.ratings || []).filter(r => r !== rating)
+                      }));
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    rating === 'A' ? 'bg-green-100 text-green-800' :
+                    rating === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                    rating === 'C' ? 'bg-orange-100 text-orange-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {rating}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </FilterSection>
 
-        {/* Рейтинг */}
-        <FilterSection title="Рейтинг">
-          <div className="flex flex-wrap gap-2">
-            {['A', 'B', 'C', 'D'].map(rating => (
-              <label key={rating} className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                  rating === 'A' ? 'bg-green-100 text-green-800' :
-                  rating === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                  rating === 'C' ? 'bg-orange-100 text-orange-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {rating}
-                </span>
-              </label>
-            ))}
-          </div>
-        </FilterSection>
+          {/* CPL */}
+          <FilterSection title="CPL (4 дня)">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.cplFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, cplFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.cplTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, cplTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
 
-        {/* Байеры */}
-        <FilterSection title="Байеры" count={selectedBuyers.length}>
-          <input
-            type="text"
-            placeholder="Поиск байера..."
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-          />
-          <div className="space-y-1.5 max-h-32 overflow-y-auto">
-            {['Иван Петров', 'Мария Сидорова', 'Алексей Козлов', 'Елена Новикова'].map(buyer => (
-              <label key={buyer} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                {buyer}
-              </label>
-            ))}
-          </div>
-        </FilterSection>
+          {/* Лиды */}
+          <FilterSection title="Лиды (4 дня)">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.leadsFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, leadsFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.leadsTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, leadsTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
 
-        {/* Сезон */}
-        <FilterSection title="Сезон">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { emoji: '☀️', label: 'Лето' },
-              { emoji: '🍁', label: 'Осень' },
-              { emoji: '❄️', label: 'Зима' },
-              { emoji: '🌱', label: 'Весна' },
-            ].map(season => (
-              <label key={season.emoji} className="flex items-center gap-1.5 px-2 py-1.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span>{season.emoji}</span>
-                <span className="text-xs text-slate-600">{season.label}</span>
-              </label>
-            ))}
-          </div>
-        </FilterSection>
+          {/* Остаток */}
+          <FilterSection title="Остаток">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.stockFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.stockTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
 
-        {/* CPL */}
-        <FilterSection title="CPL (4 дня)">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
+          {/* Дней продаж */}
+          <FilterSection title="Дней продаж">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.daysRemainingFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, daysRemainingFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.daysRemainingTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, daysRemainingTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
 
-        {/* Лиды */}
-        <FilterSection title="Лиды (4 дня)">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
+          {/* Апрув % */}
+          <FilterSection title="Апрув %">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.approveFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, approveFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.approveTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, approveTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
 
-        {/* Остаток */}
-        <FilterSection title="Остаток">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
+          {/* Выкуп % */}
+          <FilterSection title="Выкуп %">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.soldFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, soldFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.soldTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, soldTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
+        </div>
 
-        {/* Дней продаж */}
-        <FilterSection title="Дней продаж">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
-
-        {/* Апрув % */}
-        <FilterSection title="Апрув %">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
-
-        {/* Выкуп % */}
-        <FilterSection title="Выкуп %">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="От"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-slate-400">—</span>
-            <input
-              type="number"
-              placeholder="До"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </FilterSection>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
-        <button className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-          Применить фильтры
-        </button>
-      </div>
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
+          <button
+            onClick={handleApply}
+            className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Применить фильтры
+          </button>
+        </div>
       </div>
     </div>
   );
