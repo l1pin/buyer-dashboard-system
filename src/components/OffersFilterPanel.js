@@ -16,6 +16,7 @@ const STATUS_CONFIG = [
 
 // Доступные периоды для фильтров CPL/Лиды/Расходы (соответствуют данным в leads_data)
 const PERIOD_OPTIONS = [
+  { value: '4', label: '4 дня' },
   { value: '7', label: '7 дней' },
   { value: '14', label: '14 дней' },
   { value: '30', label: '30 дней' },
@@ -262,24 +263,44 @@ const PeriodFilter = ({ title, periods, onChange, allowDecimal = false }) => {
 const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyFilters }) => {
   // Локальное состояние фильтров (до применения)
   const [localFilters, setLocalFilters] = useState({
+    // 1. Статус
     statuses: [],
     daysInStatusFrom: '',
     daysInStatusTo: '',
-    zones: [],
+    // 2-4. CPL, Лиды, Расходы (с периодами)
+    cplPeriods: [{ period: '4', from: '', to: '' }],
+    leadsPeriods: [{ period: '4', from: '', to: '' }],
+    costPeriods: [{ period: '4', from: '', to: '' }],
+    // 5. Рейтинг
     ratings: [],
-    // Фильтры с периодами (периоды соответствуют данным в leads_data: 7, 14, 30, 60, 90)
-    cplPeriods: [{ period: '7', from: '', to: '' }],
-    leadsPeriods: [{ period: '7', from: '', to: '' }],
-    costPeriods: [{ period: '7', from: '', to: '' }],
-    // Остальные фильтры
-    stockFrom: '',
-    stockTo: '',
+    // 6. ROI
+    roiFrom: '',
+    roiTo: '',
+    // 7. Зоны
+    zones: [],
+    // 8. Прибыль
+    profitFrom: '',
+    profitTo: '',
+    // 9. Дней продаж
     daysRemainingFrom: '',
     daysRemainingTo: '',
+    // 10. Остаток
+    stockFrom: '',
+    stockTo: '',
+    // 11. Дней до прихода
+    daysToArrivalFrom: '',
+    daysToArrivalTo: '',
+    // 12. Апрув %
     approveFrom: '',
     approveTo: '',
+    // 13. Выкуп %
     soldFrom: '',
     soldTo: '',
+    // 14. Сезон
+    seasons: [],
+    // 15. Цена
+    priceFrom: '',
+    priceTo: '',
   });
 
   // Синхронизируем с внешними фильтрами при открытии
@@ -319,19 +340,28 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
       statuses: [],
       daysInStatusFrom: '',
       daysInStatusTo: '',
-      zones: [],
+      cplPeriods: [{ period: '4', from: '', to: '' }],
+      leadsPeriods: [{ period: '4', from: '', to: '' }],
+      costPeriods: [{ period: '4', from: '', to: '' }],
       ratings: [],
-      cplPeriods: [{ period: '7', from: '', to: '' }],
-      leadsPeriods: [{ period: '7', from: '', to: '' }],
-      costPeriods: [{ period: '7', from: '', to: '' }],
-      stockFrom: '',
-      stockTo: '',
+      roiFrom: '',
+      roiTo: '',
+      zones: [],
+      profitFrom: '',
+      profitTo: '',
       daysRemainingFrom: '',
       daysRemainingTo: '',
+      stockFrom: '',
+      stockTo: '',
+      daysToArrivalFrom: '',
+      daysToArrivalTo: '',
       approveFrom: '',
       approveTo: '',
       soldFrom: '',
       soldTo: '',
+      seasons: [],
+      priceFrom: '',
+      priceTo: '',
     };
     setLocalFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -387,8 +417,8 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* Статусы */}
-          <FilterSection title="Статусы" defaultOpen={true} count={statusFiltersCount}>
+          {/* 1. Статусы */}
+          <FilterSection title="Статус" defaultOpen={true} count={statusFiltersCount}>
             <div className="space-y-3">
               {/* Выбранные статусы в виде тегов */}
               {localFilters.statuses.length > 0 && (
@@ -450,38 +480,31 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
             </div>
           </FilterSection>
 
-          {/* Зоны */}
-          <FilterSection title="Зоны эффективности" count={localFilters.zones?.length || 0}>
-            <div className="space-y-1.5">
-              {[
-                { id: 'green', label: 'Зелёная зона', color: 'bg-green-500' },
-                { id: 'gold', label: 'Золотая зона', color: 'bg-yellow-500' },
-                { id: 'pink', label: 'Розовая зона', color: 'bg-pink-500' },
-                { id: 'red', label: 'Красная зона', color: 'bg-red-500' },
-                { id: 'sos', label: 'SOS зона', color: 'bg-black' },
-              ].map(zone => (
-                <label key={zone.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={localFilters.zones?.includes(zone.id) || false}
-                    onChange={(e) => {
-                      setLocalFilters(prev => ({
-                        ...prev,
-                        zones: e.target.checked
-                          ? [...(prev.zones || []), zone.id]
-                          : (prev.zones || []).filter(z => z !== zone.id)
-                      }));
-                    }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className={`w-2.5 h-2.5 rounded-full ${zone.color}`}></span>
-                  {zone.label}
-                </label>
-              ))}
-            </div>
-          </FilterSection>
+          {/* 2. CPL с периодами */}
+          <PeriodFilter
+            title="CPL"
+            periods={localFilters.cplPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, cplPeriods: periods }))}
+            allowDecimal={true}
+          />
 
-          {/* Рейтинг */}
+          {/* 3. Лиды с периодами */}
+          <PeriodFilter
+            title="Лиды"
+            periods={localFilters.leadsPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, leadsPeriods: periods }))}
+            allowDecimal={false}
+          />
+
+          {/* 4. Расходы с периодами */}
+          <PeriodFilter
+            title="Расходы"
+            periods={localFilters.costPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, costPeriods: periods }))}
+            allowDecimal={true}
+          />
+
+          {/* 5. Рейтинг */}
           <FilterSection title="Рейтинг" count={localFilters.ratings?.length || 0}>
             <div className="flex flex-wrap gap-2">
               {['A', 'B', 'C', 'D'].map(rating => (
@@ -512,50 +535,80 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
             </div>
           </FilterSection>
 
-          {/* CPL с периодами */}
-          <PeriodFilter
-            title="CPL"
-            periods={localFilters.cplPeriods || [{ period: '7', from: '', to: '' }]}
-            onChange={(periods) => setLocalFilters(prev => ({ ...prev, cplPeriods: periods }))}
-            allowDecimal={true}
-          />
-
-          {/* Лиды с периодами */}
-          <PeriodFilter
-            title="Лиды"
-            periods={localFilters.leadsPeriods || [{ period: '7', from: '', to: '' }]}
-            onChange={(periods) => setLocalFilters(prev => ({ ...prev, leadsPeriods: periods }))}
-            allowDecimal={false}
-          />
-
-          {/* Расходы с периодами */}
-          <PeriodFilter
-            title="Расходы"
-            periods={localFilters.costPeriods || [{ period: '7', from: '', to: '' }]}
-            onChange={(periods) => setLocalFilters(prev => ({ ...prev, costPeriods: periods }))}
-            allowDecimal={true}
-          />
-
-          {/* Остаток */}
-          <FilterSection title="Остаток">
+          {/* 6. ROI */}
+          <FilterSection title="ROI">
             <div className="flex items-center gap-2">
               <NumberInput
-                value={localFilters.stockFrom}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockFrom: val }))}
+                value={localFilters.roiFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, roiFrom: val }))}
                 placeholder="От"
                 className="w-full"
+                allowDecimal={true}
               />
               <span className="text-slate-400">—</span>
               <NumberInput
-                value={localFilters.stockTo}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockTo: val }))}
+                value={localFilters.roiTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, roiTo: val }))}
                 placeholder="До"
                 className="w-full"
+                allowDecimal={true}
               />
             </div>
           </FilterSection>
 
-          {/* Дней продаж */}
+          {/* 7. Зоны */}
+          <FilterSection title="Зоны" count={localFilters.zones?.length || 0}>
+            <div className="space-y-1.5">
+              {[
+                { id: 'green', label: 'Зелёная зона', color: 'bg-green-500' },
+                { id: 'gold', label: 'Золотая зона', color: 'bg-yellow-500' },
+                { id: 'pink', label: 'Розовая зона', color: 'bg-pink-500' },
+                { id: 'red', label: 'Красная зона', color: 'bg-red-500' },
+                { id: 'sos', label: 'SOS зона', color: 'bg-black' },
+              ].map(zone => (
+                <label key={zone.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={localFilters.zones?.includes(zone.id) || false}
+                    onChange={(e) => {
+                      setLocalFilters(prev => ({
+                        ...prev,
+                        zones: e.target.checked
+                          ? [...(prev.zones || []), zone.id]
+                          : (prev.zones || []).filter(z => z !== zone.id)
+                      }));
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className={`w-2.5 h-2.5 rounded-full ${zone.color}`}></span>
+                  {zone.label}
+                </label>
+              ))}
+            </div>
+          </FilterSection>
+
+          {/* 8. Прибыль */}
+          <FilterSection title="Прибыль">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.profitFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, profitFrom: val }))}
+                placeholder="От"
+                className="w-full"
+                allowDecimal={true}
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.profitTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, profitTo: val }))}
+                placeholder="До"
+                className="w-full"
+                allowDecimal={true}
+              />
+            </div>
+          </FilterSection>
+
+          {/* 9. Дней продаж */}
           <FilterSection title="Дней продаж">
             <div className="flex items-center gap-2">
               <NumberInput
@@ -574,7 +627,45 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
             </div>
           </FilterSection>
 
-          {/* Апрув % */}
+          {/* 10. Остаток */}
+          <FilterSection title="Остаток">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.stockFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.stockTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, stockTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
+
+          {/* 11. Дней до прихода */}
+          <FilterSection title="Дней до прихода">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.daysToArrivalFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, daysToArrivalFrom: val }))}
+                placeholder="От"
+                className="w-full"
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.daysToArrivalTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, daysToArrivalTo: val }))}
+                placeholder="До"
+                className="w-full"
+              />
+            </div>
+          </FilterSection>
+
+          {/* 12. Апрув % */}
           <FilterSection title="Апрув %">
             <div className="flex items-center gap-2">
               <NumberInput
@@ -582,6 +673,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                 onChange={(val) => setLocalFilters(prev => ({ ...prev, approveFrom: val }))}
                 placeholder="От"
                 className="w-full"
+                allowDecimal={true}
               />
               <span className="text-slate-400">—</span>
               <NumberInput
@@ -589,11 +681,12 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                 onChange={(val) => setLocalFilters(prev => ({ ...prev, approveTo: val }))}
                 placeholder="До"
                 className="w-full"
+                allowDecimal={true}
               />
             </div>
           </FilterSection>
 
-          {/* Выкуп % */}
+          {/* 13. Выкуп % */}
           <FilterSection title="Выкуп %">
             <div className="flex items-center gap-2">
               <NumberInput
@@ -601,6 +694,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                 onChange={(val) => setLocalFilters(prev => ({ ...prev, soldFrom: val }))}
                 placeholder="От"
                 className="w-full"
+                allowDecimal={true}
               />
               <span className="text-slate-400">—</span>
               <NumberInput
@@ -608,6 +702,58 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                 onChange={(val) => setLocalFilters(prev => ({ ...prev, soldTo: val }))}
                 placeholder="До"
                 className="w-full"
+                allowDecimal={true}
+              />
+            </div>
+          </FilterSection>
+
+          {/* 14. Сезон */}
+          <FilterSection title="Сезон" count={localFilters.seasons?.length || 0}>
+            <div className="space-y-1.5">
+              {[
+                { id: 'winter', label: 'Зима' },
+                { id: 'spring', label: 'Весна' },
+                { id: 'summer', label: 'Лето' },
+                { id: 'autumn', label: 'Осень' },
+                { id: 'all_year', label: 'Круглый год' },
+              ].map(season => (
+                <label key={season.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={localFilters.seasons?.includes(season.id) || false}
+                    onChange={(e) => {
+                      setLocalFilters(prev => ({
+                        ...prev,
+                        seasons: e.target.checked
+                          ? [...(prev.seasons || []), season.id]
+                          : (prev.seasons || []).filter(s => s !== season.id)
+                      }));
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {season.label}
+                </label>
+              ))}
+            </div>
+          </FilterSection>
+
+          {/* 15. Цена */}
+          <FilterSection title="Цена">
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={localFilters.priceFrom}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, priceFrom: val }))}
+                placeholder="От"
+                className="w-full"
+                allowDecimal={true}
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={localFilters.priceTo}
+                onChange={(val) => setLocalFilters(prev => ({ ...prev, priceTo: val }))}
+                placeholder="До"
+                className="w-full"
+                allowDecimal={true}
               />
             </div>
           </FilterSection>
