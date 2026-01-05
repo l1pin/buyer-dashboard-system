@@ -71,6 +71,42 @@ const RemovalReasonModal = React.memo(function RemovalReasonModal({
               <input
                 type="radio"
                 name="removalReason"
+                value="Забрал капу"
+                checked={reason === 'Забрал капу'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">Забрал капу</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
+                value="Не настроил вовремя"
+                checked={reason === 'Не настроил вовремя'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">Не настроил вовремя</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
+                value="В минус"
+                checked={reason === 'В минус'}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <span className="text-gray-700">В минус</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+              <input
+                type="radio"
+                name="removalReason"
                 value="other"
                 checked={reason === 'other'}
                 onChange={(e) => setReason(e.target.value)}
