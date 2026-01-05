@@ -109,6 +109,28 @@ function OffersTL({ user, onToggleFilters }) {
   const [offerSeasons, setOfferSeasons] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
 
+  // Состояние фильтров
+  const [filters, setFilters] = useState({
+    statuses: [],
+    daysInStatusFrom: '',
+    daysInStatusTo: '',
+    zones: [],
+    ratings: [],
+    cplFrom: '',
+    cplTo: '',
+    leadsFrom: '',
+    leadsTo: '',
+    stockFrom: '',
+    stockTo: '',
+    daysRemainingFrom: '',
+    daysRemainingTo: '',
+    approveFrom: '',
+    approveTo: '',
+    soldFrom: '',
+    soldTo: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState(null); // Применённые фильтры
+
   // React 18: useTransition для неблокирующего поиска
   const [isPending, startTransition] = useTransition();
 
@@ -1221,10 +1243,116 @@ function OffersTL({ user, onToggleFilters }) {
   // Фильтрация и сортировка (используем debouncedSearchTerm для оптимизации)
   const filteredMetrics = useMemo(() => {
     const searchLower = debouncedSearchTerm.toLowerCase();
+    const f = appliedFilters; // Применённые фильтры
+
     return metrics.filter(metric => {
-      if (debouncedSearchTerm === '') return true;
-      return metric.article?.toLowerCase().includes(searchLower) ||
-        metric.offer?.toLowerCase().includes(searchLower);
+      // Поиск по тексту
+      if (debouncedSearchTerm !== '') {
+        const matchesSearch = metric.article?.toLowerCase().includes(searchLower) ||
+          metric.offer?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Применяем фильтры только если есть appliedFilters
+      if (f) {
+        // Фильтр по статусам
+        if (f.statuses && f.statuses.length > 0) {
+          const offerStatus = offerStatuses[metric.id];
+          const currentStatus = offerStatus?.current_status || '';
+          if (!f.statuses.includes(currentStatus)) {
+            return false;
+          }
+        }
+
+        // Фильтр по количеству дней в статусе
+        const daysFrom = f.daysInStatusFrom !== '' ? parseInt(f.daysInStatusFrom, 10) : 0;
+        const daysTo = f.daysInStatusTo !== '' ? parseInt(f.daysInStatusTo, 10) : Infinity;
+
+        if (f.daysInStatusFrom !== '' || f.daysInStatusTo !== '') {
+          const offerStatus = offerStatuses[metric.id];
+          const daysInStatus = offerStatus?.days_in_status ?? 0;
+
+          if (daysInStatus < daysFrom || daysInStatus > daysTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по рейтингу
+        if (f.ratings && f.ratings.length > 0) {
+          const rating = metric.rating || '';
+          if (!f.ratings.includes(rating)) {
+            return false;
+          }
+        }
+
+        // Фильтр по CPL (4 дня)
+        if (f.cplFrom !== '' || f.cplTo !== '') {
+          const cplFrom = f.cplFrom !== '' ? parseFloat(f.cplFrom) : 0;
+          const cplTo = f.cplTo !== '' ? parseFloat(f.cplTo) : Infinity;
+          const cpl = metric.cpl_4days ?? null;
+
+          if (cpl === null || cpl < cplFrom || cpl > cplTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по лидам (4 дня)
+        if (f.leadsFrom !== '' || f.leadsTo !== '') {
+          const leadsFrom = f.leadsFrom !== '' ? parseInt(f.leadsFrom, 10) : 0;
+          const leadsTo = f.leadsTo !== '' ? parseInt(f.leadsTo, 10) : Infinity;
+          const leads = metric.leads_4days ?? null;
+
+          if (leads === null || leads < leadsFrom || leads > leadsTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по остатку
+        if (f.stockFrom !== '' || f.stockTo !== '') {
+          const stockFrom = f.stockFrom !== '' ? parseInt(f.stockFrom, 10) : 0;
+          const stockTo = f.stockTo !== '' ? parseInt(f.stockTo, 10) : Infinity;
+          const stock = metric.stock ?? null;
+
+          if (stock === null || stock < stockFrom || stock > stockTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по дням продаж
+        if (f.daysRemainingFrom !== '' || f.daysRemainingTo !== '') {
+          const daysRemainingFrom = f.daysRemainingFrom !== '' ? parseInt(f.daysRemainingFrom, 10) : 0;
+          const daysRemainingTo = f.daysRemainingTo !== '' ? parseInt(f.daysRemainingTo, 10) : Infinity;
+          const daysRemaining = metric.days_remaining ?? null;
+
+          if (daysRemaining === null || daysRemaining < daysRemainingFrom || daysRemaining > daysRemainingTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по Апрув %
+        if (f.approveFrom !== '' || f.approveTo !== '') {
+          const approveFrom = f.approveFrom !== '' ? parseFloat(f.approveFrom) : 0;
+          const approveTo = f.approveTo !== '' ? parseFloat(f.approveTo) : Infinity;
+          const approve = metric.approve_percent ?? null;
+
+          if (approve === null || approve < approveFrom || approve > approveTo) {
+            return false;
+          }
+        }
+
+        // Фильтр по Выкуп %
+        if (f.soldFrom !== '' || f.soldTo !== '') {
+          const soldFrom = f.soldFrom !== '' ? parseFloat(f.soldFrom) : 0;
+          const soldTo = f.soldTo !== '' ? parseFloat(f.soldTo) : Infinity;
+          const sold = metric.sold_percent ?? null;
+
+          if (sold === null || sold < soldFrom || sold > soldTo) {
+            return false;
+          }
+        }
+      }
+
+      return true;
     }).sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
@@ -1235,7 +1363,7 @@ function OffersTL({ user, onToggleFilters }) {
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [metrics, debouncedSearchTerm, sortField, sortDirection]);
+  }, [metrics, debouncedSearchTerm, sortField, sortDirection, appliedFilters, offerStatuses]);
 
   // useDeferredValue - отложенная версия для неблокирующего рендеринга списка
   // UI остается отзывчивым даже при большом количестве офферов
@@ -1309,6 +1437,9 @@ function OffersTL({ user, onToggleFilters }) {
           setShowFilters(false);
           onToggleFilters?.(false);
         }}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onApplyFilters={() => setAppliedFilters({ ...filters })}
       />
 
       {/* Основной контент */}
