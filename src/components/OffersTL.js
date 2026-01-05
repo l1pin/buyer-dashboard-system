@@ -1717,7 +1717,7 @@ function OffersTL({ user, onToggleFilters }) {
                 {/* Расширенные колонки байеров - выезжают слева */}
                 <div
                   className={`flex items-center transition-all duration-300 ease-in-out overflow-hidden ${
-                    showExtendedColumns ? 'max-w-[660px] opacity-100' : 'max-w-0 opacity-0'
+                    showExtendedColumns ? 'max-w-[800px] opacity-100' : 'max-w-0 opacity-0'
                   }`}
                 >
                   <div className="min-w-[40px] px-1" title="Facebook CPL">
