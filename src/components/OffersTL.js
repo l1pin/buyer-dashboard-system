@@ -1489,7 +1489,7 @@ function OffersTL({ user, onToggleFilters }) {
         }}
         filters={filters}
         onFiltersChange={setFilters}
-        onApplyFilters={() => setAppliedFilters({ ...filters })}
+        onApplyFilters={(newFilters) => setAppliedFilters({ ...newFilters })}
       />
 
       {/* Основной контент */}
