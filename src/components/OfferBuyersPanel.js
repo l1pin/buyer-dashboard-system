@@ -779,6 +779,8 @@ const SourceColumn = React.memo(function SourceColumn({
   icon: Icon,
   buyers,
   isLast,
+  bgColor = 'bg-gray-50',
+  borderColor = 'border-gray-200',
   offerId,
   offerArticle,
   buyerMetricsData,
@@ -885,16 +887,16 @@ const SourceColumn = React.memo(function SourceColumn({
   const shouldVirtualize = buyers.length > VIRTUALIZATION_THRESHOLD;
 
   return (
-    <div className={`flex-1 px-4 py-3 ${!isLast ? 'border-r border-gray-200' : ''}`}>
-      <div className="flex items-center justify-between mb-4">
+    <div className={`rounded-lg border ${bgColor} ${borderColor} px-3 py-3`}>
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Icon className="w-5 h-5" />
-          <span className="text-sm font-medium text-gray-900">{source}</span>
-          <span className="text-xs text-gray-400">({buyers.length})</span>
+          <span className="text-sm font-semibold text-gray-900">{source}</span>
+          <span className="text-xs text-gray-500 bg-white/70 px-1.5 py-0.5 rounded">{buyers.length}</span>
         </div>
         <button
           onClick={handleAddClick}
-          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-1.5 bg-white/70 hover:bg-white rounded-md transition-colors border border-gray-200"
           title={`Добавить байера для ${source}`}
         >
           <Plus className="w-4 h-4 text-gray-600" />
@@ -1909,9 +1911,9 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
 
   return (
     <>
-      <div className="mt-2 bg-white rounded-lg border border-gray-200">
+      <div className="px-3 py-3">
         {/* Кнопки-фильтры над карточками */}
-        <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5">
+        <div className="px-2 py-2 mb-3 flex items-center gap-1.5">
           {BUYER_FILTERS.map(filter => {
             const isSelected = selectedFilters.has(filter.key);
             return (
@@ -1929,12 +1931,15 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             );
           })}
         </div>
-        <div className="grid grid-cols-3">
+        {/* Три колонки источников трафика */}
+        <div className="grid grid-cols-3 gap-3">
           <SourceColumn
             source="Facebook"
             icon={FacebookIcon}
             buyers={buyersBySource.Facebook}
             isLast={false}
+            bgColor="bg-blue-50/50"
+            borderColor="border-blue-200"
             {...sourceColumnCommonProps}
           />
           <SourceColumn
@@ -1942,6 +1947,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             icon={GoogleIcon}
             buyers={buyersBySource.Google}
             isLast={false}
+            bgColor="bg-emerald-50/50"
+            borderColor="border-emerald-200"
             {...sourceColumnCommonProps}
           />
           <SourceColumn
@@ -1949,6 +1956,8 @@ const OfferBuyersPanel = React.memo(function OfferBuyersPanel({
             icon={TiktokIcon}
             buyers={buyersBySource.TikTok}
             isLast={true}
+            bgColor="bg-slate-100/50"
+            borderColor="border-slate-300"
             {...sourceColumnCommonProps}
           />
         </div>
