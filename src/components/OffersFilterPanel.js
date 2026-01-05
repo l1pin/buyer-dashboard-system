@@ -199,7 +199,7 @@ const PeriodFilter = ({ title, periods, onChange, allowDecimal = false }) => {
     <FilterSection title={title} count={activeCount}>
       <div className="space-y-3">
         {periods.map((periodItem, index) => (
-          <div key={index} className="space-y-2">
+          <div key={index} className="space-y-3">
             {/* Кастомный Dropdown выбора периода + кнопка удаления */}
             <div className="flex items-center gap-2">
               <CustomDropdown
