@@ -2,7 +2,7 @@
 // Панель фильтров для страницы офферов
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 
 // Конфигурация статусов с цветами (как в OffersSupabase)
 const STATUS_CONFIG = [
@@ -12,6 +12,16 @@ const STATUS_CONFIG = [
   { value: 'Отлежка', label: 'Отлежка', color: 'bg-purple-500' },
   { value: 'Передел', label: 'Передел', color: 'bg-blue-400' },
   { value: 'КЦ', label: 'КЦ', color: 'bg-teal-700' }
+];
+
+// Доступные периоды для фильтров CPL/Лиды/Расходы
+const PERIOD_OPTIONS = [
+  { value: '4', label: '4 дня' },
+  { value: '7', label: '7 дней' },
+  { value: '14', label: '14 дней' },
+  { value: '30', label: '30 дней' },
+  { value: '60', label: '60 дней' },
+  { value: '90', label: '90 дней' },
 ];
 
 // Компонент сворачиваемой секции
@@ -59,11 +69,12 @@ const FilterTag = ({ label, color, onRemove }) => (
 );
 
 // Компонент ввода только чисел
-const NumberInput = ({ value, onChange, placeholder, className = '' }) => {
+const NumberInput = ({ value, onChange, placeholder, className = '', allowDecimal = false }) => {
   const handleChange = (e) => {
     const val = e.target.value;
-    // Разрешаем только цифры или пустую строку
-    if (val === '' || /^\d+$/.test(val)) {
+    // Разрешаем только цифры (и точку для десятичных) или пустую строку
+    const pattern = allowDecimal ? /^(\d+\.?\d*)?$/ : /^\d*$/;
+    if (pattern.test(val)) {
       onChange(val);
     }
   };
@@ -71,12 +82,130 @@ const NumberInput = ({ value, onChange, placeholder, className = '' }) => {
   return (
     <input
       type="text"
-      inputMode="numeric"
+      inputMode={allowDecimal ? 'decimal' : 'numeric'}
       value={value}
       onChange={handleChange}
       placeholder={placeholder}
       className={`px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${className}`}
     />
+  );
+};
+
+// Компонент фильтра с выбором периодов
+const PeriodFilter = ({ title, periods, onChange, allowDecimal = false }) => {
+  // Получаем список уже выбранных периодов
+  const selectedPeriodValues = periods.map(p => p.period);
+
+  // Доступные для добавления периоды
+  const availablePeriods = PERIOD_OPTIONS.filter(
+    opt => !selectedPeriodValues.includes(opt.value)
+  );
+
+  // Добавить новый период
+  const handleAddPeriod = () => {
+    if (availablePeriods.length === 0) return;
+
+    // Берём первый доступный период
+    const newPeriod = availablePeriods[0].value;
+    onChange([...periods, { period: newPeriod, from: '', to: '' }]);
+  };
+
+  // Удалить период
+  const handleRemovePeriod = (index) => {
+    const newPeriods = periods.filter((_, i) => i !== index);
+    onChange(newPeriods);
+  };
+
+  // Изменить период (dropdown)
+  const handlePeriodChange = (index, newPeriodValue) => {
+    const newPeriods = [...periods];
+    newPeriods[index] = { ...newPeriods[index], period: newPeriodValue };
+    onChange(newPeriods);
+  };
+
+  // Изменить значение от/до
+  const handleValueChange = (index, field, value) => {
+    const newPeriods = [...periods];
+    newPeriods[index] = { ...newPeriods[index], [field]: value };
+    onChange(newPeriods);
+  };
+
+  // Получить доступные периоды для конкретного dropdown (текущий + незанятые)
+  const getAvailableOptionsForPeriod = (currentPeriod) => {
+    return PERIOD_OPTIONS.filter(
+      opt => opt.value === currentPeriod || !selectedPeriodValues.includes(opt.value)
+    );
+  };
+
+  const activeCount = periods.filter(p => p.from !== '' || p.to !== '').length;
+
+  return (
+    <FilterSection title={title} count={activeCount}>
+      <div className="space-y-3">
+        {periods.map((periodItem, index) => (
+          <div key={index} className="space-y-2">
+            {/* Dropdown выбора периода + кнопка удаления */}
+            <div className="flex items-center gap-2">
+              <select
+                value={periodItem.period}
+                onChange={(e) => handlePeriodChange(index, e.target.value)}
+                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                {getAvailableOptionsForPeriod(periodItem.period).map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {periods.length > 1 && (
+                <button
+                  onClick={() => handleRemovePeriod(index)}
+                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Удалить период"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Диапазон значений */}
+            <div className="flex items-center gap-2">
+              <NumberInput
+                value={periodItem.from}
+                onChange={(val) => handleValueChange(index, 'from', val)}
+                placeholder="От"
+                className="w-full"
+                allowDecimal={allowDecimal}
+              />
+              <span className="text-slate-400">—</span>
+              <NumberInput
+                value={periodItem.to}
+                onChange={(val) => handleValueChange(index, 'to', val)}
+                placeholder="До"
+                className="w-full"
+                allowDecimal={allowDecimal}
+              />
+            </div>
+
+            {/* Разделитель между периодами */}
+            {index < periods.length - 1 && (
+              <div className="border-b border-slate-100 mt-2"></div>
+            )}
+          </div>
+        ))}
+
+        {/* Кнопка добавления периода */}
+        {availablePeriods.length > 0 && (
+          <button
+            onClick={handleAddPeriod}
+            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium mt-2"
+          >
+            <Plus className="h-4 w-4" />
+            Добавить период
+          </button>
+        )}
+      </div>
+    </FilterSection>
   );
 };
 
@@ -88,10 +217,11 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
     daysInStatusTo: '',
     zones: [],
     ratings: [],
-    cplFrom: '',
-    cplTo: '',
-    leadsFrom: '',
-    leadsTo: '',
+    // Новые фильтры с периодами
+    cplPeriods: [{ period: '4', from: '', to: '' }],
+    leadsPeriods: [{ period: '4', from: '', to: '' }],
+    costPeriods: [{ period: '4', from: '', to: '' }],
+    // Остальные фильтры
     stockFrom: '',
     stockTo: '',
     daysRemainingFrom: '',
@@ -141,10 +271,9 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
       daysInStatusTo: '',
       zones: [],
       ratings: [],
-      cplFrom: '',
-      cplTo: '',
-      leadsFrom: '',
-      leadsTo: '',
+      cplPeriods: [{ period: '4', from: '', to: '' }],
+      leadsPeriods: [{ period: '4', from: '', to: '' }],
+      costPeriods: [{ period: '4', from: '', to: '' }],
       stockFrom: '',
       stockTo: '',
       daysRemainingFrom: '',
@@ -333,43 +462,29 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
             </div>
           </FilterSection>
 
-          {/* CPL */}
-          <FilterSection title="CPL (4 дня)">
-            <div className="flex items-center gap-2">
-              <NumberInput
-                value={localFilters.cplFrom}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, cplFrom: val }))}
-                placeholder="От"
-                className="w-full"
-              />
-              <span className="text-slate-400">—</span>
-              <NumberInput
-                value={localFilters.cplTo}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, cplTo: val }))}
-                placeholder="До"
-                className="w-full"
-              />
-            </div>
-          </FilterSection>
+          {/* CPL с периодами */}
+          <PeriodFilter
+            title="CPL"
+            periods={localFilters.cplPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, cplPeriods: periods }))}
+            allowDecimal={true}
+          />
 
-          {/* Лиды */}
-          <FilterSection title="Лиды (4 дня)">
-            <div className="flex items-center gap-2">
-              <NumberInput
-                value={localFilters.leadsFrom}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, leadsFrom: val }))}
-                placeholder="От"
-                className="w-full"
-              />
-              <span className="text-slate-400">—</span>
-              <NumberInput
-                value={localFilters.leadsTo}
-                onChange={(val) => setLocalFilters(prev => ({ ...prev, leadsTo: val }))}
-                placeholder="До"
-                className="w-full"
-              />
-            </div>
-          </FilterSection>
+          {/* Лиды с периодами */}
+          <PeriodFilter
+            title="Лиды"
+            periods={localFilters.leadsPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, leadsPeriods: periods }))}
+            allowDecimal={false}
+          />
+
+          {/* Расходы с периодами */}
+          <PeriodFilter
+            title="Расходы"
+            periods={localFilters.costPeriods || [{ period: '4', from: '', to: '' }]}
+            onChange={(periods) => setLocalFilters(prev => ({ ...prev, costPeriods: periods }))}
+            allowDecimal={true}
+          />
 
           {/* Остаток */}
           <FilterSection title="Остаток">
