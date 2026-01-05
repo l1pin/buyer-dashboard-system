@@ -186,15 +186,14 @@ const OfferRow = memo(({
   const redZoneColors = getZoneColorsByType('red');
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* Основная информационная строка */}
-      <div className="flex items-center text-sm text-center px-2 py-3 hover:bg-slate-50 transition-colors">
+    <div className="bg-white hover:bg-slate-50 py-2 border-b border-slate-100">
+      <div className="flex items-center text-sm text-center">
         {/* № */}
-        <div className="w-[3%] min-w-[32px] text-slate-700 font-semibold">{metric.id}</div>
+        <div className="w-[3%] min-w-[32px] text-slate-700 font-medium text-xs">{metric.id}</div>
 
         {/* Артикул */}
         <div
-          className="w-[6%] min-w-[60px] font-mono text-slate-800 cursor-help"
+          className="w-[6%] min-w-[60px] font-mono text-xs text-slate-800 cursor-help"
           title={articleOfferMap?.[metric.article] ? `Offer ID: ${articleOfferMap[metric.article]}` : metric.article}
         >
           {metric.article || '—'}
@@ -202,13 +201,13 @@ const OfferRow = memo(({
 
         {/* Название */}
         <div className="w-[14%] min-w-[120px] text-left">
-          <span className="text-slate-800 truncate block font-medium" title={metric.offer}>
+          <span className="text-xs text-slate-800 truncate block" title={metric.offer}>
             {metric.offer || '—'}
           </span>
         </div>
 
         {/* Статус */}
-        <div className="w-[8%] min-w-[80px] flex items-center justify-center gap-1">
+        <div className="w-[8%] min-w-[80px] text-xs flex items-center justify-center gap-1">
           <OfferStatusBadge
             offerId={metric.id}
             article={metric.article}
@@ -224,7 +223,7 @@ const OfferRow = memo(({
             className="text-gray-500 hover:text-blue-600"
             title="История статусов"
           >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -233,9 +232,9 @@ const OfferRow = memo(({
         </div>
 
         {/* CPL */}
-        <div className="w-[5%] min-w-[50px] flex items-center justify-center gap-1">
+        <div className="w-[5%] min-w-[50px] text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-3.5 w-10" />
           ) : (
             <>
               <span className={`font-mono ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -247,9 +246,9 @@ const OfferRow = memo(({
         </div>
 
         {/* Лиды */}
-        <div className="w-[4%] min-w-[40px] flex items-center justify-center gap-1">
+        <div className="w-[4%] min-w-[40px] text-xs flex items-center justify-center gap-1">
           {loadingLeadsData ? (
-            <Skeleton className="h-4 w-8" />
+            <Skeleton className="h-3.5 w-6" />
           ) : (
             <>
               <span className={`font-mono ${metric.leads_4days != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -261,18 +260,18 @@ const OfferRow = memo(({
         </div>
 
         {/* Продажи на 1 заявку */}
-        <div className="w-[4%] min-w-[36px] text-slate-800 text-center">
+        <div className="w-[4%] min-w-[36px] text-xs text-slate-800 text-center">
           {metric.k_lead != null ? Number(metric.k_lead).toFixed(2) : '—'}
         </div>
 
         {/* Рейтинг */}
-        <div className="w-[5%] min-w-[44px] flex items-center justify-center gap-0.5">
+        <div className="w-[5%] min-w-[44px] text-xs flex items-center justify-center gap-0.5">
           {loadingLeadsData ? (
-            <Skeleton className="h-5 w-6" />
+            <Skeleton className="h-4 w-5" />
           ) : (
             <>
               <span
-                className={`font-semibold px-1.5 py-0.5 rounded text-xs ${
+                className={`font-semibold px-1 py-0.5 rounded text-[10px] ${
                   metric.lead_rating === 'A' ? 'bg-green-100 text-green-800' :
                   metric.lead_rating === 'B' ? 'bg-yellow-100 text-yellow-800' :
                   metric.lead_rating === 'C' ? 'bg-orange-100 text-orange-800' :
@@ -289,16 +288,16 @@ const OfferRow = memo(({
         </div>
 
         {/* Реклама */}
-        <div className="w-[4%] min-w-[36px] text-slate-400 text-center">—</div>
+        <div className="w-[4%] min-w-[36px] text-xs text-slate-400 text-center">—</div>
 
         {/* Зона эффективности */}
         <div className="w-[5%] min-w-[44px] flex items-center justify-center">
           {zoneColors && metric.actual_roi_percent ? (
-            <span className={`font-mono inline-flex items-center px-1.5 py-0.5 rounded-full text-xs border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+            <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
               {Number(metric.actual_roi_percent).toFixed(2)}%
             </span>
           ) : (
-            <span className="font-mono text-slate-800">{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(2)}%` : '—'}</span>
+            <span className="font-mono text-xs text-slate-800">{metric.actual_roi_percent ? `${Number(metric.actual_roi_percent).toFixed(2)}%` : '—'}</span>
           )}
         </div>
 
@@ -306,26 +305,26 @@ const OfferRow = memo(({
         <div className="w-[6%] min-w-[56px] flex items-center justify-center gap-1">
           {metric.red_zone_price != null ? (
             <>
-              <span className={`font-mono inline-flex items-center px-1.5 py-0.5 rounded-full text-xs border ${redZoneColors.bg} ${redZoneColors.text} ${redZoneColors.border}`}>
+              <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${redZoneColors.bg} ${redZoneColors.text} ${redZoneColors.border}`}>
                 ${Number(metric.red_zone_price).toFixed(2)}
               </span>
               <InfoIcon onClick={handleZoneClick} />
             </>
           ) : (
             <>
-              <span className="text-gray-400">—</span>
+              <span className="text-gray-400 text-xs">—</span>
               <InfoIcon onClick={handleZoneClick} />
             </>
           )}
         </div>
 
         {/* Прибыль */}
-        <div className="w-[5%] min-w-[48px] font-mono text-slate-400 text-center">—</div>
+        <div className="w-[5%] min-w-[48px] font-mono text-xs text-slate-400 text-center">—</div>
 
         {/* Дней продаж */}
-        <div className="w-[5%] min-w-[48px] flex items-center justify-center">
+        <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center">
           {loadingDays ? (
-            <Skeleton className="h-4 w-10" />
+            <Skeleton className="h-3.5 w-8" />
           ) : (
             <span className={`font-mono ${
               metric.days_remaining != null
@@ -338,9 +337,9 @@ const OfferRow = memo(({
         </div>
 
         {/* Остаток */}
-        <div className="w-[5%] min-w-[48px] flex items-center justify-center gap-1">
+        <div className="w-[5%] min-w-[48px] text-xs flex items-center justify-center gap-1">
           {loadingStocks ? (
-            <Skeleton className="h-4 w-10" />
+            <Skeleton className="h-3.5 w-8" />
           ) : (
             <>
               <span className={`font-mono ${metric.stock_quantity != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -352,7 +351,7 @@ const OfferRow = memo(({
         </div>
 
         {/* Дней до прихода */}
-        <div className="w-[5%] min-w-[44px] font-mono flex items-center justify-center gap-1">
+        <div className="w-[5%] min-w-[44px] font-mono text-xs flex items-center justify-center gap-1">
           {daysUntil === null ? (
             <span className="text-slate-400">—</span>
           ) : (
@@ -364,30 +363,29 @@ const OfferRow = memo(({
         </div>
 
         {/* % апрува */}
-        <div className="w-[5%] min-w-[44px] font-mono text-slate-800 text-center">
+        <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
           {metric.approve_percent != null ? `${Number(metric.approve_percent).toFixed(2)}%` : '—'}
         </div>
 
         {/* % выкупа */}
-        <div className="w-[5%] min-w-[44px] font-mono text-slate-800 text-center">
+        <div className="w-[5%] min-w-[44px] font-mono text-xs text-slate-800 text-center">
           {metric.sold_percent != null ? `${Number(metric.sold_percent).toFixed(2)}%` : '—'}
         </div>
 
         {/* Сезон */}
-        <div className="w-[5%] min-w-[44px] text-slate-500 flex items-center justify-center gap-1">
-          <span className="text-lg">{seasons.length > 0 ? seasons.join('') : '—'}</span>
+        <div className="w-[5%] min-w-[44px] text-xs text-slate-500 flex items-center justify-center gap-1">
+          <span className="text-base">{seasons.length > 0 ? seasons.join('') : '—'}</span>
           <InfoIcon onClick={handleSeasonClick} />
         </div>
 
         {/* Цена */}
-        <div className="w-[6%] min-w-[50px] font-mono text-slate-800 text-center font-medium">
+        <div className="w-[6%] min-w-[50px] font-mono text-xs text-slate-800 text-center">
           {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
         </div>
       </div>
 
-      {/* Панель привязки байеров - отдельный блок */}
-      <div className="border-t border-slate-200 bg-slate-50/50">
-        <OfferBuyersPanel
+      {/* Панель привязки байеров */}
+      <OfferBuyersPanel
         offer={metric}
         allBuyers={allBuyers}
         initialAssignments={initialAssignments}
@@ -400,7 +398,6 @@ const OfferRow = memo(({
         articleOfferMap={articleOfferMap}
         user={{ name: userName, id: userId }}
       />
-      </div>
     </div>
   );
 }, (prevProps, nextProps) => {
