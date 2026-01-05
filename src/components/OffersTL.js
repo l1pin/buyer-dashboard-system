@@ -17,7 +17,9 @@ import {
   X,
   Target,
   Pencil,
-  Trash2
+  Trash2,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { updateStocksFromYml as updateStocksFromYmlScript } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays as calculateRemainingDaysScript } from '../scripts/offers/Calculate_days';
@@ -27,6 +29,7 @@ import TooltipManager from './TooltipManager';
 import OfferRow from './OfferRow';
 import OffersFilterPanel from './OffersFilterPanel';
 import { SkeletonOffersPage, MiniSpinner } from './LoadingSpinner';
+import { FacebookIcon, GoogleIcon, TiktokIcon } from './SourceIcons';
 
 // Lazy loading для модального окна миграции - загружается только при открытии
 const MigrationModal = lazy(() => import('./MigrationModal'));
@@ -47,7 +50,8 @@ const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }
     buyerStatuses,
     articleOfferMap,
     loadingBuyerIds,
-    offerSeasons
+    offerSeasons,
+    showExtendedColumns
   } = data;
 
   const metric = filteredMetrics[index];
@@ -75,6 +79,7 @@ const VirtualizedRow = React.memo(function VirtualizedRow({ index, style, data }
         loadingBuyerIds={loadingBuyerIds}
         loadingBuyerMetrics={loadingState.buyerMetrics}
         seasons={offerSeasons[metric.article] || []}
+        showExtendedColumns={showExtendedColumns}
       />
     </div>
   );
@@ -105,6 +110,7 @@ function OffersTL({ user, onToggleFilters }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [showExtendedColumns, setShowExtendedColumns] = useState(false);
   const [articleOfferMap, setArticleOfferMap] = useState({});
   const [offerSeasons, setOfferSeasons] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
@@ -1459,8 +1465,9 @@ function OffersTL({ user, onToggleFilters }) {
     buyerStatuses,
     articleOfferMap,
     loadingBuyerIds,
-    offerSeasons
-  }), [deferredFilteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons]);
+    offerSeasons,
+    showExtendedColumns
+  }), [deferredFilteredMetrics, offerStatuses, loadingState, openTooltip, handleStatusChange, user, allBuyers, allAssignments, handleAssignmentsChange, buyerMetricsData, buyerStatuses, articleOfferMap, loadingBuyerIds, offerSeasons, showExtendedColumns]);
 
   const handleSort = useCallback((field) => {
     setSortField(prevField => {
@@ -1596,6 +1603,24 @@ function OffersTL({ user, onToggleFilters }) {
             />
           </div>
 
+          {/* Тумблер расширенных колонок */}
+          <button
+            onClick={() => setShowExtendedColumns(!showExtendedColumns)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
+              showExtendedColumns
+                ? 'bg-blue-50 border-blue-300 text-blue-600'
+                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300'
+            }`}
+            title="Показать расширенные колонки по источникам"
+          >
+            {showExtendedColumns ? (
+              <ToggleRight className="h-5 w-5" />
+            ) : (
+              <ToggleLeft className="h-5 w-5" />
+            )}
+            <span className="text-sm font-medium">Байеры</span>
+          </button>
+
           {/* Кнопка пресетов и панель пресетов */}
           <div className="flex items-center">
             <button
@@ -1674,7 +1699,7 @@ function OffersTL({ user, onToggleFilters }) {
         ) : (
           <>
             {/* Sticky Header Row */}
-            <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5">
+            <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
               <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
                 <div className="w-[3%] min-w-[32px]">№</div>
                 <div className="w-[6%] min-w-[60px]">Артикул</div>
@@ -1688,6 +1713,32 @@ function OffersTL({ user, onToggleFilters }) {
                 <div className="w-[5%] min-w-[44px]" title="Рейтинг">
                   <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>
+
+                {/* Расширенные колонки байеров - выезжают слева */}
+                <div
+                  className={`flex items-center transition-all duration-300 ease-in-out overflow-hidden ${
+                    showExtendedColumns ? 'max-w-[660px] opacity-100' : 'max-w-0 opacity-0'
+                  }`}
+                >
+                  <div className="min-w-[40px] px-1" title="Facebook CPL">
+                    <FacebookIcon className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                  <div className="min-w-[40px] px-1" title="Google CPL">
+                    <GoogleIcon className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                  <div className="min-w-[40px] px-1" title="TikTok CPL">
+                    <TiktokIcon className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                  <div className="min-w-[44px] px-1" title="Новые Facebook">Нфб</div>
+                  <div className="min-w-[40px] px-1" title="Новые Google">Нг</div>
+                  <div className="min-w-[40px] px-1" title="Новые TikTok">Нтт</div>
+                  <div className="min-w-[56px] px-1" title="Facebook всего">Фб всего</div>
+                  <div className="min-w-[52px] px-1" title="Google всего">Г всего</div>
+                  <div className="min-w-[56px] px-1" title="TikTok всего">ТТ всего</div>
+                  <div className="min-w-[52px] px-1" title="Дней Н">Дней Н</div>
+                  <div className="min-w-[80px] px-1" title="Активность за 30 дней">Актив. 30д</div>
+                </div>
+
                 <div className="w-[4%] min-w-[36px]" title="Реклама">
                   <Tv className="h-3.5 w-3.5 mx-auto text-slate-500" />
                 </div>

@@ -92,7 +92,8 @@ const OfferRow = memo(({
   articleOfferMap,
   loadingBuyerIds = new Set(), // ID привязок байеров, которые сейчас загружаются
   loadingBuyerMetrics = false, // Загрузка метрик байеров за всё время
-  seasons = [] // Массив сезонов ['☀️', '🍁', '❄️', '🌱']
+  seasons = [], // Массив сезонов ['☀️', '🍁', '❄️', '🌱']
+  showExtendedColumns = false // Показывать расширенные колонки байеров
 }) => {
   // Мемоизированные обработчики для этой строки
   const handleStatusHistoryClick = useCallback(async (e) => {
@@ -288,6 +289,36 @@ const OfferRow = memo(({
           )}
         </div>
 
+        {/* Расширенные колонки байеров - выезжают слева с анимацией */}
+        <div
+          className={`flex items-center transition-all duration-300 ease-in-out overflow-hidden ${
+            showExtendedColumns ? 'max-w-[660px] opacity-100' : 'max-w-0 opacity-0'
+          }`}
+        >
+          {/* Facebook CPL */}
+          <div className="min-w-[40px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Google CPL */}
+          <div className="min-w-[40px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* TikTok CPL */}
+          <div className="min-w-[40px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Нфб - Новые Facebook */}
+          <div className="min-w-[44px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Нг - Новые Google */}
+          <div className="min-w-[40px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Нтт - Новые TikTok */}
+          <div className="min-w-[40px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Фб всего */}
+          <div className="min-w-[56px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Г всего */}
+          <div className="min-w-[52px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* ТТ всего */}
+          <div className="min-w-[56px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Дней Н */}
+          <div className="min-w-[52px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+          {/* Актив. за 30 дн. */}
+          <div className="min-w-[80px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
+        </div>
+
         {/* Реклама */}
         <div className="w-[4%] min-w-[36px] text-slate-400 text-center">—</div>
 
@@ -423,7 +454,8 @@ const OfferRow = memo(({
     prevProps.loadingBuyerIds === nextProps.loadingBuyerIds &&
     prevProps.loadingBuyerMetrics === nextProps.loadingBuyerMetrics &&
     prevProps.articleOfferMap === nextProps.articleOfferMap &&
-    prevProps.seasons === nextProps.seasons
+    prevProps.seasons === nextProps.seasons &&
+    prevProps.showExtendedColumns === nextProps.showExtendedColumns
     // onOpenTooltip, onStatusChange, onAssignmentsChange - должны быть стабильными (useCallback)
   );
 });
