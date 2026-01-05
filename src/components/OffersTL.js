@@ -111,24 +111,44 @@ function OffersTL({ user, onToggleFilters }) {
 
   // Состояние фильтров
   const [filters, setFilters] = useState({
+    // 1. Статус
     statuses: [],
     daysInStatusFrom: '',
     daysInStatusTo: '',
-    zones: [],
+    // 2-4. CPL, Лиды, Расходы (с периодами)
+    cplPeriods: [{ period: '4', from: '', to: '' }],
+    leadsPeriods: [{ period: '4', from: '', to: '' }],
+    costPeriods: [{ period: '4', from: '', to: '' }],
+    // 5. Рейтинг
     ratings: [],
-    // Фильтры с периодами (данные из leads_data: 7, 14, 30, 60, 90 дней)
-    cplPeriods: [{ period: '7', from: '', to: '' }],
-    leadsPeriods: [{ period: '7', from: '', to: '' }],
-    costPeriods: [{ period: '7', from: '', to: '' }],
-    // Остальные фильтры
-    stockFrom: '',
-    stockTo: '',
+    // 6. ROI
+    roiFrom: '',
+    roiTo: '',
+    // 7. Зоны
+    zones: [],
+    // 8. Прибыль
+    profitFrom: '',
+    profitTo: '',
+    // 9. Дней продаж
     daysRemainingFrom: '',
     daysRemainingTo: '',
+    // 10. Остаток
+    stockFrom: '',
+    stockTo: '',
+    // 11. Дней до прихода
+    daysToArrivalFrom: '',
+    daysToArrivalTo: '',
+    // 12. Апрув %
     approveFrom: '',
     approveTo: '',
+    // 13. Выкуп %
     soldFrom: '',
     soldTo: '',
+    // 14. Сезон
+    seasons: [],
+    // 15. Цена
+    priceFrom: '',
+    priceTo: '',
   });
   const [appliedFilters, setAppliedFilters] = useState(null); // Применённые фильтры
 
