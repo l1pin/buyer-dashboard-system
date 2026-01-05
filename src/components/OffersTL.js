@@ -116,10 +116,10 @@ function OffersTL({ user, onToggleFilters }) {
     daysInStatusTo: '',
     zones: [],
     ratings: [],
-    // Новые фильтры с периодами
-    cplPeriods: [{ period: '4', from: '', to: '' }],
-    leadsPeriods: [{ period: '4', from: '', to: '' }],
-    costPeriods: [{ period: '4', from: '', to: '' }],
+    // Фильтры с периодами (данные из leads_data: 7, 14, 30, 60, 90 дней)
+    cplPeriods: [{ period: '7', from: '', to: '' }],
+    leadsPeriods: [{ period: '7', from: '', to: '' }],
+    costPeriods: [{ period: '7', from: '', to: '' }],
     // Остальные фильтры
     stockFrom: '',
     stockTo: '',
@@ -1286,15 +1286,16 @@ function OffersTL({ user, onToggleFilters }) {
           }
         }
 
-        // Фильтр по CPL (с периодами)
+        // Фильтр по CPL (с периодами) - данные из leads_data
         if (f.cplPeriods && f.cplPeriods.length > 0) {
           for (const periodItem of f.cplPeriods) {
             if (periodItem.from === '' && periodItem.to === '') continue;
 
             const cplFrom = periodItem.from !== '' ? parseFloat(periodItem.from) : 0;
             const cplTo = periodItem.to !== '' ? parseFloat(periodItem.to) : Infinity;
-            const fieldName = `cpl_${periodItem.period}days`;
-            const cpl = metric[fieldName] ?? null;
+            // Данные хранятся в leads_data[period].cpl (период как число)
+            const periodData = metric.leads_data?.[parseInt(periodItem.period, 10)];
+            const cpl = periodData?.cpl ?? null;
 
             if (cpl === null || cpl < cplFrom || cpl > cplTo) {
               return false;
@@ -1302,15 +1303,16 @@ function OffersTL({ user, onToggleFilters }) {
           }
         }
 
-        // Фильтр по лидам (с периодами)
+        // Фильтр по лидам (с периодами) - данные из leads_data
         if (f.leadsPeriods && f.leadsPeriods.length > 0) {
           for (const periodItem of f.leadsPeriods) {
             if (periodItem.from === '' && periodItem.to === '') continue;
 
             const leadsFrom = periodItem.from !== '' ? parseInt(periodItem.from, 10) : 0;
             const leadsTo = periodItem.to !== '' ? parseInt(periodItem.to, 10) : Infinity;
-            const fieldName = `leads_${periodItem.period}days`;
-            const leads = metric[fieldName] ?? null;
+            // Данные хранятся в leads_data[period].leads (период как число)
+            const periodData = metric.leads_data?.[parseInt(periodItem.period, 10)];
+            const leads = periodData?.leads ?? null;
 
             if (leads === null || leads < leadsFrom || leads > leadsTo) {
               return false;
@@ -1318,15 +1320,16 @@ function OffersTL({ user, onToggleFilters }) {
           }
         }
 
-        // Фильтр по расходам (с периодами)
+        // Фильтр по расходам (с периодами) - данные из leads_data
         if (f.costPeriods && f.costPeriods.length > 0) {
           for (const periodItem of f.costPeriods) {
             if (periodItem.from === '' && periodItem.to === '') continue;
 
             const costFrom = periodItem.from !== '' ? parseFloat(periodItem.from) : 0;
             const costTo = periodItem.to !== '' ? parseFloat(periodItem.to) : Infinity;
-            const fieldName = `cost_${periodItem.period}days`;
-            const cost = metric[fieldName] ?? null;
+            // Данные хранятся в leads_data[period].cost (период как число)
+            const periodData = metric.leads_data?.[parseInt(periodItem.period, 10)];
+            const cost = periodData?.cost ?? null;
 
             if (cost === null || cost < costFrom || cost > costTo) {
               return false;

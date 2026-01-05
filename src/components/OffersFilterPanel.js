@@ -1,7 +1,7 @@
 // src/components/OffersFilterPanel.js
 // Панель фильтров для страницы офферов
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 
 // Конфигурация статусов с цветами (как в OffersSupabase)
@@ -14,15 +14,70 @@ const STATUS_CONFIG = [
   { value: 'КЦ', label: 'КЦ', color: 'bg-teal-700' }
 ];
 
-// Доступные периоды для фильтров CPL/Лиды/Расходы
+// Доступные периоды для фильтров CPL/Лиды/Расходы (соответствуют данным в leads_data)
 const PERIOD_OPTIONS = [
-  { value: '4', label: '4 дня' },
   { value: '7', label: '7 дней' },
   { value: '14', label: '14 дней' },
   { value: '30', label: '30 дней' },
   { value: '60', label: '60 дней' },
   { value: '90', label: '90 дней' },
 ];
+
+// Кастомный Dropdown компонент
+const CustomDropdown = ({ value, options, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Закрытие при клике вне компонента
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div ref={dropdownRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+      >
+        <span className="text-slate-700">{selectedOption?.label || 'Выберите...'}</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Выпадающий список */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${
+                option.value === value
+                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  : 'text-slate-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Компонент сворачиваемой секции
 const FilterSection = ({ title, children, defaultOpen = false, count = null }) => {
@@ -144,19 +199,14 @@ const PeriodFilter = ({ title, periods, onChange, allowDecimal = false }) => {
       <div className="space-y-3">
         {periods.map((periodItem, index) => (
           <div key={index} className="space-y-2">
-            {/* Dropdown выбора периода + кнопка удаления */}
+            {/* Кастомный Dropdown выбора периода + кнопка удаления */}
             <div className="flex items-center gap-2">
-              <select
+              <CustomDropdown
                 value={periodItem.period}
-                onChange={(e) => handlePeriodChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              >
-                {getAvailableOptionsForPeriod(periodItem.period).map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                options={getAvailableOptionsForPeriod(periodItem.period)}
+                onChange={(value) => handlePeriodChange(index, value)}
+                className="flex-1"
+              />
               {periods.length > 1 && (
                 <button
                   onClick={() => handleRemovePeriod(index)}
@@ -217,10 +267,10 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
     daysInStatusTo: '',
     zones: [],
     ratings: [],
-    // Новые фильтры с периодами
-    cplPeriods: [{ period: '4', from: '', to: '' }],
-    leadsPeriods: [{ period: '4', from: '', to: '' }],
-    costPeriods: [{ period: '4', from: '', to: '' }],
+    // Фильтры с периодами (периоды соответствуют данным в leads_data: 7, 14, 30, 60, 90)
+    cplPeriods: [{ period: '7', from: '', to: '' }],
+    leadsPeriods: [{ period: '7', from: '', to: '' }],
+    costPeriods: [{ period: '7', from: '', to: '' }],
     // Остальные фильтры
     stockFrom: '',
     stockTo: '',
@@ -271,9 +321,9 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
       daysInStatusTo: '',
       zones: [],
       ratings: [],
-      cplPeriods: [{ period: '4', from: '', to: '' }],
-      leadsPeriods: [{ period: '4', from: '', to: '' }],
-      costPeriods: [{ period: '4', from: '', to: '' }],
+      cplPeriods: [{ period: '7', from: '', to: '' }],
+      leadsPeriods: [{ period: '7', from: '', to: '' }],
+      costPeriods: [{ period: '7', from: '', to: '' }],
       stockFrom: '',
       stockTo: '',
       daysRemainingFrom: '',
@@ -465,7 +515,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
           {/* CPL с периодами */}
           <PeriodFilter
             title="CPL"
-            periods={localFilters.cplPeriods || [{ period: '4', from: '', to: '' }]}
+            periods={localFilters.cplPeriods || [{ period: '7', from: '', to: '' }]}
             onChange={(periods) => setLocalFilters(prev => ({ ...prev, cplPeriods: periods }))}
             allowDecimal={true}
           />
@@ -473,7 +523,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
           {/* Лиды с периодами */}
           <PeriodFilter
             title="Лиды"
-            periods={localFilters.leadsPeriods || [{ period: '4', from: '', to: '' }]}
+            periods={localFilters.leadsPeriods || [{ period: '7', from: '', to: '' }]}
             onChange={(periods) => setLocalFilters(prev => ({ ...prev, leadsPeriods: periods }))}
             allowDecimal={false}
           />
@@ -481,7 +531,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
           {/* Расходы с периодами */}
           <PeriodFilter
             title="Расходы"
-            periods={localFilters.costPeriods || [{ period: '4', from: '', to: '' }]}
+            periods={localFilters.costPeriods || [{ period: '7', from: '', to: '' }]}
             onChange={(periods) => setLocalFilters(prev => ({ ...prev, costPeriods: periods }))}
             allowDecimal={true}
           />
