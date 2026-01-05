@@ -407,7 +407,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                       type="checkbox"
                       checked={localFilters.statuses.includes(status.value)}
                       onChange={(e) => handleStatusChange(status.value, e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-slate-300 text-blue-600 focus:ring-0"
                     />
                     <span className={`w-2.5 h-2.5 rounded-full ${status.color}`}></span>
                     {status.label}
@@ -479,7 +479,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                           : (prev.ratings || []).filter(r => r !== rating)
                       }));
                     }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
                   />
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                     rating === 'A' ? 'bg-green-100 text-green-800' :
@@ -537,7 +537,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                           : (prev.zones || []).filter(z => z !== zone.id)
                       }));
                     }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
                   />
                   <span className={`w-2.5 h-2.5 rounded-full ${zone.color}`}></span>
                   {zone.label}
@@ -688,7 +688,7 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
                           : (prev.seasons || []).filter(s => s !== season.id)
                       }));
                     }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
                   />
                   {season.label}
                 </label>
