@@ -318,9 +318,6 @@ const OfferRow = memo(({
           <div className="min-w-[80px] px-1 text-center font-mono text-slate-600 text-xs">0</div>
         </div>
 
-        {/* Реклама */}
-        <div className="w-[4%] min-w-[36px] text-xs text-slate-400 text-center">—</div>
-
         {/* Зона эффективности */}
         <div className="w-[5%] min-w-[44px] flex items-center justify-center">
           {zoneColors && metric.actual_roi_percent ? (

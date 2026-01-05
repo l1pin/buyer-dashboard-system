@@ -1739,9 +1739,6 @@ function OffersTL({ user, onToggleFilters }) {
                   <div className="min-w-[80px] px-1" title="Активность за 30 дней">Актив. 30д</div>
                 </div>
 
-                <div className="w-[4%] min-w-[36px]" title="Реклама">
-                  <Tv className="h-3.5 w-3.5 mx-auto text-slate-500" />
-                </div>
                 <div className="w-[5%] min-w-[44px]" title="ROI зона эффективности">ROI</div>
                 <div className="w-[6%] min-w-[56px]" title="Цена лида в зоне">CPL зона</div>
                 <div className="w-[5%] min-w-[48px]" title="Прибыль">Прибыль</div>
