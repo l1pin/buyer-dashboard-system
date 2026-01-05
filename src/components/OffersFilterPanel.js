@@ -331,7 +331,8 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
   // Обработчик применения фильтров
   const handleApply = () => {
     onFiltersChange(localFilters);
-    onApplyFilters();
+    // Передаём localFilters напрямую, чтобы избежать race condition с async setState
+    onApplyFilters(localFilters);
   };
 
   // Обработчик сброса фильтров
@@ -365,7 +366,8 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
     };
     setLocalFilters(emptyFilters);
     onFiltersChange(emptyFilters);
-    onApplyFilters();
+    // Передаём emptyFilters напрямую, чтобы избежать race condition с async setState
+    onApplyFilters(emptyFilters);
   };
 
   // Подсчёт активных фильтров по секциям
@@ -387,32 +389,6 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
         {/* Header */}
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Фильтры</h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleReset}
-              className="text-xs text-slate-500 hover:text-slate-700"
-            >
-              Сбросить
-            </button>
-            <span className="text-slate-300">•</span>
-            <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-              Сохранить
-            </button>
-          </div>
-        </div>
-
-        {/* Saved Filters */}
-        <div className="px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Загрузить фильтр</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">1</span>
-            <ChevronDown className="h-3 w-3 text-slate-400 ml-auto" />
-          </div>
-          <input
-            type="text"
-            placeholder="Название фильтра..."
-            className="mt-2 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
         </div>
 
         {/* Scrollable Content */}
@@ -420,23 +396,6 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
           {/* 1. Статусы */}
           <FilterSection title="Статус" defaultOpen={true} count={statusFiltersCount}>
             <div className="space-y-3">
-              {/* Выбранные статусы в виде тегов */}
-              {localFilters.statuses.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {localFilters.statuses.map((statusValue) => {
-                    const statusConfig = STATUS_CONFIG.find(s => s.value === statusValue);
-                    return (
-                      <FilterTag
-                        key={statusValue}
-                        label={statusConfig?.label || statusValue}
-                        color={statusConfig?.color}
-                        onRemove={() => handleRemoveStatus(statusValue)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-
               {/* Чекбоксы статусов */}
               <div className="space-y-1.5">
                 {STATUS_CONFIG.map(status => (
@@ -760,12 +719,18 @@ const OffersFilterPanel = ({ isOpen, onClose, filters, onFiltersChange, onApplyF
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
+        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center gap-3">
+          <button
+            onClick={handleReset}
+            className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-colors"
+          >
+            Сбросить
+          </button>
           <button
             onClick={handleApply}
-            className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Применить фильтры
+            Применить
           </button>
         </div>
       </div>
