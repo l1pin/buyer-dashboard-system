@@ -16,7 +16,8 @@ import {
   Pencil,
   Globe,
   Image,
-  Crown
+  Crown,
+  FileText
 } from 'lucide-react';
 import usePermissions from '../hooks/usePermissions';
 
@@ -71,6 +72,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       label: 'Мои офферы',
       icon: Package,
       show: canShowSection('offers-buyer', user?.role === 'buyer')
+    },
+    {
+      id: 'action-reports',
+      label: 'Отчеты по действию',
+      icon: FileText,
+      show: canShowSection('action-reports', user?.role === 'teamlead' || user?.role === 'buyer')
     },
     {
       id: 'landing-teamlead',
