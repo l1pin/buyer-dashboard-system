@@ -1,7 +1,7 @@
 // LandingPanel.js - Полностью переписанная версия для лендингов
 // Заменяет все упоминания креативов на лендинги
 
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback, startTransition } from 'react';
 import { createPortal } from 'react-dom';
 import IntegrationChecker from './IntegrationChecker';
 import { SourceBadges, GoogleIcon, FacebookIcon, TiktokIcon } from './SourceIcons';
@@ -1062,6 +1062,23 @@ function LandingTeamLead({ user }) {
       return itemDate >= fromDate && itemDate <= toDate;
     });
   };
+
+  // Кеш метрик для всех лендингов - вычисляется один раз при изменении данных
+  const metricsCache = useMemo(() => {
+    const cache = new Map();
+    filteredLandings.forEach(landing => {
+      cache.set(landing.id, {
+        aggregated: getAggregatedLandingMetrics(landing),
+        buyers: getMetricsByBuyers(landing)
+      });
+    });
+    return cache;
+  }, [filteredLandings, landingMetrics, metricsDisplayPeriod, buyers, buyerSources]);
+
+  // Быстрое получение метрик из кеша
+  const getCachedMetrics = useCallback((landingId) => {
+    return metricsCache.get(landingId) || { aggregated: null, buyers: [] };
+  }, [metricsCache]);
 
   // Компонент отображения зональных данных
   const ZoneDataDisplay = ({ article }) => {
@@ -3211,13 +3228,15 @@ data-rt-sub16="${selectedLandingUuid}"
             <div className="relative metrics-period-menu-container">
               <button
                 onClick={() => {
-                  setShowPeriodDropdown(!showPeriodDropdown);
-                  // При открытии меню инициализируем временные даты текущими значениями
-                  if (!showPeriodDropdown) {
-                    setMetricsTempCustomDateFrom(metricsCustomDateFrom);
-                    setMetricsTempCustomDateTo(metricsCustomDateTo);
-                    setMetricsSelectingDate(null);
-                  }
+                  startTransition(() => {
+                    setShowPeriodDropdown(!showPeriodDropdown);
+                    // При открытии меню инициализируем временные даты текущими значениями
+                    if (!showPeriodDropdown) {
+                      setMetricsTempCustomDateFrom(metricsCustomDateFrom);
+                      setMetricsTempCustomDateTo(metricsCustomDateTo);
+                      setMetricsSelectingDate(null);
+                    }
+                  });
                 }}
                 className="metrics-period-trigger inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
               >
@@ -4489,12 +4508,14 @@ data-rt-sub16="${selectedLandingUuid}"
                             ref={searcherFilterTableButtonRef}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const wasOpen = showSearcherFilterTableDropdown;
-                              closeAllFilterDropdowns();
-                              if (!wasOpen) {
-                                setShowSearcherFilterTableDropdown(true);
-                              }
-                              setTempSearcherFilterTable(searcherFilterTable);
+                              startTransition(() => {
+                                const wasOpen = showSearcherFilterTableDropdown;
+                                closeAllFilterDropdowns();
+                                if (!wasOpen) {
+                                  setShowSearcherFilterTableDropdown(true);
+                                }
+                                setTempSearcherFilterTable(searcherFilterTable);
+                              });
                             }}
                             className={`p-1 rounded hover:bg-gray-200 transition-colors ${
                               searcherFilterTable.length > 0 ? 'text-blue-600' : 'text-gray-400'
@@ -4582,12 +4603,13 @@ data-rt-sub16="${selectedLandingUuid}"
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredLandings.map((landing) => {
                       const formattedDateTime = formatKyivTime(landing.created_at);
-                      const aggregatedMetrics = getAggregatedLandingMetrics(landing);
+                      const cachedMetrics = getCachedMetrics(landing.id);
+                      const aggregatedMetrics = cachedMetrics.aggregated;
+                      const buyerMetrics = cachedMetrics.buyers;
                       const isExpanded = expandedTags.has(landing.id);
                       const isDropdownOpen = openDropdowns.has(landing.id);
                       const isSyncing = syncingLandings.has(landing.id);
                       const trelloStatus = getTrelloListName(landing.id);
-                      const buyerMetrics = getMetricsByBuyers(landing);
                       const isBuyersExpanded = expandedBuyers.has(landing.id);
 
                       return (
