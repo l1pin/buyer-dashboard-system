@@ -1,5 +1,5 @@
 // netlify/functions/landing-metrics-proxy.js
-// Прокси для получения метрик лендингов через conversions_collection и ads_collection
+// Прокси для получения метрик лендингов через getOneClickForAd API и ads_collection
 
 const CONFIG = {
   API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php',
@@ -104,66 +104,90 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   }
 }
 
-// Получение ВСЕХ пар (adv_id, date_of_click) из conversions_collection
-async function getAdvIdsFromConversions(uuids) {
-  console.log(`🔍 Поиск ВСЕХ пар (adv_id, date_of_click) для ${uuids.length} UUID в conversions_collection...`);
+// Получение уникальных кликов через API getOneClickForAd
+async function getAdvIdsFromConversions(uuids, dateFrom = null, dateTo = null) {
+  console.log(`🔍 Получение уникальных кликов для ${uuids.length} UUID через getOneClickForAd...`);
   console.log('📋 Искомые UUID:', uuids);
 
-  const uuidConditions = uuids.map(uuid => `'${escapeString(uuid)}'`).join(',');
-
-  const sql = `
-    SELECT 
-      sub16 as uuid,
-      source,
-      CASE 
-        WHEN source = 'facebook' THEN sub1
-        WHEN source = 'google' THEN sub5
-        WHEN source = 'tiktok' THEN sub4
-        ELSE NULL
-      END as adv_id,
-      date_of_click
-    FROM conversions_collection
-    WHERE sub16 IN (${uuidConditions})
-      AND source IN ('facebook', 'google', 'tiktok')
-      AND date_of_click IS NOT NULL
-      AND (
-        (source = 'facebook' AND sub1 IS NOT NULL AND sub1 != '') OR
-        (source = 'google' AND sub5 IS NOT NULL AND sub5 != '') OR
-        (source = 'tiktok' AND sub4 IS NOT NULL AND sub4 != '')
-      )
-  `;
-
-  console.log('📝 SQL для conversions_collection (ВСЕ пары adv_id + date_of_click):', sql);
-
   try {
-    const results = await fetchWithRetry(sql);
-    
-    if (!Array.isArray(results)) {
-      console.error('❌ conversions API вернул не массив:', typeof results);
+    // Формируем даты для запроса (по умолчанию - последний год)
+    const endDate = dateTo || new Date().toISOString().split('T')[0];
+    const startDate = dateFrom || (() => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 1);
+      return d.toISOString().split('T')[0];
+    })();
+
+    console.log(`📅 Период запроса: ${startDate} - ${endDate}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
+
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        objReqConfig: {
+          name: "getOneClickForAd",
+          startDate: startDate,
+          endDate: endDate
+        }
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`API error ${response.status}`);
+    }
+
+    const allClicks = await response.json();
+
+    console.log(`📥 Получено всего кликов от API: ${allClicks.length}`);
+
+    if (!Array.isArray(allClicks)) {
+      console.error('❌ API вернул не массив:', typeof allClicks);
       return [];
     }
-    
-    console.log(`✅ Найдено ${results.length} записей (uuid, source, adv_id, date_of_click)`);
-    
-    if (results.length > 0) {
+
+    // Фильтруем только нужные UUID и маппим поля
+    const uuidsSet = new Set(uuids);
+    const filteredClicks = allClicks
+      .filter(click => click.sub16 && uuidsSet.has(click.sub16))
+      .filter(click => click.adv_id && click.click_time && click.source)
+      .filter(click => ['facebook', 'google', 'tiktok'].includes(click.source))
+      .map(click => ({
+        uuid: click.sub16,
+        source: click.source,
+        adv_id: click.adv_id,
+        date_of_click: click.click_time
+      }));
+
+    console.log(`✅ Отфильтровано ${filteredClicks.length} записей для наших UUID`);
+
+    if (filteredClicks.length > 0) {
       console.log('📊 Первые 10 записей:');
-      results.slice(0, 10).forEach((row, index) => {
+      filteredClicks.slice(0, 10).forEach((row, index) => {
         console.log(`  [${index}] uuid=${row.uuid}, source=${row.source}, adv_id=${row.adv_id}, date=${row.date_of_click}`);
       });
-      
+
       // Подсчет уникальных пар (adv_id, date)
       const uniquePairs = new Set();
-      results.forEach(r => {
+      filteredClicks.forEach(r => {
         uniquePairs.add(`${r.adv_id}_${r.date_of_click}`);
       });
       console.log(`📊 Уникальных пар (adv_id, date_of_click): ${uniquePairs.size}`);
     } else {
-      console.warn('⚠️ Не найдено ни одной записи!');
+      console.warn('⚠️ Не найдено ни одной записи для указанных UUID!');
     }
-    
-    return results;
+
+    return filteredClicks;
   } catch (error) {
-    console.error('❌ Ошибка получения данных из conversions:', error);
+    console.error('❌ Ошибка получения данных из getOneClickForAd:', error);
     return [];
   }
 }
@@ -277,8 +301,8 @@ exports.handler = async (event) => {
 
     console.log(`🚀 Запрос метрик для ${landing_uuids.length} лендингов`);
 
-    // Шаг 1: Получаем adv_id из conversions_collection
-    const conversions = await getAdvIdsFromConversions(landing_uuids);
+    // Шаг 1: Получаем уникальные клики через getOneClickForAd API
+    const conversions = await getAdvIdsFromConversions(landing_uuids, date_from, date_to);
 
     console.log(`📊 Получено conversions: ${conversions.length}`);
 
