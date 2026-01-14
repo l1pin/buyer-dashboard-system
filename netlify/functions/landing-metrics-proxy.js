@@ -5,7 +5,8 @@ const CONFIG = {
   API_URL: 'https://api.trll-notif.com.ua/adsreportcollector/core.php',
   FETCH_TIMEOUT_MS: 30000,
   MAX_RETRIES: 2,
-  RETRY_DELAY_MS: 1000
+  RETRY_DELAY_MS: 1000,
+  DEBUG: false  // Включить для детального логирования
 };
 
 // Экранирование строк для SQL
@@ -19,16 +20,12 @@ function transformArrayResponse(data) {
     return [];
   }
 
-  // Первый элемент - заголовки
   const headers = data[0];
   if (!Array.isArray(headers)) {
-    console.log('⚠️ Некорректный формат заголовков');
     return [];
   }
 
-  // Остальные элементы - строки данных
   const rows = data.slice(1);
-  
   return rows.map(row => {
     const obj = {};
     headers.forEach((header, index) => {
@@ -38,14 +35,12 @@ function transformArrayResponse(data) {
   });
 }
 
-// Fetch с повторами
+// Fetch с повторами (для SQL запросов к ads_collection)
 async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
-
-      console.log(`📤 Попытка ${attempt + 1}: отправка SQL запроса`);
 
       const response = await fetch(CONFIG.API_URL, {
         method: 'POST',
@@ -62,7 +57,6 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       if (!response.ok) {
         if ((response.status === 502 || response.status === 504) && attempt < retries) {
           const delay = CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt);
-          console.log(`⏳ Повтор через ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -70,30 +64,18 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
       }
 
       const text = await response.text();
-      console.log(`📥 Получен ответ (${text.length} символов)`);
-
       if (!text || !text.trim()) {
-        console.log('⚠️ Пустой ответ от API');
         return [];
       }
 
       const parsed = JSON.parse(text);
-      console.log(`✅ Распарсено ${Array.isArray(parsed) ? parsed.length : 'не массив'} записей`);
-      
-      // КРИТИЧЕСКИ ВАЖНО: API возвращает массив массивов, нужно преобразовать
       if (!Array.isArray(parsed)) {
-        console.log('⚠️ API вернул не массив');
         return [];
       }
 
-      const transformed = transformArrayResponse(parsed);
-      console.log(`🔄 Преобразовано в ${transformed.length} объектов`);
-      
-      return transformed;
+      return transformArrayResponse(parsed);
 
     } catch (error) {
-      console.error(`❌ Ошибка на попытке ${attempt + 1}:`, error.message);
-      
       if (error.name === 'AbortError' && attempt < retries) {
         const delay = CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -106,19 +88,15 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
 
 // Получение уникальных кликов через API getOneClickForAd
 async function getAdvIdsFromConversions(uuids, dateFrom = null, dateTo = null) {
-  console.log(`🔍 Получение уникальных кликов для ${uuids.length} UUID через getOneClickForAd...`);
-  console.log('📋 Искомые UUID:', uuids);
+  console.log(`🔍 getOneClickForAd: запрос для ${uuids.length} UUID`);
 
   try {
-    // Формируем даты для запроса (по умолчанию - последний год)
     const endDate = dateTo || new Date().toISOString().split('T')[0];
     const startDate = dateFrom || (() => {
       const d = new Date();
       d.setFullYear(d.getFullYear() - 1);
       return d.toISOString().split('T')[0];
     })();
-
-    console.log(`📅 Период запроса: ${startDate} - ${endDate}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
@@ -147,10 +125,8 @@ async function getAdvIdsFromConversions(uuids, dateFrom = null, dateTo = null) {
 
     const allClicks = await response.json();
 
-    console.log(`📥 Получено всего кликов от API: ${allClicks.length}`);
-
     if (!Array.isArray(allClicks)) {
-      console.error('❌ API вернул не массив:', typeof allClicks);
+      console.error('❌ API вернул не массив');
       return [];
     }
 
@@ -167,45 +143,24 @@ async function getAdvIdsFromConversions(uuids, dateFrom = null, dateTo = null) {
         date_of_click: click.click_time
       }));
 
-    console.log(`✅ Отфильтровано ${filteredClicks.length} записей для наших UUID`);
-
-    if (filteredClicks.length > 0) {
-      console.log('📊 Первые 10 записей:');
-      filteredClicks.slice(0, 10).forEach((row, index) => {
-        console.log(`  [${index}] uuid=${row.uuid}, source=${row.source}, adv_id=${row.adv_id}, date=${row.date_of_click}`);
-      });
-
-      // Подсчет уникальных пар (adv_id, date)
-      const uniquePairs = new Set();
-      filteredClicks.forEach(r => {
-        uniquePairs.add(`${r.adv_id}_${r.date_of_click}`);
-      });
-      console.log(`📊 Уникальных пар (adv_id, date_of_click): ${uniquePairs.size}`);
-    } else {
-      console.warn('⚠️ Не найдено ни одной записи для указанных UUID!');
-    }
+    console.log(`✅ getOneClickForAd: ${allClicks.length} всего → ${filteredClicks.length} для наших UUID`);
 
     return filteredClicks;
   } catch (error) {
-    console.error('❌ Ошибка получения данных из getOneClickForAd:', error);
+    console.error('❌ getOneClickForAd ошибка:', error.message);
     return [];
   }
 }
 
-// Получение метрик из ads_collection по КОНКРЕТНЫМ парам (adv_id, adv_date)
+// Получение метрик из ads_collection
 async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dateTo = null) {
-  console.log(`🔍 Поиск метрик для ${conversionsData.length} пар (adv_id, date) в ads_collection...`);
-
   // Создаем условия для поиска по КОНКРЕТНЫМ парам (adv_id, adv_date)
   const conditions = conversionsData
     .filter(conv => conv.adv_id && conv.date_of_click)
-    .map(conv => {
-      return `(t.adv_id = '${escapeString(conv.adv_id)}' AND t.adv_date = '${escapeString(conv.date_of_click)}')`;
-    })
+    .map(conv => `(t.adv_id = '${escapeString(conv.adv_id)}' AND t.adv_date = '${escapeString(conv.date_of_click)}')`)
     .join(' OR ');
 
   if (!conditions) {
-    console.warn('⚠️ Нет валидных пар (adv_id, date_of_click) для поиска');
     return [];
   }
 
@@ -215,8 +170,7 @@ async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dat
   }
 
   const sql = `
-    SELECT 
-      'daily' as kind,
+    SELECT
       t.adv_id,
       t.adv_date,
       t.source_id_tracker,
@@ -235,35 +189,12 @@ async function getMetricsFromAdsCollection(conversionsData, dateFrom = null, dat
     ORDER BY t.adv_id, t.adv_date
   `;
 
-  console.log('📝 SQL для ads_collection (первые 1000 символов):', sql.substring(0, 1000));
-
   try {
     const results = await fetchWithRetry(sql);
-    
-    if (!Array.isArray(results)) {
-      console.error('❌ ads API вернул не массив:', typeof results);
-      return [];
-    }
-    
-    console.log(`✅ Получено ${results.length} записей метрик из ads_collection`);
-    
-    // Логируем детали найденных метрик
-    if (results.length > 0) {
-      console.log('📊 Первые 5 найденных метрик:');
-      results.slice(0, 5).forEach((r, i) => {
-        console.log(`  [${i}] adv_id=${r.adv_id}, date=${r.adv_date}, leads=${r.leads}, cost=${r.cost}`);
-      });
-      
-      const metricsByAdvId = {};
-      results.forEach(r => {
-        metricsByAdvId[r.adv_id] = (metricsByAdvId[r.adv_id] || 0) + 1;
-      });
-      console.log('📊 Распределение по adv_id:', metricsByAdvId);
-    }
-    
+    console.log(`✅ ads_collection: ${results.length} записей метрик`);
     return results;
   } catch (error) {
-    console.error('❌ Ошибка получения метрик:', error);
+    console.error('❌ ads_collection ошибка:', error.message);
     return [];
   }
 }
@@ -304,12 +235,7 @@ exports.handler = async (event) => {
     // Шаг 1: Получаем уникальные клики через getOneClickForAd API
     const conversions = await getAdvIdsFromConversions(landing_uuids, date_from, date_to);
 
-    console.log(`📊 Получено conversions: ${conversions.length}`);
-
     if (conversions.length === 0) {
-      console.log('⚠️ Не найдено соответствий в conversions_collection');
-      console.log('🔍 Проверяем, существуют ли вообще записи с такими UUID...');
-      
       return {
         statusCode: 200,
         headers,
@@ -321,7 +247,6 @@ exports.handler = async (event) => {
     const validConversions = conversions.filter(c => c.adv_id && c.date_of_click);
 
     if (validConversions.length === 0) {
-      console.log('⚠️ Нет валидных пар (adv_id, date_of_click)');
       return {
         statusCode: 200,
         headers,
@@ -329,14 +254,10 @@ exports.handler = async (event) => {
       };
     }
 
-    console.log(`📊 Найдено ${validConversions.length} пар (adv_id, date_of_click) для запроса метрик`);
-
-    // Группируем по (uuid, source, adv_id) и собираем все даты для каждого adv_id
+    // Группируем по (uuid, source, adv_id) и собираем все даты
     const groupedData = new Map();
-
     validConversions.forEach(conv => {
       const key = `${conv.uuid}_${conv.source}_${conv.adv_id}`;
-
       if (!groupedData.has(key)) {
         groupedData.set(key, {
           uuid: conv.uuid,
@@ -345,28 +266,18 @@ exports.handler = async (event) => {
           dates: new Set()
         });
       }
-
       groupedData.get(key).dates.add(conv.date_of_click);
-    });
-
-    console.log(`📊 Сгруппировано в ${groupedData.size} уникальных комбинаций (uuid, source, adv_id)`);
-
-    // Логируем каждую комбинацию с её датами
-    groupedData.forEach((data, key) => {
-      console.log(`📋 ${key}: даты = [${Array.from(data.dates).sort().join(', ')}]`);
     });
 
     // Шаг 3: Получаем метрики из ads_collection
     const metrics = await getMetricsFromAdsCollection(validConversions, date_from, date_to);
 
-    console.log(`✅ Получено ${metrics.length} записей метрик из ads_collection`);
-
-    // Создаем Map для быстрого поиска метрик по (adv_id, date, source_id_tracker)
+    // Создаем Map для быстрого поиска метрик
     const metricsByAdvIdAndDate = new Map();
     metrics.forEach(metric => {
       const sourceIdTracker = metric.source_id_tracker || 'unknown';
       const key = `${metric.adv_id}_${metric.adv_date}_${sourceIdTracker}`;
-      
+
       metricsByAdvIdAndDate.set(key, {
         date: metric.adv_date,
         source_id_tracker: sourceIdTracker,
@@ -380,12 +291,7 @@ exports.handler = async (event) => {
       });
     });
 
-    console.log(`📊 Создан Map метрик: ${metricsByAdvIdAndDate.size} записей`);
-    console.log(`🗝️ Все ключи в Map:`, Array.from(metricsByAdvIdAndDate.keys()).slice(0, 10));
-
-    console.log(`📊 Создан Map метрик: ${metricsByAdvIdAndDate.size} записей`);
-
-    // Шаг 4: Группируем по (uuid, source) и суммируем метрики со ВСЕХ adv_id
+    // Шаг 4: Группируем по (uuid, source) и собираем метрики
     const resultsByUuidSource = new Map();
 
     groupedData.forEach((data) => {
@@ -401,54 +307,31 @@ exports.handler = async (event) => {
         });
       }
 
-      // Добавляем adv_id в список
       resultsByUuidSource.get(resultKey).adv_ids.push(adv_id);
 
-      // Собираем метрики для каждой даты этого adv_id (по всем source_id_tracker)
+      // Собираем метрики для каждой даты
       dates.forEach(date => {
-          // Ищем все метрики для этой пары (adv_id, date) независимо от source_id_tracker
-          const foundMetrics = [];
-          
-          metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
-            if (key.startsWith(`${adv_id}_${date}_`)) {
-              // КРИТИЧНО: Копируем объект полностью, включая source_id_tracker
-              foundMetrics.push({...dayMetrics});
-            }
-          });
-
-          if (foundMetrics.length > 0) {
-            console.log(`✅ Найдены метрики: adv_id=${adv_id}, date=${date}, записей=${foundMetrics.length}`);
-            foundMetrics.forEach(dayMetrics => {
-              const sourceIdTracker = dayMetrics.source_id_tracker || 'unknown';
-              console.log(`   📍 source_id_tracker="${sourceIdTracker}"`);
-              
-              // КРИТИЧНО: ОБЯЗАТЕЛЬНО включаем source_id_tracker в объект!
-              resultsByUuidSource.get(resultKey).daily.push({
-                date: dayMetrics.date,
-                leads: dayMetrics.leads,
-                cost: dayMetrics.cost,
-                clicks: dayMetrics.clicks,
-                impressions: dayMetrics.impressions,
-                avg_duration: dayMetrics.avg_duration,
-                cost_from_sources: dayMetrics.cost_from_sources,
-                clicks_on_link: dayMetrics.clicks_on_link,
-                source_id_tracker: dayMetrics.source_id_tracker || 'unknown'
-              });
+        metricsByAdvIdAndDate.forEach((dayMetrics, key) => {
+          if (key.startsWith(`${adv_id}_${date}_`)) {
+            resultsByUuidSource.get(resultKey).daily.push({
+              date: dayMetrics.date,
+              leads: dayMetrics.leads,
+              cost: dayMetrics.cost,
+              clicks: dayMetrics.clicks,
+              impressions: dayMetrics.impressions,
+              avg_duration: dayMetrics.avg_duration,
+              cost_from_sources: dayMetrics.cost_from_sources,
+              clicks_on_link: dayMetrics.clicks_on_link,
+              source_id_tracker: dayMetrics.source_id_tracker
             });
-          } else {
-            console.log(`⚠️ НЕ найдены метрики: adv_id=${adv_id}, date=${date}`);
           }
         });
+      });
     });
 
     // Шаг 5: Формируем финальный массив результатов
     const results = [];
-
     resultsByUuidSource.forEach((data) => {
-      console.log(`📊 UUID=${data.uuid}, source=${data.source}:`);
-      console.log(`   adv_ids=[${data.adv_ids.join(', ')}]`);
-      console.log(`   дневных записей метрик: ${data.daily.length}`);
-
       results.push({
         uuid: data.uuid,
         source: data.source,
@@ -458,7 +341,7 @@ exports.handler = async (event) => {
       });
     });
 
-    console.log(`✅ Сформировано ${results.length} финальных результатов`);
+    console.log(`✅ Готово: ${results.length} результатов для ${landing_uuids.length} лендингов`);
 
     return {
       statusCode: 200,
@@ -467,7 +350,7 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('💥 Критическая ошибка:', error);
+    console.error('💥 Ошибка:', error.message);
     return {
       statusCode: 500,
       headers,
