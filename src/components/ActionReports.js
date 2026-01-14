@@ -23,22 +23,25 @@ function ActionReports({ user }) {
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
 
-  // Генерация дней для календаря (30 дней начиная с сегодня)
+  // Генерация дней для календаря (сегодня слева, прошлые даты справа)
   const calendarDays = useMemo(() => {
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 30; i++) {
+    // Сегодня + 30 дней назад
+    for (let i = 0; i < 31; i++) {
       const date = new Date(today);
-      date.setDate(today.getDate() + i);
+      date.setDate(today.getDate() - i); // Минус i дней (в прошлое)
       days.push({
         date: date,
         day: date.getDate(),
         weekday: date.toLocaleString('ru', { weekday: 'short' }),
         month: date.toLocaleString('ru', { month: 'short' }),
         isToday: i === 0,
+        isYesterday: i === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
+        daysAgo: i,
         // Пока заглушка для данных
         tasksCount: Math.floor(Math.random() * 20)
       });
@@ -131,25 +134,25 @@ function ActionReports({ user }) {
           {calendarDays.map((day, index) => (
             <div
               key={index}
-              className={`flex-shrink-0 w-16 px-2 py-2 rounded-lg border text-center cursor-pointer transition-all duration-200 ${
+              className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${
                 day.isToday
-                  ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200'
+                  ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 scale-105'
                   : day.isWeekend
-                  ? 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                  : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                  ? 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100'
+                  : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md'
               }`}
             >
-              <div className={`text-[10px] uppercase font-medium ${day.isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                {day.weekday}
+              <div className={`text-[10px] uppercase font-medium ${day.isToday ? 'text-blue-100' : 'text-slate-400'}`}>
+                {day.isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
               </div>
-              <div className={`text-xl font-bold ${day.isToday ? 'text-blue-600' : 'text-slate-700'}`}>
+              <div className={`text-xl font-bold ${day.isToday ? 'text-white' : 'text-slate-700'}`}>
                 {day.day}
               </div>
-              <div className={`text-[10px] ${day.isToday ? 'text-blue-500' : 'text-slate-400'}`}>
+              <div className={`text-[10px] ${day.isToday ? 'text-blue-100' : 'text-slate-400'}`}>
                 {day.month}
               </div>
               {day.tasksCount > 0 && (
-                <div className={`mt-1 text-[10px] font-medium ${day.isToday ? 'text-blue-600' : 'text-slate-500'}`}>
+                <div className={`mt-1 text-[10px] font-medium ${day.isToday ? 'text-white' : 'text-slate-500'}`}>
                   {day.tasksCount} задач
                 </div>
               )}
