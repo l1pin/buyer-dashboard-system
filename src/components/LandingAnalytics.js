@@ -1623,6 +1623,75 @@ function LandingTeamLead({ user }) {
     }
   };
 
+  // Принудительная синхронизация ВСЕХ лендингов с trello_link (даже с существующим статусом)
+  const syncAllTrelloStatuses = async () => {
+    try {
+      console.log('🔄 Принудительная синхронизация ВСЕХ статусов...');
+
+      const landingsWithLink = filteredLandings.filter(landing => !!landing.trello_link);
+
+      if (landingsWithLink.length === 0) {
+        console.log('⚠️ Нет лендингов с Trello ссылками');
+        setSuccess('Нет лендингов для синхронизации');
+        setTimeout(() => setSuccess(''), 3000);
+        return;
+      }
+
+      console.log(`🔄 Синхронизация ${landingsWithLink.length} лендингов...`);
+
+      const syncingIds = new Set(landingsWithLink.map(l => l.id));
+      setSyncingLandings(syncingIds);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const landing of landingsWithLink) {
+        try {
+          const result = await trelloLandingService.syncSingleLanding(
+            landing.id,
+            landing.trello_link,
+            landing.is_test
+          );
+
+          if (result.success) {
+            setTrelloStatuses(prev => {
+              const updated = new Map(prev);
+              updated.set(landing.id, {
+                creative_id: landing.id,
+                list_name: result.listName,
+                list_id: result.listId,
+                trello_card_id: result.cardId,
+                last_updated: new Date().toISOString()
+              });
+              return updated;
+            });
+
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`❌ Ошибка синхронизации ${landing.article}:`, error.message);
+          errorCount++;
+        }
+
+        // Задержка между запросами чтобы не перегружать API
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      setSyncingLandings(new Set());
+
+      const message = `Синхронизация завершена: успешно ${successCount}, ошибок ${errorCount}`;
+      console.log(`🎉 ${message}`);
+      setSuccess(message);
+      setTimeout(() => setSuccess(''), 5000);
+
+    } catch (error) {
+      console.error('❌ Ошибка синхронизации:', error);
+      setSyncingLandings(new Set());
+      setError(`Ошибка синхронизации: ${error.message}`);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
   // Получить название списка для лендинга
   const getTrelloListName = (landingId) => {
     const status = trelloStatuses.get(landingId);
@@ -3577,6 +3646,16 @@ data-rt-sub16="${selectedLandingUuid}"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${(loading || metricsLoading) ? 'animate-spin' : ''}`} />
               Обновить метрики
+            </button>
+
+            <button
+              onClick={syncAllTrelloStatuses}
+              disabled={syncingLandings.size > 0}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+              title="Принудительно обновить статусы всех лендингов из Trello"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncingLandings.size > 0 ? 'animate-spin' : ''}`} />
+              Обновить статусы
             </button>
 
             <button

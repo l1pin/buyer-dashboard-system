@@ -70,26 +70,22 @@ exports.handler = async (event, context) => {
       if (action.data.listAfter) {
         const listAfter = action.data.listAfter;
         const boardId = action.data.board.id;
-        
-        // Определяем тип доски
+
+        // Определяем тип доски (для совместимости со старыми записями)
         const LANDING_BOARDS = {
           main: '642bf848f1f26d0ecc5231da',
           test: '63f75d0ae75b1dc37ad0252b'
         };
-        
-        let boardType = null;
+
+        let boardType = 'other';
         if (boardId === LANDING_BOARDS.main) {
           boardType = 'main';
         } else if (boardId === LANDING_BOARDS.test) {
           boardType = 'test';
         }
-        
-        if (!boardType) {
-          console.log('⚠️ Unknown board ID:', boardId);
-          return { statusCode: 200, headers, body: JSON.stringify({ received: true }) };
-        }
 
-        console.log(`🔄 Landing card moved to: ${listAfter.name} on ${boardType} board`);
+        // Обрабатываем ВСЕ борды, не только известные
+        console.log(`🔄 Landing card moved to: ${listAfter.name} on board ${boardId} (type: ${boardType})`);
 
         // Обновляем информацию о списке
         await supabase
@@ -185,35 +181,34 @@ exports.handler = async (event, context) => {
       const card = action.data.card;
       const list = action.data.list;
       const boardId = action.data.board.id;
-      
-      // Определяем тип доски
+
+      // Определяем тип доски (для совместимости)
       const LANDING_BOARDS = {
         main: '642bf848f1f26d0ecc5231da',
         test: '63f75d0ae75b1dc37ad0252b'
       };
-      
-      let boardType = null;
+
+      let boardType = 'other';
       if (boardId === LANDING_BOARDS.main) {
         boardType = 'main';
       } else if (boardId === LANDING_BOARDS.test) {
         boardType = 'test';
       }
-      
-      if (boardType) {
-        console.log(`➕ New landing card created: ${card.name} in ${list.name} on ${boardType} board`);
-        
-        await supabase
-          .from('trello_landing_lists')
-          .upsert({
-            list_id: list.id,
-            list_name: list.name,
-            board_id: boardId,
-            board_type: boardType,
-            position: 0
-          }, {
-            onConflict: 'list_id'
-          });
-      }
+
+      // Обрабатываем ВСЕ борды
+      console.log(`➕ New landing card created: ${card.name} in ${list.name} on board ${boardId} (type: ${boardType})`);
+
+      await supabase
+        .from('trello_landing_lists')
+        .upsert({
+          list_id: list.id,
+          list_name: list.name,
+          board_id: boardId,
+          board_type: boardType,
+          position: 0
+        }, {
+          onConflict: 'list_id'
+        });
     }
 
     return {
