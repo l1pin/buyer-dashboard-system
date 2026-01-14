@@ -16,6 +16,7 @@ import LandingPanel from './LandingPanel';
 import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
 import LandingAnalytics from './LandingAnalytics';
+import ActionReports from './ActionReports';
 import Settings from './Settings';
 import usePermissions from '../hooks/usePermissions';
 
@@ -39,6 +40,7 @@ function Dashboard({ user, session, updateUser }) {
     '/analytics/metrics': 'metrics-analytics',
     '/analytics/landings': 'landing-analytics',
     '/analytics/offers': 'offers-tl',
+    '/reports/actions': 'action-reports',
     '/settings': 'settings'
   };
 
@@ -55,6 +57,7 @@ function Dashboard({ user, session, updateUser }) {
     'metrics-analytics': '/analytics/metrics',
     'landing-analytics': '/analytics/landings',
     'offers-tl': '/analytics/offers',
+    'action-reports': '/reports/actions',
     'settings': '/settings'
   };
 
@@ -97,6 +100,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'teamlead';
       case 'offers-buyer':
         return role === 'buyer';
+      case 'action-reports':
+        return role === 'teamlead' || role === 'buyer';
       case 'settings':
         return true; // Настройки доступны всем
       default:
@@ -224,6 +229,8 @@ function Dashboard({ user, session, updateUser }) {
         return hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
       case 'offers-buyer':
         return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
+      case 'action-reports':
+        return hasAccess('action-reports') ? <ActionReports user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
