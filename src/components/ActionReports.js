@@ -9,8 +9,163 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  RefreshCw
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
+
+// Опции для действий
+const ACTION_OPTIONS = [
+  { value: 'enabled_from_arrival', label: 'Вкл с прихода' },
+  { value: 'reconfigured', label: 'Перенастроил' },
+  { value: 'new_product', label: 'Новинка' },
+  { value: 'out_of_stock', label: 'Закончились' },
+  { value: 'tz', label: 'ТЗ' }
+];
+
+// Опции для "Перенастроил"
+const RECONFIGURED_OPTIONS = [
+  { value: 'new_account', label: 'Новый акк' },
+  { value: 'target', label: 'Таргет' },
+  { value: 'creative', label: 'Крео' },
+  { value: 'audience', label: 'Аудитория' },
+  { value: 'landing', label: 'Ленд' },
+  { value: 'budget', label: 'Бюджет' },
+  { value: 'other', label: 'Другое' }
+];
+
+// Опции для "Новинка"
+const NEW_PRODUCT_OPTIONS = [
+  { value: 'from_old', label: 'Из старого' },
+  { value: 'from_new', label: 'Из нового' }
+];
+
+// Компонент выпадающего списка
+function CustomDropdown({ value, options, onChange, placeholder = 'Выберите...', className = '' }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div ref={dropdownRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full px-3 py-2 text-left text-sm border rounded-lg flex items-center justify-between transition-colors ${
+          value
+            ? 'bg-white border-slate-300 text-slate-700'
+            : 'bg-slate-50 border-slate-200 text-slate-400'
+        } hover:border-slate-400`}
+      >
+        <span className="truncate">{selectedOption?.label || placeholder}</span>
+        <ChevronDown className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 transition-colors ${
+                value === option.value ? 'bg-blue-50 text-blue-600' : 'text-slate-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Компонент строки артикула в конфигурации
+function ArticleConfigRow({ article, config, onChange, onRemove }) {
+  return (
+    <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-b-0">
+      {/* Артикул */}
+      <div className="w-24 flex-shrink-0">
+        <span className="font-mono text-sm font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+          {article}
+        </span>
+      </div>
+
+      {/* Действие */}
+      <div className="flex-1 flex flex-wrap items-center gap-2">
+        <CustomDropdown
+          value={config.action}
+          options={ACTION_OPTIONS}
+          onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
+          placeholder="Выберите действие"
+          className="w-40"
+        />
+
+        {/* Дополнительные поля в зависимости от выбора */}
+        {config.action === 'reconfigured' && (
+          <CustomDropdown
+            value={config.subAction}
+            options={RECONFIGURED_OPTIONS}
+            onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
+            placeholder="Что изменили?"
+            className="w-36"
+          />
+        )}
+
+        {config.action === 'reconfigured' && config.subAction === 'other' && (
+          <input
+            type="text"
+            value={config.customText || ''}
+            onChange={(e) => onChange({ ...config, customText: e.target.value })}
+            placeholder="Укажите что..."
+            className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        )}
+
+        {config.action === 'new_product' && (
+          <CustomDropdown
+            value={config.subAction}
+            options={NEW_PRODUCT_OPTIONS}
+            onChange={(val) => onChange({ ...config, subAction: val })}
+            placeholder="Откуда?"
+            className="w-36"
+          />
+        )}
+
+        {config.action === 'tz' && (
+          <input
+            type="text"
+            value={config.trelloLink || ''}
+            onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
+            placeholder="Ссылка на Trello..."
+            className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        )}
+      </div>
+
+      {/* Кнопка удаления */}
+      <button
+        onClick={onRemove}
+        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 function ActionReports({ user }) {
   // Состояния
@@ -19,6 +174,9 @@ function ActionReports({ user }) {
   const [showPresets, setShowPresets] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [articlesInput, setArticlesInput] = useState('');
+  const [modalStep, setModalStep] = useState(1); // 1 = ввод артикулов, 2 = конфигурация
+  const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
+  const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
 
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
@@ -69,19 +227,125 @@ function ActionReports({ user }) {
     { id: 'preset5', label: 'Пресет 5' }
   ];
 
-  // Обработка создания отчета
-  const handleCreateReport = () => {
-    const articles = articlesInput
+  // Список артикулов из ввода
+  const parsedArticles = useMemo(() => {
+    return articlesInput
       .split('\n')
       .map(a => a.trim())
       .filter(a => a.length > 0);
+  }, [articlesInput]);
 
-    console.log('Создание отчета для артикулов:', articles);
-
-    // Пока что просто закрываем модальное окно
-    setShowCreateModal(false);
-    setArticlesInput('');
+  // Обработка нажатия "Применить" - переход к шагу 2
+  const handleApplyArticles = () => {
+    // Инициализируем конфигурации для каждого артикула
+    const configs = {};
+    parsedArticles.forEach(article => {
+      configs[article] = {
+        action: '',
+        subAction: '',
+        customText: '',
+        trelloLink: ''
+      };
+    });
+    setArticleConfigs(configs);
+    setModalStep(2);
   };
+
+  // Обновление конфигурации артикула
+  const updateArticleConfig = (article, config) => {
+    setArticleConfigs(prev => ({
+      ...prev,
+      [article]: config
+    }));
+  };
+
+  // Удаление артикула из списка
+  const removeArticle = (article) => {
+    setArticleConfigs(prev => {
+      const newConfigs = { ...prev };
+      delete newConfigs[article];
+      return newConfigs;
+    });
+  };
+
+  // Обработка сохранения
+  const handleSaveReport = () => {
+    const reports = Object.entries(articleConfigs).map(([article, config]) => ({
+      id: `${article}-${Date.now()}`,
+      article,
+      ...config,
+      createdAt: new Date().toISOString(),
+      // Заглушки для метрик (в реальности загружаем из БД)
+      metrics: {
+        offer: `Товар ${article}`,
+        status: 'active',
+        cpl: (Math.random() * 10 + 5).toFixed(2),
+        leads: Math.floor(Math.random() * 100),
+        cost: Math.floor(Math.random() * 1000),
+        roi: Math.floor(Math.random() * 50),
+        profit: Math.floor(Math.random() * 5000),
+        daysRemaining: Math.floor(Math.random() * 30),
+        stock: Math.floor(Math.random() * 500),
+        daysToArrival: Math.floor(Math.random() * 14),
+        approve: Math.floor(Math.random() * 100),
+        sold: Math.floor(Math.random() * 100)
+      }
+    }));
+
+    setSavedReports(prev => [...prev, ...reports]);
+
+    // Закрываем модальное окно и сбрасываем состояние
+    setShowCreateModal(false);
+    setModalStep(1);
+    setArticlesInput('');
+    setArticleConfigs({});
+  };
+
+  // Закрытие модального окна
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setModalStep(1);
+    setArticlesInput('');
+    setArticleConfigs({});
+  };
+
+  // Получение текста действия для отображения
+  const getActionLabel = (report) => {
+    const action = ACTION_OPTIONS.find(a => a.value === report.action);
+    let label = action?.label || '—';
+
+    if (report.action === 'reconfigured' && report.subAction) {
+      const sub = RECONFIGURED_OPTIONS.find(s => s.value === report.subAction);
+      label += `: ${sub?.label || report.customText || ''}`;
+      if (report.subAction === 'other' && report.customText) {
+        label = `Перенастроил: ${report.customText}`;
+      }
+    }
+
+    if (report.action === 'new_product' && report.subAction) {
+      const sub = NEW_PRODUCT_OPTIONS.find(s => s.value === report.subAction);
+      label += ` (${sub?.label || ''})`;
+    }
+
+    return label;
+  };
+
+  // Проверка, все ли артикулы имеют выбранное действие
+  const allArticlesConfigured = useMemo(() => {
+    const articles = Object.keys(articleConfigs);
+    if (articles.length === 0) return false;
+    return articles.every(article => articleConfigs[article].action !== '');
+  }, [articleConfigs]);
+
+  // Фильтрация отчетов по поиску
+  const filteredReports = useMemo(() => {
+    if (!searchTerm) return savedReports;
+    const term = searchTerm.toLowerCase();
+    return savedReports.filter(r =>
+      r.article.toLowerCase().includes(term) ||
+      r.metrics.offer.toLowerCase().includes(term)
+    );
+  }, [savedReports, searchTerm]);
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -234,52 +498,135 @@ function ActionReports({ user }) {
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
           <div className="w-[3%] min-w-[32px]">№</div>
-          <div className="w-[8%] min-w-[70px]">Артикул</div>
-          <div className="w-[16%] min-w-[140px] text-left">Название</div>
-          <div className="w-[8%] min-w-[80px]">Статус</div>
-          <div className="w-[6%] min-w-[60px]">CPL</div>
-          <div className="w-[6%] min-w-[50px]">Лиды</div>
-          <div className="w-[7%] min-w-[60px]">Расход</div>
-          <div className="w-[6%] min-w-[50px]">ROI</div>
-          <div className="w-[7%] min-w-[60px]">Прибыль</div>
-          <div className="w-[6%] min-w-[50px]">Дни</div>
-          <div className="w-[6%] min-w-[50px]">Остаток</div>
-          <div className="w-[6%] min-w-[50px]">Приход</div>
-          <div className="w-[6%] min-w-[50px]">Апрув</div>
-          <div className="w-[6%] min-w-[50px]">Выкуп</div>
-          <div className="w-[5%] min-w-[45px]">Действия</div>
+          <div className="w-[7%] min-w-[70px]">Артикул</div>
+          <div className="w-[14%] min-w-[120px] text-left">Название</div>
+          <div className="w-[10%] min-w-[100px]">Действие</div>
+          <div className="w-[8%] min-w-[70px]">Статус</div>
+          <div className="w-[5%] min-w-[50px]">CPL</div>
+          <div className="w-[5%] min-w-[45px]">Лиды</div>
+          <div className="w-[6%] min-w-[55px]">Расход</div>
+          <div className="w-[5%] min-w-[45px]">ROI</div>
+          <div className="w-[6%] min-w-[55px]">Прибыль</div>
+          <div className="w-[5%] min-w-[45px]">Дни</div>
+          <div className="w-[5%] min-w-[45px]">Ост.</div>
+          <div className="w-[5%] min-w-[45px]">Приход</div>
+          <div className="w-[5%] min-w-[45px]">Апрув</div>
+          <div className="w-[5%] min-w-[45px]">Выкуп</div>
+          <div className="w-[5%] min-w-[40px]"></div>
         </div>
       </div>
 
       {/* Основной контент */}
-      <div className="flex-1 overflow-auto px-4 py-4">
-        <div className="text-center text-slate-500 py-12">
-          <Calendar className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">
-            Нет данных для отображения
-          </h3>
-          <p className="text-sm text-slate-500 mb-4">
-            Нажмите "Создать отчет" чтобы добавить артикулы
-          </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Создать отчет
-          </button>
-        </div>
+      <div className="flex-1 overflow-auto">
+        {filteredReports.length === 0 ? (
+          <div className="text-center text-slate-500 py-12">
+            <Calendar className="h-16 w-16 mx-auto text-slate-300 mb-4" />
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">
+              Нет данных для отображения
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Нажмите "Создать отчет" чтобы добавить артикулы
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Создать отчет
+            </button>
+          </div>
+        ) : (
+          <div className="px-4 py-2">
+            {filteredReports.map((report, index) => (
+              <div
+                key={report.id}
+                className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
+              >
+                <div className="w-[3%] min-w-[32px] text-center text-slate-500 font-medium">
+                  {index + 1}
+                </div>
+                <div className="w-[7%] min-w-[70px] text-center">
+                  <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                    {report.article}
+                  </span>
+                </div>
+                <div className="w-[14%] min-w-[120px] text-left text-slate-700 truncate pr-2">
+                  {report.metrics.offer}
+                </div>
+                <div className="w-[10%] min-w-[100px] text-center">
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded truncate block">
+                    {getActionLabel(report)}
+                  </span>
+                </div>
+                <div className="w-[8%] min-w-[70px] text-center">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                    Активный
+                  </span>
+                </div>
+                <div className="w-[5%] min-w-[50px] text-center font-mono text-slate-700">
+                  ${report.metrics.cpl}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  {report.metrics.leads}
+                </div>
+                <div className="w-[6%] min-w-[55px] text-center font-mono text-slate-700">
+                  ${report.metrics.cost}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  {report.metrics.roi}%
+                </div>
+                <div className="w-[6%] min-w-[55px] text-center font-mono text-green-600 font-medium">
+                  ${report.metrics.profit}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  {report.metrics.daysRemaining}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  {report.metrics.stock}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  {report.metrics.daysToArrival}
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  {report.metrics.approve}%
+                </div>
+                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  {report.metrics.sold}%
+                </div>
+                <div className="w-[5%] min-w-[40px] text-center">
+                  <button
+                    onClick={() => setSavedReports(prev => prev.filter(r => r.id !== report.id))}
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Модальное окно создания отчета */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+          <div className={`bg-white rounded-xl shadow-2xl mx-4 transition-all duration-300 ${
+            modalStep === 1 ? 'w-full max-w-md' : 'w-full max-w-2xl'
+          }`}>
             {/* Header модального окна */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Создать отчет</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {modalStep === 1 ? 'Создать отчет' : 'Настройка артикулов'}
+                </h3>
+                {modalStep === 2 && (
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                    {Object.keys(articleConfigs).length} артикул(ов)
+                  </span>
+                )}
+              </div>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={handleCloseModal}
                 className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5 text-slate-500" />
@@ -287,39 +634,88 @@ function ActionReports({ user }) {
             </div>
 
             {/* Body модального окна */}
-            <div className="px-6 py-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Артикулы
-              </label>
-              <p className="text-xs text-slate-500 mb-3">
-                Введите артикулы, по одному в каждой строке
-              </p>
-              <textarea
-                value={articlesInput}
-                onChange={(e) => setArticlesInput(e.target.value)}
-                placeholder={"C01063\nC01064\nC01065"}
-                className="w-full h-48 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono bg-slate-50"
-              />
-              <p className="text-xs text-slate-400 mt-2">
-                {articlesInput.split('\n').filter(a => a.trim()).length} артикул(ов)
-              </p>
+            <div className="px-6 py-4 max-h-[60vh] overflow-auto">
+              {modalStep === 1 ? (
+                <>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Артикулы
+                  </label>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Введите артикулы, по одному в каждой строке
+                  </p>
+                  <textarea
+                    value={articlesInput}
+                    onChange={(e) => setArticlesInput(e.target.value)}
+                    placeholder={"C01063\nC01064\nC01065"}
+                    className="w-full h-48 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono bg-slate-50"
+                    autoFocus
+                  />
+                  <p className="text-xs text-slate-400 mt-2">
+                    {parsedArticles.length} артикул(ов)
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Укажите действие для каждого артикула
+                  </p>
+                  <div className="space-y-1">
+                    {Object.keys(articleConfigs).map((article) => (
+                      <ArticleConfigRow
+                        key={article}
+                        article={article}
+                        config={articleConfigs[article]}
+                        onChange={(config) => updateArticleConfig(article, config)}
+                        onRemove={() => removeArticle(article)}
+                      />
+                    ))}
+                  </div>
+                  {Object.keys(articleConfigs).length === 0 && (
+                    <div className="text-center py-8 text-slate-400">
+                      Нет артикулов для настройки
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Footer модального окна */}
-            <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCreateReport}
-                disabled={!articlesInput.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Применить
-              </button>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+              <div>
+                {modalStep === 2 && (
+                  <button
+                    onClick={() => setModalStep(1)}
+                    className="text-sm text-slate-600 hover:text-slate-800 transition-colors"
+                  >
+                    ← Назад к вводу артикулов
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  Отмена
+                </button>
+                {modalStep === 1 ? (
+                  <button
+                    onClick={handleApplyArticles}
+                    disabled={parsedArticles.length === 0}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Применить
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveReport}
+                    disabled={!allArticlesConfigured || Object.keys(articleConfigs).length === 0}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Сохранить
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
