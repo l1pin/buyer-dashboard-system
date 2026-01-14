@@ -3748,6 +3748,39 @@ export const buyerSourceService = {
     }
   },
 
+  // Получить источники для всех байеров С ПЕРИОДАМИ ДОСТУПА
+  // Возвращает полные данные traffic_channels для определения байера по дате
+  async getAllBuyerSourcesWithPeriods() {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, avatar_url, buyer_settings')
+        .eq('role', 'buyer')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      // Возвращаем полные данные о каналах с периодами
+      return (data || []).map(user => {
+        const channels = user.buyer_settings?.traffic_channels || [];
+
+        return {
+          buyer_id: user.id,
+          buyer_name: user.name,
+          buyer_avatar: user.avatar_url,
+          traffic_channels: channels.map(ch => ({
+            channel_id: ch.channel_id,
+            access_granted: ch.access_granted || '2020-01-01',
+            access_limited: ch.access_limited || null
+          })).filter(ch => ch.channel_id)
+        };
+      });
+    } catch (error) {
+      console.error('❌ Ошибка получения источников байеров с периодами:', error);
+      return [];
+    }
+  },
+
   // Получить источники для конкретного байера
   async getBuyerSources(buyerId) {
     try {

@@ -301,6 +301,10 @@ function LandingTeamLead({ user }) {
   
   // Состояния для источников байеров
   const [buyerSources, setBuyerSources] = useState(new Map());
+  // Маппинг source_id -> [{buyerId, buyerName, buyerAvatar, accessGranted, accessLimited}]
+  const [sourceIdToPeriods, setSourceIdToPeriods] = useState({});
+  // Полные данные о байерах с traffic_channels
+  const [buyersWithChannels, setBuyersWithChannels] = useState([]);
   const [editingBuyerId, setEditingBuyerId] = useState(null);
   const [tempSourceIds, setTempSourceIds] = useState([]);
   const [loadingBuyerSources, setLoadingBuyerSources] = useState(false);
@@ -734,7 +738,29 @@ function LandingTeamLead({ user }) {
     hasData: hasMetricsData
   } = useMetricsStats(filteredLandings, batchMetrics);
 
-    // Группировка метрик лендинга по байерам
+  // Функция определения байера для source_id и даты (по аналогии с Офферами)
+  const getBuyerForSourceIdAndDate = (sourceId, date) => {
+    const periods = sourceIdToPeriods[sourceId];
+    if (!periods || periods.length === 0) {
+      return null; // Нет байера для этого source_id
+    }
+
+    // Ищем байера, у которого date попадает в период [accessGranted, accessLimited]
+    for (const period of periods) {
+      const accessGranted = period.accessGranted || '1970-01-01';
+      const accessLimited = period.accessLimited; // может быть null
+
+      // Проверяем: accessGranted <= date && (accessLimited === null || date <= accessLimited)
+      if (date >= accessGranted && (!accessLimited || date <= accessLimited)) {
+        return period;
+      }
+    }
+
+    // Если не нашли по датам - возвращаем первого (fallback для старых данных без дат)
+    return periods[0];
+  };
+
+  // Группировка метрик лендинга по байерам (с учётом дат доступа)
   const getMetricsByBuyers = (landing) => {
     const allMetricsForLanding = getAllLandingMetrics(landing.id);
 
@@ -769,58 +795,55 @@ function LandingTeamLead({ user }) {
       }));
     });
 
-    // Группируем по source_id_tracker
-    const metricsBySourceId = new Map();
-    allDailyDataWithSources.forEach(day => {
-      const sourceId = day.source_id_tracker || 'unknown';
-      if (!metricsBySourceId.has(sourceId)) {
-        metricsBySourceId.set(sourceId, []);
+    // Фильтруем по периоду отображения
+    const filteredDailyData = filterMetricsByDisplayPeriod(allDailyDataWithSources, metricsDisplayPeriod);
+
+    if (filteredDailyData.length === 0) {
+      return [];
+    }
+
+    // Группируем метрики по байерам (определяем байера по source_id И дате)
+    // Ключ: `${buyerId}` или 'unknown' для неизвестных
+    const metricsByBuyer = new Map();
+
+    filteredDailyData.forEach(day => {
+      const sourceId = String(day.source_id_tracker || 'unknown').trim();
+      const date = day.date;
+
+      // Определяем байера по source_id и дате
+      const buyerInfo = getBuyerForSourceIdAndDate(sourceId, date);
+
+      const buyerKey = buyerInfo ? buyerInfo.buyerId : 'unknown';
+
+      if (!metricsByBuyer.has(buyerKey)) {
+        metricsByBuyer.set(buyerKey, {
+          buyerId: buyerInfo?.buyerId || 'unknown',
+          buyerName: buyerInfo?.buyerName || 'Неизвестный байер',
+          buyerAvatar: buyerInfo?.buyerAvatar || null,
+          dailyData: [],
+          sources: new Set()
+        });
       }
-      metricsBySourceId.get(sourceId).push(day);
+
+      metricsByBuyer.get(buyerKey).dailyData.push(day);
+      if (day.source) {
+        metricsByBuyer.get(buyerKey).sources.add(day.source);
+      }
     });
 
-    // Сопоставляем source_id с байерами
+    // Агрегируем метрики для каждого байера
     const buyerMetrics = [];
 
-    buyers.forEach(buyer => {
-      const buyerSourceIds = buyerSources.get(buyer.id) || [];
+    metricsByBuyer.forEach((buyerData, buyerKey) => {
+      const { buyerId, buyerName, buyerAvatar, dailyData, sources } = buyerData;
 
-      if (buyerSourceIds.length === 0) {
+      if (dailyData.length === 0) {
         return;
       }
 
-      // Собираем метрики для всех source_ids этого байера
-      const buyerDailyData = [];
-
-      buyerSourceIds.forEach(sourceId => {
-        const sourceIdStr = String(sourceId).trim();
-        let metricsForSource = metricsBySourceId.get(sourceIdStr);
-
-        if (!metricsForSource) {
-          for (const [mapKey, mapValue] of metricsBySourceId.entries()) {
-            if (String(mapKey).trim() === sourceIdStr) {
-              metricsForSource = mapValue;
-              break;
-            }
-          }
-        }
-
-        if (metricsForSource && metricsForSource.length > 0) {
-          buyerDailyData.push(...metricsForSource);
-        }
-      });
-
-      if (buyerDailyData.length === 0) {
-        return;
-      }
-
-      // Фильтруем по периоду отображения
-      const filteredDailyData = filterMetricsByDisplayPeriod(buyerDailyData, metricsDisplayPeriod);
-
-      // Агрегируем метрики байера
       const uniqueDates = new Set();
 
-      const aggregated = filteredDailyData.reduce((acc, day) => {
+      const aggregated = dailyData.reduce((acc, day) => {
         if (day.date) {
           uniqueDates.add(day.date);
         }
@@ -849,13 +872,15 @@ function LandingTeamLead({ user }) {
       const cpl = aggregated.leads > 0 ? aggregated.cost / aggregated.leads : 0;
       const cr = aggregated.clicks > 0 ? (aggregated.leads / aggregated.clicks) * 100 : 0;
 
-      const buyerSource = filteredDailyData.find(day => day.source)?.source || null;
+      // Определяем основной источник трафика для байера
+      const buyerSource = sources.size > 0 ? Array.from(sources)[0] : null;
 
       buyerMetrics.push({
-        buyer_id: buyer.id,
-        buyer_name: buyer.name,
-        buyer_avatar: buyer.avatar_url,
+        buyer_id: buyerId,
+        buyer_name: buyerName,
+        buyer_avatar: buyerAvatar,
         buyer_source: buyerSource,
+        is_unknown: buyerKey === 'unknown',
         found: true,
         data: {
           raw: {
@@ -880,6 +905,13 @@ function LandingTeamLead({ user }) {
           }
         }
       });
+    });
+
+    // Сортируем: известные байеры первыми, неизвестный в конце
+    buyerMetrics.sort((a, b) => {
+      if (a.is_unknown && !b.is_unknown) return 1;
+      if (!a.is_unknown && b.is_unknown) return -1;
+      return a.buyer_name.localeCompare(b.buyer_name);
     });
 
     return buyerMetrics;
@@ -1073,7 +1105,7 @@ function LandingTeamLead({ user }) {
       });
     });
     return cache;
-  }, [filteredLandings, landingMetrics, metricsDisplayPeriod, buyers, buyerSources]);
+  }, [filteredLandings, landingMetrics, metricsDisplayPeriod, buyers, buyerSources, sourceIdToPeriods]);
 
   // Быстрое получение метрик из кеша
   const getCachedMetrics = useCallback((landingId) => {
@@ -1713,17 +1745,46 @@ function LandingTeamLead({ user }) {
   const loadBuyerSources = async () => {
     try {
       setLoadingBuyerSources(true);
-      console.log('📡 Загрузка источников байеров...');
+      console.log('📡 Загрузка источников байеров с периодами...');
 
-      const sourcesData = await buyerSourceService.getAllBuyerSources();
-      
+      // Загружаем полные данные с периодами доступа
+      const sourcesData = await buyerSourceService.getAllBuyerSourcesWithPeriods();
+
+      // Старый формат для обратной совместимости
       const sourcesMap = new Map();
       sourcesData.forEach(item => {
-        sourcesMap.set(item.buyer_id, item.source_ids || []);
+        const channelIds = item.traffic_channels.map(ch => ch.channel_id);
+        sourcesMap.set(item.buyer_id, channelIds);
       });
-
       setBuyerSources(sourcesMap);
+
+      // Сохраняем полные данные о байерах
+      setBuyersWithChannels(sourcesData);
+
+      // Строим маппинг source_id -> [{buyerId, buyerName, buyerAvatar, accessGranted, accessLimited}]
+      const periodsMap = {};
+      sourcesData.forEach(buyer => {
+        (buyer.traffic_channels || []).forEach(channel => {
+          const sourceId = channel.channel_id;
+          if (!sourceId) return;
+
+          if (!periodsMap[sourceId]) {
+            periodsMap[sourceId] = [];
+          }
+
+          periodsMap[sourceId].push({
+            buyerId: buyer.buyer_id,
+            buyerName: buyer.buyer_name,
+            buyerAvatar: buyer.buyer_avatar,
+            accessGranted: channel.access_granted || '2020-01-01',
+            accessLimited: channel.access_limited || null
+          });
+        });
+      });
+      setSourceIdToPeriods(periodsMap);
+
       console.log(`✅ Загружено источников для ${sourcesData.length} байеров`);
+      console.log(`📋 Построен маппинг для ${Object.keys(periodsMap).length} source_id`);
     } catch (error) {
       console.error('❌ Ошибка загрузки источников байеров:', error);
     } finally {
