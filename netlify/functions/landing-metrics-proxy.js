@@ -6,7 +6,7 @@ const CONFIG = {
   FETCH_TIMEOUT_MS: 30000,
   MAX_RETRIES: 2,
   RETRY_DELAY_MS: 1000,
-  DEBUG: false
+  DEBUG: false  // Включить для детального логирования
 };
 
 // Экранирование строк для SQL
@@ -35,7 +35,7 @@ function transformArrayResponse(data) {
   });
 }
 
-// Fetch с повторами (для SQL запросов)
+// Fetch с повторами (для SQL запросов к ads_collection)
 async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -86,10 +86,9 @@ async function fetchWithRetry(sql, retries = CONFIG.MAX_RETRIES) {
   }
 }
 
-// ==================== НОВЫЙ МЕТОД (API) ====================
 // Получение уникальных кликов через API getOneClickForAd
-async function getAdvIdsFromConversionsAPI(uuids, dateFrom = null, dateTo = null) {
-  console.log(`🔍 [API] getOneClickForAd: запрос для ${uuids.length} UUID`);
+async function getAdvIdsFromConversions(uuids, dateFrom = null, dateTo = null) {
+  console.log(`🔍 getOneClickForAd: запрос для ${uuids.length} UUID`);
 
   try {
     const endDate = dateTo || new Date().toISOString().split('T')[0];
@@ -127,10 +126,11 @@ async function getAdvIdsFromConversionsAPI(uuids, dateFrom = null, dateTo = null
     const allClicks = await response.json();
 
     if (!Array.isArray(allClicks)) {
-      console.error('❌ [API] вернул не массив');
+      console.error('❌ API вернул не массив');
       return [];
     }
 
+    // Фильтруем только нужные UUID и маппим поля
     const uuidsSet = new Set(uuids);
     const filteredClicks = allClicks
       .filter(click => click.sub16 && uuidsSet.has(click.sub16))
@@ -143,50 +143,11 @@ async function getAdvIdsFromConversionsAPI(uuids, dateFrom = null, dateTo = null
         date_of_click: click.click_time
       }));
 
-    console.log(`✅ [API] getOneClickForAd: ${allClicks.length} всего → ${filteredClicks.length} для наших UUID`);
+    console.log(`✅ getOneClickForAd: ${allClicks.length} всего → ${filteredClicks.length} для наших UUID`);
 
     return filteredClicks;
   } catch (error) {
-    console.error('❌ [API] getOneClickForAd ошибка:', error.message);
-    return [];
-  }
-}
-
-// ==================== СТАРЫЙ МЕТОД (SQL) ====================
-// Получение данных через SQL к conversions_collection
-async function getAdvIdsFromConversionsSQL(uuids) {
-  console.log(`🔍 [SQL] conversions_collection: запрос для ${uuids.length} UUID`);
-
-  const uuidConditions = uuids.map(uuid => `'${escapeString(uuid)}'`).join(',');
-
-  const sql = `
-    SELECT
-      sub16 as uuid,
-      source,
-      CASE
-        WHEN source = 'facebook' THEN sub1
-        WHEN source = 'google' THEN sub5
-        WHEN source = 'tiktok' THEN sub4
-        ELSE NULL
-      END as adv_id,
-      date_of_click
-    FROM conversions_collection
-    WHERE sub16 IN (${uuidConditions})
-      AND source IN ('facebook', 'google', 'tiktok')
-      AND date_of_click IS NOT NULL
-      AND (
-        (source = 'facebook' AND sub1 IS NOT NULL AND sub1 != '') OR
-        (source = 'google' AND sub5 IS NOT NULL AND sub5 != '') OR
-        (source = 'tiktok' AND sub4 IS NOT NULL AND sub4 != '')
-      )
-  `;
-
-  try {
-    const results = await fetchWithRetry(sql);
-    console.log(`✅ [SQL] conversions_collection: ${results.length} записей`);
-    return results;
-  } catch (error) {
-    console.error('❌ [SQL] conversions_collection ошибка:', error.message);
+    console.error('❌ getOneClickForAd ошибка:', error.message);
     return [];
   }
 }
@@ -259,7 +220,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { landing_uuids, date_from, date_to, method = 'api' } = JSON.parse(event.body);
+    const { landing_uuids, date_from, date_to } = JSON.parse(event.body);
 
     if (!landing_uuids || !Array.isArray(landing_uuids) || landing_uuids.length === 0) {
       return {
@@ -269,21 +230,16 @@ exports.handler = async (event) => {
       };
     }
 
-    const useAPI = method === 'api';
-    const startTime = Date.now();
-    console.log(`🚀 Запрос метрик для ${landing_uuids.length} лендингов [метод: ${useAPI ? 'API' : 'SQL'}]`);
+    console.log(`🚀 Запрос метрик для ${landing_uuids.length} лендингов`);
 
-    // Шаг 1: Получаем клики (API или SQL в зависимости от параметра method)
-    const conversions = useAPI
-      ? await getAdvIdsFromConversionsAPI(landing_uuids, date_from, date_to)
-      : await getAdvIdsFromConversionsSQL(landing_uuids);
+    // Шаг 1: Получаем уникальные клики через getOneClickForAd API
+    const conversions = await getAdvIdsFromConversions(landing_uuids, date_from, date_to);
 
     if (conversions.length === 0) {
-      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ results: [], method: useAPI ? 'api' : 'sql', duration })
+        body: JSON.stringify({ results: [] })
       };
     }
 
@@ -385,13 +341,12 @@ exports.handler = async (event) => {
       });
     });
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`✅ Готово: ${results.length} результатов для ${landing_uuids.length} лендингов [${duration}s]`);
+    console.log(`✅ Готово: ${results.length} результатов для ${landing_uuids.length} лендингов`);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ results, method: useAPI ? 'api' : 'sql', duration })
+      body: JSON.stringify({ results })
     };
 
   } catch (error) {
