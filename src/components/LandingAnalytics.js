@@ -298,6 +298,12 @@ function LandingTeamLead({ user }) {
   // Состояния для модального окна настроек
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState('templates'); // 'templates', 'tags' или 'sources'
+
+  // Тестовые кнопки для сравнения методов (API vs SQL)
+  const [testApiDuration, setTestApiDuration] = useState(null);
+  const [testSqlDuration, setTestSqlDuration] = useState(null);
+  const [testApiLoading, setTestApiLoading] = useState(false);
+  const [testSqlLoading, setTestSqlLoading] = useState(false);
   
   // Состояния для источников байеров
   const [buyerSources, setBuyerSources] = useState(new Map());
@@ -2608,6 +2614,70 @@ data-rt-sub16="${selectedLandingUuid}"
     }
   };
 
+  // ==================== ТЕСТОВЫЕ ФУНКЦИИ (удалить после тестирования) ====================
+  const handleTestApi = async () => {
+    console.log('🧪 [TEST] Запуск теста API метода...');
+    setTestApiLoading(true);
+    setTestApiDuration(null);
+
+    try {
+      const landingUuids = filteredLandings.map(l => l.id);
+      const startTime = Date.now();
+
+      const response = await fetch('/.netlify/functions/landing-metrics-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          landing_uuids: landingUuids,
+          method: 'api'
+        })
+      });
+
+      const data = await response.json();
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log(`✅ [TEST API] Готово за ${duration}s, результатов: ${data.results?.length || 0}`);
+      setTestApiDuration(duration);
+    } catch (error) {
+      console.error('❌ [TEST API] Ошибка:', error);
+      setTestApiDuration('error');
+    } finally {
+      setTestApiLoading(false);
+    }
+  };
+
+  const handleTestSql = async () => {
+    console.log('🧪 [TEST] Запуск теста SQL метода...');
+    setTestSqlLoading(true);
+    setTestSqlDuration(null);
+
+    try {
+      const landingUuids = filteredLandings.map(l => l.id);
+      const startTime = Date.now();
+
+      const response = await fetch('/.netlify/functions/landing-metrics-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          landing_uuids: landingUuids,
+          method: 'sql'
+        })
+      });
+
+      const data = await response.json();
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log(`✅ [TEST SQL] Готово за ${duration}s, результатов: ${data.results?.length || 0}`);
+      setTestSqlDuration(duration);
+    } catch (error) {
+      console.error('❌ [TEST SQL] Ошибка:', error);
+      setTestSqlDuration('error');
+    } finally {
+      setTestSqlLoading(false);
+    }
+  };
+  // ==================== КОНЕЦ ТЕСТОВЫХ ФУНКЦИЙ ====================
+
   const handleRefreshAll = async () => {
     console.log(`🔄 ЗАПУСК ОБНОВЛЕНИЯ метрик лендингов (период: ${metricsPeriod})`);
     console.log(`📋 Лендингов для загрузки: ${filteredLandings.length}`);
@@ -3696,6 +3766,54 @@ data-rt-sub16="${selectedLandingUuid}"
               <Settings className="h-4 w-4 mr-2" />
               Настройки
             </button>
+
+            {/* ==================== ТЕСТОВЫЕ КНОПКИ (удалить после тестирования) ==================== */}
+            <div className="flex items-center space-x-2 ml-4 pl-4 border-l border-gray-300">
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleTestApi}
+                  disabled={testApiLoading || testSqlLoading}
+                  className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md shadow-sm transition-colors duration-200 ${
+                    testApiLoading
+                      ? 'bg-blue-100 text-blue-600 cursor-wait'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  } disabled:opacity-50`}
+                >
+                  {testApiLoading ? (
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  ) : null}
+                  func
+                </button>
+                {testApiDuration && (
+                  <span className={`text-xs mt-1 font-mono ${testApiDuration === 'error' ? 'text-red-500' : 'text-green-600'}`}>
+                    {testApiDuration === 'error' ? 'err' : `${testApiDuration}s`}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleTestSql}
+                  disabled={testApiLoading || testSqlLoading}
+                  className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md shadow-sm transition-colors duration-200 ${
+                    testSqlLoading
+                      ? 'bg-orange-100 text-orange-600 cursor-wait'
+                      : 'bg-orange-500 text-white hover:bg-orange-600'
+                  } disabled:opacity-50`}
+                >
+                  {testSqlLoading ? (
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  ) : null}
+                  sql
+                </button>
+                {testSqlDuration && (
+                  <span className={`text-xs mt-1 font-mono ${testSqlDuration === 'error' ? 'text-red-500' : 'text-green-600'}`}>
+                    {testSqlDuration === 'error' ? 'err' : `${testSqlDuration}s`}
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* ==================== КОНЕЦ ТЕСТОВЫХ КНОПОК ==================== */}
 
           </div>
         </div>
