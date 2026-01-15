@@ -1,7 +1,7 @@
 // src/components/ActionReports.js
 // Вкладка "Отчеты по действию" для Тим лида и Байера
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   Plus,
@@ -13,10 +13,22 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
-  Star
+  Star,
+  RefreshCw
 } from 'lucide-react';
 import { metricsAnalyticsService } from '../supabaseClient';
-import { offerStatusService } from '../services/OffersSupabase';
+import { offerStatusService, articleOfferMappingService } from '../services/OffersSupabase';
+import { effectivityZonesService } from '../services/effectivityZonesService';
+import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
+import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
+import { updateLeadsFromSql } from '../scripts/offers/Sql_leads';
+
+// Компонент skeleton для ячейки таблицы
+function SkeletonCell({ width = 'w-10' }) {
+  return (
+    <div className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto`} />
+  );
+}
 
 // Опции для действий
 const ACTION_OPTIONS = [
@@ -251,6 +263,18 @@ function ActionReports({ user }) {
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [validatingArticles, setValidatingArticles] = useState(false);
 
+  // Маппинг артикулов -> offer_id для API запросов
+  const [articleOfferMap, setArticleOfferMap] = useState({});
+
+  // Состояния загрузки для каждой группы колонок
+  const [loadingCplLeads, setLoadingCplLeads] = useState(false); // CPL, Лиды, Рейтинг
+  const [loadingDays, setLoadingDays] = useState(false); // Дни
+  const [loadingStock, setLoadingStock] = useState(false); // Ост., Приход
+  const [loadingZones, setLoadingZones] = useState(false); // ROI, Апрув, Выкуп
+
+  // Обновленные данные для отчетов (метрики после обновления)
+  const [updatedMetricsMap, setUpdatedMetricsMap] = useState({}); // { article: updatedMetric }
+
   // Ошибки валидации
   const [invalidArticles, setInvalidArticles] = useState([]);
   const [validationError, setValidationError] = useState('');
@@ -268,10 +292,11 @@ function ActionReports({ user }) {
     try {
       setLoadingMetrics(true);
 
-      // Загружаем метрики и статусы параллельно
-      const [metricsResult, statusesResult] = await Promise.all([
+      // Загружаем метрики, статусы и маппинги параллельно
+      const [metricsResult, statusesResult, mappingsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetrics(),
-        offerStatusService.getAllStatuses()
+        offerStatusService.getAllStatuses(),
+        articleOfferMappingService.getAllMappings()
       ]);
 
       setAllMetrics(metricsResult.metrics || []);
@@ -282,6 +307,10 @@ function ActionReports({ user }) {
         statusesMap[status.offer_id] = status;
       });
       setAllStatuses(statusesMap);
+
+      // Сохраняем маппинг артикулов -> offer_id
+      setArticleOfferMap(mappingsResult || {});
+      console.log(`📊 Загружено ${Object.keys(mappingsResult || {}).length} маппингов артикулов`);
 
     } catch (error) {
       console.error('Ошибка загрузки данных офферов:', error);
@@ -597,6 +626,140 @@ function ActionReports({ user }) {
     };
   };
 
+  // Получение актуальных метрик для отчета (из updatedMetricsMap или из report.metric)
+  const getReportMetric = useCallback((report) => {
+    // Если есть обновленные данные - используем их
+    if (updatedMetricsMap[report.article]) {
+      return { ...report.metric, ...updatedMetricsMap[report.article] };
+    }
+    return report.metric || {};
+  }, [updatedMetricsMap]);
+
+  // Проверка, идет ли какое-либо обновление
+  const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
+
+  // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
+  const updateVisibleReportsMetrics = useCallback(async () => {
+    // Получаем уникальные артикулы из сохраненных отчетов
+    const uniqueArticles = [...new Set(savedReports.map(r => r.article))];
+
+    if (uniqueArticles.length === 0) {
+      console.log('⚠️ Нет артикулов для обновления');
+      return;
+    }
+
+    console.log(`🔄 Обновляем метрики для ${uniqueArticles.length} артикулов...`);
+
+    // Создаем массив метрик только для видимых артикулов
+    const visibleMetrics = uniqueArticles.map(article => {
+      // Ищем базовую метрику из savedReports
+      const report = savedReports.find(r => r.article === article);
+      return {
+        id: report?.metric?.id,
+        article: article,
+        offer: report?.metric?.offer,
+        stock_quantity: report?.metric?.stock_quantity || report?.metric?.stock,
+        ...report?.metric
+      };
+    }).filter(m => m.article);
+
+    // Создаем карту артикулов -> offer_id только для видимых
+    const visibleArticleOfferMap = {};
+    uniqueArticles.forEach(article => {
+      if (articleOfferMap[article]) {
+        visibleArticleOfferMap[article] = articleOfferMap[article];
+      }
+    });
+
+    console.log(`📊 Доступно ${Object.keys(visibleArticleOfferMap).length} маппингов для видимых артикулов`);
+
+    try {
+      // ШАГ 1: Загружаем остатки (Ост., Приход)
+      setLoadingStock(true);
+      let updatedMetrics = [...visibleMetrics];
+
+      try {
+        const stocksResult = await updateStocksFromYml(updatedMetrics);
+        updatedMetrics = stocksResult.metrics;
+        console.log('✅ Остатки обновлены');
+      } catch (error) {
+        console.error('❌ Ошибка загрузки остатков:', error);
+      } finally {
+        setLoadingStock(false);
+      }
+
+      // ШАГ 2: Рассчитываем дни продаж (Дни)
+      setLoadingDays(true);
+      let rawData = null;
+
+      try {
+        const daysResult = await calculateRemainingDays(updatedMetrics, visibleArticleOfferMap);
+        updatedMetrics = daysResult.metrics;
+        rawData = daysResult.rawData; // Сохраняем для следующего шага
+        console.log('✅ Дни продаж рассчитаны');
+      } catch (error) {
+        console.error('❌ Ошибка расчета дней:', error);
+      } finally {
+        setLoadingDays(false);
+      }
+
+      // ШАГ 3: Обновляем CPL, Лиды, Рейтинг
+      setLoadingCplLeads(true);
+
+      try {
+        const leadsResult = await updateLeadsFromSql(updatedMetrics, visibleArticleOfferMap, rawData);
+        updatedMetrics = leadsResult.metrics;
+        console.log('✅ CPL, Лиды, Рейтинг обновлены');
+      } catch (error) {
+        console.error('❌ Ошибка загрузки CPL/Лидов:', error);
+      } finally {
+        setLoadingCplLeads(false);
+      }
+
+      // ШАГ 4: Загружаем зоны эффективности (ROI, Апрув, Выкуп)
+      setLoadingZones(true);
+
+      try {
+        const zonesResult = await effectivityZonesService.enrichMetricsWithZones(updatedMetrics);
+        updatedMetrics = zonesResult;
+        console.log('✅ Зоны эффективности обновлены');
+      } catch (error) {
+        console.error('❌ Ошибка загрузки зон:', error);
+      } finally {
+        setLoadingZones(false);
+      }
+
+      // Сохраняем обновленные метрики в map по артикулу
+      const newMetricsMap = {};
+      updatedMetrics.forEach(metric => {
+        if (metric.article) {
+          newMetricsMap[metric.article] = metric;
+        }
+      });
+
+      setUpdatedMetricsMap(prev => ({ ...prev, ...newMetricsMap }));
+      console.log(`✅ Обновлено ${Object.keys(newMetricsMap).length} метрик`);
+
+    } catch (error) {
+      console.error('❌ Ошибка обновления метрик:', error);
+    }
+  }, [savedReports, articleOfferMap]);
+
+  // Автообновление метрик при добавлении новых отчетов
+  const prevReportsCountRef = useRef(0);
+  useEffect(() => {
+    const currentCount = savedReports.length;
+    const prevCount = prevReportsCountRef.current;
+
+    // Если добавились новые отчеты - запускаем обновление
+    if (currentCount > prevCount && prevCount > 0) {
+      console.log(`📈 Добавлено ${currentCount - prevCount} новых отчетов, запускаем обновление...`);
+      updateVisibleReportsMetrics();
+    }
+
+    prevReportsCountRef.current = currentCount;
+  }, [savedReports.length, updateVisibleReportsMetrics]);
+
   return (
     <div className="h-full flex flex-col bg-slate-50">
       {/* Header */}
@@ -608,6 +771,16 @@ function ActionReports({ user }) {
             </h1>
           </div>
           <div className="flex items-center space-x-3">
+            {/* Кнопка обновления метрик */}
+            <button
+              onClick={updateVisibleReportsMetrics}
+              disabled={isAnyLoading || savedReports.length === 0}
+              className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isAnyLoading ? 'animate-spin' : ''}`} />
+              Обновить метрики
+            </button>
+
             <button
               onClick={() => setShowCreateModal(true)}
               disabled={loadingMetrics}
@@ -798,7 +971,7 @@ function ActionReports({ user }) {
           <div className="px-4 py-2">
             {filteredReports.map((report, index) => {
               const statusDisplay = getStatusDisplay(report);
-              const metric = report.metric || {};
+              const metric = getReportMetric(report);
 
               // Определение цвета рейтинга
               const getRatingColor = (rating) => {
@@ -832,38 +1005,94 @@ function ActionReports({ user }) {
                       {statusDisplay.label}
                     </span>
                   </div>
+
+                  {/* CPL - loading при loadingCplLeads */}
                   <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
-                    {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
+                    {loadingCplLeads ? (
+                      <SkeletonCell width="w-10" />
+                    ) : (
+                      metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'
+                    )}
                   </div>
+
+                  {/* Лиды - loading при loadingCplLeads */}
                   <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
-                    {metric.leads_data?.[4]?.leads || '—'}
+                    {loadingCplLeads ? (
+                      <SkeletonCell width="w-8" />
+                    ) : (
+                      metric.leads_data?.[4]?.leads || '—'
+                    )}
                   </div>
+
+                  {/* Рейтинг - loading при loadingCplLeads */}
                   <div className="w-[4%] min-w-[36px] text-center">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.rating)}`}>
-                      {metric.rating || '—'}
-                    </span>
+                    {loadingCplLeads ? (
+                      <SkeletonCell width="w-6" />
+                    ) : (
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.rating)}`}>
+                        {metric.rating || '—'}
+                      </span>
+                    )}
                   </div>
+
+                  {/* ROI - loading при loadingZones */}
                   <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
-                    {metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'}
+                    {loadingZones ? (
+                      <SkeletonCell width="w-10" />
+                    ) : (
+                      metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'
+                    )}
                   </div>
+
                   <div className="w-[6%] min-w-[50px] text-center font-mono text-green-600 font-medium">
                     {metric.profit != null ? `$${metric.profit}` : '—'}
                   </div>
+
+                  {/* Дни - loading при loadingDays */}
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
-                    {metric.days_remaining ?? '—'}
+                    {loadingDays ? (
+                      <SkeletonCell width="w-8" />
+                    ) : (
+                      metric.days_remaining ?? '—'
+                    )}
                   </div>
+
+                  {/* Ост. - loading при loadingStock */}
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
-                    {metric.stock ?? '—'}
+                    {loadingStock ? (
+                      <SkeletonCell width="w-8" />
+                    ) : (
+                      metric.stock ?? '—'
+                    )}
                   </div>
+
+                  {/* Приход - loading при loadingStock */}
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                    {metric.days_to_arrival ?? '—'}
+                    {loadingStock ? (
+                      <SkeletonCell width="w-8" />
+                    ) : (
+                      metric.days_to_arrival ?? '—'
+                    )}
                   </div>
+
+                  {/* Апрув - loading при loadingZones */}
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                    {metric.approve_percent != null ? `${metric.approve_percent}%` : '—'}
+                    {loadingZones ? (
+                      <SkeletonCell width="w-10" />
+                    ) : (
+                      metric.approve_percent != null ? `${metric.approve_percent}%` : '—'
+                    )}
                   </div>
+
+                  {/* Выкуп - loading при loadingZones */}
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                    {metric.sold_percent != null ? `${metric.sold_percent}%` : '—'}
+                    {loadingZones ? (
+                      <SkeletonCell width="w-10" />
+                    ) : (
+                      metric.sold_percent != null ? `${metric.sold_percent}%` : '—'
+                    )}
                   </div>
+
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.season || '—'}
                   </div>
