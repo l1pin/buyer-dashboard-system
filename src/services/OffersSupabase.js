@@ -1199,7 +1199,6 @@ export const actionReportsService = {
    * @param {string} reportData.trello_link - Ссылка на Trello
    * @param {string} reportData.created_by - ID создателя
    * @param {string} reportData.created_by_name - Имя создателя
-   * @param {Object} reportData.metric_snapshot - Снимок метрик на момент создания
    * @returns {Promise<Object>} Созданный отчет
    */
   async createReport(reportData) {
@@ -1210,13 +1209,12 @@ export const actionReportsService = {
         .from('action_reports')
         .insert({
           article: reportData.article,
-          action_type: reportData.action_type,
-          sub_action: reportData.sub_action || null,
+          action_type: reportData.action_type,  // Русский лейбл
+          sub_action: reportData.sub_action || null,  // Русский лейбл
           custom_text: reportData.custom_text || null,
           trello_link: reportData.trello_link || null,
           created_by: reportData.created_by,
           created_by_name: reportData.created_by_name,
-          metric_snapshot: reportData.metric_snapshot || null,
           created_at: new Date().toISOString()
         })
         .select()
@@ -1244,13 +1242,12 @@ export const actionReportsService = {
 
       const reportsToInsert = reports.map(r => ({
         article: r.article,
-        action_type: r.action_type,
-        sub_action: r.sub_action || null,
+        action_type: r.action_type,  // Русский лейбл
+        sub_action: r.sub_action || null,  // Русский лейбл
         custom_text: r.custom_text || null,
         trello_link: r.trello_link || null,
         created_by: r.created_by,
         created_by_name: r.created_by_name,
-        metric_snapshot: r.metric_snapshot || null,
         created_at: new Date().toISOString()
       }));
 
