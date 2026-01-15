@@ -75,7 +75,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     },
     {
       id: 'action-reports',
-      label: 'Отчеты по действию',
+      label: user?.role === 'teamlead' ? 'Отчеты по байерам' : 'Отчет по действиям',
       icon: FileText,
       show: canShowSection('action-reports', user?.role === 'teamlead' || user?.role === 'buyer')
     },

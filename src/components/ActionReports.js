@@ -1144,6 +1144,10 @@ function ActionReports({ user }) {
     prevReportsCountRef.current = currentCount;
   }, [savedReports.length, updateVisibleReportsMetrics]);
 
+  // Определяем название панели в зависимости от роли
+  const isTeamlead = user?.role === 'teamlead';
+  const panelTitle = isTeamlead ? 'Отчеты по байерам' : 'Отчет по действиям';
+
   return (
     <div className="h-full flex flex-col bg-slate-50">
       {/* Header */}
@@ -1151,7 +1155,7 @@ function ActionReports({ user }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
-              Отчеты по действию
+              {panelTitle}
             </h1>
           </div>
           <div className="flex items-center space-x-3">
@@ -1226,9 +1230,9 @@ function ActionReports({ user }) {
                   <span className="text-[10px] leading-none mt-0.5">{day.month}</span>
                 </div>
 
-                {/* Количество задач справа */}
+                {/* Количество товаров справа */}
                 <div className={`flex items-center gap-1.5 ${countClass}`}>
-                  <span className="text-sm font-medium">Задач</span>
+                  <span className="text-sm font-medium">Товаров</span>
                   <span className="text-lg font-bold">{day.tasksCount}</span>
                 </div>
               </div>
