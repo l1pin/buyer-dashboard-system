@@ -1181,30 +1181,11 @@ function ActionReports({ user }) {
         </div>
       </div>
 
-      {/* Календарь задач */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-slate-700">Календарь задач</h3>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handleCalendarScroll('left')}
-              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 text-slate-500" />
-            </button>
-            <button
-              onClick={() => handleCalendarScroll('right')}
-              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="h-4 w-4 text-slate-500" />
-            </button>
-          </div>
-        </div>
-
-        {/* Горизонтальный календарь */}
+      {/* Календарь задач - горизонтальные карточки */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3">
         <div
           ref={calendarRef}
-          className="flex space-x-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
+          className="flex space-x-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
           style={{ scrollbarWidth: 'thin' }}
         >
           {calendarDays.map((day, index) => {
@@ -1213,61 +1194,43 @@ function ActionReports({ user }) {
 
             // Определяем стили
             let containerClass = '';
-            let weekdayClass = '';
-            let dayClass = '';
-            let monthClass = '';
-            let badgeClass = '';
+            let dateClass = '';
+            let countClass = '';
 
             if (isSelected) {
-              // Выбранный день - синий градиент
-              containerClass = 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25 scale-105';
-              weekdayClass = 'text-blue-100';
-              dayClass = 'text-white';
-              monthClass = 'text-blue-100';
-              badgeClass = 'bg-white/25 text-white';
+              // Выбранный день - синий
+              containerClass = 'bg-blue-500 border-blue-500 shadow-md shadow-blue-200';
+              dateClass = 'bg-blue-400 text-white';
+              countClass = 'text-white';
             } else if (isToday) {
-              // Сегодня - белый фон с красивой обводкой
-              containerClass = 'bg-white border-2 border-blue-400 shadow-md shadow-blue-100 ring-2 ring-blue-100';
-              weekdayClass = 'text-blue-500 font-semibold';
-              dayClass = 'text-blue-600';
-              monthClass = 'text-blue-400';
-              badgeClass = 'bg-blue-100 text-blue-700';
-            } else if (day.isWeekend) {
-              // Выходные
-              containerClass = 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100';
-              weekdayClass = 'text-slate-400';
-              dayClass = 'text-slate-600';
-              monthClass = 'text-slate-400';
-              badgeClass = 'bg-slate-200 text-slate-600';
+              // Сегодня - обводка
+              containerClass = 'bg-white border-2 border-blue-400 shadow-sm';
+              dateClass = 'bg-slate-100 text-blue-600';
+              countClass = 'text-slate-600';
             } else {
               // Обычные дни
-              containerClass = 'bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-50';
-              weekdayClass = 'text-slate-400';
-              dayClass = 'text-slate-700';
-              monthClass = 'text-slate-400';
-              badgeClass = 'bg-blue-50 text-blue-600';
+              containerClass = 'bg-white border border-slate-200 hover:border-blue-300 hover:shadow-sm';
+              dateClass = 'bg-slate-100 text-slate-500';
+              countClass = 'text-slate-600';
             }
 
             return (
               <div
                 key={index}
                 onClick={() => handleDayClick(day)}
-                className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${containerClass}`}
+                className={`flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 ${containerClass}`}
               >
-                <div className={`text-[10px] uppercase font-medium ${weekdayClass}`}>
-                  {isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
+                {/* Дата слева */}
+                <div className={`flex flex-col items-center justify-center w-10 h-10 rounded-md text-xs font-medium ${dateClass}`}>
+                  <span className="text-sm font-bold leading-none">{day.day}</span>
+                  <span className="text-[10px] leading-none mt-0.5">{day.month}</span>
                 </div>
-                <div className={`text-xl font-bold ${dayClass}`}>
-                  {day.day}
+
+                {/* Количество задач справа */}
+                <div className={`flex items-center gap-1.5 ${countClass}`}>
+                  <span className="text-sm font-medium">Задач</span>
+                  <span className="text-lg font-bold">{day.tasksCount}</span>
                 </div>
-                <div className={`text-[10px] ${monthClass}`}>
-                  {day.month}
-                </div>
-                {day.tasksCount > 0 && (
-                  <div className={`mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badgeClass}`}>
-                    {day.tasksCount}
-                  </div>
-                )}
               </div>
             );
           })}
