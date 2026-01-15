@@ -751,9 +751,14 @@ function ActionReports({ user }) {
     const currentCount = savedReports.length;
     const prevCount = prevReportsCountRef.current;
 
-    // Если добавились новые отчеты - запускаем обновление
-    if (currentCount > prevCount && prevCount > 0) {
+    // Если добавились новые отчеты - запускаем обновление сразу
+    if (currentCount > prevCount) {
       console.log(`📈 Добавлено ${currentCount - prevCount} новых отчетов, запускаем обновление...`);
+      // Сразу ставим loading для всех колонок
+      setLoadingStock(true);
+      setLoadingDays(true);
+      setLoadingCplLeads(true);
+      setLoadingZones(true);
       updateVisibleReportsMetrics();
     }
 
@@ -926,23 +931,24 @@ function ActionReports({ user }) {
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
           <div className="w-[3%] min-w-[30px]">№</div>
-          <div className="w-[7%] min-w-[65px]">Артикул</div>
-          <div className="w-[15%] min-w-[130px] text-left">Название</div>
-          <div className="w-[8%] min-w-[70px]">Статус</div>
-          <div className="w-[6%] min-w-[50px]">CPL</div>
-          <div className="w-[5%] min-w-[45px]">Лиды</div>
+          <div className="w-[6%] min-w-[60px]">Артикул</div>
+          <div className="w-[13%] min-w-[110px] text-left">Название</div>
+          <div className="w-[7%] min-w-[65px]">Статус</div>
+          <div className="w-[5%] min-w-[45px]">CPL</div>
+          <div className="w-[4%] min-w-[40px]">Лиды</div>
           <div className="w-[4%] min-w-[36px]" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
           </div>
-          <div className="w-[5%] min-w-[45px]">ROI</div>
-          <div className="w-[6%] min-w-[50px]">Прибыль</div>
-          <div className="w-[5%] min-w-[40px]">Дни</div>
-          <div className="w-[5%] min-w-[40px]">Ост.</div>
-          <div className="w-[5%] min-w-[45px]">Приход</div>
-          <div className="w-[5%] min-w-[45px]">Апрув</div>
-          <div className="w-[5%] min-w-[45px]">Выкуп</div>
-          <div className="w-[5%] min-w-[45px]">Сезон</div>
-          <div className="w-[5%] min-w-[45px]">Цена</div>
+          <div className="w-[5%] min-w-[40px]">ROI</div>
+          <div className="w-[6%] min-w-[55px]">CPL зона</div>
+          <div className="w-[5%] min-w-[45px]">Прибыль</div>
+          <div className="w-[4%] min-w-[35px]">Дни</div>
+          <div className="w-[4%] min-w-[35px]">Ост.</div>
+          <div className="w-[5%] min-w-[40px]">Приход</div>
+          <div className="w-[5%] min-w-[40px]">Апрув</div>
+          <div className="w-[5%] min-w-[40px]">Выкуп</div>
+          <div className="w-[5%] min-w-[40px]">Сезон</div>
+          <div className="w-[5%] min-w-[40px]">Цена</div>
           <div className="w-[4%] min-w-[35px]"></div>
         </div>
       </div>
@@ -984,6 +990,27 @@ function ActionReports({ user }) {
                 }
               };
 
+              // Функция для определения цвета CPL зоны
+              const getCplZoneColor = (zone) => {
+                switch (zone) {
+                  case 'green': return 'bg-green-100 text-green-700';
+                  case 'yellow': return 'bg-yellow-100 text-yellow-700';
+                  case 'pink': return 'bg-pink-100 text-pink-700';
+                  case 'red': return 'bg-red-100 text-red-700';
+                  default: return 'bg-gray-100 text-gray-500';
+                }
+              };
+
+              const getCplZoneLabel = (zone) => {
+                switch (zone) {
+                  case 'green': return 'Зелёная';
+                  case 'yellow': return 'Жёлтая';
+                  case 'pink': return 'Розовая';
+                  case 'red': return 'Красная';
+                  default: return '—';
+                }
+              };
+
               return (
                 <div
                   key={report.id}
@@ -992,22 +1019,22 @@ function ActionReports({ user }) {
                   <div className="w-[3%] min-w-[30px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
-                  <div className="w-[7%] min-w-[65px] text-center">
+                  <div className="w-[6%] min-w-[60px] text-center">
                     <span className="font-mono text-xs text-slate-800">
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[15%] min-w-[130px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className="w-[13%] min-w-[110px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
                     {metric.offer || '—'}
                   </div>
-                  <div className="w-[8%] min-w-[70px] text-center">
+                  <div className="w-[7%] min-w-[65px] text-center">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
                       {statusDisplay.label}
                     </span>
                   </div>
 
                   {/* CPL - loading при loadingCplLeads */}
-                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1016,7 +1043,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Лиды - loading при loadingCplLeads */}
-                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  <div className="w-[4%] min-w-[40px] text-center font-mono text-slate-700">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-8" />
                     ) : (
@@ -1036,7 +1063,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* ROI - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1044,12 +1071,24 @@ function ActionReports({ user }) {
                     )}
                   </div>
 
-                  <div className="w-[6%] min-w-[50px] text-center font-mono text-green-600 font-medium">
+                  {/* CPL зона - loading при loadingZones */}
+                  <div className="w-[6%] min-w-[55px] text-center">
+                    {loadingZones ? (
+                      <SkeletonCell width="w-12" />
+                    ) : (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getCplZoneColor(metric.cpl_zone)}`}>
+                        {getCplZoneLabel(metric.cpl_zone)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Прибыль */}
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-green-600 font-medium">
                     {metric.profit != null ? `$${metric.profit}` : '—'}
                   </div>
 
                   {/* Дни - loading при loadingDays */}
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[4%] min-w-[35px] text-center text-slate-700">
                     {loadingDays ? (
                       <SkeletonCell width="w-8" />
                     ) : (
@@ -1058,7 +1097,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Ост. - loading при loadingStock */}
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[4%] min-w-[35px] text-center text-slate-700">
                     {loadingStock ? (
                       <SkeletonCell width="w-8" />
                     ) : (
@@ -1067,7 +1106,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Приход - loading при loadingStock */}
-                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {loadingStock ? (
                       <SkeletonCell width="w-8" />
                     ) : (
@@ -1076,7 +1115,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Апрув - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1085,7 +1124,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Выкуп - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1093,10 +1132,10 @@ function ActionReports({ user }) {
                     )}
                   </div>
 
-                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {metric.season || '—'}
                   </div>
-                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
                     {metric.price != null ? `$${metric.price}` : '—'}
                   </div>
                   <div className="w-[4%] min-w-[35px] text-center">
