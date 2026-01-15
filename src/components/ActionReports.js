@@ -990,11 +990,26 @@ function ActionReports({ user }) {
                 }
               };
 
+              // Функция для вычисления CPL зоны на основе порогов
+              const calculateCplZone = () => {
+                const cpl = metric.leads_data?.[4]?.cpl;
+                if (cpl == null || cpl <= 0) return null;
+
+                // Зоны: green < gold < pink < red
+                if (metric.green_zone_price != null && cpl <= metric.green_zone_price) return 'green';
+                if (metric.gold_zone_price != null && cpl <= metric.gold_zone_price) return 'gold';
+                if (metric.pink_zone_price != null && cpl <= metric.pink_zone_price) return 'pink';
+                if (metric.red_zone_price != null) return 'red';
+                return null;
+              };
+
+              const cplZone = calculateCplZone();
+
               // Функция для определения цвета CPL зоны
               const getCplZoneColor = (zone) => {
                 switch (zone) {
                   case 'green': return 'bg-green-100 text-green-700';
-                  case 'yellow': return 'bg-yellow-100 text-yellow-700';
+                  case 'gold': return 'bg-yellow-100 text-yellow-700';
                   case 'pink': return 'bg-pink-100 text-pink-700';
                   case 'red': return 'bg-red-100 text-red-700';
                   default: return 'bg-gray-100 text-gray-500';
@@ -1004,7 +1019,7 @@ function ActionReports({ user }) {
               const getCplZoneLabel = (zone) => {
                 switch (zone) {
                   case 'green': return 'Зелёная';
-                  case 'yellow': return 'Жёлтая';
+                  case 'gold': return 'Жёлтая';
                   case 'pink': return 'Розовая';
                   case 'red': return 'Красная';
                   default: return '—';
@@ -1056,8 +1071,8 @@ function ActionReports({ user }) {
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-6" />
                     ) : (
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.rating)}`}>
-                        {metric.rating || '—'}
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
+                        {metric.lead_rating || '—'}
                       </span>
                     )}
                   </div>
@@ -1076,8 +1091,8 @@ function ActionReports({ user }) {
                     {loadingZones ? (
                       <SkeletonCell width="w-12" />
                     ) : (
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getCplZoneColor(metric.cpl_zone)}`}>
-                        {getCplZoneLabel(metric.cpl_zone)}
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getCplZoneColor(cplZone)}`}>
+                        {getCplZoneLabel(cplZone)}
                       </span>
                     )}
                   </div>
@@ -1101,7 +1116,7 @@ function ActionReports({ user }) {
                     {loadingStock ? (
                       <SkeletonCell width="w-8" />
                     ) : (
-                      metric.stock ?? '—'
+                      metric.stock_quantity ?? '—'
                     )}
                   </div>
 
