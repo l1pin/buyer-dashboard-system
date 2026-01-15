@@ -30,6 +30,7 @@ const RECONFIGURED_OPTIONS = [
   { value: 'audience', label: 'Аудитория' },
   { value: 'landing', label: 'Ленд' },
   { value: 'budget', label: 'Бюджет' },
+  { value: 'duplicate', label: 'Дубль' },
   { value: 'other', label: 'Другое' }
 ];
 
@@ -39,14 +40,17 @@ const NEW_PRODUCT_OPTIONS = [
   { value: 'from_new', label: 'Из нового' }
 ];
 
-// Компонент выпадающего списка
+// Компонент выпадающего списка с фиксированным позиционированием
 function CustomDropdown({ value, options, onChange, placeholder = 'Выберите...', className = '' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (buttonRef.current && !buttonRef.current.contains(event.target) &&
+          dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
@@ -54,11 +58,24 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Обновляем позицию dropdown при открытии
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  }, [isOpen]);
+
   const selectedOption = options.find(opt => opt.value === value);
 
   return (
-    <div ref={dropdownRef} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full px-3 py-2 text-left text-sm border rounded-lg flex items-center justify-between transition-colors ${
@@ -71,7 +88,16 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
         <ChevronDown className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+        <div
+          ref={dropdownRef}
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-auto"
+          style={{
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            zIndex: 9999
+          }}
+        >
           {options.map((option) => (
             <button
               key={option.value}
