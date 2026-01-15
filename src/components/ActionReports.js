@@ -293,7 +293,12 @@ function ActionReports({ user }) {
   const [modalStep, setModalStep] = useState(1); // 1 = ввод артикулов, 2 = конфигурация
   const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
-  const [selectedDate, setSelectedDate] = useState(null); // Выбранная дата в календаре (null = все)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // По умолчанию выбран сегодняшний день
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
   const [reportsCountByDay, setReportsCountByDay] = useState({}); // { 'YYYY-MM-DD': count }
   const [loadingReports, setLoadingReports] = useState(false); // Загрузка отчетов из БД
   const [savingReports, setSavingReports] = useState(false); // Сохранение отчетов в БД
@@ -446,8 +451,8 @@ function ActionReports({ user }) {
         isYesterday: i === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: i,
-        // Считаем задачи из БД (reportsCountByDay) или локальных отчетов
-        tasksCount: reportsCountByDay[dateKey] || savedReports.filter(r => {
+        // Считаем задачи из savedReports (актуальный источник данных)
+        tasksCount: savedReports.filter(r => {
           const reportDate = new Date(r.createdAt);
           reportDate.setHours(0, 0, 0, 0);
           return reportDate.getTime() === date.getTime();
@@ -455,7 +460,7 @@ function ActionReports({ user }) {
       });
     }
     return days;
-  }, [savedReports, reportsCountByDay]);
+  }, [savedReports]);
 
   // Обработка клика по дню в календаре
   const handleDayClick = (day) => {
@@ -1269,23 +1274,6 @@ function ActionReports({ user }) {
               <circle cx="19" cy="15" r="2" />
             </svg>
           </button>
-
-          {/* Бейдж выбранной даты */}
-          {selectedDate && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <Calendar className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-700">
-                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="p-0.5 hover:bg-green-100 rounded-full transition-colors"
-                title="Сбросить фильтр по дате"
-              >
-                <X className="h-3.5 w-3.5 text-green-600" />
-              </button>
-            </div>
-          )}
 
           {/* Поиск */}
           <div className="w-72 relative">
