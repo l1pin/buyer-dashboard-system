@@ -1110,3 +1110,222 @@ export const offerSeasonService = {
     ];
   }
 };
+
+/**
+ * Сервис для работы с отчетами по действиям
+ * Хранит информацию о действиях над артикулами (включил с прихода, перенастроил и т.д.)
+ */
+export const actionReportsService = {
+  /**
+   * Получить все отчеты по действиям
+   * @param {Object} options - Параметры запроса
+   * @param {string} options.dateFrom - Дата с (ISO string)
+   * @param {string} options.dateTo - Дата по (ISO string)
+   * @param {string} options.createdBy - ID пользователя-создателя
+   * @returns {Promise<Array>} Массив отчетов
+   */
+  async getAllReports(options = {}) {
+    try {
+      console.log('📋 Загружаем отчеты по действиям...');
+
+      let query = supabase
+        .from('action_reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Фильтр по дате
+      if (options.dateFrom) {
+        query = query.gte('created_at', options.dateFrom);
+      }
+      if (options.dateTo) {
+        query = query.lte('created_at', options.dateTo);
+      }
+
+      // Фильтр по создателю
+      if (options.createdBy) {
+        query = query.eq('created_by', options.createdBy);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      console.log(`✅ Загружено ${data?.length || 0} отчетов`);
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки отчетов по действиям:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить отчеты за конкретный день
+   * @param {Date} date - Дата
+   * @returns {Promise<Array>} Массив отчетов
+   */
+  async getReportsByDate(date) {
+    try {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const { data, error } = await supabase
+        .from('action_reports')
+        .select('*')
+        .gte('created_at', startOfDay.toISOString())
+        .lte('created_at', endOfDay.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки отчетов за день:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Создать отчет по действию
+   * @param {Object} reportData - Данные отчета
+   * @param {string} reportData.article - Артикул
+   * @param {string} reportData.action_type - Тип действия
+   * @param {string} reportData.sub_action - Подтип действия
+   * @param {string} reportData.custom_text - Произвольный текст
+   * @param {string} reportData.trello_link - Ссылка на Trello
+   * @param {string} reportData.created_by - ID создателя
+   * @param {string} reportData.created_by_name - Имя создателя
+   * @param {Object} reportData.metric_snapshot - Снимок метрик на момент создания
+   * @returns {Promise<Object>} Созданный отчет
+   */
+  async createReport(reportData) {
+    try {
+      console.log(`📝 Создаём отчет для артикула ${reportData.article}...`);
+
+      const { data, error } = await supabase
+        .from('action_reports')
+        .insert({
+          article: reportData.article,
+          action_type: reportData.action_type,
+          sub_action: reportData.sub_action || null,
+          custom_text: reportData.custom_text || null,
+          trello_link: reportData.trello_link || null,
+          created_by: reportData.created_by,
+          created_by_name: reportData.created_by_name,
+          metric_snapshot: reportData.metric_snapshot || null,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Отчет создан: ${data.id}`);
+      return data;
+
+    } catch (error) {
+      console.error('❌ Ошибка создания отчета:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Создать несколько отчетов
+   * @param {Array<Object>} reports - Массив отчетов
+   * @returns {Promise<Array>} Созданные отчеты
+   */
+  async createReports(reports) {
+    try {
+      console.log(`📝 Создаём ${reports.length} отчетов...`);
+
+      const reportsToInsert = reports.map(r => ({
+        article: r.article,
+        action_type: r.action_type,
+        sub_action: r.sub_action || null,
+        custom_text: r.custom_text || null,
+        trello_link: r.trello_link || null,
+        created_by: r.created_by,
+        created_by_name: r.created_by_name,
+        metric_snapshot: r.metric_snapshot || null,
+        created_at: new Date().toISOString()
+      }));
+
+      const { data, error } = await supabase
+        .from('action_reports')
+        .insert(reportsToInsert)
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Создано ${data?.length || 0} отчетов`);
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Ошибка создания отчетов:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Удалить отчет
+   * @param {string} reportId - ID отчета
+   * @returns {Promise<boolean>} Успех операции
+   */
+  async deleteReport(reportId) {
+    try {
+      console.log(`🗑️ Удаляем отчет ${reportId}...`);
+
+      const { error } = await supabase
+        .from('action_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      console.log(`✅ Отчет ${reportId} удалён`);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления отчета:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Получить статистику отчетов по дням (для календаря)
+   * @param {number} daysBack - Количество дней назад
+   * @returns {Promise<Object>} Объект { dateString: count }
+   */
+  async getReportsCountByDays(daysBack = 30) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysBack);
+      startDate.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from('action_reports')
+        .select('created_at')
+        .gte('created_at', startDate.toISOString());
+
+      if (error) throw error;
+
+      // Группируем по дням
+      const countByDay = {};
+      (data || []).forEach(report => {
+        const date = new Date(report.created_at);
+        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        countByDay[dateKey] = (countByDay[dateKey] || 0) + 1;
+      });
+
+      return countByDay;
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки статистики отчетов:', error);
+      throw error;
+    }
+  }
+};
