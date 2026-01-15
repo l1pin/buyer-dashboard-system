@@ -1201,7 +1201,7 @@ function ActionReports({ user }) {
           </div>
         </div>
 
-        {/* Горизонтально скроллящийся календарь */}
+        {/* Горизонтальный календарь */}
         <div
           ref={calendarRef}
           className="flex space-x-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
@@ -1209,37 +1209,62 @@ function ActionReports({ user }) {
         >
           {calendarDays.map((day, index) => {
             const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
+            const isToday = day.isToday;
+
+            // Определяем стили
+            let containerClass = '';
+            let weekdayClass = '';
+            let dayClass = '';
+            let monthClass = '';
+            let badgeClass = '';
+
+            if (isSelected) {
+              // Выбранный день - синий градиент
+              containerClass = 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25 scale-105';
+              weekdayClass = 'text-blue-100';
+              dayClass = 'text-white';
+              monthClass = 'text-blue-100';
+              badgeClass = 'bg-white/25 text-white';
+            } else if (isToday) {
+              // Сегодня - белый фон с красивой обводкой
+              containerClass = 'bg-white border-2 border-blue-400 shadow-md shadow-blue-100 ring-2 ring-blue-100';
+              weekdayClass = 'text-blue-500 font-semibold';
+              dayClass = 'text-blue-600';
+              monthClass = 'text-blue-400';
+              badgeClass = 'bg-blue-100 text-blue-700';
+            } else if (day.isWeekend) {
+              // Выходные
+              containerClass = 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100';
+              weekdayClass = 'text-slate-400';
+              dayClass = 'text-slate-600';
+              monthClass = 'text-slate-400';
+              badgeClass = 'bg-slate-200 text-slate-600';
+            } else {
+              // Обычные дни
+              containerClass = 'bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-50';
+              weekdayClass = 'text-slate-400';
+              dayClass = 'text-slate-700';
+              monthClass = 'text-slate-400';
+              badgeClass = 'bg-blue-50 text-blue-600';
+            }
+
             return (
               <div
                 key={index}
                 onClick={() => handleDayClick(day)}
-                className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${
-                  isSelected
-                    ? 'bg-gradient-to-b from-green-500 to-green-600 shadow-lg shadow-green-500/30 scale-105 ring-2 ring-green-300'
-                    : day.isToday
-                    ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 scale-105'
-                    : day.isWeekend
-                    ? 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100'
-                    : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md'
-                }`}
+                className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${containerClass}`}
               >
-                <div className={`text-[10px] uppercase font-medium ${isSelected || day.isToday ? 'text-white/80' : 'text-slate-400'}`}>
-                  {day.isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
+                <div className={`text-[10px] uppercase font-medium ${weekdayClass}`}>
+                  {isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
                 </div>
-                <div className={`text-xl font-bold ${isSelected || day.isToday ? 'text-white' : 'text-slate-700'}`}>
+                <div className={`text-xl font-bold ${dayClass}`}>
                   {day.day}
                 </div>
-                <div className={`text-[10px] ${isSelected || day.isToday ? 'text-white/80' : 'text-slate-400'}`}>
+                <div className={`text-[10px] ${monthClass}`}>
                   {day.month}
                 </div>
                 {day.tasksCount > 0 && (
-                  <div className={`mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                    isSelected
-                      ? 'bg-white/20 text-white'
-                      : day.isToday
-                      ? 'bg-white/20 text-white'
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
+                  <div className={`mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badgeClass}`}>
                     {day.tasksCount}
                   </div>
                 )}
