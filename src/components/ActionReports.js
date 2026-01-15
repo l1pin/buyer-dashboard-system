@@ -293,7 +293,12 @@ function ActionReports({ user }) {
   const [modalStep, setModalStep] = useState(1); // 1 = ввод артикулов, 2 = конфигурация
   const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
-  const [selectedDate, setSelectedDate] = useState(null); // Выбранная дата в календаре (null = все)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // По умолчанию выбран сегодняшний день
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
   const [reportsCountByDay, setReportsCountByDay] = useState({}); // { 'YYYY-MM-DD': count }
   const [loadingReports, setLoadingReports] = useState(false); // Загрузка отчетов из БД
   const [savingReports, setSavingReports] = useState(false); // Сохранение отчетов в БД
@@ -389,17 +394,18 @@ function ActionReports({ user }) {
       ]);
 
       // Преобразуем отчеты из БД в формат компонента
+      // action и subAction уже хранятся на русском языке
+      // Метрики подтягиваются динамически через getReportMetric
       const formattedReports = reports.map(r => ({
         id: r.id,
         article: r.article,
-        action: r.action_type,
-        subAction: r.sub_action,
+        action: r.action_type,  // Русский лейбл из БД
+        subAction: r.sub_action,  // Русский лейбл из БД
         customText: r.custom_text,
         trelloLink: r.trello_link,
         createdAt: r.created_at,
         createdBy: r.created_by,
-        createdByName: r.created_by_name,
-        metricSnapshot: r.metric_snapshot
+        createdByName: r.created_by_name
       }));
 
       setSavedReports(formattedReports);
@@ -445,8 +451,8 @@ function ActionReports({ user }) {
         isYesterday: i === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: i,
-        // Считаем задачи из БД (reportsCountByDay) или локальных отчетов
-        tasksCount: reportsCountByDay[dateKey] || savedReports.filter(r => {
+        // Считаем задачи из savedReports (актуальный источник данных)
+        tasksCount: savedReports.filter(r => {
           const reportDate = new Date(r.createdAt);
           reportDate.setHours(0, 0, 0, 0);
           return reportDate.getTime() === date.getTime();
@@ -454,7 +460,7 @@ function ActionReports({ user }) {
       });
     }
     return days;
-  }, [savedReports, reportsCountByDay]);
+  }, [savedReports]);
 
   // Обработка клика по дню в календаре
   const handleDayClick = (day) => {
@@ -594,31 +600,30 @@ function ActionReports({ user }) {
 
     // Подготавливаем отчеты для сохранения в БД
     const reportsToSave = validConfigs.map(([article, config]) => {
-      const metric = config.metric;
-      const status = allStatuses[metric?.id];
+      // Находим русские лейблы для action и subAction
+      const actionOption = ACTION_OPTIONS.find(a => a.value === config.action);
+      const actionLabel = actionOption?.label || config.action;
+
+      let subActionLabel = null;
+      if (config.subAction) {
+        if (config.action === 'reconfigured') {
+          const subOption = RECONFIGURED_OPTIONS.find(s => s.value === config.subAction);
+          subActionLabel = subOption?.label || config.subAction;
+        } else if (config.action === 'new_product') {
+          const subOption = NEW_PRODUCT_OPTIONS.find(s => s.value === config.subAction);
+          subActionLabel = subOption?.label || config.subAction;
+        }
+      }
 
       return {
         article,
-        action_type: config.action,
-        sub_action: config.subAction || null,
+        action_type: actionLabel,  // Сохраняем русский лейбл
+        sub_action: subActionLabel,  // Сохраняем русский лейбл
         custom_text: config.customText || null,
         trello_link: config.trelloLink || null,
         created_by: user?.id,
-        created_by_name: user?.name || 'Неизвестно',
-        metric_snapshot: {
-          offer_name: metric?.offer_name,
-          current_status: status?.current_status,
-          cpl: metric?.leads_data?.[4]?.cpl,
-          leads: metric?.leads_data?.[4]?.leads,
-          lead_rating: metric?.lead_rating,
-          stock_quantity: metric?.stock_quantity,
-          days_remaining: metric?.days_remaining,
-          actual_roi_percent: metric?.actual_roi_percent,
-          red_zone_price: metric?.red_zone_price,
-          approve_percent: metric?.approve_percent,
-          sold_percent: metric?.sold_percent,
-          offer_price: metric?.offer_price
-        }
+        created_by_name: user?.name || 'Неизвестно'
+        // metric_snapshot убран - данные подтягиваются динамически
       };
     });
 
@@ -629,24 +634,17 @@ function ActionReports({ user }) {
 
       // Преобразуем сохраненные отчеты для отображения
       const reports = savedToDB.map(r => {
-        const config = articleConfigs[r.article];
-        const metric = config?.metric;
-        const status = allStatuses[metric?.id];
-
         return {
           id: r.id,
           article: r.article,
-          action: r.action_type,
-          subAction: r.sub_action,
+          action: r.action_type,  // Уже русский лейбл
+          subAction: r.sub_action,  // Уже русский лейбл
           customText: r.custom_text,
           trelloLink: r.trello_link,
           createdAt: r.created_at,
           createdBy: r.created_by,
-          createdByName: r.created_by_name,
-          metricSnapshot: r.metric_snapshot,
-          // Реальные данные из БД
-          metric: metric,
-          status: status
+          createdByName: r.created_by_name
+          // Данные метрик подтягиваются динамически через getReportMetric
         };
       });
 
@@ -805,9 +803,16 @@ function ActionReports({ user }) {
     );
   }, [savedReports, searchTerm, selectedDate]);
 
-  // Получение цвета статуса
+  // Получение цвета статуса - данные подтягиваются динамически
   const getStatusDisplay = (report) => {
-    const status = report.status?.current_status;
+    // Ищем метрику по артикулу чтобы получить offer_id
+    const articleLower = report.article?.toLowerCase();
+    const metric = allMetrics.find(m => m.article?.toLowerCase() === articleLower);
+
+    // Получаем статус по offer_id
+    const statusData = metric?.id ? allStatuses[metric.id] : null;
+    const status = statusData?.current_status;
+
     if (!status) return { label: '—', className: 'bg-slate-100 text-slate-500' };
 
     const config = offerStatusService.getStatusColor(status);
@@ -817,22 +822,40 @@ function ActionReports({ user }) {
     };
   };
 
-  // Получение актуальных метрик для отчета (из updatedMetricsMap или из report.metric)
+  // Получение актуальных метрик для отчета - данные подтягиваются динамически
   const getReportMetric = useCallback((report) => {
-    // Если есть обновленные данные - используем их
+    // Если есть обновленные данные из updateVisibleReportsMetrics - приоритет им
     if (updatedMetricsMap[report.article]) {
-      return { ...report.metric, ...updatedMetricsMap[report.article] };
+      return updatedMetricsMap[report.article];
     }
-    return report.metric || {};
-  }, [updatedMetricsMap]);
+
+    // Иначе ищем в загруженных метриках по артикулу
+    const articleLower = report.article?.toLowerCase();
+    const baseMetric = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
+
+    return baseMetric;
+  }, [updatedMetricsMap, allMetrics]);
 
   // Проверка, идет ли какое-либо обновление
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
 
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
-  const updateVisibleReportsMetrics = useCallback(async () => {
-    // Получаем уникальные артикулы из сохраненных отчетов
-    const uniqueArticles = [...new Set(savedReports.map(r => r.article))];
+  const updateVisibleReportsMetrics = useCallback(async (forDate = null) => {
+    // Фильтруем отчеты по дате если указана
+    let reportsToUpdate = savedReports;
+    if (forDate) {
+      reportsToUpdate = savedReports.filter(r => {
+        const reportDate = new Date(r.createdAt);
+        reportDate.setHours(0, 0, 0, 0);
+        const targetDate = new Date(forDate);
+        targetDate.setHours(0, 0, 0, 0);
+        return reportDate.getTime() === targetDate.getTime();
+      });
+      console.log(`📅 Фильтруем отчеты для даты ${forDate.toLocaleDateString('ru')}: найдено ${reportsToUpdate.length} отчетов`);
+    }
+
+    // Получаем уникальные артикулы из отфильтрованных отчетов
+    const uniqueArticles = [...new Set(reportsToUpdate.map(r => r.article))];
 
     if (uniqueArticles.length === 0) {
       console.log('⚠️ Нет артикулов для обновления');
@@ -842,15 +865,17 @@ function ActionReports({ user }) {
     console.log(`🔄 Обновляем метрики для ${uniqueArticles.length} артикулов...`);
 
     // Создаем массив метрик только для видимых артикулов
+    // Данные берём из загруженных allMetrics по артикулу
     const visibleMetrics = uniqueArticles.map(article => {
-      // Ищем базовую метрику из savedReports
-      const report = savedReports.find(r => r.article === article);
+      const articleLower = article.toLowerCase();
+      const baseMetric = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
       return {
-        id: report?.metric?.id,
+        id: baseMetric.id,
         article: article,
-        offer: report?.metric?.offer,
-        stock_quantity: report?.metric?.stock_quantity || report?.metric?.stock,
-        ...report?.metric
+        offer: baseMetric.offer || baseMetric.offer_name,
+        stock_quantity: baseMetric.stock_quantity,
+        offer_price: baseMetric.offer_price,
+        ...baseMetric
       };
     }).filter(m => m.article);
 
@@ -937,7 +962,29 @@ function ActionReports({ user }) {
     } catch (error) {
       console.error('❌ Ошибка обновления метрик:', error);
     }
-  }, [savedReports, articleOfferMap]);
+  }, [savedReports, articleOfferMap, allMetrics]);
+
+  // ========== АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ МЕТРИК ==========
+
+  // Автоматическое обновление при загрузке отчетов из БД
+  useEffect(() => {
+    if (savedReports.length > 0 && !loadingReports && Object.keys(articleOfferMap).length > 0) {
+      // Обновляем метрики для выбранной даты или сегодня при первой загрузке
+      const dateToUpdate = selectedDate || new Date();
+      console.log(`🚀 Автообновление метрик для ${dateToUpdate.toLocaleDateString('ru')}`);
+      updateVisibleReportsMetrics(dateToUpdate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingReports, articleOfferMap]);
+
+  // Автоматическое обновление при смене выбранной даты
+  useEffect(() => {
+    if (selectedDate && savedReports.length > 0 && Object.keys(articleOfferMap).length > 0 && !isAnyLoading) {
+      console.log(`📅 Смена даты: обновляем метрики для ${selectedDate.toLocaleDateString('ru')}`);
+      updateVisibleReportsMetrics(selectedDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
@@ -1227,23 +1274,6 @@ function ActionReports({ user }) {
               <circle cx="19" cy="15" r="2" />
             </svg>
           </button>
-
-          {/* Бейдж выбранной даты */}
-          {selectedDate && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <Calendar className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-700">
-                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="p-0.5 hover:bg-green-100 rounded-full transition-colors"
-                title="Сбросить фильтр по дате"
-              >
-                <X className="h-3.5 w-3.5 text-green-600" />
-              </button>
-            </div>
-          )}
 
           {/* Поиск */}
           <div className="w-72 relative">
