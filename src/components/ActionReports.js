@@ -373,6 +373,7 @@ function ActionReports({ user }) {
     } finally {
       setLoadingMetrics(false);
     }
+  };
 
   // Загрузка отчетов из БД
   const loadReportsFromDB = async (date = null) => {
