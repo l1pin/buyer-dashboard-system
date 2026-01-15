@@ -671,21 +671,21 @@ function ActionReports({ user }) {
       {/* Заголовки таблицы - стиль как в OffersTL */}
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
-          <div className="w-[3%] min-w-[32px]">№</div>
-          <div className="w-[6%] min-w-[60px]">Артикул</div>
-          <div className="w-[14%] min-w-[120px] text-left">Название</div>
-          <div className="w-[10%] min-w-[90px]">Действие</div>
+          <div className="w-[3%] min-w-[30px]">№</div>
+          <div className="w-[7%] min-w-[65px]">Артикул</div>
+          <div className="w-[16%] min-w-[140px] text-left">Название</div>
           <div className="w-[8%] min-w-[70px]">Статус</div>
-          <div className="w-[5%] min-w-[45px]">CPL</div>
-          <div className="w-[5%] min-w-[40px]">Лиды</div>
-          <div className="w-[6%] min-w-[50px]">Расход</div>
-          <div className="w-[5%] min-w-[40px]">ROI</div>
-          <div className="w-[6%] min-w-[50px]">Прибыль</div>
+          <div className="w-[6%] min-w-[50px]">CPL</div>
+          <div className="w-[5%] min-w-[45px]">Лиды</div>
+          <div className="w-[5%] min-w-[45px]">ROI</div>
+          <div className="w-[7%] min-w-[55px]">Прибыль</div>
           <div className="w-[5%] min-w-[40px]">Дни</div>
           <div className="w-[5%] min-w-[40px]">Ост.</div>
-          <div className="w-[5%] min-w-[40px]">Приход</div>
-          <div className="w-[5%] min-w-[40px]">Апрув</div>
-          <div className="w-[5%] min-w-[40px]">Выкуп</div>
+          <div className="w-[6%] min-w-[45px]">Приход</div>
+          <div className="w-[5%] min-w-[45px]">Апрув</div>
+          <div className="w-[5%] min-w-[45px]">Выкуп</div>
+          <div className="w-[6%] min-w-[50px]">Сезон</div>
+          <div className="w-[6%] min-w-[50px]">Цена</div>
           <div className="w-[4%] min-w-[35px]"></div>
         </div>
       </div>
@@ -721,40 +721,32 @@ function ActionReports({ user }) {
                   key={report.id}
                   className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
                 >
-                  <div className="w-[3%] min-w-[32px] text-center text-slate-500 font-medium">
+                  <div className="w-[3%] min-w-[30px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
-                  <div className="w-[6%] min-w-[60px] text-center">
+                  <div className="w-[7%] min-w-[65px] text-center">
                     <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[14%] min-w-[120px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className="w-[16%] min-w-[140px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
                     {metric.offer || '—'}
-                  </div>
-                  <div className="w-[10%] min-w-[90px] text-center">
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded truncate block" title={getActionLabel(report)}>
-                      {getActionLabel(report)}
-                    </span>
                   </div>
                   <div className="w-[8%] min-w-[70px] text-center">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
                       {statusDisplay.label}
                     </span>
                   </div>
-                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
                     {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
                   </div>
-                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {metric.leads_data?.[4]?.leads || '—'}
                   </div>
-                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
-                    {metric.leads_data?.[4]?.cost?.toFixed(0) || '—'}
-                  </div>
-                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'}
                   </div>
-                  <div className="w-[6%] min-w-[50px] text-center font-mono text-green-600 font-medium">
+                  <div className="w-[7%] min-w-[55px] text-center font-mono text-green-600 font-medium">
                     {metric.profit != null ? `$${metric.profit}` : '—'}
                   </div>
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
@@ -763,14 +755,20 @@ function ActionReports({ user }) {
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {metric.stock ?? '—'}
                   </div>
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[6%] min-w-[45px] text-center text-slate-700">
                     {metric.days_to_arrival ?? '—'}
                   </div>
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.approve_percent != null ? `${metric.approve_percent}%` : '—'}
                   </div>
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.sold_percent != null ? `${metric.sold_percent}%` : '—'}
+                  </div>
+                  <div className="w-[6%] min-w-[50px] text-center text-slate-700">
+                    {metric.season || '—'}
+                  </div>
+                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
+                    {metric.price != null ? `$${metric.price}` : '—'}
                   </div>
                   <div className="w-[4%] min-w-[35px] text-center">
                     <button
