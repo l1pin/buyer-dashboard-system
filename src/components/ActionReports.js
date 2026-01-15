@@ -688,7 +688,21 @@ function ActionReports({ user }) {
         setLoadingStock(false);
       }
 
-      // ШАГ 2: Рассчитываем дни продаж (Дни)
+      // ШАГ 2: Загружаем зоны эффективности (ROI, Апрув, Выкуп, red_zone_price)
+      // ВАЖНО: Зоны должны быть загружены ДО расчета рейтинга, т.к. рейтинг зависит от red_zone_price
+      setLoadingZones(true);
+
+      try {
+        const zonesResult = await effectivityZonesService.enrichMetricsWithZones(updatedMetrics);
+        updatedMetrics = zonesResult;
+        console.log('✅ Зоны эффективности обновлены');
+      } catch (error) {
+        console.error('❌ Ошибка загрузки зон:', error);
+      } finally {
+        setLoadingZones(false);
+      }
+
+      // ШАГ 3: Рассчитываем дни продаж (Дни)
       setLoadingDays(true);
       let rawData = null;
 
@@ -703,7 +717,8 @@ function ActionReports({ user }) {
         setLoadingDays(false);
       }
 
-      // ШАГ 3: Обновляем CPL, Лиды, Рейтинг
+      // ШАГ 4: Обновляем CPL, Лиды, Рейтинг
+      // Теперь red_zone_price уже доступен из шага 2, рейтинг будет рассчитан корректно
       setLoadingCplLeads(true);
 
       try {
@@ -714,19 +729,6 @@ function ActionReports({ user }) {
         console.error('❌ Ошибка загрузки CPL/Лидов:', error);
       } finally {
         setLoadingCplLeads(false);
-      }
-
-      // ШАГ 4: Загружаем зоны эффективности (ROI, Апрув, Выкуп)
-      setLoadingZones(true);
-
-      try {
-        const zonesResult = await effectivityZonesService.enrichMetricsWithZones(updatedMetrics);
-        updatedMetrics = zonesResult;
-        console.log('✅ Зоны эффективности обновлены');
-      } catch (error) {
-        console.error('❌ Ошибка загрузки зон:', error);
-      } finally {
-        setLoadingZones(false);
       }
 
       // Сохраняем обновленные метрики в map по артикулу
