@@ -1,7 +1,7 @@
 // src/components/ActionReports.js
 // Вкладка "Отчеты по действию" для Тим лида и Байера
 
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import {
   Search,
   Plus,
@@ -22,6 +22,28 @@ import { effectivityZonesService } from '../services/effectivityZonesService';
 import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql } from '../scripts/offers/Sql_leads';
+import TooltipManager from './TooltipManager';
+
+// Иконка информации
+const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
+  <svg
+    className={`${className} cursor-pointer hover:text-gray-700`}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    onClick={onClick}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+));
 
 // Компонент skeleton для ячейки таблицы
 function SkeletonCell({ width = 'w-10' }) {
@@ -290,6 +312,10 @@ function ActionReports({ user }) {
   // Обновленные данные для отчетов (метрики после обновления)
   const [updatedMetricsMap, setUpdatedMetricsMap] = useState({}); // { article: updatedMetric }
   const [offerSeasons, setOfferSeasons] = useState({}); // { article: seasons[] }
+  const [stockData, setStockData] = useState({}); // Данные об остатках для тултипа
+
+  // Ref для tooltip менеджера
+  const tooltipManagerRef = useRef(null);
 
   // Ошибки валидации
   const [invalidArticles, setInvalidArticles] = useState([]);
@@ -706,6 +732,7 @@ function ActionReports({ user }) {
       try {
         const stocksResult = await updateStocksFromYml(updatedMetrics);
         updatedMetrics = stocksResult.metrics;
+        setStockData(stocksResult.skuData || {}); // Сохраняем данные для тултипа
         console.log('✅ Остатки обновлены');
       } catch (error) {
         console.error('❌ Ошибка загрузки остатков:', error);
@@ -771,6 +798,144 @@ function ActionReports({ user }) {
       console.error('❌ Ошибка обновления метрик:', error);
     }
   }, [savedReports, articleOfferMap]);
+
+  // ========== СИСТЕМА ТУЛТИПОВ ==========
+
+  // Функция генерации заголовка тултипа
+  const getTooltipTitleSync = (type, article) => {
+    const articleBadge = article ? (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+        {article}
+      </span>
+    ) : null;
+    const titles = {
+      cpl: 'CPL по периодам',
+      leads: 'Лиды по периодам',
+      rating: 'История рейтинга',
+      zone: 'Зоны эффективности',
+      stock: 'Остатки по модификациям',
+      date: 'Дата прихода',
+      season: 'Сезонность'
+    };
+    return <div className="flex items-center gap-2"><span>{titles[type] || 'Информация'}</span>{articleBadge}</div>;
+  };
+
+  // Функция генерации контента тултипа
+  const renderTooltipContentSync = useCallback((type, data) => {
+    const getRatingColorLocal = (rating) => {
+      switch (rating) {
+        case 'A': return 'bg-green-100 text-green-800';
+        case 'B': return 'bg-yellow-100 text-yellow-800';
+        case 'C': return 'bg-orange-100 text-orange-800';
+        case 'D': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-400';
+      }
+    };
+    const getZoneColorsLocal = (zoneType) => {
+      switch (zoneType) {
+        case 'red': return { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-400' };
+        case 'pink': return { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-400' };
+        case 'gold': return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+        case 'green': return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+        default: return null;
+      }
+    };
+    const formatDateLocal = (dateString) => {
+      if (!dateString) return '—';
+      try { return new Date(dateString).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+      catch { return '—'; }
+    };
+
+    switch (type) {
+      case 'rating':
+        return (
+          <div className="flex flex-col gap-2">
+            {data.ratingHistory?.length > 0 ? data.ratingHistory.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-2 last:border-b-0">
+                <span className="text-gray-600 w-20">{item.month} {item.year}</span>
+                <span className={`font-semibold px-2 py-1 rounded ${getRatingColorLocal(item.rating)}`}>{item.rating}</span>
+                <span className="text-gray-700 font-mono">CPL: {item.cpl > 0 ? item.cpl.toFixed(2) : '—'}</span>
+                <span className="text-gray-700">Лиды: {item.leads}</span>
+              </div>
+            )) : <div className="text-xs text-gray-500 italic">Нет данных</div>}
+          </div>
+        );
+      case 'cpl':
+      case 'leads':
+        return (
+          <table className="w-full text-xs">
+            <thead><tr className="border-b border-gray-200">
+              <th className="text-left py-1 px-2">Период</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'CPL' : 'Лидов'}</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'Расход' : 'CPL'}</th>
+              <th className="text-right py-1 px-2">{type === 'cpl' ? 'Лидов' : 'Расход'}</th>
+            </tr></thead>
+            <tbody>
+              {[7, 14, 30, 60, 90].map(days => {
+                const d = data.leadsData?.[days];
+                if (!d) return null;
+                return <tr key={days} className="border-b border-gray-100">
+                  <td className="py-1 px-2">{d.label}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cpl.toFixed(2) : d.leads}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cost.toFixed(2) : d.cpl.toFixed(2)}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.leads : d.cost.toFixed(2)}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        );
+      case 'stock':
+        const baseArticle = data.article?.split("-")[0];
+        const mods = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
+        return <div className="flex flex-col gap-1.5">
+          {mods.length > 0 ? mods.map((m, i) => <div key={i} className="text-xs text-gray-700">{m}</div>) : <div className="text-xs text-gray-500 italic">Нет данных</div>}
+        </div>;
+      case 'date':
+        return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
+      case 'zone':
+        const m = data.metric;
+        return <div className="flex flex-col gap-2">
+          {['red', 'pink', 'gold', 'green'].map(z => {
+            const price = m[`${z}_zone_price`];
+            if (price == null) return null;
+            const c = getZoneColorsLocal(z);
+            return <div key={z} className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 w-20 capitalize">{z === 'red' ? 'Красная' : z === 'pink' ? 'Розовая' : z === 'gold' ? 'Золотая' : 'Зеленая'}:</span>
+              <span className={`font-mono px-2 py-1 rounded-full text-xs border ${c.bg} ${c.text} ${c.border}`}>${Number(price).toFixed(2)}</span>
+            </div>;
+          })}
+        </div>;
+      case 'season':
+        return <div className="flex flex-col gap-3">
+          <div><div className="text-xs font-medium text-gray-600 mb-1">Категория:</div><div className="text-sm">{data.category || '—'}</div></div>
+          {data.categoryDetails?.length > 0 && <div><div className="text-xs font-medium text-gray-600 mb-1">Категории товаров:</div>
+            {data.categoryDetails.map((d, i) => <div key={i} className="text-xs text-gray-700">{d}</div>)}
+          </div>}
+          <div><div className="text-xs font-medium text-gray-600 mb-1">Спецсезон:</div>
+            {data.specialSeasonStart || data.specialSeasonEnd ? <div className="text-sm font-mono">{data.specialSeasonStart || '—'} — {data.specialSeasonEnd || '—'}</div> : <div className="text-sm text-gray-500 italic">Не задан</div>}
+          </div>
+        </div>;
+      default:
+        return <div>Неизвестный тип</div>;
+    }
+  }, [stockData]);
+
+  // Функция открытия тултипа
+  const openTooltip = useCallback((type, index, data, event) => {
+    if (!tooltipManagerRef.current) return;
+
+    const tooltipId = `${type}-${index}`;
+    let position = { x: 100, y: 100 };
+    if (event && event.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      position = { x: rect.left + rect.width + 10, y: rect.top };
+    }
+
+    const title = getTooltipTitleSync(type, data.article);
+    const content = renderTooltipContentSync(type, data);
+
+    tooltipManagerRef.current.open(tooltipId, title, content, position);
+  }, [renderTooltipContentSync]);
 
   // Автообновление метрик при добавлении новых отчетов
   const prevReportsCountRef = useRef(0);
@@ -1040,31 +1205,44 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* CPL - loading при loadingCplLeads */}
-                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[45px] flex items-center justify-center gap-1">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-10" />
                     ) : (
-                      metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'
+                      <>
+                        <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                          {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
+                        </span>
+                        {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                      </>
                     )}
                   </div>
 
                   {/* Лиды - loading при loadingCplLeads */}
-                  <div className="w-[4%] min-w-[40px] text-center font-mono text-slate-700">
+                  <div className="w-[4%] min-w-[40px] flex items-center justify-center gap-1">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-8" />
                     ) : (
-                      metric.leads_data?.[4]?.leads || '—'
+                      <>
+                        <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                          {metric.leads_data?.[4]?.leads || '—'}
+                        </span>
+                        {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                      </>
                     )}
                   </div>
 
                   {/* Рейтинг - loading при loadingCplLeads */}
-                  <div className="w-[4%] min-w-[36px] text-center">
+                  <div className="w-[4%] min-w-[36px] flex items-center justify-center gap-1">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-6" />
                     ) : (
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
-                        {metric.lead_rating || '—'}
-                      </span>
+                      <>
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
+                          {metric.lead_rating || '—'}
+                        </span>
+                        {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
+                      </>
                     )}
                   </div>
 
@@ -1078,17 +1256,20 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* CPL зона - loading при loadingZones */}
-                  <div className="w-[6%] min-w-[55px] text-center">
+                  <div className="w-[6%] min-w-[55px] flex items-center justify-center gap-1">
                     {loadingZones ? (
                       <SkeletonCell width="w-12" />
                     ) : (
-                      metric.red_zone_price != null ? (
-                        <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
-                          ${Number(metric.red_zone_price).toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )
+                      <>
+                        {metric.red_zone_price != null ? (
+                          <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
+                            ${Number(metric.red_zone_price).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                        <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
+                      </>
                     )}
                   </div>
 
@@ -1107,25 +1288,33 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Ост. - loading при loadingStock */}
-                  <div className="w-[4%] min-w-[35px] text-center text-slate-700">
+                  <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
                     {loadingStock ? (
                       <SkeletonCell width="w-8" />
                     ) : (
-                      metric.stock_quantity ?? '—'
+                      <>
+                        <span className={`font-mono text-xs ${metric.stock_quantity != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                          {metric.stock_quantity ?? '—'}
+                        </span>
+                        <InfoIcon onClick={(e) => openTooltip('stock', index, { article: report.article }, e)} />
+                      </>
                     )}
                   </div>
 
                   {/* Приход - дней до прихода */}
-                  <div className="w-[5%] min-w-[40px] text-center font-mono text-xs">
+                  <div className="w-[5%] min-w-[40px] flex items-center justify-center gap-1 font-mono text-xs">
                     {(() => {
                       const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
                       if (daysUntil === null) {
                         return <span className="text-slate-400">—</span>;
                       }
                       return (
-                        <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
-                          {daysUntil}
-                        </span>
+                        <>
+                          <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                            {daysUntil}
+                          </span>
+                          <InfoIcon onClick={(e) => openTooltip('date', index, { date: metric.next_calculated_arrival, article: report.article }, e)} />
+                        </>
                       );
                     })()}
                   </div>
@@ -1149,11 +1338,18 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Сезон */}
-                  <div className="w-[5%] min-w-[40px] text-center text-base">
-                    {offerSeasons[report.article]?.length > 0
+                  <div className="w-[5%] min-w-[40px] flex items-center justify-center gap-1 text-base">
+                    <span>{offerSeasons[report.article]?.length > 0
                       ? offerSeasons[report.article].join('')
                       : <span className="text-slate-400 text-xs">—</span>
-                    }
+                    }</span>
+                    <InfoIcon onClick={(e) => openTooltip('season', index, {
+                      category: metric.category,
+                      categoryDetails: metric.categoryDetails,
+                      specialSeasonStart: metric.special_season_start,
+                      specialSeasonEnd: metric.special_season_end,
+                      article: report.article
+                    }, e)} />
                   </div>
                   {/* Цена */}
                   <div className="w-[5%] min-w-[40px] text-center font-mono text-xs text-slate-800">
@@ -1314,6 +1510,9 @@ function ActionReports({ user }) {
           </div>
         </div>
       )}
+
+      {/* Менеджер тултипов */}
+      <TooltipManager ref={tooltipManagerRef} />
     </div>
   );
 }
