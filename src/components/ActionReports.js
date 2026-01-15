@@ -10,8 +10,12 @@ import {
   ChevronRight,
   Calendar,
   ChevronDown,
-  Trash2
+  Trash2,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
+import { metricsAnalyticsService } from '../supabaseClient';
+import { offerStatusService } from '../services/OffersSupabase';
 
 // Опции для действий
 const ACTION_OPTIONS = [
@@ -120,65 +124,84 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
 }
 
 // Компонент строки артикула в конфигурации
-function ArticleConfigRow({ article, config, onChange, onRemove }) {
+function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, metricData = null }) {
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-b-0">
+    <div className={`flex items-start gap-3 py-3 border-b last:border-b-0 ${isInvalid ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
       {/* Артикул */}
       <div className="w-24 flex-shrink-0">
-        <span className="font-mono text-sm font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+        <span className={`font-mono text-sm font-medium px-2 py-1 rounded ${
+          isInvalid
+            ? 'text-red-700 bg-red-100 border border-red-300'
+            : 'text-slate-700 bg-slate-100'
+        }`}>
           {article}
         </span>
       </div>
 
+      {/* Название оффера (если найден) */}
+      {metricData && (
+        <div className="w-40 flex-shrink-0 text-sm text-slate-600 truncate" title={metricData.offer}>
+          {metricData.offer}
+        </div>
+      )}
+
       {/* Действие */}
       <div className="flex-1 flex flex-wrap items-center gap-2">
-        <CustomDropdown
-          value={config.action}
-          options={ACTION_OPTIONS}
-          onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
-          placeholder="Выберите действие"
-          className="w-40"
-        />
+        {!isInvalid && (
+          <>
+            <CustomDropdown
+              value={config.action}
+              options={ACTION_OPTIONS}
+              onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
+              placeholder="Выберите действие"
+              className="w-40"
+            />
 
-        {/* Дополнительные поля в зависимости от выбора */}
-        {config.action === 'reconfigured' && (
-          <CustomDropdown
-            value={config.subAction}
-            options={RECONFIGURED_OPTIONS}
-            onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
-            placeholder="Что изменили?"
-            className="w-36"
-          />
+            {/* Дополнительные поля в зависимости от выбора */}
+            {config.action === 'reconfigured' && (
+              <CustomDropdown
+                value={config.subAction}
+                options={RECONFIGURED_OPTIONS}
+                onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
+                placeholder="Что изменили?"
+                className="w-36"
+              />
+            )}
+
+            {config.action === 'reconfigured' && config.subAction === 'other' && (
+              <input
+                type="text"
+                value={config.customText || ''}
+                onChange={(e) => onChange({ ...config, customText: e.target.value })}
+                placeholder="Укажите что..."
+                className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
+
+            {config.action === 'new_product' && (
+              <CustomDropdown
+                value={config.subAction}
+                options={NEW_PRODUCT_OPTIONS}
+                onChange={(val) => onChange({ ...config, subAction: val })}
+                placeholder="Откуда?"
+                className="w-36"
+              />
+            )}
+
+            {config.action === 'tz' && (
+              <input
+                type="text"
+                value={config.trelloLink || ''}
+                onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
+                placeholder="Ссылка на Trello..."
+                className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
+          </>
         )}
 
-        {config.action === 'reconfigured' && config.subAction === 'other' && (
-          <input
-            type="text"
-            value={config.customText || ''}
-            onChange={(e) => onChange({ ...config, customText: e.target.value })}
-            placeholder="Укажите что..."
-            className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        )}
-
-        {config.action === 'new_product' && (
-          <CustomDropdown
-            value={config.subAction}
-            options={NEW_PRODUCT_OPTIONS}
-            onChange={(val) => onChange({ ...config, subAction: val })}
-            placeholder="Откуда?"
-            className="w-36"
-          />
-        )}
-
-        {config.action === 'tz' && (
-          <input
-            type="text"
-            value={config.trelloLink || ''}
-            onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
-            placeholder="Ссылка на Trello..."
-            className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {isInvalid && (
+          <span className="text-sm text-red-600">Артикул не найден в базе</span>
         )}
       </div>
 
@@ -204,8 +227,60 @@ function ActionReports({ user }) {
   const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
 
+  // Данные офферов из БД
+  const [allMetrics, setAllMetrics] = useState([]);
+  const [allStatuses, setAllStatuses] = useState({});
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [validatingArticles, setValidatingArticles] = useState(false);
+
+  // Ошибки валидации
+  const [invalidArticles, setInvalidArticles] = useState([]);
+  const [validationError, setValidationError] = useState('');
+
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
+
+  // Загрузка данных офферов при монтировании
+  useEffect(() => {
+    loadOffersData();
+  }, []);
+
+  const loadOffersData = async () => {
+    try {
+      setLoadingMetrics(true);
+
+      // Загружаем метрики и статусы параллельно
+      const [metricsResult, statusesResult] = await Promise.all([
+        metricsAnalyticsService.getAllMetrics(),
+        offerStatusService.getAllStatuses()
+      ]);
+
+      setAllMetrics(metricsResult.metrics || []);
+
+      // Преобразуем статусы в map
+      const statusesMap = {};
+      (statusesResult || []).forEach(status => {
+        statusesMap[status.offer_id] = status;
+      });
+      setAllStatuses(statusesMap);
+
+    } catch (error) {
+      console.error('Ошибка загрузки данных офферов:', error);
+    } finally {
+      setLoadingMetrics(false);
+    }
+  };
+
+  // Карта артикулов для быстрого поиска
+  const articlesMap = useMemo(() => {
+    const map = {};
+    allMetrics.forEach(metric => {
+      if (metric.article) {
+        map[metric.article.toLowerCase()] = metric;
+      }
+    });
+    return map;
+  }, [allMetrics]);
 
   // Генерация дней для календаря (сегодня слева, прошлые даты справа)
   const calendarDays = useMemo(() => {
@@ -226,12 +301,16 @@ function ActionReports({ user }) {
         isYesterday: i === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: i,
-        // Пока заглушка для данных
-        tasksCount: Math.floor(Math.random() * 20)
+        // Считаем реальные задачи на этот день
+        tasksCount: savedReports.filter(r => {
+          const reportDate = new Date(r.createdAt);
+          reportDate.setHours(0, 0, 0, 0);
+          return reportDate.getTime() === date.getTime();
+        }).length
       });
     }
     return days;
-  }, []);
+  }, [savedReports]);
 
   // Навигация по календарю
   const handleCalendarScroll = (direction) => {
@@ -261,27 +340,68 @@ function ActionReports({ user }) {
       .filter(a => a.length > 0);
   }, [articlesInput]);
 
-  // Обработка нажатия "Применить" - переход к шагу 2
-  const handleApplyArticles = () => {
-    // Инициализируем конфигурации для каждого артикула
-    const configs = {};
-    parsedArticles.forEach(article => {
-      configs[article] = {
-        action: '',
-        subAction: '',
-        customText: '',
-        trelloLink: ''
-      };
-    });
-    setArticleConfigs(configs);
-    setModalStep(2);
+  // Обработка нажатия "Применить" - валидация и переход к шагу 2
+  const handleApplyArticles = async () => {
+    setValidatingArticles(true);
+    setValidationError('');
+    setInvalidArticles([]);
+
+    try {
+      const valid = [];
+      const invalid = [];
+
+      // Проверяем каждый артикул
+      parsedArticles.forEach(article => {
+        const metric = articlesMap[article.toLowerCase()];
+        if (metric) {
+          valid.push({ article: metric.article, metric }); // Используем оригинальный регистр из БД
+        } else {
+          invalid.push(article);
+        }
+      });
+
+      if (invalid.length > 0) {
+        setInvalidArticles(invalid);
+        setValidationError(`Артикул${invalid.length > 1 ? 'ы' : ''} не найден${invalid.length > 1 ? 'ы' : ''}: ${invalid.join(', ')}`);
+      }
+
+      // Инициализируем конфигурации для валидных артикулов
+      const configs = {};
+      valid.forEach(({ article, metric }) => {
+        configs[article] = {
+          action: '',
+          subAction: '',
+          customText: '',
+          trelloLink: '',
+          metric // Сохраняем данные метрики
+        };
+      });
+
+      // Добавляем невалидные с пометкой
+      invalid.forEach(article => {
+        configs[article] = {
+          action: '',
+          subAction: '',
+          customText: '',
+          trelloLink: '',
+          metric: null,
+          isInvalid: true
+        };
+      });
+
+      setArticleConfigs(configs);
+      setModalStep(2);
+
+    } finally {
+      setValidatingArticles(false);
+    }
   };
 
   // Обновление конфигурации артикула
   const updateArticleConfig = (article, config) => {
     setArticleConfigs(prev => ({
       ...prev,
-      [article]: config
+      [article]: { ...prev[article], ...config }
     }));
   };
 
@@ -292,31 +412,32 @@ function ActionReports({ user }) {
       delete newConfigs[article];
       return newConfigs;
     });
+    // Убираем из списка невалидных
+    setInvalidArticles(prev => prev.filter(a => a !== article));
   };
 
   // Обработка сохранения
   const handleSaveReport = () => {
-    const reports = Object.entries(articleConfigs).map(([article, config]) => ({
-      id: `${article}-${Date.now()}`,
-      article,
-      ...config,
-      createdAt: new Date().toISOString(),
-      // Заглушки для метрик (в реальности загружаем из БД)
-      metrics: {
-        offer: `Товар ${article}`,
-        status: 'active',
-        cpl: (Math.random() * 10 + 5).toFixed(2),
-        leads: Math.floor(Math.random() * 100),
-        cost: Math.floor(Math.random() * 1000),
-        roi: Math.floor(Math.random() * 50),
-        profit: Math.floor(Math.random() * 5000),
-        daysRemaining: Math.floor(Math.random() * 30),
-        stock: Math.floor(Math.random() * 500),
-        daysToArrival: Math.floor(Math.random() * 14),
-        approve: Math.floor(Math.random() * 100),
-        sold: Math.floor(Math.random() * 100)
-      }
-    }));
+    // Сохраняем только валидные артикулы
+    const validConfigs = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
+
+    const reports = validConfigs.map(([article, config]) => {
+      const metric = config.metric;
+      const status = allStatuses[metric?.id];
+
+      return {
+        id: `${article}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        article,
+        action: config.action,
+        subAction: config.subAction,
+        customText: config.customText,
+        trelloLink: config.trelloLink,
+        createdAt: new Date().toISOString(),
+        // Реальные данные из БД
+        metric: metric,
+        status: status
+      };
+    });
 
     setSavedReports(prev => [...prev, ...reports]);
 
@@ -325,6 +446,8 @@ function ActionReports({ user }) {
     setModalStep(1);
     setArticlesInput('');
     setArticleConfigs({});
+    setInvalidArticles([]);
+    setValidationError('');
   };
 
   // Закрытие модального окна
@@ -333,6 +456,8 @@ function ActionReports({ user }) {
     setModalStep(1);
     setArticlesInput('');
     setArticleConfigs({});
+    setInvalidArticles([]);
+    setValidationError('');
   };
 
   // Получение текста действия для отображения
@@ -342,9 +467,10 @@ function ActionReports({ user }) {
 
     if (report.action === 'reconfigured' && report.subAction) {
       const sub = RECONFIGURED_OPTIONS.find(s => s.value === report.subAction);
-      label += `: ${sub?.label || report.customText || ''}`;
       if (report.subAction === 'other' && report.customText) {
         label = `Перенастроил: ${report.customText}`;
+      } else {
+        label += `: ${sub?.label || ''}`;
       }
     }
 
@@ -356,11 +482,16 @@ function ActionReports({ user }) {
     return label;
   };
 
-  // Проверка, все ли артикулы имеют выбранное действие
+  // Проверка, все ли валидные артикулы имеют выбранное действие
   const allArticlesConfigured = useMemo(() => {
-    const articles = Object.keys(articleConfigs);
-    if (articles.length === 0) return false;
-    return articles.every(article => articleConfigs[article].action !== '');
+    const validArticles = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
+    if (validArticles.length === 0) return false;
+    return validArticles.every(([_, config]) => config.action !== '');
+  }, [articleConfigs]);
+
+  // Есть ли хотя бы один валидный артикул
+  const hasValidArticles = useMemo(() => {
+    return Object.values(articleConfigs).some(config => !config.isInvalid);
   }, [articleConfigs]);
 
   // Фильтрация отчетов по поиску
@@ -369,9 +500,21 @@ function ActionReports({ user }) {
     const term = searchTerm.toLowerCase();
     return savedReports.filter(r =>
       r.article.toLowerCase().includes(term) ||
-      r.metrics.offer.toLowerCase().includes(term)
+      r.metric?.offer?.toLowerCase().includes(term)
     );
   }, [savedReports, searchTerm]);
+
+  // Получение цвета статуса
+  const getStatusDisplay = (report) => {
+    const status = report.status?.current_status;
+    if (!status) return { label: '—', className: 'bg-slate-100 text-slate-500' };
+
+    const config = offerStatusService.getStatusColor(status);
+    return {
+      label: status,
+      className: `${config.color} ${config.bgColor} ${config.textColor}`
+    };
+  };
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -386,9 +529,14 @@ function ActionReports({ user }) {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
+              disabled={loadingMetrics}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm disabled:opacity-50"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              {loadingMetrics ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
               Создать отчет
             </button>
           </div>
@@ -524,21 +672,21 @@ function ActionReports({ user }) {
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
           <div className="w-[3%] min-w-[32px]">№</div>
-          <div className="w-[7%] min-w-[70px]">Артикул</div>
+          <div className="w-[6%] min-w-[60px]">Артикул</div>
           <div className="w-[14%] min-w-[120px] text-left">Название</div>
-          <div className="w-[10%] min-w-[100px]">Действие</div>
+          <div className="w-[10%] min-w-[90px]">Действие</div>
           <div className="w-[8%] min-w-[70px]">Статус</div>
-          <div className="w-[5%] min-w-[50px]">CPL</div>
-          <div className="w-[5%] min-w-[45px]">Лиды</div>
-          <div className="w-[6%] min-w-[55px]">Расход</div>
-          <div className="w-[5%] min-w-[45px]">ROI</div>
-          <div className="w-[6%] min-w-[55px]">Прибыль</div>
-          <div className="w-[5%] min-w-[45px]">Дни</div>
-          <div className="w-[5%] min-w-[45px]">Ост.</div>
-          <div className="w-[5%] min-w-[45px]">Приход</div>
-          <div className="w-[5%] min-w-[45px]">Апрув</div>
-          <div className="w-[5%] min-w-[45px]">Выкуп</div>
-          <div className="w-[5%] min-w-[40px]"></div>
+          <div className="w-[5%] min-w-[45px]">CPL</div>
+          <div className="w-[5%] min-w-[40px]">Лиды</div>
+          <div className="w-[6%] min-w-[50px]">Расход</div>
+          <div className="w-[5%] min-w-[40px]">ROI</div>
+          <div className="w-[6%] min-w-[50px]">Прибыль</div>
+          <div className="w-[5%] min-w-[40px]">Дни</div>
+          <div className="w-[5%] min-w-[40px]">Ост.</div>
+          <div className="w-[5%] min-w-[40px]">Приход</div>
+          <div className="w-[5%] min-w-[40px]">Апрув</div>
+          <div className="w-[5%] min-w-[40px]">Выкуп</div>
+          <div className="w-[4%] min-w-[35px]"></div>
         </div>
       </div>
 
@@ -555,7 +703,8 @@ function ActionReports({ user }) {
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={loadingMetrics}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Plus className="h-4 w-4 mr-2" />
               Создать отчет
@@ -563,72 +712,77 @@ function ActionReports({ user }) {
           </div>
         ) : (
           <div className="px-4 py-2">
-            {filteredReports.map((report, index) => (
-              <div
-                key={report.id}
-                className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
-              >
-                <div className="w-[3%] min-w-[32px] text-center text-slate-500 font-medium">
-                  {index + 1}
+            {filteredReports.map((report, index) => {
+              const statusDisplay = getStatusDisplay(report);
+              const metric = report.metric || {};
+
+              return (
+                <div
+                  key={report.id}
+                  className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="w-[3%] min-w-[32px] text-center text-slate-500 font-medium">
+                    {index + 1}
+                  </div>
+                  <div className="w-[6%] min-w-[60px] text-center">
+                    <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      {report.article}
+                    </span>
+                  </div>
+                  <div className="w-[14%] min-w-[120px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                    {metric.offer || '—'}
+                  </div>
+                  <div className="w-[10%] min-w-[90px] text-center">
+                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded truncate block" title={getActionLabel(report)}>
+                      {getActionLabel(report)}
+                    </span>
+                  </div>
+                  <div className="w-[8%] min-w-[70px] text-center">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
+                      {statusDisplay.label}
+                    </span>
+                  </div>
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
+                    {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
+                    {metric.leads_data?.[4]?.leads || '—'}
+                  </div>
+                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
+                    {metric.leads_data?.[4]?.cost?.toFixed(0) || '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
+                    {metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'}
+                  </div>
+                  <div className="w-[6%] min-w-[50px] text-center font-mono text-green-600 font-medium">
+                    {metric.profit != null ? `$${metric.profit}` : '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                    {metric.days_remaining ?? '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                    {metric.stock ?? '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                    {metric.days_to_arrival ?? '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                    {metric.approve_percent != null ? `${metric.approve_percent}%` : '—'}
+                  </div>
+                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                    {metric.sold_percent != null ? `${metric.sold_percent}%` : '—'}
+                  </div>
+                  <div className="w-[4%] min-w-[35px] text-center">
+                    <button
+                      onClick={() => setSavedReports(prev => prev.filter(r => r.id !== report.id))}
+                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="w-[7%] min-w-[70px] text-center">
-                  <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {report.article}
-                  </span>
-                </div>
-                <div className="w-[14%] min-w-[120px] text-left text-slate-700 truncate pr-2">
-                  {report.metrics.offer}
-                </div>
-                <div className="w-[10%] min-w-[100px] text-center">
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded truncate block">
-                    {getActionLabel(report)}
-                  </span>
-                </div>
-                <div className="w-[8%] min-w-[70px] text-center">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                    Активный
-                  </span>
-                </div>
-                <div className="w-[5%] min-w-[50px] text-center font-mono text-slate-700">
-                  ${report.metrics.cpl}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
-                  {report.metrics.leads}
-                </div>
-                <div className="w-[6%] min-w-[55px] text-center font-mono text-slate-700">
-                  ${report.metrics.cost}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
-                  {report.metrics.roi}%
-                </div>
-                <div className="w-[6%] min-w-[55px] text-center font-mono text-green-600 font-medium">
-                  ${report.metrics.profit}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                  {report.metrics.daysRemaining}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                  {report.metrics.stock}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                  {report.metrics.daysToArrival}
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                  {report.metrics.approve}%
-                </div>
-                <div className="w-[5%] min-w-[45px] text-center text-slate-700">
-                  {report.metrics.sold}%
-                </div>
-                <div className="w-[5%] min-w-[40px] text-center">
-                  <button
-                    onClick={() => setSavedReports(prev => prev.filter(r => r.id !== report.id))}
-                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -637,7 +791,7 @@ function ActionReports({ user }) {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className={`bg-white rounded-xl shadow-2xl mx-4 transition-all duration-300 ${
-            modalStep === 1 ? 'w-full max-w-md' : 'w-full max-w-2xl'
+            modalStep === 1 ? 'w-full max-w-md' : 'w-full max-w-3xl'
           }`}>
             {/* Header модального окна */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -647,7 +801,7 @@ function ActionReports({ user }) {
                 </h3>
                 {modalStep === 2 && (
                   <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                    {Object.keys(articleConfigs).length} артикул(ов)
+                    {Object.values(articleConfigs).filter(c => !c.isInvalid).length} артикул(ов)
                   </span>
                 )}
               </div>
@@ -658,6 +812,17 @@ function ActionReports({ user }) {
                 <X className="h-5 w-5 text-slate-500" />
               </button>
             </div>
+
+            {/* Ошибка валидации */}
+            {modalStep === 2 && validationError && (
+              <div className="mx-6 mt-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">Ошибка валидации</p>
+                  <p className="text-sm text-red-600">{validationError}</p>
+                </div>
+              </div>
+            )}
 
             {/* Body модального окна */}
             <div className="px-6 py-4 max-h-[60vh] overflow-auto">
@@ -672,7 +837,7 @@ function ActionReports({ user }) {
                   <textarea
                     value={articlesInput}
                     onChange={(e) => setArticlesInput(e.target.value)}
-                    placeholder={"C01063\nC01064\nC01065"}
+                    placeholder={"R00009\nC01063\nC01064"}
                     className="w-full h-48 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono bg-slate-50"
                     autoFocus
                   />
@@ -686,13 +851,15 @@ function ActionReports({ user }) {
                     Укажите действие для каждого артикула
                   </p>
                   <div className="space-y-1">
-                    {Object.keys(articleConfigs).map((article) => (
+                    {Object.entries(articleConfigs).map(([article, config]) => (
                       <ArticleConfigRow
                         key={article}
                         article={article}
-                        config={articleConfigs[article]}
-                        onChange={(config) => updateArticleConfig(article, config)}
+                        config={config}
+                        onChange={(newConfig) => updateArticleConfig(article, newConfig)}
                         onRemove={() => removeArticle(article)}
+                        isInvalid={config.isInvalid}
+                        metricData={config.metric}
                       />
                     ))}
                   </div>
@@ -710,7 +877,11 @@ function ActionReports({ user }) {
               <div>
                 {modalStep === 2 && (
                   <button
-                    onClick={() => setModalStep(1)}
+                    onClick={() => {
+                      setModalStep(1);
+                      setValidationError('');
+                      setInvalidArticles([]);
+                    }}
                     className="text-sm text-slate-600 hover:text-slate-800 transition-colors"
                   >
                     ← Назад к вводу артикулов
@@ -727,15 +898,16 @@ function ActionReports({ user }) {
                 {modalStep === 1 ? (
                   <button
                     onClick={handleApplyArticles}
-                    disabled={parsedArticles.length === 0}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={parsedArticles.length === 0 || validatingArticles}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
+                    {validatingArticles && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Применить
                   </button>
                 ) : (
                   <button
                     onClick={handleSaveReport}
-                    disabled={!allArticlesConfigured || Object.keys(articleConfigs).length === 0}
+                    disabled={!allArticlesConfigured || !hasValidArticles}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Сохранить
