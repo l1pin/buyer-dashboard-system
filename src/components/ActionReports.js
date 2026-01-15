@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Trash2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Star
 } from 'lucide-react';
 import { metricsAnalyticsService } from '../supabaseClient';
 import { offerStatusService } from '../services/OffersSupabase';
@@ -124,7 +125,12 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
 }
 
 // Компонент строки артикула в конфигурации
-function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, metricData = null }) {
+function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, validationErrors = {} }) {
+  const hasActionError = validationErrors.action;
+  const hasSubActionError = validationErrors.subAction;
+  const hasCustomTextError = validationErrors.customText;
+  const hasTrelloLinkError = validationErrors.trelloLink;
+
   return (
     <div className={`flex items-start gap-3 py-3 border-b last:border-b-0 ${isInvalid ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
       {/* Артикул */}
@@ -138,64 +144,76 @@ function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = fal
         </span>
       </div>
 
-      {/* Название оффера (если найден) */}
-      {metricData && (
-        <div className="w-40 flex-shrink-0 text-sm text-slate-600 truncate" title={metricData.offer}>
-          {metricData.offer}
-        </div>
-      )}
-
       {/* Действие */}
       <div className="flex-1 flex flex-wrap items-center gap-2">
         {!isInvalid && (
           <>
-            <CustomDropdown
-              value={config.action}
-              options={ACTION_OPTIONS}
-              onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
-              placeholder="Выберите действие"
-              className="w-40"
-            />
+            <div className="flex flex-col">
+              <CustomDropdown
+                value={config.action}
+                options={ACTION_OPTIONS}
+                onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
+                placeholder="Выберите действие"
+                className={`w-40 ${hasActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+              />
+              {hasActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+            </div>
 
             {/* Дополнительные поля в зависимости от выбора */}
             {config.action === 'reconfigured' && (
-              <CustomDropdown
-                value={config.subAction}
-                options={RECONFIGURED_OPTIONS}
-                onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
-                placeholder="Что изменили?"
-                className="w-36"
-              />
+              <div className="flex flex-col">
+                <CustomDropdown
+                  value={config.subAction}
+                  options={RECONFIGURED_OPTIONS}
+                  onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
+                  placeholder="Что изменили?"
+                  className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+                />
+                {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+              </div>
             )}
 
             {config.action === 'reconfigured' && config.subAction === 'other' && (
-              <input
-                type="text"
-                value={config.customText || ''}
-                onChange={(e) => onChange({ ...config, customText: e.target.value })}
-                placeholder="Укажите что..."
-                className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex flex-col">
+                <input
+                  type="text"
+                  value={config.customText || ''}
+                  onChange={(e) => onChange({ ...config, customText: e.target.value })}
+                  placeholder="Укажите что..."
+                  className={`w-32 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    hasCustomTextError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
+                  }`}
+                />
+                {hasCustomTextError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+              </div>
             )}
 
             {config.action === 'new_product' && (
-              <CustomDropdown
-                value={config.subAction}
-                options={NEW_PRODUCT_OPTIONS}
-                onChange={(val) => onChange({ ...config, subAction: val })}
-                placeholder="Откуда?"
-                className="w-36"
-              />
+              <div className="flex flex-col">
+                <CustomDropdown
+                  value={config.subAction}
+                  options={NEW_PRODUCT_OPTIONS}
+                  onChange={(val) => onChange({ ...config, subAction: val })}
+                  placeholder="Откуда?"
+                  className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+                />
+                {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+              </div>
             )}
 
             {config.action === 'tz' && (
-              <input
-                type="text"
-                value={config.trelloLink || ''}
-                onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
-                placeholder="Ссылка на Trello..."
-                className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex flex-col flex-1">
+                <input
+                  type="text"
+                  value={config.trelloLink || ''}
+                  onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
+                  placeholder="https://trello.com/c/..."
+                  className={`min-w-[200px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    hasTrelloLinkError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
+                  }`}
+                />
+                {hasTrelloLinkError && <span className="text-xs text-red-500 mt-1">Введите ссылку: https://trello.com/c/...</span>}
+              </div>
             )}
           </>
         )}
@@ -236,6 +254,7 @@ function ActionReports({ user }) {
   // Ошибки валидации
   const [invalidArticles, setInvalidArticles] = useState([]);
   const [validationError, setValidationError] = useState('');
+  const [configValidationErrors, setConfigValidationErrors] = useState({}); // { article: { action: true, subAction: true, ... } }
 
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
@@ -418,8 +437,25 @@ function ActionReports({ user }) {
 
   // Обработка сохранения
   const handleSaveReport = () => {
-    // Сохраняем только валидные артикулы
+    // Сначала валидируем все конфигурации
     const validConfigs = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
+    const newValidationErrors = {};
+    let hasErrors = false;
+
+    validConfigs.forEach(([article, config]) => {
+      const errors = validateArticleConfig(config);
+      if (Object.keys(errors).length > 0) {
+        newValidationErrors[article] = errors;
+        hasErrors = true;
+      }
+    });
+
+    setConfigValidationErrors(newValidationErrors);
+
+    if (hasErrors) {
+      setValidationError('Пожалуйста, заполните все обязательные поля');
+      return;
+    }
 
     const reports = validConfigs.map(([article, config]) => {
       const metric = config.metric;
@@ -448,6 +484,7 @@ function ActionReports({ user }) {
     setArticleConfigs({});
     setInvalidArticles([]);
     setValidationError('');
+    setConfigValidationErrors({});
   };
 
   // Закрытие модального окна
@@ -458,6 +495,7 @@ function ActionReports({ user }) {
     setArticleConfigs({});
     setInvalidArticles([]);
     setValidationError('');
+    setConfigValidationErrors({});
   };
 
   // Получение текста действия для отображения
@@ -482,11 +520,54 @@ function ActionReports({ user }) {
     return label;
   };
 
-  // Проверка, все ли валидные артикулы имеют выбранное действие
+  // Валидация Trello ссылки
+  const isValidTrelloLink = (link) => {
+    if (!link || link.trim() === '') return false;
+    // Ссылка должна начинаться с https://trello.com/c/
+    return /^https:\/\/trello\.com\/c\/[a-zA-Z0-9]+/.test(link.trim());
+  };
+
+  // Валидация конфигурации одного артикула
+  const validateArticleConfig = (config) => {
+    const errors = {};
+
+    // Действие обязательно
+    if (!config.action) {
+      errors.action = true;
+    }
+
+    // Для "Перенастроил" обязательно выбрать подкатегорию
+    if (config.action === 'reconfigured' && !config.subAction) {
+      errors.subAction = true;
+    }
+
+    // Для "Перенастроил" -> "Другое" обязательно заполнить текст
+    if (config.action === 'reconfigured' && config.subAction === 'other' && !config.customText?.trim()) {
+      errors.customText = true;
+    }
+
+    // Для "Новинка" обязательно выбрать откуда
+    if (config.action === 'new_product' && !config.subAction) {
+      errors.subAction = true;
+    }
+
+    // Для "ТЗ" обязательна валидная Trello ссылка
+    if (config.action === 'tz' && !isValidTrelloLink(config.trelloLink)) {
+      errors.trelloLink = true;
+    }
+
+    return errors;
+  };
+
+  // Проверка, все ли валидные артикулы полностью настроены
   const allArticlesConfigured = useMemo(() => {
     const validArticles = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
     if (validArticles.length === 0) return false;
-    return validArticles.every(([_, config]) => config.action !== '');
+
+    return validArticles.every(([_, config]) => {
+      const errors = validateArticleConfig(config);
+      return Object.keys(errors).length === 0;
+    });
   }, [articleConfigs]);
 
   // Есть ли хотя бы один валидный артикул
@@ -673,19 +754,22 @@ function ActionReports({ user }) {
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
           <div className="w-[3%] min-w-[30px]">№</div>
           <div className="w-[7%] min-w-[65px]">Артикул</div>
-          <div className="w-[16%] min-w-[140px] text-left">Название</div>
+          <div className="w-[15%] min-w-[130px] text-left">Название</div>
           <div className="w-[8%] min-w-[70px]">Статус</div>
           <div className="w-[6%] min-w-[50px]">CPL</div>
           <div className="w-[5%] min-w-[45px]">Лиды</div>
+          <div className="w-[4%] min-w-[36px]" title="Рейтинг">
+            <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
+          </div>
           <div className="w-[5%] min-w-[45px]">ROI</div>
-          <div className="w-[7%] min-w-[55px]">Прибыль</div>
+          <div className="w-[6%] min-w-[50px]">Прибыль</div>
           <div className="w-[5%] min-w-[40px]">Дни</div>
           <div className="w-[5%] min-w-[40px]">Ост.</div>
-          <div className="w-[6%] min-w-[45px]">Приход</div>
+          <div className="w-[5%] min-w-[45px]">Приход</div>
           <div className="w-[5%] min-w-[45px]">Апрув</div>
           <div className="w-[5%] min-w-[45px]">Выкуп</div>
-          <div className="w-[6%] min-w-[50px]">Сезон</div>
-          <div className="w-[6%] min-w-[50px]">Цена</div>
+          <div className="w-[5%] min-w-[45px]">Сезон</div>
+          <div className="w-[5%] min-w-[45px]">Цена</div>
           <div className="w-[4%] min-w-[35px]"></div>
         </div>
       </div>
@@ -716,6 +800,17 @@ function ActionReports({ user }) {
               const statusDisplay = getStatusDisplay(report);
               const metric = report.metric || {};
 
+              // Определение цвета рейтинга
+              const getRatingColor = (rating) => {
+                switch (rating) {
+                  case 'A': return 'bg-green-100 text-green-800';
+                  case 'B': return 'bg-yellow-100 text-yellow-800';
+                  case 'C': return 'bg-orange-100 text-orange-800';
+                  case 'D': return 'bg-red-100 text-red-800';
+                  default: return 'bg-gray-100 text-gray-400';
+                }
+              };
+
               return (
                 <div
                   key={report.id}
@@ -725,11 +820,11 @@ function ActionReports({ user }) {
                     {index + 1}
                   </div>
                   <div className="w-[7%] min-w-[65px] text-center">
-                    <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                    <span className="font-mono text-xs text-slate-800">
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[16%] min-w-[140px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className="w-[15%] min-w-[130px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
                     {metric.offer || '—'}
                   </div>
                   <div className="w-[8%] min-w-[70px] text-center">
@@ -743,10 +838,15 @@ function ActionReports({ user }) {
                   <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {metric.leads_data?.[4]?.leads || '—'}
                   </div>
+                  <div className="w-[4%] min-w-[36px] text-center">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.rating)}`}>
+                      {metric.rating || '—'}
+                    </span>
+                  </div>
                   <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'}
                   </div>
-                  <div className="w-[7%] min-w-[55px] text-center font-mono text-green-600 font-medium">
+                  <div className="w-[6%] min-w-[50px] text-center font-mono text-green-600 font-medium">
                     {metric.profit != null ? `$${metric.profit}` : '—'}
                   </div>
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
@@ -755,7 +855,7 @@ function ActionReports({ user }) {
                   <div className="w-[5%] min-w-[40px] text-center text-slate-700">
                     {metric.stock ?? '—'}
                   </div>
-                  <div className="w-[6%] min-w-[45px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.days_to_arrival ?? '—'}
                   </div>
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
@@ -764,10 +864,10 @@ function ActionReports({ user }) {
                   <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.sold_percent != null ? `${metric.sold_percent}%` : '—'}
                   </div>
-                  <div className="w-[6%] min-w-[50px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center text-slate-700">
                     {metric.season || '—'}
                   </div>
-                  <div className="w-[6%] min-w-[50px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[45px] text-center font-mono text-slate-700">
                     {metric.price != null ? `$${metric.price}` : '—'}
                   </div>
                   <div className="w-[4%] min-w-[35px] text-center">
@@ -854,10 +954,18 @@ function ActionReports({ user }) {
                         key={article}
                         article={article}
                         config={config}
-                        onChange={(newConfig) => updateArticleConfig(article, newConfig)}
+                        onChange={(newConfig) => {
+                          updateArticleConfig(article, newConfig);
+                          // Очищаем ошибки валидации при изменении
+                          setConfigValidationErrors(prev => {
+                            const next = { ...prev };
+                            delete next[article];
+                            return next;
+                          });
+                        }}
                         onRemove={() => removeArticle(article)}
                         isInvalid={config.isInvalid}
-                        metricData={config.metric}
+                        validationErrors={configValidationErrors[article] || {}}
                       />
                     ))}
                   </div>
@@ -879,6 +987,7 @@ function ActionReports({ user }) {
                       setModalStep(1);
                       setValidationError('');
                       setInvalidArticles([]);
+                      setConfigValidationErrors({});
                     }}
                     className="text-sm text-slate-600 hover:text-slate-800 transition-colors"
                   >
