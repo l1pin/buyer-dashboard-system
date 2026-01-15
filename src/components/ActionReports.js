@@ -807,7 +807,8 @@ function ActionReports({ user }) {
 
   // Получение цвета статуса
   const getStatusDisplay = (report) => {
-    const status = report.status?.current_status;
+    // Берём статус из report.status или из metricSnapshot
+    const status = report.status?.current_status || report.metricSnapshot?.current_status;
     if (!status) return { label: '—', className: 'bg-slate-100 text-slate-500' };
 
     const config = offerStatusService.getStatusColor(status);
@@ -817,22 +818,60 @@ function ActionReports({ user }) {
     };
   };
 
-  // Получение актуальных метрик для отчета (из updatedMetricsMap или из report.metric)
+  // Получение актуальных метрик для отчета (из updatedMetricsMap, report.metric или metricSnapshot)
   const getReportMetric = useCallback((report) => {
-    // Если есть обновленные данные - используем их
+    // Базовые данные из metric или metricSnapshot
+    const baseMetric = report.metric || {};
+    const snapshot = report.metricSnapshot || {};
+
+    // Преобразуем snapshot в формат metric (offer_name -> offer)
+    const snapshotAsMetric = {
+      offer: snapshot.offer_name,
+      offer_name: snapshot.offer_name,
+      offer_price: snapshot.offer_price,
+      lead_rating: snapshot.lead_rating,
+      stock_quantity: snapshot.stock_quantity,
+      days_remaining: snapshot.days_remaining,
+      actual_roi_percent: snapshot.actual_roi_percent,
+      red_zone_price: snapshot.red_zone_price,
+      approve_percent: snapshot.approve_percent,
+      sold_percent: snapshot.sold_percent,
+      // Для CPL и Leads из snapshot
+      leads_data: snapshot.cpl != null || snapshot.leads != null ? {
+        4: { cpl: snapshot.cpl, leads: snapshot.leads }
+      } : undefined
+    };
+
+    // Объединяем: snapshot -> metric -> updatedMetrics (приоритет справа налево)
+    const merged = { ...snapshotAsMetric, ...baseMetric };
+
+    // Если есть обновленные данные - используем их поверх
     if (updatedMetricsMap[report.article]) {
-      return { ...report.metric, ...updatedMetricsMap[report.article] };
+      return { ...merged, ...updatedMetricsMap[report.article] };
     }
-    return report.metric || {};
+    return merged;
   }, [updatedMetricsMap]);
 
   // Проверка, идет ли какое-либо обновление
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
 
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
-  const updateVisibleReportsMetrics = useCallback(async () => {
-    // Получаем уникальные артикулы из сохраненных отчетов
-    const uniqueArticles = [...new Set(savedReports.map(r => r.article))];
+  const updateVisibleReportsMetrics = useCallback(async (forDate = null) => {
+    // Фильтруем отчеты по дате если указана
+    let reportsToUpdate = savedReports;
+    if (forDate) {
+      reportsToUpdate = savedReports.filter(r => {
+        const reportDate = new Date(r.createdAt);
+        reportDate.setHours(0, 0, 0, 0);
+        const targetDate = new Date(forDate);
+        targetDate.setHours(0, 0, 0, 0);
+        return reportDate.getTime() === targetDate.getTime();
+      });
+      console.log(`📅 Фильтруем отчеты для даты ${forDate.toLocaleDateString('ru')}: найдено ${reportsToUpdate.length} отчетов`);
+    }
+
+    // Получаем уникальные артикулы из отфильтрованных отчетов
+    const uniqueArticles = [...new Set(reportsToUpdate.map(r => r.article))];
 
     if (uniqueArticles.length === 0) {
       console.log('⚠️ Нет артикулов для обновления');
@@ -843,14 +882,18 @@ function ActionReports({ user }) {
 
     // Создаем массив метрик только для видимых артикулов
     const visibleMetrics = uniqueArticles.map(article => {
-      // Ищем базовую метрику из savedReports
-      const report = savedReports.find(r => r.article === article);
+      // Ищем базовую метрику из отфильтрованных отчетов
+      const report = reportsToUpdate.find(r => r.article === article);
+      // Берём данные из metric или metricSnapshot
+      const baseMetric = report?.metric || {};
+      const snapshot = report?.metricSnapshot || {};
       return {
-        id: report?.metric?.id,
+        id: baseMetric.id,
         article: article,
-        offer: report?.metric?.offer,
-        stock_quantity: report?.metric?.stock_quantity || report?.metric?.stock,
-        ...report?.metric
+        offer: baseMetric.offer || snapshot.offer_name,
+        stock_quantity: baseMetric.stock_quantity || snapshot.stock_quantity,
+        offer_price: baseMetric.offer_price || snapshot.offer_price,
+        ...baseMetric
       };
     }).filter(m => m.article);
 
@@ -938,6 +981,28 @@ function ActionReports({ user }) {
       console.error('❌ Ошибка обновления метрик:', error);
     }
   }, [savedReports, articleOfferMap]);
+
+  // ========== АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ МЕТРИК ==========
+
+  // Автоматическое обновление при загрузке отчетов из БД
+  useEffect(() => {
+    if (savedReports.length > 0 && !loadingReports && Object.keys(articleOfferMap).length > 0) {
+      // Обновляем метрики для выбранной даты или сегодня при первой загрузке
+      const dateToUpdate = selectedDate || new Date();
+      console.log(`🚀 Автообновление метрик для ${dateToUpdate.toLocaleDateString('ru')}`);
+      updateVisibleReportsMetrics(dateToUpdate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingReports, articleOfferMap]);
+
+  // Автоматическое обновление при смене выбранной даты
+  useEffect(() => {
+    if (selectedDate && savedReports.length > 0 && Object.keys(articleOfferMap).length > 0 && !isAnyLoading) {
+      console.log(`📅 Смена даты: обновляем метрики для ${selectedDate.toLocaleDateString('ru')}`);
+      updateVisibleReportsMetrics(selectedDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
