@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { metricsAnalyticsService } from '../supabaseClient';
-import { offerStatusService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
+import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
 import { effectivityZonesService } from '../services/effectivityZonesService';
 import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
@@ -293,6 +293,10 @@ function ActionReports({ user }) {
   const [modalStep, setModalStep] = useState(1); // 1 = ввод артикулов, 2 = конфигурация
   const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
+  const [selectedDate, setSelectedDate] = useState(null); // Выбранная дата в календаре (null = все)
+  const [reportsCountByDay, setReportsCountByDay] = useState({}); // { 'YYYY-MM-DD': count }
+  const [loadingReports, setLoadingReports] = useState(false); // Загрузка отчетов из БД
+  const [savingReports, setSavingReports] = useState(false); // Сохранение отчетов в БД
 
   // Данные офферов из БД
   const [allMetrics, setAllMetrics] = useState([]);
@@ -325,9 +329,10 @@ function ActionReports({ user }) {
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
 
-  // Загрузка данных офферов при монтировании
+  // Загрузка данных офферов и отчетов при монтировании
   useEffect(() => {
     loadOffersData();
+    loadReportsFromDB();
   }, []);
 
   const loadOffersData = async () => {
@@ -368,6 +373,43 @@ function ActionReports({ user }) {
     } finally {
       setLoadingMetrics(false);
     }
+
+  // Загрузка отчетов из БД
+  const loadReportsFromDB = async (date = null) => {
+    try {
+      setLoadingReports(true);
+
+      // Загружаем отчеты и статистику параллельно
+      const [reports, countByDay] = await Promise.all([
+        date
+          ? actionReportsService.getReportsByDate(date)
+          : actionReportsService.getAllReports(),
+        actionReportsService.getReportsCountByDays(60) // 60 дней для календаря
+      ]);
+
+      // Преобразуем отчеты из БД в формат компонента
+      const formattedReports = reports.map(r => ({
+        id: r.id,
+        article: r.article,
+        action: r.action_type,
+        subAction: r.sub_action,
+        customText: r.custom_text,
+        trelloLink: r.trello_link,
+        createdAt: r.created_at,
+        createdBy: r.created_by,
+        createdByName: r.created_by_name,
+        metricSnapshot: r.metric_snapshot
+      }));
+
+      setSavedReports(formattedReports);
+      setReportsCountByDay(countByDay);
+      console.log(`📋 Загружено ${formattedReports.length} отчетов из БД`);
+
+    } catch (error) {
+      console.error('Ошибка загрузки отчетов из БД:', error);
+    } finally {
+      setLoadingReports(false);
+    }
   };
 
   // Карта артикулов для быстрого поиска
@@ -391,8 +433,10 @@ function ActionReports({ user }) {
     for (let i = 0; i < 31; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() - i); // Минус i дней (в прошлое)
+      const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
       days.push({
         date: date,
+        dateKey: dateKey,
         day: date.getDate(),
         weekday: date.toLocaleString('ru', { weekday: 'short' }),
         month: date.toLocaleString('ru', { month: 'short' }),
@@ -400,8 +444,8 @@ function ActionReports({ user }) {
         isYesterday: i === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: i,
-        // Считаем реальные задачи на этот день
-        tasksCount: savedReports.filter(r => {
+        // Считаем задачи из БД (reportsCountByDay) или локальных отчетов
+        tasksCount: reportsCountByDay[dateKey] || savedReports.filter(r => {
           const reportDate = new Date(r.createdAt);
           reportDate.setHours(0, 0, 0, 0);
           return reportDate.getTime() === date.getTime();
@@ -409,7 +453,17 @@ function ActionReports({ user }) {
       });
     }
     return days;
-  }, [savedReports]);
+  }, [savedReports, reportsCountByDay]);
+
+  // Обработка клика по дню в календаре
+  const handleDayClick = (day) => {
+    if (selectedDate && selectedDate.getTime() === day.date.getTime()) {
+      // Повторный клик — снять выбор (показать все)
+      setSelectedDate(null);
+    } else {
+      setSelectedDate(day.date);
+    }
+  };
 
   // Навигация по календарю
   const handleCalendarScroll = (direction) => {
@@ -516,7 +570,7 @@ function ActionReports({ user }) {
   };
 
   // Обработка сохранения
-  const handleSaveReport = () => {
+  const handleSaveReport = async () => {
     // Сначала валидируем все конфигурации
     const validConfigs = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
     const newValidationErrors = {};
@@ -537,25 +591,78 @@ function ActionReports({ user }) {
       return;
     }
 
-    const reports = validConfigs.map(([article, config]) => {
+    // Подготавливаем отчеты для сохранения в БД
+    const reportsToSave = validConfigs.map(([article, config]) => {
       const metric = config.metric;
       const status = allStatuses[metric?.id];
 
       return {
-        id: `${article}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         article,
-        action: config.action,
-        subAction: config.subAction,
-        customText: config.customText,
-        trelloLink: config.trelloLink,
-        createdAt: new Date().toISOString(),
-        // Реальные данные из БД
-        metric: metric,
-        status: status
+        action_type: config.action,
+        sub_action: config.subAction || null,
+        custom_text: config.customText || null,
+        trello_link: config.trelloLink || null,
+        created_by: user?.id,
+        created_by_name: user?.name || 'Неизвестно',
+        metric_snapshot: {
+          offer_name: metric?.offer_name,
+          current_status: status?.current_status,
+          cpl: metric?.leads_data?.[4]?.cpl,
+          leads: metric?.leads_data?.[4]?.leads,
+          lead_rating: metric?.lead_rating,
+          stock_quantity: metric?.stock_quantity,
+          days_remaining: metric?.days_remaining,
+          actual_roi_percent: metric?.actual_roi_percent,
+          red_zone_price: metric?.red_zone_price,
+          approve_percent: metric?.approve_percent,
+          sold_percent: metric?.sold_percent,
+          offer_price: metric?.offer_price
+        }
       };
     });
 
-    setSavedReports(prev => [...prev, ...reports]);
+    // Сохраняем в БД
+    setSavingReports(true);
+    try {
+      const savedToDB = await actionReportsService.createReports(reportsToSave);
+
+      // Преобразуем сохраненные отчеты для отображения
+      const reports = savedToDB.map(r => {
+        const config = articleConfigs[r.article];
+        const metric = config?.metric;
+        const status = allStatuses[metric?.id];
+
+        return {
+          id: r.id,
+          article: r.article,
+          action: r.action_type,
+          subAction: r.sub_action,
+          customText: r.custom_text,
+          trelloLink: r.trello_link,
+          createdAt: r.created_at,
+          createdBy: r.created_by,
+          createdByName: r.created_by_name,
+          metricSnapshot: r.metric_snapshot,
+          // Реальные данные из БД
+          metric: metric,
+          status: status
+        };
+      });
+
+      setSavedReports(prev => [...prev, ...reports]);
+
+      // Обновляем статистику по дням для календаря
+      const countByDay = await actionReportsService.getReportsCountByDays(60);
+      setReportsCountByDay(countByDay);
+
+      console.log(`✅ Сохранено ${reports.length} отчетов в БД`);
+    } catch (error) {
+      console.error('❌ Ошибка сохранения отчетов:', error);
+      setValidationError('Ошибка сохранения в базу данных');
+      return;
+    } finally {
+      setSavingReports(false);
+    }
 
     // Закрываем модальное окно и сбрасываем состояние
     setShowCreateModal(false);
@@ -576,6 +683,25 @@ function ActionReports({ user }) {
     setInvalidArticles([]);
     setValidationError('');
     setConfigValidationErrors({});
+  };
+
+  // Удаление отчета
+  const handleDeleteReport = async (reportId) => {
+    try {
+      // Удаляем из БД
+      await actionReportsService.deleteReport(reportId);
+
+      // Удаляем из локального состояния
+      setSavedReports(prev => prev.filter(r => r.id !== reportId));
+
+      // Обновляем статистику по дням для календаря
+      const countByDay = await actionReportsService.getReportsCountByDays(60);
+      setReportsCountByDay(countByDay);
+
+      console.log(`✅ Отчет ${reportId} удалён`);
+    } catch (error) {
+      console.error('❌ Ошибка удаления отчета:', error);
+    }
   };
 
   // Получение текста действия для отображения
@@ -655,15 +781,28 @@ function ActionReports({ user }) {
     return Object.values(articleConfigs).some(config => !config.isInvalid);
   }, [articleConfigs]);
 
-  // Фильтрация отчетов по поиску
+  // Фильтрация отчетов по дате и поиску
   const filteredReports = useMemo(() => {
-    if (!searchTerm) return savedReports;
+    // Сначала фильтруем по выбранной дате
+    let reports = savedReports;
+    if (selectedDate) {
+      reports = savedReports.filter(r => {
+        const reportDate = new Date(r.createdAt);
+        reportDate.setHours(0, 0, 0, 0);
+        const selected = new Date(selectedDate);
+        selected.setHours(0, 0, 0, 0);
+        return reportDate.getTime() === selected.getTime();
+      });
+    }
+
+    // Затем по поисковому запросу
+    if (!searchTerm) return reports;
     const term = searchTerm.toLowerCase();
-    return savedReports.filter(r =>
+    return reports.filter(r =>
       r.article.toLowerCase().includes(term) ||
       r.metric?.offer?.toLowerCase().includes(term)
     );
-  }, [savedReports, searchTerm]);
+  }, [savedReports, searchTerm, selectedDate]);
 
   // Получение цвета статуса
   const getStatusDisplay = (report) => {
@@ -1020,33 +1159,45 @@ function ActionReports({ user }) {
           className="flex space-x-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
           style={{ scrollbarWidth: 'thin' }}
         >
-          {calendarDays.map((day, index) => (
-            <div
-              key={index}
-              className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${
-                day.isToday
-                  ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 scale-105'
-                  : day.isWeekend
-                  ? 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100'
-                  : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md'
-              }`}
-            >
-              <div className={`text-[10px] uppercase font-medium ${day.isToday ? 'text-blue-100' : 'text-slate-400'}`}>
-                {day.isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
-              </div>
-              <div className={`text-xl font-bold ${day.isToday ? 'text-white' : 'text-slate-700'}`}>
-                {day.day}
-              </div>
-              <div className={`text-[10px] ${day.isToday ? 'text-blue-100' : 'text-slate-400'}`}>
-                {day.month}
-              </div>
-              {day.tasksCount > 0 && (
-                <div className={`mt-1 text-[10px] font-medium ${day.isToday ? 'text-white' : 'text-slate-500'}`}>
-                  {day.tasksCount} задач
+          {calendarDays.map((day, index) => {
+            const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
+            return (
+              <div
+                key={index}
+                onClick={() => handleDayClick(day)}
+                className={`flex-shrink-0 w-16 px-2 py-2.5 rounded-xl text-center cursor-pointer transition-all duration-200 ${
+                  isSelected
+                    ? 'bg-gradient-to-b from-green-500 to-green-600 shadow-lg shadow-green-500/30 scale-105 ring-2 ring-green-300'
+                    : day.isToday
+                    ? 'bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 scale-105'
+                    : day.isWeekend
+                    ? 'bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100'
+                    : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md'
+                }`}
+              >
+                <div className={`text-[10px] uppercase font-medium ${isSelected || day.isToday ? 'text-white/80' : 'text-slate-400'}`}>
+                  {day.isToday ? 'сегодня' : day.isYesterday ? 'вчера' : day.weekday}
                 </div>
-              )}
-            </div>
-          ))}
+                <div className={`text-xl font-bold ${isSelected || day.isToday ? 'text-white' : 'text-slate-700'}`}>
+                  {day.day}
+                </div>
+                <div className={`text-[10px] ${isSelected || day.isToday ? 'text-white/80' : 'text-slate-400'}`}>
+                  {day.month}
+                </div>
+                {day.tasksCount > 0 && (
+                  <div className={`mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    isSelected
+                      ? 'bg-white/20 text-white'
+                      : day.isToday
+                      ? 'bg-white/20 text-white'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {day.tasksCount}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -1075,6 +1226,23 @@ function ActionReports({ user }) {
               <circle cx="19" cy="15" r="2" />
             </svg>
           </button>
+
+          {/* Бейдж выбранной даты */}
+          {selectedDate && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <Calendar className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-700">
+                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="p-0.5 hover:bg-green-100 rounded-full transition-colors"
+                title="Сбросить фильтр по дате"
+              >
+                <X className="h-3.5 w-3.5 text-green-600" />
+              </button>
+            </div>
+          )}
 
           {/* Поиск */}
           <div className="w-72 relative">
@@ -1357,8 +1525,9 @@ function ActionReports({ user }) {
                   </div>
                   <div className="w-[4%] min-w-[35px] text-center">
                     <button
-                      onClick={() => setSavedReports(prev => prev.filter(r => r.id !== report.id))}
+                      onClick={() => handleDeleteReport(report.id)}
                       className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Удалить отчет"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
