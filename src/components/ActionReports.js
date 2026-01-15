@@ -990,42 +990,6 @@ function ActionReports({ user }) {
                 }
               };
 
-              // Функция для вычисления CPL зоны на основе порогов
-              const calculateCplZone = () => {
-                const cpl = metric.leads_data?.[4]?.cpl;
-                if (cpl == null || cpl <= 0) return null;
-
-                // Зоны: green < gold < pink < red
-                if (metric.green_zone_price != null && cpl <= metric.green_zone_price) return 'green';
-                if (metric.gold_zone_price != null && cpl <= metric.gold_zone_price) return 'gold';
-                if (metric.pink_zone_price != null && cpl <= metric.pink_zone_price) return 'pink';
-                if (metric.red_zone_price != null) return 'red';
-                return null;
-              };
-
-              const cplZone = calculateCplZone();
-
-              // Функция для определения цвета CPL зоны
-              const getCplZoneColor = (zone) => {
-                switch (zone) {
-                  case 'green': return 'bg-green-100 text-green-700';
-                  case 'gold': return 'bg-yellow-100 text-yellow-700';
-                  case 'pink': return 'bg-pink-100 text-pink-700';
-                  case 'red': return 'bg-red-100 text-red-700';
-                  default: return 'bg-gray-100 text-gray-500';
-                }
-              };
-
-              const getCplZoneLabel = (zone) => {
-                switch (zone) {
-                  case 'green': return 'Зелёная';
-                  case 'gold': return 'Жёлтая';
-                  case 'pink': return 'Розовая';
-                  case 'red': return 'Красная';
-                  default: return '—';
-                }
-              };
-
               return (
                 <div
                   key={report.id}
@@ -1091,9 +1055,13 @@ function ActionReports({ user }) {
                     {loadingZones ? (
                       <SkeletonCell width="w-12" />
                     ) : (
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getCplZoneColor(cplZone)}`}>
-                        {getCplZoneLabel(cplZone)}
-                      </span>
+                      metric.red_zone_price != null ? (
+                        <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
+                          ${Number(metric.red_zone_price).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )
                     )}
                   </div>
 
