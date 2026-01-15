@@ -671,6 +671,7 @@ function ActionReports({ user }) {
       {/* Заголовки таблицы - стиль как в OffersTL */}
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
+          <div className="w-[3%] min-w-[30px]">№</div>
           <div className="w-[7%] min-w-[65px]">Артикул</div>
           <div className="w-[16%] min-w-[140px] text-left">Название</div>
           <div className="w-[8%] min-w-[70px]">Статус</div>
@@ -711,7 +712,7 @@ function ActionReports({ user }) {
           </div>
         ) : (
           <div className="px-4 py-2">
-            {filteredReports.map((report) => {
+            {filteredReports.map((report, index) => {
               const statusDisplay = getStatusDisplay(report);
               const metric = report.metric || {};
 
@@ -720,6 +721,9 @@ function ActionReports({ user }) {
                   key={report.id}
                   className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
                 >
+                  <div className="w-[3%] min-w-[30px] text-center text-slate-500 font-medium">
+                    {index + 1}
+                  </div>
                   <div className="w-[7%] min-w-[65px] text-center">
                     <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                       {report.article}
