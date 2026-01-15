@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { metricsAnalyticsService } from '../supabaseClient';
-import { offerStatusService, articleOfferMappingService } from '../services/OffersSupabase';
+import { offerStatusService, articleOfferMappingService, offerSeasonService } from '../services/OffersSupabase';
 import { effectivityZonesService } from '../services/effectivityZonesService';
 import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
@@ -29,6 +29,21 @@ function SkeletonCell({ width = 'w-10' }) {
     <div className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto`} />
   );
 }
+
+// Расчет дней до прихода
+const calculateDaysUntilArrival = (dateString) => {
+  if (!dateString) return null;
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const arrivalDate = new Date(dateString);
+    arrivalDate.setHours(0, 0, 0, 0);
+    const diffTime = arrivalDate - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  } catch (error) {
+    return null;
+  }
+};
 
 // Опции для действий
 const ACTION_OPTIONS = [
@@ -274,6 +289,7 @@ function ActionReports({ user }) {
 
   // Обновленные данные для отчетов (метрики после обновления)
   const [updatedMetricsMap, setUpdatedMetricsMap] = useState({}); // { article: updatedMetric }
+  const [offerSeasons, setOfferSeasons] = useState({}); // { article: seasons[] }
 
   // Ошибки валидации
   const [invalidArticles, setInvalidArticles] = useState([]);
@@ -292,11 +308,12 @@ function ActionReports({ user }) {
     try {
       setLoadingMetrics(true);
 
-      // Загружаем метрики, статусы и маппинги параллельно
-      const [metricsResult, statusesResult, mappingsResult] = await Promise.all([
+      // Загружаем метрики, статусы, маппинги и сезоны параллельно
+      const [metricsResult, statusesResult, mappingsResult, seasonsResult] = await Promise.all([
         metricsAnalyticsService.getAllMetrics(),
         offerStatusService.getAllStatuses(),
-        articleOfferMappingService.getAllMappings()
+        articleOfferMappingService.getAllMappings(),
+        offerSeasonService.getAllSeasons()
       ]);
 
       setAllMetrics(metricsResult.metrics || []);
@@ -311,6 +328,14 @@ function ActionReports({ user }) {
       // Сохраняем маппинг артикулов -> offer_id
       setArticleOfferMap(mappingsResult || {});
       console.log(`📊 Загружено ${Object.keys(mappingsResult || {}).length} маппингов артикулов`);
+
+      // Обрабатываем сезоны (article -> seasons[])
+      const seasonsMap = {};
+      (seasonsResult || []).forEach(season => {
+        seasonsMap[season.article] = season.seasons || [];
+      });
+      setOfferSeasons(seasonsMap);
+      console.log(`🌿 Загружено ${Object.keys(seasonsMap).length} сезонов`);
 
     } catch (error) {
       console.error('Ошибка загрузки данных офферов:', error);
@@ -1090,13 +1115,19 @@ function ActionReports({ user }) {
                     )}
                   </div>
 
-                  {/* Приход - loading при loadingStock */}
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
-                    {loadingStock ? (
-                      <SkeletonCell width="w-8" />
-                    ) : (
-                      metric.days_to_arrival ?? '—'
-                    )}
+                  {/* Приход - дней до прихода */}
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-xs">
+                    {(() => {
+                      const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
+                      if (daysUntil === null) {
+                        return <span className="text-slate-400">—</span>;
+                      }
+                      return (
+                        <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                          {daysUntil}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Апрув - loading при loadingZones */}
@@ -1117,11 +1148,16 @@ function ActionReports({ user }) {
                     )}
                   </div>
 
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
-                    {metric.season || '—'}
+                  {/* Сезон */}
+                  <div className="w-[5%] min-w-[40px] text-center text-base">
+                    {offerSeasons[report.article]?.length > 0
+                      ? offerSeasons[report.article].join('')
+                      : <span className="text-slate-400 text-xs">—</span>
+                    }
                   </div>
-                  <div className="w-[5%] min-w-[40px] text-center font-mono text-slate-700">
-                    {metric.price != null ? `$${metric.price}` : '—'}
+                  {/* Цена */}
+                  <div className="w-[5%] min-w-[40px] text-center font-mono text-xs text-slate-800">
+                    {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                   </div>
                   <div className="w-[4%] min-w-[35px] text-center">
                     <button
