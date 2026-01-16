@@ -15,7 +15,9 @@ import {
   Loader2,
   Star,
   RefreshCw,
-  User
+  User,
+  Filter,
+  Zap
 } from 'lucide-react';
 import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
@@ -294,6 +296,15 @@ function ActionReports({ user }) {
   const [modalStep, setModalStep] = useState(1); // 1 = ввод артикулов, 2 = конфигурация
   const [articleConfigs, setArticleConfigs] = useState({}); // { article: { action, subAction, customText, trelloLink } }
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
+
+  // Фильтры для тимлида
+  const [selectedBuyerFilter, setSelectedBuyerFilter] = useState('all');
+  const [selectedActionFilter, setSelectedActionFilter] = useState('all');
+  const [selectedSubActionFilter, setSelectedSubActionFilter] = useState('all');
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
+  const [showActionDropdown, setShowActionDropdown] = useState(false);
+  const [hoveredAction, setHoveredAction] = useState(null);
+
   const [selectedDate, setSelectedDate] = useState(() => {
     // По умолчанию выбран сегодняшний день
     const today = new Date();
@@ -336,6 +347,24 @@ function ActionReports({ user }) {
 
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
+  const buyerDropdownRef = useRef(null);
+  const actionDropdownRef = useRef(null);
+
+  // Закрытие дропдаунов при клике вне них
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (buyerDropdownRef.current && !buyerDropdownRef.current.contains(event.target)) {
+        setShowBuyerDropdown(false);
+      }
+      if (actionDropdownRef.current && !actionDropdownRef.current.contains(event.target)) {
+        setShowActionDropdown(false);
+        setHoveredAction(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Загрузка данных офферов и отчетов при монтировании
   useEffect(() => {
@@ -845,7 +874,7 @@ function ActionReports({ user }) {
     return Object.values(articleConfigs).some(config => !config.isInvalid);
   }, [articleConfigs]);
 
-  // Фильтрация отчетов по дате, поиску и пользователю
+  // Фильтрация отчетов по дате, поиску, пользователю и фильтрам
   const filteredReports = useMemo(() => {
     let reports = savedReports;
 
@@ -853,6 +882,21 @@ function ActionReports({ user }) {
     const isUserTeamlead = user?.role === 'teamlead';
     if (!isUserTeamlead && user?.id) {
       reports = reports.filter(r => r.createdBy === user.id);
+    }
+
+    // Фильтр по байеру (только для тимлида)
+    if (isUserTeamlead && selectedBuyerFilter !== 'all') {
+      reports = reports.filter(r => r.createdBy === selectedBuyerFilter);
+    }
+
+    // Фильтр по типу действия
+    if (selectedActionFilter !== 'all') {
+      reports = reports.filter(r => r.action === selectedActionFilter);
+    }
+
+    // Фильтр по подкатегории действия
+    if (selectedSubActionFilter !== 'all') {
+      reports = reports.filter(r => r.subAction === selectedSubActionFilter);
     }
 
     // Фильтруем по выбранной дате
@@ -873,7 +917,44 @@ function ActionReports({ user }) {
       r.article.toLowerCase().includes(term) ||
       r.metric?.offer?.toLowerCase().includes(term)
     );
-  }, [savedReports, searchTerm, selectedDate, user]);
+  }, [savedReports, searchTerm, selectedDate, user, selectedBuyerFilter, selectedActionFilter, selectedSubActionFilter]);
+
+  // Уникальные байеры из отчетов (для фильтра тимлида)
+  const uniqueBuyers = useMemo(() => {
+    const buyerMap = new Map();
+    savedReports.forEach(r => {
+      if (r.createdBy && !buyerMap.has(r.createdBy)) {
+        const buyerUser = allUsers.find(u => u.id === r.createdBy);
+        buyerMap.set(r.createdBy, {
+          id: r.createdBy,
+          name: r.createdByName || buyerUser?.name || 'Неизвестно',
+          avatar_url: buyerUser?.avatar_url || null
+        });
+      }
+    });
+    return Array.from(buyerMap.values());
+  }, [savedReports, allUsers]);
+
+  // Уникальные типы действий из отчетов
+  const uniqueActions = useMemo(() => {
+    const actionMap = new Map();
+    savedReports.forEach(r => {
+      if (r.action && !actionMap.has(r.action)) {
+        // Собираем подкатегории для этого действия
+        const subActions = new Set();
+        savedReports.forEach(report => {
+          if (report.action === r.action && report.subAction) {
+            subActions.add(report.subAction);
+          }
+        });
+        actionMap.set(r.action, {
+          action: r.action,
+          subActions: Array.from(subActions)
+        });
+      }
+    });
+    return Array.from(actionMap.values());
+  }, [savedReports]);
 
   // Получение цвета статуса и дней в статусе - данные подтягиваются динамически
   const getStatusDisplay = (report) => {
@@ -1368,16 +1449,234 @@ function ActionReports({ user }) {
           </button>
 
           {/* Поиск */}
-          <div className="w-72 relative">
+          <div className="w-64 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по артикулу или названию..."
+              placeholder="Поиск по артикулу..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 hover:bg-white transition-colors"
             />
           </div>
+
+          {/* Фильтры для тимлида */}
+          {isTeamlead && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+
+              {/* Фильтр по байеру */}
+              <div className="relative" ref={buyerDropdownRef}>
+                <button
+                  onClick={() => {
+                    setShowBuyerDropdown(!showBuyerDropdown);
+                    setShowActionDropdown(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
+                    selectedBuyerFilter !== 'all'
+                      ? 'bg-blue-50 border-blue-300 text-blue-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {selectedBuyerFilter === 'all' ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.avatar_url ? (
+                        <img
+                          src={uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.avatar_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-3 w-3 text-gray-400" />
+                      )}
+                    </div>
+                  )}
+                  <span className="max-w-[100px] truncate">
+                    {selectedBuyerFilter === 'all' ? 'Все байеры' : uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.name || 'Байер'}
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+
+                {showBuyerDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setSelectedBuyerFilter('all');
+                        setShowBuyerDropdown(false);
+                      }}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                        selectedBuyerFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                      }`}
+                    >
+                      <User className="h-5 w-5 text-slate-400" />
+                      <span>Все байеры</span>
+                    </button>
+                    <div className="border-t border-slate-100 my-1" />
+                    {uniqueBuyers.map(buyer => (
+                      <button
+                        key={buyer.id}
+                        onClick={() => {
+                          setSelectedBuyerFilter(buyer.id);
+                          setShowBuyerDropdown(false);
+                        }}
+                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                          selectedBuyerFilter === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                          {buyer.avatar_url ? (
+                            <img src={buyer.avatar_url} alt={buyer.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="h-3 w-3 text-gray-400" />
+                          )}
+                        </div>
+                        <span className="truncate">{buyer.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Фильтр по типу действия */}
+              <div className="relative" ref={actionDropdownRef}>
+                <button
+                  onClick={() => {
+                    setShowActionDropdown(!showActionDropdown);
+                    setShowBuyerDropdown(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
+                    selectedActionFilter !== 'all'
+                      ? 'bg-purple-50 border-purple-300 text-purple-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="max-w-[120px] truncate">
+                    {selectedActionFilter === 'all'
+                      ? 'Все действия'
+                      : selectedSubActionFilter !== 'all'
+                        ? `${selectedActionFilter}: ${selectedSubActionFilter}`
+                        : selectedActionFilter
+                    }
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+
+                {showActionDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedActionFilter('all');
+                        setSelectedSubActionFilter('all');
+                        setShowActionDropdown(false);
+                        setHoveredAction(null);
+                      }}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                        selectedActionFilter === 'all' ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
+                      }`}
+                    >
+                      <Zap className="h-5 w-5 text-slate-400" />
+                      <span>Все действия</span>
+                    </button>
+                    <div className="border-t border-slate-100 my-1" />
+                    {uniqueActions.map(({ action, subActions }) => (
+                      <div
+                        key={action}
+                        className="relative"
+                        onMouseEnter={() => setHoveredAction(action)}
+                        onMouseLeave={() => setHoveredAction(null)}
+                      >
+                        <button
+                          onClick={() => {
+                            if (subActions.length === 0) {
+                              setSelectedActionFilter(action);
+                              setSelectedSubActionFilter('all');
+                              setShowActionDropdown(false);
+                            }
+                          }}
+                          className={`flex items-center justify-between w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                            selectedActionFilter === action ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`w-2 h-2 rounded-full ${
+                              action === 'Перенастроил' ? 'bg-blue-500' :
+                              action === 'Новинка' ? 'bg-green-500' :
+                              action === 'ТЗ' ? 'bg-purple-500' :
+                              action === 'Выключил' ? 'bg-red-500' :
+                              action === 'Включил' ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`} />
+                            <span>{action}</span>
+                          </div>
+                          {subActions.length > 0 && (
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          )}
+                        </button>
+
+                        {/* Подменю для подкатегорий */}
+                        {subActions.length > 0 && hoveredAction === action && (
+                          <div className="absolute left-full top-0 ml-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                            <button
+                              onClick={() => {
+                                setSelectedActionFilter(action);
+                                setSelectedSubActionFilter('all');
+                                setShowActionDropdown(false);
+                                setHoveredAction(null);
+                              }}
+                              className={`flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
+                                selectedActionFilter === action && selectedSubActionFilter === 'all'
+                                  ? 'bg-purple-50 text-purple-700 font-medium'
+                                  : 'text-slate-700'
+                              }`}
+                            >
+                              Все «{action}»
+                            </button>
+                            <div className="border-t border-slate-100 my-1" />
+                            {subActions.map(sub => (
+                              <button
+                                key={sub}
+                                onClick={() => {
+                                  setSelectedActionFilter(action);
+                                  setSelectedSubActionFilter(sub);
+                                  setShowActionDropdown(false);
+                                  setHoveredAction(null);
+                                }}
+                                className={`flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
+                                  selectedActionFilter === action && selectedSubActionFilter === sub
+                                    ? 'bg-purple-50 text-purple-700 font-medium'
+                                    : 'text-slate-600'
+                                }`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                {sub}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Кнопка сброса фильтров */}
+              {(selectedBuyerFilter !== 'all' || selectedActionFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSelectedBuyerFilter('all');
+                    setSelectedActionFilter('all');
+                    setSelectedSubActionFilter('all');
+                  }}
+                  className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Сбросить фильтры"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Кнопка пресетов и панель пресетов */}
           <div className="flex items-center">
