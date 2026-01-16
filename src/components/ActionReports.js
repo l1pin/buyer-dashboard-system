@@ -1200,11 +1200,11 @@ function ActionReports({ user }) {
 
       {/* Календарь - горизонтальные карточки */}
       <div className="bg-white border-b border-slate-200 px-6 py-3">
-        {/* Карточки дней */}
+        {/* Карточки дней с snap-скроллом */}
         <div
           ref={calendarRef}
-          className="flex space-x-2 overflow-x-auto pb-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="flex space-x-2 overflow-x-auto pb-2 snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
           onScroll={(e) => {
             const el = e.target;
             const scrollPercent = el.scrollLeft / (el.scrollWidth - el.clientWidth) * 100;
@@ -1237,7 +1237,7 @@ function ActionReports({ user }) {
               <div
                 key={index}
                 onClick={() => handleDayClick(day)}
-                className={`flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 ${containerClass}`}
+                className={`flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 snap-start ${containerClass}`}
               >
                 <div className={`flex flex-col items-center justify-center w-10 h-10 rounded-md text-xs font-medium ${dateClass}`}>
                   <span className="text-sm font-bold leading-none">{day.day}</span>
@@ -1252,98 +1252,111 @@ function ActionReports({ user }) {
           })}
         </div>
 
-        {/* Слайдер навигации */}
-        <div className="mt-3 px-1">
-          {/* Кастомный range слайдер */}
-          <div className="relative h-2">
-            {/* Фоновая дорожка */}
-            <div className="absolute inset-0 bg-slate-200 rounded-full" />
-
-            {/* Активная часть (справа от ползунка до конца) */}
+        {/* Интерактивная навигация по дням */}
+        <div className="mt-4 px-1">
+          {/* Указатель текущей позиции */}
+          <div className="relative h-3 mb-1">
             <div
-              className="absolute top-0 h-2 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full"
-              style={{
-                left: `${calendarScrollPercent}%`,
-                right: 0
-              }}
-            />
-
-            {/* Range input */}
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={calendarScrollPercent}
-              onChange={(e) => {
-                const percent = Number(e.target.value);
-                setCalendarScrollPercent(percent);
-                if (calendarRef.current) {
-                  const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
-                  calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
-                }
-              }}
-              className="absolute inset-0 w-full h-2 opacity-0 cursor-pointer z-10"
-            />
-
-            {/* Визуальный ползунок */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-blue-500 rounded-full shadow-md pointer-events-none"
-              style={{ left: `calc(${calendarScrollPercent}% - 8px)` }}
-            />
+              className="absolute -translate-x-1/2 transition-all duration-100"
+              style={{ left: `${calendarScrollPercent}%` }}
+            >
+              {/* Треугольник-указатель вниз */}
+              <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-blue-500" />
+            </div>
           </div>
 
-          {/* Кликабельные месяцы */}
-          <div className="flex justify-between mt-2">
-            {(() => {
-              // Собираем уникальные месяцы из календаря
-              const months = [];
-              const seenMonths = new Set();
-              calendarDays.forEach((day, index) => {
-                const monthKey = `${day.date.getFullYear()}-${day.date.getMonth()}`;
-                if (!seenMonths.has(monthKey)) {
-                  seenMonths.add(monthKey);
-                  months.push({
-                    index,
-                    name: day.date.toLocaleString('ru', { month: 'short' }),
-                    fullName: day.date.toLocaleString('ru', { month: 'long' }),
-                    date: new Date(day.date.getFullYear(), day.date.getMonth(), 1)
-                  });
-                }
-              });
+          {/* Шкала с полосками по дням */}
+          <div className="relative">
+            {/* Линия */}
+            <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-slate-300 -translate-y-1/2" />
 
-              return months.map((month, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    // Находим индекс первого дня этого месяца
-                    const dayIndex = calendarDays.findIndex(d =>
-                      d.date.getMonth() === month.date.getMonth() &&
-                      d.date.getFullYear() === month.date.getFullYear()
-                    );
-                    if (dayIndex !== -1 && calendarRef.current) {
-                      // Скроллим к этому дню
-                      const dayWidth = 140; // примерная ширина карточки
-                      const scrollPos = dayIndex * dayWidth;
-                      const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
-                      calendarRef.current.scrollLeft = Math.min(scrollPos, maxScroll);
+            {/* Полоски дней */}
+            <div className="relative flex items-end justify-between h-6">
+              {calendarDays.map((day, index) => {
+                const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
+                const isFirstOfMonth = day.day === 1 || index === 0;
+                const hasItems = day.tasksCount > 0;
 
-                      // Выбираем первый день месяца
-                      const firstDayOfMonth = calendarDays.find(d =>
-                        d.date.getMonth() === month.date.getMonth() &&
-                        d.date.getFullYear() === month.date.getFullYear()
-                      );
-                      if (firstDayOfMonth) {
-                        setSelectedDate(firstDayOfMonth.date);
+                return (
+                  <div
+                    key={index}
+                    className="relative flex flex-col items-center group cursor-pointer"
+                    style={{ width: `${100 / calendarDays.length}%` }}
+                    onClick={() => {
+                      // Выбираем день
+                      setSelectedDate(day.date);
+                      // Скроллим к нему
+                      if (calendarRef.current) {
+                        const dayWidth = calendarRef.current.scrollWidth / calendarDays.length;
+                        const scrollPos = index * dayWidth - calendarRef.current.clientWidth / 2 + dayWidth / 2;
+                        calendarRef.current.scrollLeft = Math.max(0, scrollPos);
                       }
+                    }}
+                  >
+                    {/* Тултип с датой при наведении */}
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                      {day.day} {day.month}
+                      {day.tasksCount > 0 && ` • ${day.tasksCount} тов.`}
+                    </div>
+
+                    {/* Полоска */}
+                    <div
+                      className={`transition-all duration-150 rounded-t-sm ${
+                        isSelected
+                          ? 'w-1.5 h-5 bg-blue-500'
+                          : isFirstOfMonth
+                            ? 'w-1 h-4 bg-slate-400 group-hover:h-5 group-hover:bg-blue-400'
+                            : hasItems
+                              ? 'w-0.5 h-3 bg-blue-300 group-hover:h-4 group-hover:w-1 group-hover:bg-blue-400'
+                              : 'w-0.5 h-2 bg-slate-300 group-hover:h-3 group-hover:bg-slate-400'
+                      }`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Названия месяцев */}
+            <div className="flex mt-1">
+              {(() => {
+                const months = [];
+                let currentMonth = null;
+                let startIndex = 0;
+
+                calendarDays.forEach((day, index) => {
+                  const monthKey = `${day.date.getFullYear()}-${day.date.getMonth()}`;
+                  if (monthKey !== currentMonth) {
+                    if (currentMonth !== null) {
+                      months.push({
+                        name: calendarDays[startIndex].date.toLocaleString('ru', { month: 'short' }),
+                        startIndex,
+                        endIndex: index - 1,
+                        width: ((index - startIndex) / calendarDays.length) * 100
+                      });
                     }
-                  }}
-                  className="text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors capitalize"
-                  title={`Перейти к ${month.fullName}`}
-                >
-                  {month.name}
-                </button>
-              ));
-            })()}
+                    currentMonth = monthKey;
+                    startIndex = index;
+                  }
+                });
+                // Последний месяц
+                months.push({
+                  name: calendarDays[startIndex].date.toLocaleString('ru', { month: 'short' }),
+                  startIndex,
+                  endIndex: calendarDays.length - 1,
+                  width: ((calendarDays.length - startIndex) / calendarDays.length) * 100
+                });
+
+                return months.map((month, i) => (
+                  <div
+                    key={i}
+                    className="text-[10px] font-medium text-slate-400 text-center capitalize truncate"
+                    style={{ width: `${month.width}%` }}
+                  >
+                    {month.name}
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         </div>
       </div>
