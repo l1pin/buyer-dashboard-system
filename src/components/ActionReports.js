@@ -1284,151 +1284,31 @@ function ActionReports({ user }) {
           })}
         </div>
 
-        {/* Интерактивная навигация-слайдер */}
-        <div className="mt-4 px-1 select-none">
-          {/* Слайдер с стрелкой */}
-          <div className="relative">
-            {/* Невидимый range input для drag */}
-            <input
-              type="range"
-              min="0"
-              max={calendarDays.length - 1}
-              value={Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1))}
-              onChange={(e) => {
-                const dayIndex = Number(e.target.value);
-                const percent = (dayIndex / (calendarDays.length - 1)) * 100;
-                setCalendarScrollPercent(percent);
+        {/* Простой слайдер */}
+        <div className="mt-3 px-2">
+          <input
+            type="range"
+            min="0"
+            max={calendarDays.length - 1}
+            value={Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1))}
+            onChange={(e) => {
+              const dayIndex = Number(e.target.value);
+              const percent = (dayIndex / (calendarDays.length - 1)) * 100;
+              setCalendarScrollPercent(percent);
 
-                // Скроллим карточки
-                if (calendarRef.current) {
-                  const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
-                  calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
-                }
+              // Скроллим карточки
+              if (calendarRef.current) {
+                const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
+                calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
+              }
 
-                // Выбираем день
-                if (calendarDays[dayIndex]) {
-                  setSelectedDate(calendarDays[dayIndex].date);
-                }
-              }}
-              className="absolute inset-0 w-full h-16 opacity-0 cursor-grab active:cursor-grabbing z-30"
-            />
-
-            {/* Стрелка-указатель (ползунок) */}
-            <div
-              className="absolute -top-1 -translate-x-1/2 z-20 pointer-events-none transition-all duration-75"
-              style={{ left: `${calendarScrollPercent}%` }}
-            >
-              <div className="flex flex-col items-center">
-                {/* Бейдж с количеством товаров */}
-                {(() => {
-                  const currentIndex = Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1));
-                  const currentDay = calendarDays[currentIndex];
-                  if (currentDay) {
-                    return (
-                      <div className="mb-1 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full shadow-lg whitespace-nowrap">
-                        {currentDay.day} {currentDay.month} {currentDay.tasksCount > 0 && `• ${currentDay.tasksCount}`}
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {/* Стрелка вниз */}
-                <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[10px] border-l-transparent border-r-transparent border-t-blue-500 drop-shadow-md" />
-              </div>
-            </div>
-
-            {/* Шкала с полосками по дням */}
-            <div className="relative pt-8">
-              {/* Линия */}
-              <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 translate-y-2" />
-
-              {/* Полоски дней */}
-              <div className="relative flex items-end h-10">
-                {calendarDays.map((day, index) => {
-                  const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
-                  const isToday = day.isToday;
-                  const isFirstOfMonth = day.day === 1 || index === 0;
-                  const hasItems = day.tasksCount > 0;
-
-                  // Проверяем, находится ли стрелка над этим днём
-                  const currentSliderIndex = Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1));
-                  const isUnderSlider = index === currentSliderIndex;
-
-                  return (
-                    <div
-                      key={index}
-                      className="relative flex flex-col items-center"
-                      style={{ width: `${100 / calendarDays.length}%` }}
-                    >
-                      {/* Метка "Сегодня" */}
-                      {isToday && (
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-blue-500 whitespace-nowrap">
-                          Сегодня
-                        </div>
-                      )}
-
-                      {/* Полоска */}
-                      <div
-                        className={`transition-all duration-100 rounded-t-sm ${
-                          isSelected || isUnderSlider
-                            ? 'w-2 h-8 bg-blue-500 shadow-md'
-                            : isToday
-                              ? 'w-1.5 h-6 bg-blue-400'
-                              : isFirstOfMonth
-                                ? 'w-1 h-5 bg-slate-400'
-                                : hasItems
-                                  ? 'w-1 h-4 bg-blue-300'
-                                  : 'w-0.5 h-2 bg-slate-300'
-                        }`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Названия месяцев */}
-              <div className="flex mt-2">
-                {(() => {
-                  const months = [];
-                  let currentMonth = null;
-                  let startIndex = 0;
-
-                  calendarDays.forEach((day, index) => {
-                    const monthKey = `${day.date.getFullYear()}-${day.date.getMonth()}`;
-                    if (monthKey !== currentMonth) {
-                      if (currentMonth !== null) {
-                        months.push({
-                          name: calendarDays[startIndex].date.toLocaleString('ru', { month: 'short' }),
-                          startIndex,
-                          endIndex: index - 1,
-                          width: ((index - startIndex) / calendarDays.length) * 100
-                        });
-                      }
-                      currentMonth = monthKey;
-                      startIndex = index;
-                    }
-                  });
-                  // Последний месяц
-                  months.push({
-                    name: calendarDays[startIndex].date.toLocaleString('ru', { month: 'short' }),
-                    startIndex,
-                    endIndex: calendarDays.length - 1,
-                    width: ((calendarDays.length - startIndex) / calendarDays.length) * 100
-                  });
-
-                  return months.map((month, i) => (
-                    <div
-                      key={i}
-                      className="text-[10px] font-medium text-slate-400 text-center capitalize"
-                      style={{ width: `${month.width}%` }}
-                    >
-                      {month.name}
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          </div>
+              // Выбираем день
+              if (calendarDays[dayIndex]) {
+                setSelectedDate(calendarDays[dayIndex].date);
+              }
+            }}
+            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
         </div>
       </div>
 
