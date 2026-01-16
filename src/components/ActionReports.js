@@ -431,35 +431,67 @@ function ActionReports({ user }) {
     return map;
   }, [allMetrics]);
 
-  // Генерация дней для календаря (старые даты слева, свежие справа)
+  // Генерация дней для календаря (от первого дня с товарами до сегодня)
   const calendarDays = useMemo(() => {
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 30 дней назад + сегодня (старые слева, новые справа)
-    for (let i = 30; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i); // Минус i дней (в прошлое)
-      const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Находим самую раннюю дату с отчетами
+    let startDate = today;
+    if (savedReports.length > 0) {
+      const reportDates = savedReports.map(r => {
+        const d = new Date(r.createdAt);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      });
+      startDate = new Date(Math.min(...reportDates.map(d => d.getTime())));
+    }
+
+    // Генерируем дни от startDate до today
+    const currentDate = new Date(startDate);
+    while (currentDate <= today) {
+      const date = new Date(currentDate);
+      const dateKey = date.toISOString().split('T')[0];
+      const daysAgo = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+
       days.push({
         date: date,
         dateKey: dateKey,
         day: date.getDate(),
         weekday: date.toLocaleString('ru', { weekday: 'short' }),
         month: date.toLocaleString('ru', { month: 'short' }),
-        isToday: i === 0,
-        isYesterday: i === 1,
+        isToday: daysAgo === 0,
+        isYesterday: daysAgo === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
-        daysAgo: i,
-        // Считаем задачи из savedReports (актуальный источник данных)
+        daysAgo: daysAgo,
+        // Считаем товары из savedReports
         tasksCount: savedReports.filter(r => {
           const reportDate = new Date(r.createdAt);
           reportDate.setHours(0, 0, 0, 0);
           return reportDate.getTime() === date.getTime();
         }).length
       });
+
+      currentDate.setDate(currentDate.getDate() + 1);
     }
+
+    // Если нет отчетов - показываем только сегодня
+    if (days.length === 0) {
+      days.push({
+        date: today,
+        dateKey: today.toISOString().split('T')[0],
+        day: today.getDate(),
+        weekday: today.toLocaleString('ru', { weekday: 'short' }),
+        month: today.toLocaleString('ru', { month: 'short' }),
+        isToday: true,
+        isYesterday: false,
+        isWeekend: today.getDay() === 0 || today.getDay() === 6,
+        daysAgo: 0,
+        tasksCount: 0
+      });
+    }
+
     return days;
   }, [savedReports]);
 
