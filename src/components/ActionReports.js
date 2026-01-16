@@ -1402,12 +1402,12 @@ function ActionReports({ user }) {
         <div className="flex items-center text-xs font-semibold text-slate-600">
           <div className="w-[3%] min-w-[25px] text-center">№</div>
           <div className="w-[6%] min-w-[55px] text-center">Артикул</div>
-          <div className="w-[13%] min-w-[100px] text-left">Название</div>
+          <div className="w-[12%] min-w-[90px] text-left">Название</div>
           <div className="w-[5%] min-w-[45px] text-center">Статус</div>
-          <div className="w-[9%] min-w-[75px] text-center">Байер</div>
+          <div className="w-[8%] min-w-[70px] text-center">Байер</div>
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
-          <div className="w-[4%] min-w-[32px] text-center" title="Рейтинг">
+          <div className="w-[3%] min-w-[30px] text-center" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
           </div>
           <div className="w-[5%] min-w-[38px] text-center">ROI</div>
@@ -1418,9 +1418,9 @@ function ActionReports({ user }) {
           <div className="w-[5%] min-w-[38px] text-center">Приход</div>
           <div className="w-[5%] min-w-[40px] text-center">Апрув</div>
           <div className="w-[5%] min-w-[40px] text-center">Выкуп</div>
-          <div className="w-[4%] min-w-[35px] text-center">Сезон</div>
-          <div className="w-[4%] min-w-[38px] text-center">Цена</div>
-          <div className="w-[4%] min-w-[30px]"></div>
+          <div className="w-[5%] min-w-[55px] text-center">Сезон</div>
+          <div className="w-[5%] min-w-[50px] text-center">Цена</div>
+          <div className="w-[5%] min-w-[35px]"></div>
         </div>
       </div>
 
@@ -1474,7 +1474,7 @@ function ActionReports({ user }) {
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[13%] min-w-[100px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className="w-[12%] min-w-[90px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
                     {metric.offer || '—'}
                   </div>
                   {/* Статус - кружок + дни */}
@@ -1485,7 +1485,7 @@ function ActionReports({ user }) {
                     </span>
                   </div>
                   {/* Байер - аватар + имя */}
-                  <div className="w-[9%] min-w-[75px] flex items-center justify-center gap-1.5">
+                  <div className="w-[8%] min-w-[70px] flex items-center justify-center gap-1.5">
                     {(() => {
                       const buyerUser = allUsers.find(u => u.id === report.createdBy);
                       const avatarUrl = buyerUser?.avatar_url;
@@ -1544,7 +1544,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Рейтинг - loading при loadingCplLeads */}
-                  <div className="w-[4%] min-w-[32px] flex items-center justify-center gap-1">
+                  <div className="w-[3%] min-w-[30px] flex items-center justify-center gap-1">
                     {loadingCplLeads ? (
                       <SkeletonCell width="w-6" />
                     ) : (
@@ -1649,7 +1649,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Сезон */}
-                  <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-base">
+                  <div className="w-[5%] min-w-[55px] flex items-center justify-center gap-1 text-base whitespace-nowrap">
                     <span>{offerSeasons[report.article]?.length > 0
                       ? offerSeasons[report.article].join('')
                       : <span className="text-slate-400 text-xs">—</span>
@@ -1663,10 +1663,10 @@ function ActionReports({ user }) {
                     }, e)} />
                   </div>
                   {/* Цена */}
-                  <div className="w-[4%] min-w-[38px] text-center font-mono text-xs text-slate-800">
+                  <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
                     {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                   </div>
-                  <div className="w-[4%] min-w-[30px] text-center">
+                  <div className="w-[5%] min-w-[35px] text-center">
                     <button
                       onClick={() => handleDeleteReport(report.id)}
                       className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
