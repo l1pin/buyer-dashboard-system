@@ -430,14 +430,14 @@ function ActionReports({ user }) {
     return map;
   }, [allMetrics]);
 
-  // Генерация дней для календаря (сегодня слева, прошлые даты справа)
+  // Генерация дней для календаря (старые даты слева, свежие справа)
   const calendarDays = useMemo(() => {
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Сегодня + 30 дней назад
-    for (let i = 0; i < 31; i++) {
+    // 30 дней назад + сегодня (старые слева, новые справа)
+    for (let i = 30; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i); // Минус i дней (в прошлое)
       const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -461,6 +461,13 @@ function ActionReports({ user }) {
     }
     return days;
   }, [savedReports]);
+
+  // Скролл календаря вправо при загрузке (чтобы видеть свежие даты)
+  useEffect(() => {
+    if (calendarRef.current) {
+      calendarRef.current.scrollLeft = calendarRef.current.scrollWidth;
+    }
+  }, []);
 
   // Обработка клика по дню в календаре
   const handleDayClick = (day) => {
