@@ -302,6 +302,7 @@ function ActionReports({ user }) {
   const [reportsCountByDay, setReportsCountByDay] = useState({}); // { 'YYYY-MM-DD': count }
   const [loadingReports, setLoadingReports] = useState(false); // Загрузка отчетов из БД
   const [savingReports, setSavingReports] = useState(false); // Сохранение отчетов в БД
+  const [calendarScrollPercent, setCalendarScrollPercent] = useState(100); // Позиция слайдера (100 = справа)
 
   // Данные офферов из БД
   const [allMetrics, setAllMetrics] = useState([]);
@@ -464,12 +465,13 @@ function ActionReports({ user }) {
 
   // Скролл календаря вправо при загрузке (чтобы видеть свежие даты)
   useEffect(() => {
-    // Небольшая задержка чтобы DOM успел отрендериться
     const timer = setTimeout(() => {
       if (calendarRef.current) {
-        calendarRef.current.scrollLeft = calendarRef.current.scrollWidth;
+        const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
+        calendarRef.current.scrollLeft = maxScroll;
+        setCalendarScrollPercent(100);
       }
-    }, 100);
+    }, 150);
     return () => clearTimeout(timer);
   }, [calendarDays]);
 
@@ -1196,93 +1198,101 @@ function ActionReports({ user }) {
         </div>
       </div>
 
-      {/* Календарь - Timeline стиль */}
-      <div className="bg-gradient-to-b from-white to-slate-50 border-b border-slate-200 px-6 py-4">
-        {/* Основная шкала */}
-        <div className="relative">
-          {/* Линия таймлайна */}
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-slate-200 via-slate-300 to-blue-300 -translate-y-1/2 rounded-full" />
+      {/* Календарь - горизонтальные карточки */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3">
+        {/* Карточки дней */}
+        <div
+          ref={calendarRef}
+          className="flex space-x-2 overflow-x-auto pb-2"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          onScroll={(e) => {
+            const el = e.target;
+            const scrollPercent = el.scrollLeft / (el.scrollWidth - el.clientWidth) * 100;
+            setCalendarScrollPercent(scrollPercent || 0);
+          }}
+        >
+          {calendarDays.map((day, index) => {
+            const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
+            const isToday = day.isToday;
 
-          {/* Дни на шкале */}
-          <div
-            ref={calendarRef}
-            className="relative flex items-center gap-1 overflow-x-auto py-2 scrollbar-none"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {calendarDays.map((day, index) => {
-              const isSelected = selectedDate && selectedDate.getTime() === day.date.getTime();
-              const isToday = day.isToday;
-              const hasItems = day.tasksCount > 0;
+            let containerClass = '';
+            let dateClass = '';
+            let countClass = '';
 
-              return (
-                <div
-                  key={index}
-                  onClick={() => handleDayClick(day)}
-                  className="flex-shrink-0 flex flex-col items-center cursor-pointer group"
-                  style={{ minWidth: '52px' }}
-                >
-                  {/* Количество товаров сверху */}
-                  <div className={`mb-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : hasItems
-                        ? 'bg-blue-100 text-blue-700 group-hover:bg-blue-200'
-                        : 'bg-transparent text-slate-400'
-                  }`}>
-                    {hasItems ? day.tasksCount : '–'}
-                  </div>
+            if (isSelected) {
+              containerClass = 'bg-blue-500 border-blue-500 shadow-md shadow-blue-200';
+              dateClass = 'bg-blue-400 text-white';
+              countClass = 'text-white';
+            } else if (isToday) {
+              containerClass = 'bg-white border-2 border-blue-400 shadow-sm';
+              dateClass = 'bg-slate-100 text-blue-600';
+              countClass = 'text-slate-600';
+            } else {
+              containerClass = 'bg-white border border-slate-200 hover:border-blue-300 hover:shadow-sm';
+              dateClass = 'bg-slate-100 text-slate-500';
+              countClass = 'text-slate-600';
+            }
 
-                  {/* Точка на таймлайне */}
-                  <div className={`relative z-10 w-3 h-3 rounded-full border-2 transition-all duration-200 ${
-                    isSelected
-                      ? 'w-4 h-4 bg-blue-500 border-blue-600 shadow-lg shadow-blue-300 scale-125'
-                      : isToday
-                        ? 'w-4 h-4 bg-white border-blue-400 shadow-md ring-4 ring-blue-100'
-                        : hasItems
-                          ? 'bg-blue-200 border-blue-300 group-hover:bg-blue-300 group-hover:scale-110'
-                          : 'bg-white border-slate-300 group-hover:border-blue-300 group-hover:scale-110'
-                  }`} />
-
-                  {/* Дата снизу */}
-                  <div className={`mt-1.5 text-center transition-all duration-200 ${
-                    isSelected
-                      ? 'transform scale-105'
-                      : 'group-hover:transform group-hover:scale-105'
-                  }`}>
-                    <div className={`text-sm font-bold leading-tight ${
-                      isSelected
-                        ? 'text-blue-600'
-                        : isToday
-                          ? 'text-blue-500'
-                          : 'text-slate-700 group-hover:text-blue-600'
-                    }`}>
-                      {day.day}
-                    </div>
-                    <div className={`text-[10px] leading-tight ${
-                      isSelected || isToday
-                        ? 'text-blue-400 font-medium'
-                        : 'text-slate-400'
-                    }`}>
-                      {isToday ? 'сег' : day.month}
-                    </div>
-                  </div>
+            return (
+              <div
+                key={index}
+                onClick={() => handleDayClick(day)}
+                className={`flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 ${containerClass}`}
+              >
+                <div className={`flex flex-col items-center justify-center w-10 h-10 rounded-md text-xs font-medium ${dateClass}`}>
+                  <span className="text-sm font-bold leading-none">{day.day}</span>
+                  <span className="text-[10px] leading-none mt-0.5">{day.month}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className={`flex items-center gap-1.5 ${countClass}`}>
+                  <span className="text-sm font-medium">Товаров</span>
+                  <span className="text-lg font-bold">{day.tasksCount}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Подсказка снизу */}
-        <div className="flex items-center justify-between mt-2 text-xs text-slate-400">
-          <span>← ранее</span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            <span>выбран</span>
-            <span className="mx-2">•</span>
-            <span className="w-2 h-2 rounded-full border-2 border-blue-400 ring-2 ring-blue-100" />
-            <span>сегодня</span>
-          </span>
-          <span>сегодня →</span>
+        {/* Красивый слайдер навигации */}
+        <div className="mt-3 px-1">
+          <div className="relative">
+            {/* Фоновая дорожка с градиентом */}
+            <div className="h-2 bg-gradient-to-r from-slate-200 via-slate-300 to-blue-200 rounded-full shadow-inner" />
+
+            {/* Активная часть слайдера */}
+            <div
+              className="absolute top-0 right-0 h-2 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-150"
+              style={{ width: `${100 - (calendarScrollPercent || 0)}%` }}
+            />
+
+            {/* Ползунок */}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={calendarScrollPercent || 0}
+              onChange={(e) => {
+                const percent = Number(e.target.value);
+                setCalendarScrollPercent(percent);
+                if (calendarRef.current) {
+                  const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
+                  calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
+                }
+              }}
+              className="absolute top-1/2 -translate-y-1/2 w-full h-6 opacity-0 cursor-pointer"
+            />
+
+            {/* Визуальный ползунок */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-blue-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform hover:scale-110 active:scale-95"
+              style={{ left: `calc(${calendarScrollPercent || 0}% - 10px)` }}
+            />
+          </div>
+
+          {/* Метки */}
+          <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-medium">
+            <span>← 30 дней назад</span>
+            <span>сегодня →</span>
+          </div>
         </div>
       </div>
 
