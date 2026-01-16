@@ -1252,24 +1252,28 @@ function ActionReports({ user }) {
           })}
         </div>
 
-        {/* Красивый слайдер навигации */}
+        {/* Слайдер навигации */}
         <div className="mt-3 px-1">
-          <div className="relative">
-            {/* Фоновая дорожка с градиентом */}
-            <div className="h-2 bg-gradient-to-r from-slate-200 via-slate-300 to-blue-200 rounded-full shadow-inner" />
+          {/* Кастомный range слайдер */}
+          <div className="relative h-2">
+            {/* Фоновая дорожка */}
+            <div className="absolute inset-0 bg-slate-200 rounded-full" />
 
-            {/* Активная часть слайдера */}
+            {/* Активная часть (справа от ползунка до конца) */}
             <div
-              className="absolute top-0 right-0 h-2 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-150"
-              style={{ width: `${100 - (calendarScrollPercent || 0)}%` }}
+              className="absolute top-0 h-2 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full"
+              style={{
+                left: `${calendarScrollPercent}%`,
+                right: 0
+              }}
             />
 
-            {/* Ползунок */}
+            {/* Range input */}
             <input
               type="range"
               min="0"
               max="100"
-              value={calendarScrollPercent || 0}
+              value={calendarScrollPercent}
               onChange={(e) => {
                 const percent = Number(e.target.value);
                 setCalendarScrollPercent(percent);
@@ -1278,20 +1282,68 @@ function ActionReports({ user }) {
                   calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
                 }
               }}
-              className="absolute top-1/2 -translate-y-1/2 w-full h-6 opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-2 opacity-0 cursor-pointer z-10"
             />
 
             {/* Визуальный ползунок */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-blue-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform hover:scale-110 active:scale-95"
-              style={{ left: `calc(${calendarScrollPercent || 0}% - 10px)` }}
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-blue-500 rounded-full shadow-md pointer-events-none"
+              style={{ left: `calc(${calendarScrollPercent}% - 8px)` }}
             />
           </div>
 
-          {/* Метки */}
-          <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-medium">
-            <span>← 30 дней назад</span>
-            <span>сегодня →</span>
+          {/* Кликабельные месяцы */}
+          <div className="flex justify-between mt-2">
+            {(() => {
+              // Собираем уникальные месяцы из календаря
+              const months = [];
+              const seenMonths = new Set();
+              calendarDays.forEach((day, index) => {
+                const monthKey = `${day.date.getFullYear()}-${day.date.getMonth()}`;
+                if (!seenMonths.has(monthKey)) {
+                  seenMonths.add(monthKey);
+                  months.push({
+                    index,
+                    name: day.date.toLocaleString('ru', { month: 'short' }),
+                    fullName: day.date.toLocaleString('ru', { month: 'long' }),
+                    date: new Date(day.date.getFullYear(), day.date.getMonth(), 1)
+                  });
+                }
+              });
+
+              return months.map((month, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    // Находим индекс первого дня этого месяца
+                    const dayIndex = calendarDays.findIndex(d =>
+                      d.date.getMonth() === month.date.getMonth() &&
+                      d.date.getFullYear() === month.date.getFullYear()
+                    );
+                    if (dayIndex !== -1 && calendarRef.current) {
+                      // Скроллим к этому дню
+                      const dayWidth = 140; // примерная ширина карточки
+                      const scrollPos = dayIndex * dayWidth;
+                      const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
+                      calendarRef.current.scrollLeft = Math.min(scrollPos, maxScroll);
+
+                      // Выбираем первый день месяца
+                      const firstDayOfMonth = calendarDays.find(d =>
+                        d.date.getMonth() === month.date.getMonth() &&
+                        d.date.getFullYear() === month.date.getFullYear()
+                      );
+                      if (firstDayOfMonth) {
+                        setSelectedDate(firstDayOfMonth.date);
+                      }
+                    }
+                  }}
+                  className="text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors capitalize"
+                  title={`Перейти к ${month.fullName}`}
+                >
+                  {month.name}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       </div>
