@@ -1464,7 +1464,7 @@ function ActionReports({ user }) {
               return (
                 <div
                   key={report.id}
-                  className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-3 py-3 hover:shadow-md transition-shadow"
+                  className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-4 py-3 hover:shadow-md transition-shadow"
                 >
                   <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
