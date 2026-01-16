@@ -1558,7 +1558,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* ROI - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[38px] text-center font-mono text-slate-700">
+                  <div className="w-[5%] min-w-[38px] text-center text-xs font-mono text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1585,12 +1585,12 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Прибыль */}
-                  <div className="w-[5%] min-w-[42px] text-center font-mono text-green-600 font-medium">
+                  <div className="w-[5%] min-w-[42px] text-center text-xs font-mono text-green-600 font-medium">
                     {metric.profit != null ? `$${metric.profit}` : '—'}
                   </div>
 
                   {/* Дни - loading при loadingDays */}
-                  <div className="w-[4%] min-w-[32px] text-center text-slate-700">
+                  <div className="w-[4%] min-w-[32px] text-center text-xs text-slate-700">
                     {loadingDays ? (
                       <SkeletonCell width="w-8" />
                     ) : (
@@ -1599,39 +1599,31 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Ост. - loading при loadingStock */}
-                  <div className="w-[4%] min-w-[32px] flex items-center justify-center gap-1">
+                  <div className="w-[4%] min-w-[32px] text-center text-xs font-mono text-slate-800">
                     {loadingStock ? (
                       <SkeletonCell width="w-8" />
                     ) : (
-                      <>
-                        <span className={`font-mono text-xs ${metric.stock_quantity != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                          {metric.stock_quantity ?? '—'}
-                        </span>
-                        <InfoIcon onClick={(e) => openTooltip('stock', index, { article: report.article }, e)} />
-                      </>
+                      metric.stock_quantity ?? '—'
                     )}
                   </div>
 
                   {/* Приход - дней до прихода */}
-                  <div className="w-[5%] min-w-[38px] flex items-center justify-center gap-1 font-mono text-xs">
+                  <div className="w-[5%] min-w-[38px] text-center text-xs font-mono">
                     {(() => {
                       const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
                       if (daysUntil === null) {
                         return <span className="text-slate-400">—</span>;
                       }
                       return (
-                        <>
-                          <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
-                            {daysUntil}
-                          </span>
-                          <InfoIcon onClick={(e) => openTooltip('date', index, { date: metric.next_calculated_arrival, article: report.article }, e)} />
-                        </>
+                        <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                          {daysUntil}
+                        </span>
                       );
                     })()}
                   </div>
 
                   {/* Апрув - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1640,7 +1632,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Выкуп - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[40px] text-center text-slate-700">
+                  <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
                     {loadingZones ? (
                       <SkeletonCell width="w-10" />
                     ) : (
@@ -1649,18 +1641,11 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Сезон */}
-                  <div className="w-[5%] min-w-[55px] flex items-center justify-center gap-1 text-base whitespace-nowrap">
-                    <span>{offerSeasons[report.article]?.length > 0
+                  <div className="w-[5%] min-w-[55px] text-center whitespace-nowrap">
+                    <span className="text-sm">{offerSeasons[report.article]?.length > 0
                       ? offerSeasons[report.article].join('')
                       : <span className="text-slate-400 text-xs">—</span>
                     }</span>
-                    <InfoIcon onClick={(e) => openTooltip('season', index, {
-                      category: metric.category,
-                      categoryDetails: metric.categoryDetails,
-                      specialSeasonStart: metric.special_season_start,
-                      specialSeasonEnd: metric.special_season_end,
-                      article: report.article
-                    }, e)} />
                   </div>
                   {/* Цена */}
                   <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
