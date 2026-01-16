@@ -19,12 +19,12 @@ import {
   Filter,
   Zap
 } from 'lucide-react';
-import { metricsAnalyticsService, userService } from '../supabaseClient';
+import { metricsAnalyticsService, userService, buyerSourceService } from '../supabaseClient';
 import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
 import { effectivityZonesService } from '../services/effectivityZonesService';
 import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
-import { updateLeadsFromSql } from '../scripts/offers/Sql_leads';
+import { updateLeadsFromSql, aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
 import TooltipManager from './TooltipManager';
 
 // Иконка информации
@@ -979,6 +979,41 @@ function ActionReports({ user }) {
 
   // Получение актуальных метрик для отчета - данные подтягиваются динамически
   const getReportMetric = useCallback((report) => {
+    // Сначала ищем метрики специфичные для байера (по ключу article__buyerId)
+    const reportKey = `${report.article}__${report.createdBy}`;
+    if (updatedMetricsMap[reportKey]) {
+      // Объединяем базовые метрики артикула с метриками байера
+      const baseMetric = updatedMetricsMap[report.article] || {};
+      const buyerMetric = updatedMetricsMap[reportKey];
+
+      // Создаем новый leads_data с buyer-specific данными в позиции 4 (для отображения)
+      const buyerLeadsData = {
+        ...(baseMetric.leads_data || {}),
+        // Перезаписываем [4] данными байера (14 дней) для корректного отображения
+        4: {
+          leads: buyerMetric.buyer_leads_14days ?? 0,
+          cost: buyerMetric.buyer_cost_14days ?? 0,
+          cpl: buyerMetric.buyer_cpl_14days ?? 0,
+          label: '14 дней (байер)'
+        },
+        // Добавляем полные данные байера для тултипа
+        buyer: {
+          leads: buyerMetric.buyer_leads_14days ?? 0,
+          cost: buyerMetric.buyer_cost_14days ?? 0,
+          cpl: buyerMetric.buyer_cpl_14days ?? 0,
+          source_ids: buyerMetric.buyer_source_ids || [],
+          label: '14 дней (ваш трафик)'
+        }
+      };
+
+      return {
+        ...baseMetric,
+        ...buyerMetric,
+        leads_4days: buyerMetric.buyer_leads_14days ?? baseMetric.leads_4days,
+        leads_data: buyerLeadsData
+      };
+    }
+
     // Если есть обновленные данные из updateVisibleReportsMetrics - приоритет им
     if (updatedMetricsMap[report.article]) {
       return updatedMetricsMap[report.article];
@@ -1093,9 +1128,11 @@ function ActionReports({ user }) {
       // Теперь red_zone_price уже доступен из шага 2, рейтинг будет рассчитан корректно
       setLoadingCplLeads(true);
 
+      let dataBySourceIdAndDate = null;
       try {
         const leadsResult = await updateLeadsFromSql(updatedMetrics, visibleArticleOfferMap, rawData);
         updatedMetrics = leadsResult.metrics;
+        dataBySourceIdAndDate = leadsResult.dataBySourceIdAndDate; // Сохраняем для фильтрации по байерам
         console.log('✅ CPL, Лиды, Рейтинг обновлены');
       } catch (error) {
         console.error('❌ Ошибка загрузки CPL/Лидов:', error);
@@ -1103,13 +1140,70 @@ function ActionReports({ user }) {
         setLoadingCplLeads(false);
       }
 
+      // ШАГ 5: Рассчитываем CPL и Лиды для каждого байера (по его source_id_tracker)
+      // Загружаем source_ids всех байеров
+      let buyerSourcesMap = {}; // { buyer_id: { source_ids: [...], accessDatesMap: {...} } }
+      try {
+        const allBuyerSources = await buyerSourceService.getAllBuyerSourcesWithPeriods();
+        allBuyerSources.forEach(buyer => {
+          const sourceIds = buyer.traffic_channels.map(ch => ch.channel_id);
+          const accessDatesMap = {};
+          buyer.traffic_channels.forEach(ch => {
+            accessDatesMap[ch.channel_id] = {
+              accessGranted: ch.access_granted,
+              accessLimited: ch.access_limited
+            };
+          });
+          buyerSourcesMap[buyer.buyer_id] = { source_ids: sourceIds, accessDatesMap };
+        });
+        console.log(`📊 Загружено ${Object.keys(buyerSourcesMap).length} байеров с source_ids`);
+      } catch (error) {
+        console.error('❌ Ошибка загрузки источников байеров:', error);
+      }
+
       // Сохраняем обновленные метрики в map по артикулу
+      // Но для каждого отчета рассчитываем индивидуальные CPL/Leads по source_id байера
       const newMetricsMap = {};
+
+      // Создаем базовую карту метрик по артикулу
       updatedMetrics.forEach(metric => {
         if (metric.article) {
           newMetricsMap[metric.article] = metric;
         }
       });
+
+      // Теперь для каждого отчета рассчитываем индивидуальные CPL/Leads по source_id байера
+      if (dataBySourceIdAndDate && Object.keys(buyerSourcesMap).length > 0) {
+        reportsToUpdate.forEach(report => {
+          const buyerId = report.createdBy;
+          const article = report.article;
+          const buyerData = buyerSourcesMap[buyerId];
+
+          if (buyerData && buyerData.source_ids.length > 0 && dataBySourceIdAndDate[article]) {
+            // Рассчитываем CPL/Leads только для source_ids этого байера
+            const buyerMetrics = aggregateMetricsBySourceIds(
+              article,
+              buyerData.source_ids,
+              dataBySourceIdAndDate,
+              14 // За последние 14 дней
+            );
+
+            // Создаем уникальный ключ для этого отчета (артикул + байер)
+            const reportKey = `${article}__${buyerId}`;
+            const baseMetric = newMetricsMap[article] || {};
+
+            newMetricsMap[reportKey] = {
+              ...baseMetric,
+              buyer_leads_14days: buyerMetrics.leads,
+              buyer_cpl_14days: buyerMetrics.cpl,
+              buyer_cost_14days: buyerMetrics.cost,
+              buyer_source_ids: buyerData.source_ids
+            };
+
+            console.log(`📈 ${article} (байер ${report.createdByName}): Лиды=${buyerMetrics.leads}, CPL=${buyerMetrics.cpl.toFixed(2)}`);
+          }
+        });
+      }
 
       setUpdatedMetricsMap(prev => ({ ...prev, ...newMetricsMap }));
       console.log(`✅ Обновлено ${Object.keys(newMetricsMap).length} метрик`);
