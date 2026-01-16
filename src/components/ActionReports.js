@@ -1238,15 +1238,15 @@ function ActionReports({ user }) {
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
   // Функция генерации заголовка тултипа
-  const getTooltipTitleSync = (type, article) => {
+  const getTooltipTitleSync = (type, article, hasBuyerData = false) => {
     const articleBadge = article ? (
       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
         {article}
       </span>
     ) : null;
     const titles = {
-      cpl: 'CPL по периодам',
-      leads: 'Лиды по периодам',
+      cpl: hasBuyerData ? 'CPL байера' : 'CPL по периодам',
+      leads: hasBuyerData ? 'Лиды байера' : 'Лиды по периодам',
       rating: 'История рейтинга',
       zone: 'Зоны эффективности',
       stock: 'Остатки по модификациям',
@@ -1298,6 +1298,49 @@ function ActionReports({ user }) {
         );
       case 'cpl':
       case 'leads':
+        // Если есть buyer-specific данные - показываем только их
+        const buyerData = data.leadsData?.buyer;
+        if (buyerData) {
+          return (
+            <div className="flex flex-col gap-3">
+              {/* Заголовок с информацией о байере */}
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span className="text-xs font-medium text-gray-700">Ваш трафик</span>
+                <span className="text-xs text-gray-400">({buyerData.source_ids?.length || 0} источников)</span>
+              </div>
+
+              {/* Метрики байера */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs text-gray-500 mb-1">CPL</span>
+                  <span className="text-sm font-bold text-slate-800 font-mono">
+                    {buyerData.cpl > 0 ? `$${buyerData.cpl.toFixed(2)}` : '—'}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs text-gray-500 mb-1">Лиды</span>
+                  <span className="text-sm font-bold text-slate-800 font-mono">
+                    {buyerData.leads || 0}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs text-gray-500 mb-1">Расход</span>
+                  <span className="text-sm font-bold text-slate-800 font-mono">
+                    {buyerData.cost > 0 ? `$${buyerData.cost.toFixed(2)}` : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Подпись с периодом */}
+              <div className="text-center text-xs text-gray-400 pt-1 border-t border-gray-100">
+                За последние 14 дней
+              </div>
+            </div>
+          );
+        }
+
+        // Fallback: показываем общие данные по периодам (для тимлида или когда нет buyer данных)
         return (
           <table className="w-full text-xs">
             <thead><tr className="border-b border-gray-200">
@@ -1367,7 +1410,9 @@ function ActionReports({ user }) {
       position = { x: rect.left + rect.width + 10, y: rect.top };
     }
 
-    const title = getTooltipTitleSync(type, data.article);
+    // Проверяем есть ли buyer-specific данные для CPL/Leads тултипов
+    const hasBuyerData = (type === 'cpl' || type === 'leads') && data.leadsData?.buyer;
+    const title = getTooltipTitleSync(type, data.article, hasBuyerData);
     const content = renderTooltipContentSync(type, data);
 
     tooltipManagerRef.current.open(tooltipId, title, content, position);
