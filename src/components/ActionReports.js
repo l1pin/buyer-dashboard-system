@@ -1474,12 +1474,31 @@ function ActionReports({ user }) {
                 }
               };
 
+              // Цвет для типа действия
+              const getActionColor = (action) => {
+                switch (action) {
+                  case 'Перенастроил': return 'bg-blue-50 text-blue-700 border-blue-200';
+                  case 'Новинка': return 'bg-green-50 text-green-700 border-green-200';
+                  case 'ТЗ': return 'bg-purple-50 text-purple-700 border-purple-200';
+                  case 'Выключил': return 'bg-red-50 text-red-700 border-red-200';
+                  case 'Включил': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                  default: return 'bg-slate-50 text-slate-600 border-slate-200';
+                }
+              };
+
+              // Формирование текста действия
+              const actionText = report.subAction
+                ? `${report.action}: ${report.subAction}${report.customText ? ` — ${report.customText}` : ''}`
+                : report.action || '—';
+
               return (
                 <div
                   key={report.id}
-                  className="flex items-center text-sm bg-white rounded-lg border border-slate-200 mb-2 px-4 py-3 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-lg border border-slate-200 mb-2 hover:shadow-md transition-shadow overflow-hidden"
                 >
-                  <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
+                  {/* Основная строка с метриками */}
+                  <div className="flex items-center text-sm px-4 py-3">
+                    <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
                   <div className="w-[6%] min-w-[55px] text-center">
@@ -1530,150 +1549,170 @@ function ActionReports({ user }) {
                     </div>
                   )}
 
-                  {/* CPL - loading при loadingCplLeads */}
-                  <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                    {loadingCplLeads ? (
-                      <SkeletonCell width="w-10" />
-                    ) : (
-                      <>
-                        <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                          {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
-                        </span>
-                        {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Лиды - loading при loadingCplLeads */}
-                  <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
-                    {loadingCplLeads ? (
-                      <SkeletonCell width="w-8" />
-                    ) : (
-                      <>
-                        <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                          {metric.leads_data?.[4]?.leads || '—'}
-                        </span>
-                        {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Рейтинг - loading при loadingCplLeads */}
-                  <div className="w-[3%] min-w-[30px] flex items-center justify-center gap-1">
-                    {loadingCplLeads ? (
-                      <SkeletonCell width="w-6" />
-                    ) : (
-                      <>
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
-                          {metric.lead_rating || '—'}
-                        </span>
-                        {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
-                      </>
-                    )}
-                  </div>
-
-                  {/* ROI - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[38px] text-center text-xs font-mono text-slate-700">
-                    {loadingZones ? (
-                      <SkeletonCell width="w-10" />
-                    ) : (
-                      metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'
-                    )}
-                  </div>
-
-                  {/* CPL зона - loading при loadingZones */}
-                  <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                    {loadingZones ? (
-                      <SkeletonCell width="w-12" />
-                    ) : (
-                      <>
-                        {metric.red_zone_price != null ? (
-                          <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
-                            ${Number(metric.red_zone_price).toFixed(2)}
+                    {/* CPL - loading при loadingCplLeads */}
+                    <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
+                      {loadingCplLeads ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        <>
+                          <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                            {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
                           </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">—</span>
-                        )}
-                        <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
-                      </>
+                          {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Лиды - loading при loadingCplLeads */}
+                    <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
+                      {loadingCplLeads ? (
+                        <SkeletonCell width="w-8" />
+                      ) : (
+                        <>
+                          <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                            {metric.leads_data?.[4]?.leads || '—'}
+                          </span>
+                          {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Рейтинг - loading при loadingCplLeads */}
+                    <div className="w-[3%] min-w-[30px] flex items-center justify-center gap-1">
+                      {loadingCplLeads ? (
+                        <SkeletonCell width="w-6" />
+                      ) : (
+                        <>
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
+                            {metric.lead_rating || '—'}
+                          </span>
+                          {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
+                        </>
+                      )}
+                    </div>
+
+                    {/* ROI - loading при loadingZones */}
+                    <div className="w-[5%] min-w-[38px] text-center text-xs font-mono text-slate-700">
+                      {loadingZones ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'
+                      )}
+                    </div>
+
+                    {/* CPL зона - loading при loadingZones */}
+                    <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
+                      {loadingZones ? (
+                        <SkeletonCell width="w-12" />
+                      ) : (
+                        <>
+                          {metric.red_zone_price != null ? (
+                            <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
+                              ${Number(metric.red_zone_price).toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                          <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Прибыль */}
+                    <div className="w-[5%] min-w-[42px] text-center text-xs font-mono text-green-600 font-medium">
+                      {metric.profit != null ? `$${metric.profit}` : '—'}
+                    </div>
+
+                    {/* Дни - loading при loadingDays */}
+                    <div className="w-[4%] min-w-[32px] text-center text-xs text-slate-700">
+                      {loadingDays ? (
+                        <SkeletonCell width="w-8" />
+                      ) : (
+                        metric.days_remaining ?? '—'
+                      )}
+                    </div>
+
+                    {/* Ост. - loading при loadingStock */}
+                    <div className="w-[4%] min-w-[32px] text-center text-xs font-mono text-slate-800">
+                      {loadingStock ? (
+                        <SkeletonCell width="w-8" />
+                      ) : (
+                        metric.stock_quantity ?? '—'
+                      )}
+                    </div>
+
+                    {/* Приход - дней до прихода */}
+                    <div className="w-[5%] min-w-[38px] text-center text-xs font-mono">
+                      {(() => {
+                        const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
+                        if (daysUntil === null) {
+                          return <span className="text-slate-400">—</span>;
+                        }
+                        return (
+                          <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                            {daysUntil}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Апрув - loading при loadingZones */}
+                    <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
+                      {loadingZones ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        metric.approve_percent != null ? `${metric.approve_percent}%` : '—'
+                      )}
+                    </div>
+
+                    {/* Выкуп - loading при loadingZones */}
+                    <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
+                      {loadingZones ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        metric.sold_percent != null ? `${metric.sold_percent}%` : '—'
+                      )}
+                    </div>
+
+                    {/* Сезон */}
+                    <div className="w-[5%] min-w-[55px] text-center whitespace-nowrap">
+                      <span className="text-sm">{offerSeasons[report.article]?.length > 0
+                        ? offerSeasons[report.article].join('')
+                        : <span className="text-slate-400 text-xs">—</span>
+                      }</span>
+                    </div>
+                    {/* Цена */}
+                    <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
+                      {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
+                    </div>
+                    <div className="w-[5%] min-w-[35px] text-center">
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Удалить отчет"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Панель с типом действия */}
+                  <div className={`px-4 py-2 border-t ${getActionColor(report.action)} flex items-center gap-3`}>
+                    <span className="text-xs font-semibold uppercase tracking-wide opacity-60">Действие:</span>
+                    <span className="text-sm font-medium">{actionText}</span>
+                    {report.trelloLink && (
+                      <a
+                        href={report.trelloLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-auto text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
+                        </svg>
+                        Trello
+                      </a>
                     )}
-                  </div>
-
-                  {/* Прибыль */}
-                  <div className="w-[5%] min-w-[42px] text-center text-xs font-mono text-green-600 font-medium">
-                    {metric.profit != null ? `$${metric.profit}` : '—'}
-                  </div>
-
-                  {/* Дни - loading при loadingDays */}
-                  <div className="w-[4%] min-w-[32px] text-center text-xs text-slate-700">
-                    {loadingDays ? (
-                      <SkeletonCell width="w-8" />
-                    ) : (
-                      metric.days_remaining ?? '—'
-                    )}
-                  </div>
-
-                  {/* Ост. - loading при loadingStock */}
-                  <div className="w-[4%] min-w-[32px] text-center text-xs font-mono text-slate-800">
-                    {loadingStock ? (
-                      <SkeletonCell width="w-8" />
-                    ) : (
-                      metric.stock_quantity ?? '—'
-                    )}
-                  </div>
-
-                  {/* Приход - дней до прихода */}
-                  <div className="w-[5%] min-w-[38px] text-center text-xs font-mono">
-                    {(() => {
-                      const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
-                      if (daysUntil === null) {
-                        return <span className="text-slate-400">—</span>;
-                      }
-                      return (
-                        <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
-                          {daysUntil}
-                        </span>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Апрув - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                    {loadingZones ? (
-                      <SkeletonCell width="w-10" />
-                    ) : (
-                      metric.approve_percent != null ? `${metric.approve_percent}%` : '—'
-                    )}
-                  </div>
-
-                  {/* Выкуп - loading при loadingZones */}
-                  <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                    {loadingZones ? (
-                      <SkeletonCell width="w-10" />
-                    ) : (
-                      metric.sold_percent != null ? `${metric.sold_percent}%` : '—'
-                    )}
-                  </div>
-
-                  {/* Сезон */}
-                  <div className="w-[5%] min-w-[55px] text-center whitespace-nowrap">
-                    <span className="text-sm">{offerSeasons[report.article]?.length > 0
-                      ? offerSeasons[report.article].join('')
-                      : <span className="text-slate-400 text-xs">—</span>
-                    }</span>
-                  </div>
-                  {/* Цена */}
-                  <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
-                    {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
-                  </div>
-                  <div className="w-[5%] min-w-[35px] text-center">
-                    <button
-                      onClick={() => handleDeleteReport(report.id)}
-                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Удалить отчет"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
                 </div>
               );
