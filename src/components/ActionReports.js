@@ -14,9 +14,10 @@ import {
   AlertCircle,
   Loader2,
   Star,
-  RefreshCw
+  RefreshCw,
+  User
 } from 'lucide-react';
-import { metricsAnalyticsService } from '../supabaseClient';
+import { metricsAnalyticsService, userService } from '../supabaseClient';
 import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
 import { effectivityZonesService } from '../services/effectivityZonesService';
 import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
@@ -307,6 +308,7 @@ function ActionReports({ user }) {
   // Данные офферов из БД
   const [allMetrics, setAllMetrics] = useState([]);
   const [allStatuses, setAllStatuses] = useState({});
+  const [allUsers, setAllUsers] = useState([]); // Список пользователей для аватарок
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [validatingArticles, setValidatingArticles] = useState(false);
 
@@ -345,20 +347,32 @@ function ActionReports({ user }) {
     try {
       setLoadingMetrics(true);
 
-      // Загружаем метрики, статусы, маппинги и сезоны параллельно
-      const [metricsResult, statusesResult, mappingsResult, seasonsResult] = await Promise.all([
+      // Загружаем метрики, статусы, маппинги, сезоны и пользователей параллельно
+      const [metricsResult, statusesResult, mappingsResult, seasonsResult, usersResult] = await Promise.all([
         metricsAnalyticsService.getAllMetrics(),
         offerStatusService.getAllStatuses(),
         articleOfferMappingService.getAllMappings(),
-        offerSeasonService.getAllSeasons()
+        offerSeasonService.getAllSeasons(),
+        userService.getAllUsers()
       ]);
 
       setAllMetrics(metricsResult.metrics || []);
+      setAllUsers(usersResult || []);
 
-      // Преобразуем статусы в map
+      // Преобразуем статусы в map с расчетом дней в статусе
       const statusesMap = {};
       (statusesResult || []).forEach(status => {
-        statusesMap[status.offer_id] = status;
+        let daysInStatus = 0;
+        if (status.status_history && status.status_history.length > 0) {
+          const currentStatusEntry = status.status_history[0];
+          const changedAt = new Date(currentStatusEntry.changed_at);
+          const now = new Date();
+          daysInStatus = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+        }
+        statusesMap[status.offer_id] = {
+          ...status,
+          days_in_status: daysInStatus
+        };
       });
       setAllStatuses(statusesMap);
 
@@ -848,7 +862,7 @@ function ActionReports({ user }) {
     );
   }, [savedReports, searchTerm, selectedDate]);
 
-  // Получение цвета статуса - данные подтягиваются динамически
+  // Получение цвета статуса и дней в статусе - данные подтягиваются динамически
   const getStatusDisplay = (report) => {
     // Ищем метрику по артикулу чтобы получить offer_id
     const articleLower = report.article?.toLowerCase();
@@ -857,13 +871,15 @@ function ActionReports({ user }) {
     // Получаем статус по offer_id
     const statusData = metric?.id ? allStatuses[metric.id] : null;
     const status = statusData?.current_status;
+    const daysInStatus = statusData?.days_in_status ?? null;
 
-    if (!status) return { label: '—', className: 'bg-slate-100 text-slate-500' };
+    if (!status) return { color: 'bg-slate-300', days: null, status: null };
 
     const config = offerStatusService.getStatusColor(status);
     return {
-      label: status,
-      className: `${config.color} ${config.bgColor} ${config.textColor}`
+      color: config.color, // например 'bg-green-500'
+      days: daysInStatus,
+      status: status
     };
   };
 
@@ -1386,24 +1402,25 @@ function ActionReports({ user }) {
         <div className="flex items-center text-xs font-semibold text-slate-600 text-center">
           <div className="w-[3%] min-w-[30px]">№</div>
           <div className="w-[6%] min-w-[60px]">Артикул</div>
-          <div className="w-[13%] min-w-[110px] text-left">Название</div>
-          <div className="w-[7%] min-w-[65px]">Статус</div>
+          <div className="w-[12%] min-w-[100px] text-left">Название</div>
+          <div className="w-[5%] min-w-[45px]">Статус</div>
+          <div className="w-[8%] min-w-[70px]">Байер</div>
           <div className="w-[5%] min-w-[45px]">CPL</div>
           <div className="w-[4%] min-w-[40px]">Лиды</div>
           <div className="w-[4%] min-w-[36px]" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
           </div>
           <div className="w-[5%] min-w-[40px]">ROI</div>
-          <div className="w-[6%] min-w-[55px]">CPL зона</div>
+          <div className="w-[5%] min-w-[50px]">CPL зона</div>
           <div className="w-[5%] min-w-[45px]">Прибыль</div>
           <div className="w-[4%] min-w-[35px]">Дни</div>
           <div className="w-[4%] min-w-[35px]">Ост.</div>
           <div className="w-[5%] min-w-[40px]">Приход</div>
           <div className="w-[5%] min-w-[40px]">Апрув</div>
           <div className="w-[5%] min-w-[40px]">Выкуп</div>
-          <div className="w-[5%] min-w-[40px]">Сезон</div>
-          <div className="w-[5%] min-w-[40px]">Цена</div>
-          <div className="w-[4%] min-w-[35px]"></div>
+          <div className="w-[4%] min-w-[35px]">Сезон</div>
+          <div className="w-[4%] min-w-[35px]">Цена</div>
+          <div className="w-[3%] min-w-[30px]"></div>
         </div>
       </div>
 
@@ -1457,13 +1474,45 @@ function ActionReports({ user }) {
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[13%] min-w-[110px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className="w-[12%] min-w-[100px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
                     {metric.offer || '—'}
                   </div>
-                  <div className="w-[7%] min-w-[65px] text-center">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
-                      {statusDisplay.label}
+                  {/* Статус - кружок + дни */}
+                  <div className="w-[5%] min-w-[45px] flex items-center justify-center gap-1.5" title={statusDisplay.status ? `${statusDisplay.status} • ${statusDisplay.days ?? 0} дней` : ''}>
+                    <span className={`w-3.5 h-3.5 rounded-full ${statusDisplay.color} shadow-sm border border-white`}></span>
+                    <span className="text-xs font-medium text-slate-700">
+                      {statusDisplay.days !== null ? `${statusDisplay.days}д` : '—'}
                     </span>
+                  </div>
+                  {/* Байер - аватар + имя */}
+                  <div className="w-[8%] min-w-[70px] flex items-center gap-1.5 px-1">
+                    {(() => {
+                      const buyerUser = allUsers.find(u => u.id === report.createdBy);
+                      const avatarUrl = buyerUser?.avatar_url;
+                      const buyerName = report.createdByName || buyerUser?.name || '—';
+                      return (
+                        <>
+                          <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={buyerName}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-full h-full flex items-center justify-center ${avatarUrl ? 'hidden' : ''}`}>
+                              <User className="h-3 w-3 text-gray-400" />
+                            </div>
+                          </div>
+                          <span className="text-xs text-slate-700 truncate" title={buyerName}>
+                            {buyerName.split(' ')[0]}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* CPL - loading при loadingCplLeads */}
@@ -1518,7 +1567,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* CPL зона - loading при loadingZones */}
-                  <div className="w-[6%] min-w-[55px] flex items-center justify-center gap-1">
+                  <div className="w-[5%] min-w-[50px] flex items-center justify-center gap-1">
                     {loadingZones ? (
                       <SkeletonCell width="w-12" />
                     ) : (
@@ -1600,7 +1649,7 @@ function ActionReports({ user }) {
                   </div>
 
                   {/* Сезон */}
-                  <div className="w-[5%] min-w-[40px] flex items-center justify-center gap-1 text-base">
+                  <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-base">
                     <span>{offerSeasons[report.article]?.length > 0
                       ? offerSeasons[report.article].join('')
                       : <span className="text-slate-400 text-xs">—</span>
@@ -1614,10 +1663,10 @@ function ActionReports({ user }) {
                     }, e)} />
                   </div>
                   {/* Цена */}
-                  <div className="w-[5%] min-w-[40px] text-center font-mono text-xs text-slate-800">
+                  <div className="w-[4%] min-w-[35px] text-center font-mono text-xs text-slate-800">
                     {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                   </div>
-                  <div className="w-[4%] min-w-[35px] text-center">
+                  <div className="w-[3%] min-w-[30px] text-center">
                     <button
                       onClick={() => handleDeleteReport(report.id)}
                       className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
