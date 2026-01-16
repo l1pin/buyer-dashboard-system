@@ -451,10 +451,16 @@ function ActionReports({ user }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Для байеров показываем только их собственные отчеты
+    const isUserTeamlead = user?.role === 'teamlead';
+    const userReports = (!isUserTeamlead && user?.id)
+      ? savedReports.filter(r => r.createdBy === user.id)
+      : savedReports;
+
     // Находим самую раннюю дату с отчетами
     let startDate = today;
-    if (savedReports.length > 0) {
-      const reportDates = savedReports.map(r => {
+    if (userReports.length > 0) {
+      const reportDates = userReports.map(r => {
         const d = new Date(r.createdAt);
         d.setHours(0, 0, 0, 0);
         return d;
@@ -479,8 +485,8 @@ function ActionReports({ user }) {
         isYesterday: daysAgo === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: daysAgo,
-        // Считаем товары из savedReports
-        tasksCount: savedReports.filter(r => {
+        // Считаем товары из userReports (отфильтрованных по пользователю)
+        tasksCount: userReports.filter(r => {
           const reportDate = new Date(r.createdAt);
           reportDate.setHours(0, 0, 0, 0);
           return reportDate.getTime() === date.getTime();
@@ -507,7 +513,7 @@ function ActionReports({ user }) {
     }
 
     return days;
-  }, [savedReports]);
+  }, [savedReports, user]);
 
   // Скролл календаря вправо при загрузке (чтобы видеть свежие даты)
   useEffect(() => {
@@ -839,12 +845,19 @@ function ActionReports({ user }) {
     return Object.values(articleConfigs).some(config => !config.isInvalid);
   }, [articleConfigs]);
 
-  // Фильтрация отчетов по дате и поиску
+  // Фильтрация отчетов по дате, поиску и пользователю
   const filteredReports = useMemo(() => {
-    // Сначала фильтруем по выбранной дате
     let reports = savedReports;
+
+    // Для байеров показываем только их собственные действия
+    const isUserTeamlead = user?.role === 'teamlead';
+    if (!isUserTeamlead && user?.id) {
+      reports = reports.filter(r => r.createdBy === user.id);
+    }
+
+    // Фильтруем по выбранной дате
     if (selectedDate) {
-      reports = savedReports.filter(r => {
+      reports = reports.filter(r => {
         const reportDate = new Date(r.createdAt);
         reportDate.setHours(0, 0, 0, 0);
         const selected = new Date(selectedDate);
@@ -860,7 +873,7 @@ function ActionReports({ user }) {
       r.article.toLowerCase().includes(term) ||
       r.metric?.offer?.toLowerCase().includes(term)
     );
-  }, [savedReports, searchTerm, selectedDate]);
+  }, [savedReports, searchTerm, selectedDate, user]);
 
   // Получение цвета статуса и дней в статусе - данные подтягиваются динамически
   const getStatusDisplay = (report) => {
@@ -1402,9 +1415,9 @@ function ActionReports({ user }) {
         <div className="flex items-center text-xs font-semibold text-slate-600">
           <div className="w-[3%] min-w-[25px] text-center">№</div>
           <div className="w-[6%] min-w-[55px] text-center">Артикул</div>
-          <div className="w-[12%] min-w-[90px] text-left">Название</div>
+          <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left`}>Название</div>
           <div className="w-[5%] min-w-[45px] text-center">Статус</div>
-          <div className="w-[8%] min-w-[70px] text-center">Байер</div>
+          {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
           <div className="w-[3%] min-w-[30px] text-center" title="Рейтинг">
@@ -1474,7 +1487,7 @@ function ActionReports({ user }) {
                       {report.article}
                     </span>
                   </div>
-                  <div className="w-[12%] min-w-[90px] text-left text-slate-700 truncate pr-2" title={metric.offer}>
+                  <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left text-slate-700 truncate pr-2`} title={metric.offer}>
                     {metric.offer || '—'}
                   </div>
                   {/* Статус - кружок + дни */}
@@ -1484,36 +1497,38 @@ function ActionReports({ user }) {
                       {statusDisplay.days !== null ? `${statusDisplay.days}д` : '—'}
                     </span>
                   </div>
-                  {/* Байер - аватар + имя */}
-                  <div className="w-[8%] min-w-[70px] flex items-center justify-center gap-1.5">
-                    {(() => {
-                      const buyerUser = allUsers.find(u => u.id === report.createdBy);
-                      const avatarUrl = buyerUser?.avatar_url;
-                      const buyerName = report.createdByName || buyerUser?.name || '—';
-                      return (
-                        <>
-                          <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={buyerName}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                }}
-                              />
-                            ) : null}
-                            <div className={`w-full h-full flex items-center justify-center ${avatarUrl ? 'hidden' : ''}`}>
-                              <User className="h-3 w-3 text-gray-400" />
+                  {/* Байер - аватар + имя (только для тимлида) */}
+                  {isTeamlead && (
+                    <div className="w-[8%] min-w-[70px] flex items-center justify-center gap-1.5">
+                      {(() => {
+                        const buyerUser = allUsers.find(u => u.id === report.createdBy);
+                        const avatarUrl = buyerUser?.avatar_url;
+                        const buyerName = report.createdByName || buyerUser?.name || '—';
+                        return (
+                          <>
+                            <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {avatarUrl ? (
+                                <img
+                                  src={avatarUrl}
+                                  alt={buyerName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${avatarUrl ? 'hidden' : ''}`}>
+                                <User className="h-3 w-3 text-gray-400" />
+                              </div>
                             </div>
-                          </div>
-                          <span className="text-xs text-slate-700 truncate" title={buyerName}>
-                            {buyerName.split(' ')[0]}
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </div>
+                            <span className="text-xs text-slate-700 truncate" title={buyerName}>
+                              {buyerName.split(' ')[0]}
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* CPL - loading при loadingCplLeads */}
                   <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
