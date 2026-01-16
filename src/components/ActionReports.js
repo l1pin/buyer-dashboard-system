@@ -986,31 +986,13 @@ function ActionReports({ user }) {
       const baseMetric = updatedMetricsMap[report.article] || {};
       const buyerMetric = updatedMetricsMap[reportKey];
 
-      // Создаем новый leads_data с buyer-specific данными в позиции 4 (для отображения)
-      const buyerLeadsData = {
-        ...(baseMetric.leads_data || {}),
-        // Перезаписываем [4] данными байера (14 дней) для корректного отображения
-        4: {
-          leads: buyerMetric.buyer_leads_14days ?? 0,
-          cost: buyerMetric.buyer_cost_14days ?? 0,
-          cpl: buyerMetric.buyer_cpl_14days ?? 0,
-          label: '14 дней (байер)'
-        },
-        // Добавляем полные данные байера для тултипа
-        buyer: {
-          leads: buyerMetric.buyer_leads_14days ?? 0,
-          cost: buyerMetric.buyer_cost_14days ?? 0,
-          cpl: buyerMetric.buyer_cpl_14days ?? 0,
-          source_ids: buyerMetric.buyer_source_ids || [],
-          label: '14 дней (ваш трафик)'
-        }
-      };
-
+      // Используем buyer_leads_data напрямую - там уже все периоды (4, 7, 14, 30, 60, 90)
+      // отфильтрованные по source_id байера
       return {
         ...baseMetric,
         ...buyerMetric,
-        leads_4days: buyerMetric.buyer_leads_14days ?? baseMetric.leads_4days,
-        leads_data: buyerLeadsData
+        leads_4days: buyerMetric.buyer_leads_data?.[4]?.leads ?? baseMetric.leads_4days,
+        leads_data: buyerMetric.buyer_leads_data || baseMetric.leads_data
       };
     }
 
@@ -1173,6 +1155,10 @@ function ActionReports({ user }) {
       });
 
       // Теперь для каждого отчета рассчитываем индивидуальные CPL/Leads по source_id байера
+      // Для ВСЕХ периодов: 4, 7, 14, 30, 60, 90 дней
+      const BUYER_PERIODS = [4, 7, 14, 30, 60, 90];
+      const periodLabels = { 4: '4 дня', 7: '7 дней', 14: '14 дней', 30: '30 дней', 60: '60 дней', 90: '90 дней' };
+
       if (dataBySourceIdAndDate && Object.keys(buyerSourcesMap).length > 0) {
         reportsToUpdate.forEach(report => {
           const buyerId = report.createdBy;
@@ -1180,13 +1166,24 @@ function ActionReports({ user }) {
           const buyerData = buyerSourcesMap[buyerId];
 
           if (buyerData && buyerData.source_ids.length > 0 && dataBySourceIdAndDate[article]) {
-            // Рассчитываем CPL/Leads только для source_ids этого байера
-            const buyerMetrics = aggregateMetricsBySourceIds(
-              article,
-              buyerData.source_ids,
-              dataBySourceIdAndDate,
-              14 // За последние 14 дней
-            );
+            // Рассчитываем CPL/Leads для КАЖДОГО периода по source_ids байера
+            const buyerLeadsData = {};
+
+            BUYER_PERIODS.forEach(periodDays => {
+              const periodMetrics = aggregateMetricsBySourceIds(
+                article,
+                buyerData.source_ids,
+                dataBySourceIdAndDate,
+                periodDays
+              );
+
+              buyerLeadsData[periodDays] = {
+                leads: periodMetrics.leads,
+                cost: periodMetrics.cost,
+                cpl: periodMetrics.cpl,
+                label: periodLabels[periodDays]
+              };
+            });
 
             // Создаем уникальный ключ для этого отчета (артикул + байер)
             const reportKey = `${article}__${buyerId}`;
@@ -1194,13 +1191,11 @@ function ActionReports({ user }) {
 
             newMetricsMap[reportKey] = {
               ...baseMetric,
-              buyer_leads_14days: buyerMetrics.leads,
-              buyer_cpl_14days: buyerMetrics.cpl,
-              buyer_cost_14days: buyerMetrics.cost,
+              buyer_leads_data: buyerLeadsData,
               buyer_source_ids: buyerData.source_ids
             };
 
-            console.log(`📈 ${article} (байер ${report.createdByName}): Лиды=${buyerMetrics.leads}, CPL=${buyerMetrics.cpl.toFixed(2)}`);
+            console.log(`📈 ${article} (байер ${report.createdByName}): Лиды 14д=${buyerLeadsData[14]?.leads || 0}, CPL=${buyerLeadsData[14]?.cpl?.toFixed(2) || '—'}`);
           }
         });
       }
@@ -1238,15 +1233,15 @@ function ActionReports({ user }) {
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
   // Функция генерации заголовка тултипа
-  const getTooltipTitleSync = (type, article, hasBuyerData = false) => {
+  const getTooltipTitleSync = (type, article) => {
     const articleBadge = article ? (
       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
         {article}
       </span>
     ) : null;
     const titles = {
-      cpl: hasBuyerData ? 'CPL байера' : 'CPL по периодам',
-      leads: hasBuyerData ? 'Лиды байера' : 'Лиды по периодам',
+      cpl: 'CPL по периодам',
+      leads: 'Лиды по периодам',
       rating: 'История рейтинга',
       zone: 'Зоны эффективности',
       stock: 'Остатки по модификациям',
@@ -1298,49 +1293,6 @@ function ActionReports({ user }) {
         );
       case 'cpl':
       case 'leads':
-        // Если есть buyer-specific данные - показываем только их
-        const buyerData = data.leadsData?.buyer;
-        if (buyerData) {
-          return (
-            <div className="flex flex-col gap-3">
-              {/* Заголовок с информацией о байере */}
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <span className="text-xs font-medium text-gray-700">Ваш трафик</span>
-                <span className="text-xs text-gray-400">({buyerData.source_ids?.length || 0} источников)</span>
-              </div>
-
-              {/* Метрики байера */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs text-gray-500 mb-1">CPL</span>
-                  <span className="text-sm font-bold text-slate-800 font-mono">
-                    {buyerData.cpl > 0 ? `$${buyerData.cpl.toFixed(2)}` : '—'}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs text-gray-500 mb-1">Лиды</span>
-                  <span className="text-sm font-bold text-slate-800 font-mono">
-                    {buyerData.leads || 0}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs text-gray-500 mb-1">Расход</span>
-                  <span className="text-sm font-bold text-slate-800 font-mono">
-                    {buyerData.cost > 0 ? `$${buyerData.cost.toFixed(2)}` : '—'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Подпись с периодом */}
-              <div className="text-center text-xs text-gray-400 pt-1 border-t border-gray-100">
-                За последние 14 дней
-              </div>
-            </div>
-          );
-        }
-
-        // Fallback: показываем общие данные по периодам (для тимлида или когда нет buyer данных)
         return (
           <table className="w-full text-xs">
             <thead><tr className="border-b border-gray-200">
@@ -1355,9 +1307,9 @@ function ActionReports({ user }) {
                 if (!d) return null;
                 return <tr key={days} className="border-b border-gray-100">
                   <td className="py-1 px-2">{d.label}</td>
-                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cpl.toFixed(2) : d.leads}</td>
-                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.cost.toFixed(2) : d.cpl.toFixed(2)}</td>
-                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.leads : d.cost.toFixed(2)}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? (d.cpl > 0 ? d.cpl.toFixed(2) : '—') : d.leads}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? (d.cost > 0 ? d.cost.toFixed(2) : '—') : (d.cpl > 0 ? d.cpl.toFixed(2) : '—')}</td>
+                  <td className="py-1 px-2 text-right font-mono">{type === 'cpl' ? d.leads : (d.cost > 0 ? d.cost.toFixed(2) : '—')}</td>
                 </tr>;
               })}
             </tbody>
@@ -1410,9 +1362,7 @@ function ActionReports({ user }) {
       position = { x: rect.left + rect.width + 10, y: rect.top };
     }
 
-    // Проверяем есть ли buyer-specific данные для CPL/Leads тултипов
-    const hasBuyerData = (type === 'cpl' || type === 'leads') && data.leadsData?.buyer;
-    const title = getTooltipTitleSync(type, data.article, hasBuyerData);
+    const title = getTooltipTitleSync(type, data.article);
     const content = renderTooltipContentSync(type, data);
 
     tooltipManagerRef.current.open(tooltipId, title, content, position);
