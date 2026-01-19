@@ -1237,6 +1237,7 @@ export const actionReportsService = {
       const reportsToInsert = reports.map(r => ({
         article: r.article,
         actions: r.actions,  // JSONB массив действий
+        when_day: r.when || 'tomorrow',  // "today" или "tomorrow"
         created_by: r.created_by,
         created_by_name: r.created_by_name,
         created_at: new Date().toISOString()

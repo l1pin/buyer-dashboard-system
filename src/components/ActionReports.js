@@ -1080,35 +1080,44 @@ function ActionReports({ user }) {
     // Подготавливаем отчеты для сохранения в БД
     // Одна запись на артикул с массивом actions в JSONB
     const reportsToSave = validConfigs.map(([article, config]) => {
-      const actions = config.actions || [config]; // Обратная совместимость
+      const actions = config.actions || [];
+      const when = config.when || 'tomorrow'; // По умолчанию "На завтра"
 
-      // Преобразуем действия с русскими лейблами
-      const actionsForDB = actions.map(actionData => {
-        const actionOption = ACTION_OPTIONS.find(a => a.value === actionData.action);
-        const actionLabel = actionOption?.label || actionData.action;
+      // Преобразуем действия с русскими лейблами, фильтруем пустые
+      const actionsForDB = actions
+        .filter(actionData => actionData.action) // Убираем записи без action
+        .map(actionData => {
+          const actionOption = ACTION_OPTIONS.find(a => a.value === actionData.action);
+          const actionLabel = actionOption?.label || actionData.action;
 
-        let subActionLabel = null;
-        if (actionData.subAction) {
-          if (actionData.action === 'reconfigured') {
-            const subOption = RECONFIGURED_OPTIONS.find(s => s.value === actionData.subAction);
-            subActionLabel = subOption?.label || actionData.subAction;
-          } else if (actionData.action === 'new_product') {
-            const subOption = NEW_PRODUCT_OPTIONS.find(s => s.value === actionData.subAction);
-            subActionLabel = subOption?.label || actionData.subAction;
+          let subActionLabel = null;
+          if (actionData.subAction) {
+            if (actionData.action === 'reconfigured') {
+              const subOption = RECONFIGURED_OPTIONS.find(s => s.value === actionData.subAction);
+              subActionLabel = subOption?.label || actionData.subAction;
+            } else if (actionData.action === 'new_product') {
+              const subOption = NEW_PRODUCT_OPTIONS.find(s => s.value === actionData.subAction);
+              subActionLabel = subOption?.label || actionData.subAction;
+            } else if (actionData.action === 'tz') {
+              // Для ТЗ берём лейбл из ACTION_OPTIONS_WITH_SUBMENU
+              const tzOption = ACTION_OPTIONS_WITH_SUBMENU.find(a => a.value === 'tz');
+              const subOption = tzOption?.subOptions?.find(s => s.value === actionData.subAction);
+              subActionLabel = subOption?.label || actionData.subAction;
+            }
           }
-        }
 
-        return {
-          action_type: actionLabel,
-          sub_action: subActionLabel,
-          custom_text: actionData.customText || null,
-          trello_link: actionData.trelloLink || null
-        };
-      });
+          return {
+            action_type: actionLabel,
+            sub_action: subActionLabel,
+            custom_text: actionData.customText || null,
+            trello_link: actionData.trelloLink || null
+          };
+        });
 
       return {
         article,
         actions: actionsForDB,  // JSONB массив действий
+        when: when,  // "today" или "tomorrow"
         created_by: user?.id,
         created_by_name: user?.name || 'Неизвестно'
       };
