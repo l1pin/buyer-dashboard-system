@@ -76,7 +76,7 @@ const ACTION_OPTIONS_WITH_SUBMENU = [
   {
     value: 'reconfigured',
     label: 'Перенастроил',
-    multiSelect: true, // Можно выбрать несколько
+    multiSelect: true,
     subOptions: [
       { value: 'new_account', label: 'Новый акк' },
       { value: 'target', label: 'Таргет' },
@@ -85,20 +85,28 @@ const ACTION_OPTIONS_WITH_SUBMENU = [
       { value: 'landing', label: 'Ленд' },
       { value: 'budget', label: 'Бюджет' },
       { value: 'duplicate', label: 'Дубль' },
-      { value: 'other', label: 'Другое' }
+      { value: 'other', label: 'Другое', requiresText: true }
     ]
   },
   {
     value: 'new_product',
     label: 'Новинка',
-    multiSelect: false, // Только один выбор
+    multiSelect: false,
     subOptions: [
       { value: 'from_old', label: 'Из старого' },
       { value: 'from_new', label: 'Из нового' }
     ]
   },
   { value: 'out_of_stock', label: 'Закончились' },
-  { value: 'tz', label: 'ТЗ', requiresTrelloLink: true }
+  {
+    value: 'tz',
+    label: 'ТЗ',
+    multiSelect: true,
+    subOptions: [
+      { value: 'tz_creative', label: 'Креатив', requiresTrelloLink: true },
+      { value: 'tz_landing', label: 'Лендинг', requiresTrelloLink: true }
+    ]
+  }
 ];
 
 // Опции для действий (для обратной совместимости)
@@ -228,8 +236,11 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
       const texts = {};
       const links = {};
       (selectedActions || []).forEach(action => {
-        if (action.customText) texts[`${action.action}_${action.subAction}`] = action.customText;
-        if (action.trelloLink) links[action.action] = action.trelloLink;
+        if (action.customText) texts[`${action.action}_other`] = action.customText;
+        // Для ТЗ сохраняем ссылку по subAction (tz_creative, tz_landing)
+        if (action.trelloLink && action.action === 'tz') {
+          links[action.subAction] = action.trelloLink;
+        }
       });
       setCustomTexts(texts);
       setTrelloLinks(links);
@@ -340,13 +351,42 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     setTrelloLinks({});
   };
 
+  // Проверка валидации
+  const validateSelection = () => {
+    const errors = [];
+    tempSelection.forEach(action => {
+      // Проверка "Другое" в Перенастроил
+      if (action.action === 'reconfigured' && action.subAction === 'other') {
+        if (!customTexts[`${action.action}_other`]?.trim()) {
+          errors.push('Заполните поле "Другое" для Перенастроил');
+        }
+      }
+      // Проверка Trello ссылок для ТЗ
+      if (action.action === 'tz') {
+        if (action.subAction === 'tz_creative' && !trelloLinks['tz_creative']?.trim()) {
+          errors.push('Заполните Trello ссылку для Креатива');
+        }
+        if (action.subAction === 'tz_landing' && !trelloLinks['tz_landing']?.trim()) {
+          errors.push('Заполните Trello ссылку для Лендинга');
+        }
+      }
+    });
+    return errors;
+  };
+
   // Применить
   const handleApply = () => {
+    const errors = validateSelection();
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+      return;
+    }
+
     // Добавляем customText и trelloLink к действиям
     const finalSelection = tempSelection.map(action => ({
       ...action,
-      customText: action.subAction === 'other' ? (customTexts[`${action.action}_${action.subAction}`] || '') : '',
-      trelloLink: action.action === 'tz' ? (trelloLinks[action.action] || '') : ''
+      customText: action.subAction === 'other' ? (customTexts[`${action.action}_other`] || '') : '',
+      trelloLink: action.action === 'tz' ? (trelloLinks[action.subAction] || '') : ''
     }));
     onChange(finalSelection);
     setIsOpen(false);
@@ -437,13 +477,26 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
             ))}
           </div>
 
-          {/* Поле Trello если выбран ТЗ */}
-          {isActionSelected('tz') && (
+          {/* Поля Trello для ТЗ Креатив и Лендинг */}
+          {isSubSelected('tz', 'tz_creative') && (
             <div className="px-3 py-2 border-t border-slate-100">
+              <label className="text-xs text-slate-500 mb-1 block">Trello для Креатива *</label>
               <input
                 type="text"
-                value={trelloLinks['tz'] || ''}
-                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz: e.target.value })}
+                value={trelloLinks['tz_creative'] || ''}
+                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz_creative: e.target.value })}
+                placeholder="https://trello.com/c/..."
+                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          )}
+          {isSubSelected('tz', 'tz_landing') && (
+            <div className="px-3 py-2 border-t border-slate-100">
+              <label className="text-xs text-slate-500 mb-1 block">Trello для Лендинга *</label>
+              <input
+                type="text"
+                value={trelloLinks['tz_landing'] || ''}
+                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz_landing: e.target.value })}
                 placeholder="https://trello.com/c/..."
                 className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
               />
@@ -494,15 +547,16 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                 </span>
                 <span>{sub.label}</span>
               </div>
-              {/* Поле для "Другое" */}
+              {/* Поле для "Другое" (обязательное) */}
               {sub.value === 'other' && isSubSelected(hoveredItem, 'other') && (
                 <div className="px-3 pb-2">
+                  <label className="text-xs text-slate-500 mb-1 block">Укажите что именно *</label>
                   <input
                     type="text"
                     value={customTexts[`${hoveredItem}_other`] || ''}
                     onChange={(e) => setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value })}
                     onClick={(e) => e.stopPropagation()}
-                    placeholder="Укажите что..."
+                    placeholder="Обязательное поле"
                     className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
                   />
                 </div>
