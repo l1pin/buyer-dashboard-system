@@ -2,7 +2,8 @@
 // Конструктор SQL запросов для таблицы ads_collection
 
 import React, { useState, useCallback } from 'react';
-import { Search, Plus, Trash2, Play, Download, Table2, Loader2, X, ChevronDown, AlertCircle } from 'lucide-react';
+import { Search, Plus, Trash2, Play, Download, Table2, Loader2, X, ChevronDown, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // URL API
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
@@ -285,6 +286,24 @@ function SqlQueryBuilder({ user }) {
     link.click();
   };
 
+  // Экспорт в XLSX
+  const exportToXlsx = () => {
+    if (!results || results.rows.length === 0) return;
+
+    // Создаём данные для листа: заголовки + строки
+    const wsData = [results.headers, ...results.rows];
+
+    // Создаём worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Создаём workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ads_collection');
+
+    // Скачиваем файл
+    XLSX.writeFile(wb, `ads_collection_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="p-6 max-w-full">
       {/* Заголовок */}
@@ -462,13 +481,22 @@ function SqlQueryBuilder({ user }) {
             </button>
 
             {results && results.rows.length > 0 && (
-              <button
-                onClick={exportToCsv}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
-              >
-                <Download className="w-5 h-5" />
-                Скачать CSV
-              </button>
+              <>
+                <button
+                  onClick={exportToCsv}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+                >
+                  <Download className="w-5 h-5" />
+                  CSV
+                </button>
+                <button
+                  onClick={exportToXlsx}
+                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  XLSX
+                </button>
+              </>
             )}
           </div>
 
