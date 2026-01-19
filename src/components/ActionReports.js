@@ -76,6 +76,7 @@ const ACTION_OPTIONS_WITH_SUBMENU = [
   {
     value: 'reconfigured',
     label: 'Перенастроил',
+    multiSelect: true, // Можно выбрать несколько
     subOptions: [
       { value: 'new_account', label: 'Новый акк' },
       { value: 'target', label: 'Таргет' },
@@ -90,6 +91,7 @@ const ACTION_OPTIONS_WITH_SUBMENU = [
   {
     value: 'new_product',
     label: 'Новинка',
+    multiSelect: false, // Только один выбор
     subOptions: [
       { value: 'from_old', label: 'Из старого' },
       { value: 'from_new', label: 'Из нового' }
@@ -277,17 +279,19 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     }
   };
 
-  // Проверка выбран ли action
-  const isActionSelected = (actionValue, subValue = null) => {
-    return tempSelection.some(a =>
-      a.action === actionValue && (subValue === null || a.subAction === subValue)
-    );
+  // Проверка выбран ли action (любой subAction)
+  const isActionSelected = (actionValue) => {
+    return tempSelection.some(a => a.action === actionValue);
   };
 
-  // Получить выбранный sub для action
-  const getSelectedSub = (actionValue) => {
-    const found = tempSelection.find(a => a.action === actionValue);
-    return found?.subAction || null;
+  // Проверка выбран ли конкретный subAction
+  const isSubSelected = (actionValue, subValue) => {
+    return tempSelection.some(a => a.action === actionValue && a.subAction === subValue);
+  };
+
+  // Получить все выбранные sub для action (для multiSelect)
+  const getSelectedSubs = (actionValue) => {
+    return tempSelection.filter(a => a.action === actionValue).map(a => a.subAction);
   };
 
   // Переключение простого action (без подменю)
@@ -299,11 +303,34 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     }
   };
 
-  // Выбор sub-option для action с подменю
+  // Выбор/снятие sub-option для action с подменю
   const selectSubOption = (actionValue, subValue) => {
-    const existing = tempSelection.filter(a => a.action !== actionValue);
-    const customText = subValue === 'other' ? (customTexts[`${actionValue}_${subValue}`] || '') : '';
-    setTempSelection([...existing, { action: actionValue, subAction: subValue, customText, trelloLink: '' }]);
+    const option = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === actionValue);
+    const isMultiSelect = option?.multiSelect;
+    const alreadySelected = isSubSelected(actionValue, subValue);
+
+    if (isMultiSelect) {
+      // Мультивыбор: toggle конкретного subValue
+      if (alreadySelected) {
+        // Убираем этот subValue
+        setTempSelection(tempSelection.filter(a => !(a.action === actionValue && a.subAction === subValue)));
+      } else {
+        // Добавляем новый subValue
+        const customText = subValue === 'other' ? (customTexts[`${actionValue}_${subValue}`] || '') : '';
+        setTempSelection([...tempSelection, { action: actionValue, subAction: subValue, customText, trelloLink: '' }]);
+      }
+    } else {
+      // Одиночный выбор: toggle
+      if (alreadySelected) {
+        // Убираем выбор полностью
+        setTempSelection(tempSelection.filter(a => a.action !== actionValue));
+      } else {
+        // Заменяем на новый выбор
+        const existing = tempSelection.filter(a => a.action !== actionValue);
+        const customText = subValue === 'other' ? (customTexts[`${actionValue}_${subValue}`] || '') : '';
+        setTempSelection([...existing, { action: actionValue, subAction: subValue, customText, trelloLink: '' }]);
+      }
+    }
   };
 
   // Сброс
@@ -459,16 +486,16 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
               <div
                 onClick={() => selectSubOption(hoveredItem, sub.value)}
                 className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
-                  getSelectedSub(hoveredItem) === sub.value ? 'text-blue-600' : 'text-slate-700'
+                  isSubSelected(hoveredItem, sub.value) ? 'text-blue-600' : 'text-slate-700'
                 }`}
               >
                 <span className="w-4 text-blue-600 font-bold">
-                  {getSelectedSub(hoveredItem) === sub.value && '✓'}
+                  {isSubSelected(hoveredItem, sub.value) && '✓'}
                 </span>
                 <span>{sub.label}</span>
               </div>
               {/* Поле для "Другое" */}
-              {sub.value === 'other' && getSelectedSub(hoveredItem) === 'other' && (
+              {sub.value === 'other' && isSubSelected(hoveredItem, 'other') && (
                 <div className="px-3 pb-2">
                   <input
                     type="text"
