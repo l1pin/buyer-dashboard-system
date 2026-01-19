@@ -57,7 +57,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
 
     // Запрос данных ДО действия
     const sqlBefore = `
-      SELECT DISTINCT campaign_id, adv_group_id, target_url, adv_group_budjet, account_id
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -67,7 +67,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
 
     // Запрос данных ПОСЛЕ действия
     const sqlAfter = `
-      SELECT DISTINCT campaign_id, adv_group_id, target_url, adv_group_budjet, account_id
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -98,6 +98,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
     const beforeValues = {
       campaign_id: new Set(),
       adv_group_id: new Set(),
+      adv_id: new Set(),
       target_url: new Set(),
       adv_group_budjet: new Set(),
       account_id: new Set()
@@ -106,6 +107,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
     (beforeData || []).forEach(row => {
       if (row.campaign_id) beforeValues.campaign_id.add(row.campaign_id);
       if (row.adv_group_id) beforeValues.adv_group_id.add(row.adv_group_id);
+      if (row.adv_id) beforeValues.adv_id.add(row.adv_id);
       if (row.target_url) beforeValues.target_url.add(row.target_url);
       if (row.adv_group_budjet) beforeValues.adv_group_budjet.add(String(row.adv_group_budjet));
       if (row.account_id) beforeValues.account_id.add(row.account_id);
@@ -115,6 +117,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
     const newValues = {
       campaign_id: [],
       adv_group_id: [],
+      adv_id: [],
       target_url: [],
       adv_group_budjet: [],
       account_id: []
@@ -129,6 +132,11 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       if (row.adv_group_id && !beforeValues.adv_group_id.has(row.adv_group_id)) {
         if (!newValues.adv_group_id.includes(row.adv_group_id)) {
           newValues.adv_group_id.push(row.adv_group_id);
+        }
+      }
+      if (row.adv_id && !beforeValues.adv_id.has(row.adv_id)) {
+        if (!newValues.adv_id.includes(row.adv_id)) {
+          newValues.adv_id.push(row.adv_id);
         }
       }
       if (row.target_url && !beforeValues.target_url.has(row.target_url)) {
@@ -3019,6 +3027,22 @@ function ActionReports({ user }) {
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.adv_group_id.map((id, i) => (
                               <span key={i} className="px-2 py-1 bg-white border border-blue-300 rounded text-xs font-mono">
+                                {id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые adv_id */}
+                      {changesModalData.changes.newValues.adv_id.length > 0 && (
+                        <div className="border border-cyan-200 rounded-lg p-3 bg-cyan-50">
+                          <h4 className="text-sm font-semibold text-cyan-800 mb-2">
+                            Новые Adv ID ({changesModalData.changes.newValues.adv_id.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {changesModalData.changes.newValues.adv_id.map((id, i) => (
+                              <span key={i} className="px-2 py-1 bg-white border border-cyan-300 rounded text-xs font-mono">
                                 {id}
                               </span>
                             ))}
