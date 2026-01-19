@@ -209,18 +209,20 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
 function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 0 });
   const [tempSelection, setTempSelection] = useState(selectedActions || []);
   const [customTexts, setCustomTexts] = useState({});
   const [trelloLinks, setTrelloLinks] = useState({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
+  const submenuRef = useRef(null);
+  const itemRefs = useRef({});
 
   // Синхронизируем temp selection при открытии
   useEffect(() => {
     if (isOpen) {
       setTempSelection(selectedActions || []);
-      // Восстанавливаем customTexts и trelloLinks из selectedActions
       const texts = {};
       const links = {};
       (selectedActions || []).forEach(action => {
@@ -236,8 +238,10 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (buttonRef.current && !buttonRef.current.contains(event.target) &&
-          dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          (!submenuRef.current || !submenuRef.current.contains(event.target))) {
         setIsOpen(false);
+        setHoveredItem(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -254,6 +258,24 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
       });
     }
   }, [isOpen]);
+
+  // Позиция подменю при наведении
+  const handleItemHover = (optionValue, event) => {
+    const option = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === optionValue);
+    if (option?.subOptions) {
+      setHoveredItem(optionValue);
+      const itemEl = itemRefs.current[optionValue];
+      if (itemEl) {
+        const rect = itemEl.getBoundingClientRect();
+        setSubmenuPosition({
+          top: rect.top,
+          left: rect.right + 2
+        });
+      }
+    } else {
+      setHoveredItem(null);
+    }
+  };
 
   // Проверка выбран ли action
   const isActionSelected = (actionValue, subValue = null) => {
@@ -320,6 +342,9 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     return labels.join(' + ');
   };
 
+  // Получаем текущий option для подменю
+  const hoveredOption = hoveredItem ? ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === hoveredItem) : null;
+
   return (
     <div className="relative">
       <button
@@ -336,31 +361,31 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
         <ChevronDown className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* Основной dropdown */}
       {isOpen && (
         <div
           ref={dropdownRef}
           className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[200px]"
           style={{ top: dropdownPosition.top, left: dropdownPosition.left, zIndex: 9999 }}
+          onMouseLeave={() => setHoveredItem(null)}
         >
           {/* Список действий */}
-          <div className="py-1 max-h-64 overflow-auto">
+          <div className="py-1">
             {ACTION_OPTIONS_WITH_SUBMENU.map((option) => (
               <div
                 key={option.value}
-                className="relative"
-                onMouseEnter={() => setHoveredItem(option.value)}
-                onMouseLeave={() => setHoveredItem(null)}
+                ref={el => itemRefs.current[option.value] = el}
+                onMouseEnter={(e) => handleItemHover(option.value, e)}
               >
                 {option.subOptions ? (
-                  // Action с подменю - при наведении показывается подменю справа
+                  // Action с подменю
                   <div
                     className={`px-3 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors ${
                       hoveredItem === option.value ? 'bg-slate-100' : ''
                     } ${isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'}`}
                   >
                     <div className="flex items-center gap-2">
-                      {/* Синяя галочка если выбрано */}
-                      <span className="w-4 text-blue-600">
+                      <span className="w-4 text-blue-600 font-bold">
                         {isActionSelected(option.value) && '✓'}
                       </span>
                       <span>{option.label}</span>
@@ -368,56 +393,17 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                     <ChevronRight className="h-4 w-4 text-slate-400" />
                   </div>
                 ) : (
-                  // Простой action (включая ТЗ)
+                  // Простой action
                   <div
                     onClick={() => toggleSimpleAction(option.value)}
                     className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
                       isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'
                     }`}
                   >
-                    {/* Синяя галочка если выбрано */}
-                    <span className="w-4 text-blue-600">
+                    <span className="w-4 text-blue-600 font-bold">
                       {isActionSelected(option.value) && '✓'}
                     </span>
                     <span>{option.label}</span>
-                  </div>
-                )}
-
-                {/* Подменю справа при наведении */}
-                {option.subOptions && hoveredItem === option.value && (
-                  <div
-                    className="absolute left-full top-0 ml-0 bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1"
-                    style={{ zIndex: 10000 }}
-                  >
-                    {option.subOptions.map((sub) => (
-                      <div key={sub.value}>
-                        <div
-                          onClick={() => selectSubOption(option.value, sub.value)}
-                          className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
-                            getSelectedSub(option.value) === sub.value ? 'text-blue-600' : 'text-slate-700'
-                          }`}
-                        >
-                          {/* Синяя галочка если выбрано */}
-                          <span className="w-4 text-blue-600">
-                            {getSelectedSub(option.value) === sub.value && '✓'}
-                          </span>
-                          <span>{sub.label}</span>
-                        </div>
-                        {/* Поле для "Другое" */}
-                        {sub.value === 'other' && getSelectedSub(option.value) === 'other' && (
-                          <div className="px-3 pb-2">
-                            <input
-                              type="text"
-                              value={customTexts[`${option.value}_other`] || ''}
-                              onChange={(e) => setCustomTexts({ ...customTexts, [`${option.value}_other`]: e.target.value })}
-                              onClick={(e) => e.stopPropagation()}
-                              placeholder="Укажите что..."
-                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
@@ -452,6 +438,50 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
               Ок
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Подменю - ОТДЕЛЬНОЕ окно с fixed позиционированием */}
+      {isOpen && hoveredItem && hoveredOption?.subOptions && (
+        <div
+          ref={submenuRef}
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1"
+          style={{
+            top: submenuPosition.top,
+            left: submenuPosition.left,
+            zIndex: 10000
+          }}
+          onMouseEnter={() => setHoveredItem(hoveredItem)}
+          onMouseLeave={() => setHoveredItem(null)}
+        >
+          {hoveredOption.subOptions.map((sub) => (
+            <div key={sub.value}>
+              <div
+                onClick={() => selectSubOption(hoveredItem, sub.value)}
+                className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
+                  getSelectedSub(hoveredItem) === sub.value ? 'text-blue-600' : 'text-slate-700'
+                }`}
+              >
+                <span className="w-4 text-blue-600 font-bold">
+                  {getSelectedSub(hoveredItem) === sub.value && '✓'}
+                </span>
+                <span>{sub.label}</span>
+              </div>
+              {/* Поле для "Другое" */}
+              {sub.value === 'other' && getSelectedSub(hoveredItem) === 'other' && (
+                <div className="px-3 pb-2">
+                  <input
+                    type="text"
+                    value={customTexts[`${hoveredItem}_other`] || ''}
+                    onChange={(e) => setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Укажите что..."
+                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
