@@ -225,6 +225,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   const [trelloLinks, setTrelloLinks] = useState({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [validationErrors, setValidationErrors] = useState({});
+  const [isInputFocused, setIsInputFocused] = useState(false); // Фокус на поле ввода
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const submenuRef = useRef(null);
@@ -439,22 +440,29 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   // Рендер резюме выбранных действий
   const renderSummary = () => {
     const groups = getGroupedActions();
-    if (!groups) return <span className="text-slate-400">Выберите действия</span>;
+    if (!groups || Object.keys(groups).length === 0) {
+      return <span className="text-slate-400">Выберите действия</span>;
+    }
 
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {Object.entries(groups).map(([actionValue, items]) => {
           const opt = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === actionValue);
+          if (!opt) return null; // Пропускаем неизвестные действия
 
           // Простое действие без подменю
-          if (!opt?.subOptions) {
+          if (!opt.subOptions) {
             return (
               <span key={actionValue} className="inline-flex items-center text-slate-700">
                 <span className="text-blue-600 mr-1">✓</span>
-                {opt?.label}
+                {opt.label}
               </span>
             );
           }
+
+          // Фильтруем пустые items
+          const validItems = items.filter(item => item.subAction);
+          if (validItems.length === 0) return null;
 
           // ТЗ с ссылками
           if (actionValue === 'tz') {
@@ -462,7 +470,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
               <span key={actionValue} className="inline-flex items-center gap-1 text-slate-700">
                 <span className="text-blue-600">✓</span>
                 <span>ТЗ:</span>
-                {items.map((item, idx) => {
+                {validItems.map((item, idx) => {
                   const subOpt = opt.subOptions.find(s => s.value === item.subAction);
                   return (
                     <span key={item.subAction} className="inline-flex items-center">
@@ -490,23 +498,25 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
             );
           }
 
-          // Перенастроил или Новинка
-          const subLabels = items.map(item => {
+          // Перенастроил или Новинка - собираем все подопции включая текст "Другое"
+          const subLabels = validItems.map(item => {
             const subOpt = opt.subOptions.find(s => s.value === item.subAction);
-            if (item.subAction === 'other' && item.customText) {
-              return item.customText;
+            if (item.subAction === 'other') {
+              return item.customText || 'Другое';
             }
-            return subOpt?.label || item.subAction;
-          }).join(', ');
+            return subOpt?.label || '';
+          }).filter(Boolean).join(', ');
+
+          if (!subLabels) return null;
 
           return (
             <span key={actionValue} className="inline-flex items-center text-slate-700">
               <span className="text-blue-600 mr-1">✓</span>
-              <span>{opt?.label}:</span>
+              <span>{opt.label}:</span>
               <span className="ml-1 text-slate-600">{subLabels}</span>
             </span>
           );
-        })}
+        }).filter(Boolean)}
       </div>
     );
   };
@@ -617,7 +627,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
             zIndex: 10000
           }}
           onMouseEnter={() => setHoveredItem(hoveredItem)}
-          onMouseLeave={() => setHoveredItem(null)}
+          onMouseLeave={() => !isInputFocused && setHoveredItem(null)}
         >
           {hoveredOption.subOptions.map((sub) => (
             <div key={sub.value}>
@@ -642,11 +652,12 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                     value={customTexts[`${hoveredItem}_other`] || ''}
                     onChange={(e) => {
                       setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value });
-                      // Убираем ошибку при вводе
                       if (validationErrors[`${hoveredItem}_other`]) {
                         setValidationErrors({ ...validationErrors, [`${hoveredItem}_other`]: false });
                       }
                     }}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="Укажите что именно..."
                     className={`w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 ${
@@ -663,11 +674,12 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                     value={trelloLinks[sub.value] || ''}
                     onChange={(e) => {
                       setTrelloLinks({ ...trelloLinks, [sub.value]: e.target.value });
-                      // Убираем ошибку при вводе
                       if (validationErrors[sub.value]) {
                         setValidationErrors({ ...validationErrors, [sub.value]: false });
                       }
                     }}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="https://trello.com/c/..."
                     className={`w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 ${
