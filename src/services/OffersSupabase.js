@@ -1190,13 +1190,10 @@ export const actionReportsService = {
   },
 
   /**
-   * Создать отчет по действию
+   * Создать отчет по действию (новая структура с JSONB actions)
    * @param {Object} reportData - Данные отчета
    * @param {string} reportData.article - Артикул
-   * @param {string} reportData.action_type - Тип действия
-   * @param {string} reportData.sub_action - Подтип действия
-   * @param {string} reportData.custom_text - Произвольный текст
-   * @param {string} reportData.trello_link - Ссылка на Trello
+   * @param {Array} reportData.actions - Массив действий [{ action_type, sub_action, custom_text, trello_link }]
    * @param {string} reportData.created_by - ID создателя
    * @param {string} reportData.created_by_name - Имя создателя
    * @returns {Promise<Object>} Созданный отчет
@@ -1209,10 +1206,7 @@ export const actionReportsService = {
         .from('action_reports')
         .insert({
           article: reportData.article,
-          action_type: reportData.action_type,  // Русский лейбл
-          sub_action: reportData.sub_action || null,  // Русский лейбл
-          custom_text: reportData.custom_text || null,
-          trello_link: reportData.trello_link || null,
+          actions: reportData.actions,  // JSONB массив действий
           created_by: reportData.created_by,
           created_by_name: reportData.created_by_name,
           created_at: new Date().toISOString()
@@ -1232,8 +1226,8 @@ export const actionReportsService = {
   },
 
   /**
-   * Создать несколько отчетов
-   * @param {Array<Object>} reports - Массив отчетов
+   * Создать несколько отчетов (новая структура с JSONB actions)
+   * @param {Array<Object>} reports - Массив отчетов с actions
    * @returns {Promise<Array>} Созданные отчеты
    */
   async createReports(reports) {
@@ -1242,10 +1236,7 @@ export const actionReportsService = {
 
       const reportsToInsert = reports.map(r => ({
         article: r.article,
-        action_type: r.action_type,  // Русский лейбл
-        sub_action: r.sub_action || null,  // Русский лейбл
-        custom_text: r.custom_text || null,
-        trello_link: r.trello_link || null,
+        actions: r.actions,  // JSONB массив действий
         created_by: r.created_by,
         created_by_name: r.created_by_name,
         created_at: new Date().toISOString()

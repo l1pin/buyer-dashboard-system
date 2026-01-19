@@ -176,112 +176,174 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
   );
 }
 
-// Компонент строки артикула в конфигурации
-function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, validationErrors = {} }) {
+// Компонент одного действия в строке артикула
+function ActionItemRow({ actionData, onChange, onRemove, showRemove, validationErrors = {} }) {
   const hasActionError = validationErrors.action;
   const hasSubActionError = validationErrors.subAction;
   const hasCustomTextError = validationErrors.customText;
   const hasTrelloLinkError = validationErrors.trelloLink;
 
   return (
-    <div className={`flex items-start gap-3 py-3 border-b last:border-b-0 ${isInvalid ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
-      {/* Артикул */}
-      <div className="w-24 flex-shrink-0">
-        <span className={`font-mono text-sm font-medium px-2 py-1 rounded ${
-          isInvalid
-            ? 'text-red-700 bg-red-100 border border-red-300'
-            : 'text-slate-700 bg-slate-100'
-        }`}>
-          {article}
-        </span>
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col">
+        <CustomDropdown
+          value={actionData.action}
+          options={ACTION_OPTIONS}
+          onChange={(val) => onChange({ ...actionData, action: val, subAction: '', customText: '', trelloLink: '' })}
+          placeholder="Выберите действие"
+          className={`w-40 ${hasActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+        />
+        {hasActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
       </div>
 
-      {/* Действие */}
-      <div className="flex-1 flex flex-wrap items-center gap-2">
-        {!isInvalid && (
-          <>
-            <div className="flex flex-col">
-              <CustomDropdown
-                value={config.action}
-                options={ACTION_OPTIONS}
-                onChange={(val) => onChange({ ...config, action: val, subAction: '', customText: '', trelloLink: '' })}
-                placeholder="Выберите действие"
-                className={`w-40 ${hasActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-              />
-              {hasActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+      {/* Дополнительные поля в зависимости от выбора */}
+      {actionData.action === 'reconfigured' && (
+        <div className="flex flex-col">
+          <CustomDropdown
+            value={actionData.subAction}
+            options={RECONFIGURED_OPTIONS}
+            onChange={(val) => onChange({ ...actionData, subAction: val, customText: '' })}
+            placeholder="Что изменили?"
+            className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+          />
+          {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+        </div>
+      )}
+
+      {actionData.action === 'reconfigured' && actionData.subAction === 'other' && (
+        <div className="flex flex-col">
+          <input
+            type="text"
+            value={actionData.customText || ''}
+            onChange={(e) => onChange({ ...actionData, customText: e.target.value })}
+            placeholder="Укажите что..."
+            className={`w-32 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              hasCustomTextError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
+            }`}
+          />
+          {hasCustomTextError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+        </div>
+      )}
+
+      {actionData.action === 'new_product' && (
+        <div className="flex flex-col">
+          <CustomDropdown
+            value={actionData.subAction}
+            options={NEW_PRODUCT_OPTIONS}
+            onChange={(val) => onChange({ ...actionData, subAction: val })}
+            placeholder="Откуда?"
+            className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+          />
+          {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
+        </div>
+      )}
+
+      {actionData.action === 'tz' && (
+        <div className="flex flex-col flex-1">
+          <input
+            type="text"
+            value={actionData.trelloLink || ''}
+            onChange={(e) => onChange({ ...actionData, trelloLink: e.target.value })}
+            placeholder="https://trello.com/c/..."
+            className={`min-w-[200px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              hasTrelloLinkError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
+            }`}
+          />
+          {hasTrelloLinkError && <span className="text-xs text-red-500 mt-1">Введите ссылку: https://trello.com/c/...</span>}
+        </div>
+      )}
+
+      {/* Кнопка удаления действия (показываем только если >1 действия) */}
+      {showRemove && (
+        <button
+          onClick={onRemove}
+          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          title="Удалить действие"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Компонент строки артикула в конфигурации (с поддержкой множественных действий)
+function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, validationErrors = {} }) {
+  // Получаем массив действий (для обратной совместимости)
+  const actions = config.actions || [{ action: config.action || '', subAction: config.subAction || '', customText: config.customText || '', trelloLink: config.trelloLink || '' }];
+
+  // Обновление конкретного действия
+  const updateAction = (index, newActionData) => {
+    const newActions = [...actions];
+    newActions[index] = newActionData;
+    onChange({ ...config, actions: newActions });
+  };
+
+  // Добавление нового действия
+  const addAction = () => {
+    const newActions = [...actions, { action: '', subAction: '', customText: '', trelloLink: '' }];
+    onChange({ ...config, actions: newActions });
+  };
+
+  // Удаление действия
+  const removeAction = (index) => {
+    if (actions.length <= 1) return;
+    const newActions = actions.filter((_, i) => i !== index);
+    onChange({ ...config, actions: newActions });
+  };
+
+  return (
+    <div className={`py-3 border-b last:border-b-0 ${isInvalid ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
+      <div className="flex items-start gap-3">
+        {/* Артикул */}
+        <div className="w-24 flex-shrink-0 pt-1">
+          <span className={`font-mono text-sm font-medium px-2 py-1 rounded ${
+            isInvalid
+              ? 'text-red-700 bg-red-100 border border-red-300'
+              : 'text-slate-700 bg-slate-100'
+          }`}>
+            {article}
+          </span>
+        </div>
+
+        {/* Действия */}
+        <div className="flex-1">
+          {!isInvalid ? (
+            <div className="space-y-2">
+              {actions.map((actionData, index) => (
+                <ActionItemRow
+                  key={index}
+                  actionData={actionData}
+                  onChange={(newData) => updateAction(index, newData)}
+                  onRemove={() => removeAction(index)}
+                  showRemove={actions.length > 1}
+                  validationErrors={validationErrors[index] || {}}
+                />
+              ))}
+
+              {/* Кнопка "Добавить действие" */}
+              <button
+                onClick={addAction}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-1"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Добавить действие
+              </button>
             </div>
+          ) : (
+            <span className="text-sm text-red-600">Артикул не найден в базе</span>
+          )}
+        </div>
 
-            {/* Дополнительные поля в зависимости от выбора */}
-            {config.action === 'reconfigured' && (
-              <div className="flex flex-col">
-                <CustomDropdown
-                  value={config.subAction}
-                  options={RECONFIGURED_OPTIONS}
-                  onChange={(val) => onChange({ ...config, subAction: val, customText: '' })}
-                  placeholder="Что изменили?"
-                  className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-                />
-                {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-              </div>
-            )}
-
-            {config.action === 'reconfigured' && config.subAction === 'other' && (
-              <div className="flex flex-col">
-                <input
-                  type="text"
-                  value={config.customText || ''}
-                  onChange={(e) => onChange({ ...config, customText: e.target.value })}
-                  placeholder="Укажите что..."
-                  className={`w-32 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    hasCustomTextError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
-                  }`}
-                />
-                {hasCustomTextError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-              </div>
-            )}
-
-            {config.action === 'new_product' && (
-              <div className="flex flex-col">
-                <CustomDropdown
-                  value={config.subAction}
-                  options={NEW_PRODUCT_OPTIONS}
-                  onChange={(val) => onChange({ ...config, subAction: val })}
-                  placeholder="Откуда?"
-                  className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-                />
-                {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-              </div>
-            )}
-
-            {config.action === 'tz' && (
-              <div className="flex flex-col flex-1">
-                <input
-                  type="text"
-                  value={config.trelloLink || ''}
-                  onChange={(e) => onChange({ ...config, trelloLink: e.target.value })}
-                  placeholder="https://trello.com/c/..."
-                  className={`min-w-[200px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    hasTrelloLinkError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
-                  }`}
-                />
-                {hasTrelloLinkError && <span className="text-xs text-red-500 mt-1">Введите ссылку: https://trello.com/c/...</span>}
-              </div>
-            )}
-          </>
-        )}
-
-        {isInvalid && (
-          <span className="text-sm text-red-600">Артикул не найден в базе</span>
-        )}
+        {/* Кнопка удаления артикула */}
+        <button
+          onClick={onRemove}
+          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          title="Удалить артикул"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
-
-      {/* Кнопка удаления */}
-      <button
-        onClick={onRemove}
-        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
     </div>
   );
 }
@@ -438,19 +500,43 @@ function ActionReports({ user }) {
       ]);
 
       // Преобразуем отчеты из БД в формат компонента
-      // action и subAction уже хранятся на русском языке
-      // Метрики подтягиваются динамически через getReportMetric
-      const formattedReports = reports.map(r => ({
-        id: r.id,
-        article: r.article,
-        action: r.action_type,  // Русский лейбл из БД
-        subAction: r.sub_action,  // Русский лейбл из БД
-        customText: r.custom_text,
-        trelloLink: r.trello_link,
-        createdAt: r.created_at,
-        createdBy: r.created_by,
-        createdByName: r.created_by_name
-      }));
+      // Поддерживаем новый формат с JSONB actions и старый с отдельными полями
+      const formattedReports = reports.map(r => {
+        // Если есть JSONB actions - используем новый формат
+        if (r.actions && Array.isArray(r.actions)) {
+          const firstAction = r.actions[0] || {};
+          return {
+            id: r.id,
+            article: r.article,
+            actions: r.actions,  // Все действия из JSONB
+            action: firstAction.action_type,  // Для обратной совместимости
+            subAction: firstAction.sub_action,
+            customText: firstAction.custom_text,
+            trelloLink: firstAction.trello_link,
+            createdAt: r.created_at,
+            createdBy: r.created_by,
+            createdByName: r.created_by_name
+          };
+        }
+        // Старый формат (для обратной совместимости)
+        return {
+          id: r.id,
+          article: r.article,
+          actions: [{  // Создаём массив из одного действия
+            action_type: r.action_type,
+            sub_action: r.sub_action,
+            custom_text: r.custom_text,
+            trello_link: r.trello_link
+          }],
+          action: r.action_type,
+          subAction: r.sub_action,
+          customText: r.custom_text,
+          trelloLink: r.trello_link,
+          createdAt: r.created_at,
+          createdBy: r.created_by,
+          createdByName: r.created_by_name
+        };
+      });
 
       setSavedReports(formattedReports);
       setReportsCountByDay(countByDay);
@@ -623,10 +709,7 @@ function ActionReports({ user }) {
       const configs = {};
       valid.forEach(({ article, metric }) => {
         configs[article] = {
-          action: '',
-          subAction: '',
-          customText: '',
-          trelloLink: '',
+          actions: [{ action: '', subAction: '', customText: '', trelloLink: '' }],
           metric // Сохраняем данные метрики
         };
       });
@@ -634,10 +717,7 @@ function ActionReports({ user }) {
       // Добавляем невалидные с пометкой
       invalid.forEach(article => {
         configs[article] = {
-          action: '',
-          subAction: '',
-          customText: '',
-          trelloLink: '',
+          actions: [{ action: '', subAction: '', customText: '', trelloLink: '' }],
           metric: null,
           isInvalid: true
         };
@@ -678,8 +758,8 @@ function ActionReports({ user }) {
     let hasErrors = false;
 
     validConfigs.forEach(([article, config]) => {
-      const errors = validateArticleConfig(config);
-      if (Object.keys(errors).length > 0) {
+      const { errors, hasErrors: configHasErrors } = validateArticleConfig(config);
+      if (configHasErrors) {
         newValidationErrors[article] = errors;
         hasErrors = true;
       }
@@ -693,31 +773,39 @@ function ActionReports({ user }) {
     }
 
     // Подготавливаем отчеты для сохранения в БД
+    // Одна запись на артикул с массивом actions в JSONB
     const reportsToSave = validConfigs.map(([article, config]) => {
-      // Находим русские лейблы для action и subAction
-      const actionOption = ACTION_OPTIONS.find(a => a.value === config.action);
-      const actionLabel = actionOption?.label || config.action;
+      const actions = config.actions || [config]; // Обратная совместимость
 
-      let subActionLabel = null;
-      if (config.subAction) {
-        if (config.action === 'reconfigured') {
-          const subOption = RECONFIGURED_OPTIONS.find(s => s.value === config.subAction);
-          subActionLabel = subOption?.label || config.subAction;
-        } else if (config.action === 'new_product') {
-          const subOption = NEW_PRODUCT_OPTIONS.find(s => s.value === config.subAction);
-          subActionLabel = subOption?.label || config.subAction;
+      // Преобразуем действия с русскими лейблами
+      const actionsForDB = actions.map(actionData => {
+        const actionOption = ACTION_OPTIONS.find(a => a.value === actionData.action);
+        const actionLabel = actionOption?.label || actionData.action;
+
+        let subActionLabel = null;
+        if (actionData.subAction) {
+          if (actionData.action === 'reconfigured') {
+            const subOption = RECONFIGURED_OPTIONS.find(s => s.value === actionData.subAction);
+            subActionLabel = subOption?.label || actionData.subAction;
+          } else if (actionData.action === 'new_product') {
+            const subOption = NEW_PRODUCT_OPTIONS.find(s => s.value === actionData.subAction);
+            subActionLabel = subOption?.label || actionData.subAction;
+          }
         }
-      }
+
+        return {
+          action_type: actionLabel,
+          sub_action: subActionLabel,
+          custom_text: actionData.customText || null,
+          trello_link: actionData.trelloLink || null
+        };
+      });
 
       return {
         article,
-        action_type: actionLabel,  // Сохраняем русский лейбл
-        sub_action: subActionLabel,  // Сохраняем русский лейбл
-        custom_text: config.customText || null,
-        trello_link: config.trelloLink || null,
+        actions: actionsForDB,  // JSONB массив действий
         created_by: user?.id,
         created_by_name: user?.name || 'Неизвестно'
-        // metric_snapshot убран - данные подтягиваются динамически
       };
     });
 
@@ -728,17 +816,19 @@ function ActionReports({ user }) {
 
       // Преобразуем сохраненные отчеты для отображения
       const reports = savedToDB.map(r => {
+        // Берём первое действие для обратной совместимости отображения
+        const firstAction = r.actions?.[0] || {};
         return {
           id: r.id,
           article: r.article,
-          action: r.action_type,  // Уже русский лейбл
-          subAction: r.sub_action,  // Уже русский лейбл
-          customText: r.custom_text,
-          trelloLink: r.trello_link,
+          actions: r.actions,  // Все действия из JSONB
+          action: firstAction.action_type,  // Для обратной совместимости
+          subAction: firstAction.sub_action,
+          customText: firstAction.custom_text,
+          trelloLink: firstAction.trello_link,
           createdAt: r.created_at,
           createdBy: r.created_by,
           createdByName: r.created_by_name
-          // Данные метрик подтягиваются динамически через getReportMetric
         };
       });
 
@@ -797,26 +887,60 @@ function ActionReports({ user }) {
     }
   };
 
-  // Получение текста действия для отображения
-  const getActionLabel = (report) => {
-    const action = ACTION_OPTIONS.find(a => a.value === report.action);
-    let label = action?.label || '—';
+  // Форматирование одного действия для отображения
+  const formatSingleAction = (actionData) => {
+    // Данные уже хранятся с русскими лейблами в БД
+    const actionType = actionData.action_type || actionData.action || '';
+    const subAction = actionData.sub_action || actionData.subAction || '';
+    const customText = actionData.custom_text || actionData.customText || '';
+    const trelloLink = actionData.trello_link || actionData.trelloLink || '';
 
-    if (report.action === 'reconfigured' && report.subAction) {
-      const sub = RECONFIGURED_OPTIONS.find(s => s.value === report.subAction);
-      if (report.subAction === 'other' && report.customText) {
-        label = `Перенастроил: ${report.customText}`;
+    // Проверяем что это данные из БД (русские лейблы)
+    const isDbFormat = actionData.action_type !== undefined;
+
+    if (isDbFormat) {
+      // Формат из БД - уже русские лейблы
+      if (subAction) {
+        if (customText) {
+          return `${actionType}: ${customText}`;
+        }
+        return `${actionType}: ${subAction}`;
+      }
+      if (trelloLink) {
+        return `${actionType}`;
+      }
+      return actionType || '—';
+    }
+
+    // Старый формат с английскими кодами
+    const action = ACTION_OPTIONS.find(a => a.value === actionType);
+    let label = action?.label || actionType || '—';
+
+    if (actionType === 'reconfigured' && subAction) {
+      const sub = RECONFIGURED_OPTIONS.find(s => s.value === subAction);
+      if (subAction === 'other' && customText) {
+        label = `Перенастроил: ${customText}`;
       } else {
         label += `: ${sub?.label || ''}`;
       }
     }
 
-    if (report.action === 'new_product' && report.subAction) {
-      const sub = NEW_PRODUCT_OPTIONS.find(s => s.value === report.subAction);
+    if (actionType === 'new_product' && subAction) {
+      const sub = NEW_PRODUCT_OPTIONS.find(s => s.value === subAction);
       label += ` (${sub?.label || ''})`;
     }
 
     return label;
+  };
+
+  // Получение текста всех действий для отображения
+  const getActionLabel = (report) => {
+    // Если есть массив actions - форматируем все действия
+    if (report.actions && Array.isArray(report.actions) && report.actions.length > 0) {
+      return report.actions.map(formatSingleAction).join(' + ');
+    }
+    // Обратная совместимость со старым форматом
+    return formatSingleAction(report);
   };
 
   // Валидация Trello ссылки
@@ -826,36 +950,53 @@ function ActionReports({ user }) {
     return /^https:\/\/trello\.com\/c\/[a-zA-Z0-9]+/.test(link.trim());
   };
 
-  // Валидация конфигурации одного артикула
-  const validateArticleConfig = (config) => {
+  // Валидация одного действия
+  const validateSingleAction = (actionData) => {
     const errors = {};
 
     // Действие обязательно
-    if (!config.action) {
+    if (!actionData.action) {
       errors.action = true;
     }
 
     // Для "Перенастроил" обязательно выбрать подкатегорию
-    if (config.action === 'reconfigured' && !config.subAction) {
+    if (actionData.action === 'reconfigured' && !actionData.subAction) {
       errors.subAction = true;
     }
 
     // Для "Перенастроил" -> "Другое" обязательно заполнить текст
-    if (config.action === 'reconfigured' && config.subAction === 'other' && !config.customText?.trim()) {
+    if (actionData.action === 'reconfigured' && actionData.subAction === 'other' && !actionData.customText?.trim()) {
       errors.customText = true;
     }
 
     // Для "Новинка" обязательно выбрать откуда
-    if (config.action === 'new_product' && !config.subAction) {
+    if (actionData.action === 'new_product' && !actionData.subAction) {
       errors.subAction = true;
     }
 
     // Для "ТЗ" обязательна валидная Trello ссылка
-    if (config.action === 'tz' && !isValidTrelloLink(config.trelloLink)) {
+    if (actionData.action === 'tz' && !isValidTrelloLink(actionData.trelloLink)) {
       errors.trelloLink = true;
     }
 
     return errors;
+  };
+
+  // Валидация конфигурации одного артикула (все действия)
+  const validateArticleConfig = (config) => {
+    const actions = config.actions || [config]; // Обратная совместимость
+    const allErrors = {};
+    let hasAnyError = false;
+
+    actions.forEach((actionData, index) => {
+      const errors = validateSingleAction(actionData);
+      if (Object.keys(errors).length > 0) {
+        allErrors[index] = errors;
+        hasAnyError = true;
+      }
+    });
+
+    return { errors: allErrors, hasErrors: hasAnyError };
   };
 
   // Проверка, все ли валидные артикулы полностью настроены
@@ -864,8 +1005,8 @@ function ActionReports({ user }) {
     if (validArticles.length === 0) return false;
 
     return validArticles.every(([_, config]) => {
-      const errors = validateArticleConfig(config);
-      return Object.keys(errors).length === 0;
+      const { hasErrors } = validateArticleConfig(config);
+      return !hasErrors;
     });
   }, [articleConfigs]);
 
