@@ -500,19 +500,43 @@ function ActionReports({ user }) {
       ]);
 
       // Преобразуем отчеты из БД в формат компонента
-      // action и subAction уже хранятся на русском языке
-      // Метрики подтягиваются динамически через getReportMetric
-      const formattedReports = reports.map(r => ({
-        id: r.id,
-        article: r.article,
-        action: r.action_type,  // Русский лейбл из БД
-        subAction: r.sub_action,  // Русский лейбл из БД
-        customText: r.custom_text,
-        trelloLink: r.trello_link,
-        createdAt: r.created_at,
-        createdBy: r.created_by,
-        createdByName: r.created_by_name
-      }));
+      // Поддерживаем новый формат с JSONB actions и старый с отдельными полями
+      const formattedReports = reports.map(r => {
+        // Если есть JSONB actions - используем новый формат
+        if (r.actions && Array.isArray(r.actions)) {
+          const firstAction = r.actions[0] || {};
+          return {
+            id: r.id,
+            article: r.article,
+            actions: r.actions,  // Все действия из JSONB
+            action: firstAction.action_type,  // Для обратной совместимости
+            subAction: firstAction.sub_action,
+            customText: firstAction.custom_text,
+            trelloLink: firstAction.trello_link,
+            createdAt: r.created_at,
+            createdBy: r.created_by,
+            createdByName: r.created_by_name
+          };
+        }
+        // Старый формат (для обратной совместимости)
+        return {
+          id: r.id,
+          article: r.article,
+          actions: [{  // Создаём массив из одного действия
+            action_type: r.action_type,
+            sub_action: r.sub_action,
+            custom_text: r.custom_text,
+            trello_link: r.trello_link
+          }],
+          action: r.action_type,
+          subAction: r.sub_action,
+          customText: r.custom_text,
+          trelloLink: r.trello_link,
+          createdAt: r.created_at,
+          createdBy: r.created_by,
+          createdByName: r.created_by_name
+        };
+      });
 
       setSavedReports(formattedReports);
       setReportsCountByDay(countByDay);
@@ -749,14 +773,12 @@ function ActionReports({ user }) {
     }
 
     // Подготавливаем отчеты для сохранения в БД
-    // Теперь создаём отдельную запись для каждого действия
-    const reportsToSave = [];
-
-    validConfigs.forEach(([article, config]) => {
+    // Одна запись на артикул с массивом actions в JSONB
+    const reportsToSave = validConfigs.map(([article, config]) => {
       const actions = config.actions || [config]; // Обратная совместимость
 
-      actions.forEach(actionData => {
-        // Находим русские лейблы для action и subAction
+      // Преобразуем действия с русскими лейблами
+      const actionsForDB = actions.map(actionData => {
         const actionOption = ACTION_OPTIONS.find(a => a.value === actionData.action);
         const actionLabel = actionOption?.label || actionData.action;
 
@@ -771,17 +793,20 @@ function ActionReports({ user }) {
           }
         }
 
-        reportsToSave.push({
-          article,
-          action_type: actionLabel,  // Сохраняем русский лейбл
-          sub_action: subActionLabel,  // Сохраняем русский лейбл
+        return {
+          action_type: actionLabel,
+          sub_action: subActionLabel,
           custom_text: actionData.customText || null,
-          trello_link: actionData.trelloLink || null,
-          created_by: user?.id,
-          created_by_name: user?.name || 'Неизвестно'
-          // metric_snapshot убран - данные подтягиваются динамически
-        });
+          trello_link: actionData.trelloLink || null
+        };
       });
+
+      return {
+        article,
+        actions: actionsForDB,  // JSONB массив действий
+        created_by: user?.id,
+        created_by_name: user?.name || 'Неизвестно'
+      };
     });
 
     // Сохраняем в БД
@@ -791,17 +816,19 @@ function ActionReports({ user }) {
 
       // Преобразуем сохраненные отчеты для отображения
       const reports = savedToDB.map(r => {
+        // Берём первое действие для обратной совместимости отображения
+        const firstAction = r.actions?.[0] || {};
         return {
           id: r.id,
           article: r.article,
-          action: r.action_type,  // Уже русский лейбл
-          subAction: r.sub_action,  // Уже русский лейбл
-          customText: r.custom_text,
-          trelloLink: r.trello_link,
+          actions: r.actions,  // Все действия из JSONB
+          action: firstAction.action_type,  // Для обратной совместимости
+          subAction: firstAction.sub_action,
+          customText: firstAction.custom_text,
+          trelloLink: firstAction.trello_link,
           createdAt: r.created_at,
           createdBy: r.created_by,
           createdByName: r.created_by_name
-          // Данные метрик подтягиваются динамически через getReportMetric
         };
       });
 
@@ -860,26 +887,60 @@ function ActionReports({ user }) {
     }
   };
 
-  // Получение текста действия для отображения
-  const getActionLabel = (report) => {
-    const action = ACTION_OPTIONS.find(a => a.value === report.action);
-    let label = action?.label || '—';
+  // Форматирование одного действия для отображения
+  const formatSingleAction = (actionData) => {
+    // Данные уже хранятся с русскими лейблами в БД
+    const actionType = actionData.action_type || actionData.action || '';
+    const subAction = actionData.sub_action || actionData.subAction || '';
+    const customText = actionData.custom_text || actionData.customText || '';
+    const trelloLink = actionData.trello_link || actionData.trelloLink || '';
 
-    if (report.action === 'reconfigured' && report.subAction) {
-      const sub = RECONFIGURED_OPTIONS.find(s => s.value === report.subAction);
-      if (report.subAction === 'other' && report.customText) {
-        label = `Перенастроил: ${report.customText}`;
+    // Проверяем что это данные из БД (русские лейблы)
+    const isDbFormat = actionData.action_type !== undefined;
+
+    if (isDbFormat) {
+      // Формат из БД - уже русские лейблы
+      if (subAction) {
+        if (customText) {
+          return `${actionType}: ${customText}`;
+        }
+        return `${actionType}: ${subAction}`;
+      }
+      if (trelloLink) {
+        return `${actionType}`;
+      }
+      return actionType || '—';
+    }
+
+    // Старый формат с английскими кодами
+    const action = ACTION_OPTIONS.find(a => a.value === actionType);
+    let label = action?.label || actionType || '—';
+
+    if (actionType === 'reconfigured' && subAction) {
+      const sub = RECONFIGURED_OPTIONS.find(s => s.value === subAction);
+      if (subAction === 'other' && customText) {
+        label = `Перенастроил: ${customText}`;
       } else {
         label += `: ${sub?.label || ''}`;
       }
     }
 
-    if (report.action === 'new_product' && report.subAction) {
-      const sub = NEW_PRODUCT_OPTIONS.find(s => s.value === report.subAction);
+    if (actionType === 'new_product' && subAction) {
+      const sub = NEW_PRODUCT_OPTIONS.find(s => s.value === subAction);
       label += ` (${sub?.label || ''})`;
     }
 
     return label;
+  };
+
+  // Получение текста всех действий для отображения
+  const getActionLabel = (report) => {
+    // Если есть массив actions - форматируем все действия
+    if (report.actions && Array.isArray(report.actions) && report.actions.length > 0) {
+      return report.actions.map(formatSingleAction).join(' + ');
+    }
+    // Обратная совместимость со старым форматом
+    return formatSingleAction(report);
   };
 
   // Валидация Trello ссылки
