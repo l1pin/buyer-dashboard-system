@@ -224,7 +224,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   const [customTexts, setCustomTexts] = useState({});
   const [trelloLinks, setTrelloLinks] = useState({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
-  const [validationErrors, setValidationErrors] = useState([]);
+  const [validationErrors, setValidationErrors] = useState({});
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const submenuRef = useRef(null);
@@ -234,6 +234,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   useEffect(() => {
     if (isOpen) {
       setTempSelection(selectedActions || []);
+      setValidationErrors({}); // Сбрасываем ошибки при открытии
       const texts = {};
       const links = {};
       (selectedActions || []).forEach(action => {
@@ -352,37 +353,42 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     setTrelloLinks({});
   };
 
-  // Проверка валидации
+  // Проверка валидации - возвращает объект с ошибками полей
   const validateSelection = () => {
-    const errors = [];
+    const fieldErrors = {};
     tempSelection.forEach(action => {
       // Проверка "Другое" в Перенастроил
       if (action.action === 'reconfigured' && action.subAction === 'other') {
         if (!customTexts[`${action.action}_other`]?.trim()) {
-          errors.push('Заполните поле "Другое" для Перенастроил');
+          fieldErrors['reconfigured_other'] = true;
         }
       }
       // Проверка Trello ссылок для ТЗ
       if (action.action === 'tz') {
         if (action.subAction === 'tz_creative' && !trelloLinks['tz_creative']?.trim()) {
-          errors.push('Заполните Trello ссылку для Креатива');
+          fieldErrors['tz_creative'] = true;
         }
         if (action.subAction === 'tz_landing' && !trelloLinks['tz_landing']?.trim()) {
-          errors.push('Заполните Trello ссылку для Лендинга');
+          fieldErrors['tz_landing'] = true;
         }
       }
     });
-    return errors;
+    return fieldErrors;
+  };
+
+  // Проверка есть ли ошибка у поля
+  const hasFieldError = (fieldKey) => {
+    return validationErrors[fieldKey] === true;
   };
 
   // Применить
   const handleApply = () => {
-    const errors = validateSelection();
-    if (errors.length > 0) {
-      setValidationErrors(errors);
+    const fieldErrors = validateSelection();
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
       return;
     }
-    setValidationErrors([]);
+    setValidationErrors({});
 
     // Добавляем customText и trelloLink к действиям
     const finalSelection = tempSelection.map(action => ({
@@ -438,6 +444,13 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
           style={{ top: dropdownPosition.top, left: dropdownPosition.left, zIndex: 9999 }}
           onMouseLeave={() => setHoveredItem(null)}
         >
+          {/* Сообщение об ошибке */}
+          {Object.keys(validationErrors).length > 0 && (
+            <div className="px-3 py-2 bg-red-50 border-b border-red-100 text-xs text-red-600">
+              Заполните обязательные поля
+            </div>
+          )}
+
           {/* Список действий */}
           <div className="py-1">
             {ACTION_OPTIONS_WITH_SUBMENU.map((option) => (
@@ -529,10 +542,18 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                   <input
                     type="text"
                     value={customTexts[`${hoveredItem}_other`] || ''}
-                    onChange={(e) => setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value })}
+                    onChange={(e) => {
+                      setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value });
+                      // Убираем ошибку при вводе
+                      if (validationErrors[`${hoveredItem}_other`]) {
+                        setValidationErrors({ ...validationErrors, [`${hoveredItem}_other`]: false });
+                      }
+                    }}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="Укажите что именно..."
-                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
+                    className={`w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 ${
+                      hasFieldError(`${hoveredItem}_other`) ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                    }`}
                   />
                 </div>
               )}
@@ -542,10 +563,18 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                   <input
                     type="text"
                     value={trelloLinks[sub.value] || ''}
-                    onChange={(e) => setTrelloLinks({ ...trelloLinks, [sub.value]: e.target.value })}
+                    onChange={(e) => {
+                      setTrelloLinks({ ...trelloLinks, [sub.value]: e.target.value });
+                      // Убираем ошибку при вводе
+                      if (validationErrors[sub.value]) {
+                        setValidationErrors({ ...validationErrors, [sub.value]: false });
+                      }
+                    }}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="https://trello.com/c/..."
-                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
+                    className={`w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 ${
+                      hasFieldError(sub.value) ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                    }`}
                   />
                 </div>
               )}
@@ -554,39 +583,6 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
         </div>
       )}
 
-      {/* Модалка ошибок валидации */}
-      {validationErrors.length > 0 && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
-            <div className="bg-red-50 px-4 py-3 border-b border-red-100">
-              <h3 className="text-red-800 font-semibold flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Заполните обязательные поля
-              </h3>
-            </div>
-            <div className="px-4 py-3">
-              <ul className="space-y-2">
-                {validationErrors.map((error, index) => (
-                  <li key={index} className="text-sm text-slate-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-0.5">•</span>
-                    {error}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="px-4 py-3 bg-slate-50 flex justify-end">
-              <button
-                onClick={() => setValidationErrors([])}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Понятно
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
