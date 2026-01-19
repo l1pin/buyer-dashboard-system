@@ -17,7 +17,8 @@ import {
   RefreshCw,
   User,
   Filter,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import { metricsAnalyticsService, userService, buyerSourceService } from '../supabaseClient';
 import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
@@ -26,6 +27,144 @@ import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql, aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
 import TooltipManager from './TooltipManager';
+
+// URL для SQL API
+const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
+
+/**
+ * Получить изменения в ads_collection после создания действия
+ * @param {string} offerId - ID оффера (offer_id_tracker)
+ * @param {string[]} sourceIds - ID источников байера (source_id_tracker)
+ * @param {string} startDate - Дата начала отслеживания (YYYY-MM-DD)
+ * @returns {Promise<Object>} Новые уникальные значения
+ */
+async function fetchAdsChanges(offerId, sourceIds, startDate) {
+  if (!offerId || !sourceIds?.length || !startDate) {
+    console.log('⚠️ fetchAdsChanges: отсутствуют параметры', { offerId, sourceIds, startDate });
+    return null;
+  }
+
+  try {
+    // Получаем данные ДО startDate (за 30 дней до)
+    const beforeDate = new Date(startDate);
+    beforeDate.setDate(beforeDate.getDate() - 30);
+    const beforeDateStr = beforeDate.toISOString().split('T')[0];
+
+    // Получаем данные ПОСЛЕ startDate (до сегодня)
+    const today = new Date().toISOString().split('T')[0];
+
+    const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
+
+    // Запрос данных ДО действия
+    const sqlBefore = `
+      SELECT DISTINCT campaign_id, adv_group_id, target_url, adv_group_budjet, account_id
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerId}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date >= '${beforeDateStr}'
+        AND adv_date < '${startDate}'
+    `;
+
+    // Запрос данных ПОСЛЕ действия
+    const sqlAfter = `
+      SELECT DISTINCT campaign_id, adv_group_id, target_url, adv_group_budjet, account_id
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerId}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date >= '${startDate}'
+        AND adv_date <= '${today}'
+    `;
+
+    console.log('📊 Запрос изменений ads_collection:', { offerId, sourceIds, startDate });
+
+    // Параллельные запросы
+    const [beforeRes, afterRes] = await Promise.all([
+      fetch(CORE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `strSQL=${encodeURIComponent(sqlBefore)}`
+      }),
+      fetch(CORE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `strSQL=${encodeURIComponent(sqlAfter)}`
+      })
+    ]);
+
+    const beforeData = await beforeRes.json();
+    const afterData = await afterRes.json();
+
+    // Собираем уникальные значения ДО
+    const beforeValues = {
+      campaign_id: new Set(),
+      adv_group_id: new Set(),
+      target_url: new Set(),
+      adv_group_budjet: new Set(),
+      account_id: new Set()
+    };
+
+    (beforeData || []).forEach(row => {
+      if (row.campaign_id) beforeValues.campaign_id.add(row.campaign_id);
+      if (row.adv_group_id) beforeValues.adv_group_id.add(row.adv_group_id);
+      if (row.target_url) beforeValues.target_url.add(row.target_url);
+      if (row.adv_group_budjet) beforeValues.adv_group_budjet.add(String(row.adv_group_budjet));
+      if (row.account_id) beforeValues.account_id.add(row.account_id);
+    });
+
+    // Находим НОВЫЕ значения (есть в ПОСЛЕ, но нет в ДО)
+    const newValues = {
+      campaign_id: [],
+      adv_group_id: [],
+      target_url: [],
+      adv_group_budjet: [],
+      account_id: []
+    };
+
+    (afterData || []).forEach(row => {
+      if (row.campaign_id && !beforeValues.campaign_id.has(row.campaign_id)) {
+        if (!newValues.campaign_id.includes(row.campaign_id)) {
+          newValues.campaign_id.push(row.campaign_id);
+        }
+      }
+      if (row.adv_group_id && !beforeValues.adv_group_id.has(row.adv_group_id)) {
+        if (!newValues.adv_group_id.includes(row.adv_group_id)) {
+          newValues.adv_group_id.push(row.adv_group_id);
+        }
+      }
+      if (row.target_url && !beforeValues.target_url.has(row.target_url)) {
+        if (!newValues.target_url.includes(row.target_url)) {
+          newValues.target_url.push(row.target_url);
+        }
+      }
+      if (row.adv_group_budjet && !beforeValues.adv_group_budjet.has(String(row.adv_group_budjet))) {
+        if (!newValues.adv_group_budjet.includes(String(row.adv_group_budjet))) {
+          newValues.adv_group_budjet.push(String(row.adv_group_budjet));
+        }
+      }
+      if (row.account_id && !beforeValues.account_id.has(row.account_id)) {
+        if (!newValues.account_id.includes(row.account_id)) {
+          newValues.account_id.push(row.account_id);
+        }
+      }
+    });
+
+    const hasChanges = Object.values(newValues).some(arr => arr.length > 0);
+
+    console.log('✅ Найдены изменения:', hasChanges ? newValues : 'нет изменений');
+
+    return {
+      hasChanges,
+      newValues,
+      startDate,
+      beforeCount: beforeData?.length || 0,
+      afterCount: afterData?.length || 0
+    };
+
+  } catch (error) {
+    console.error('❌ Ошибка fetchAdsChanges:', error);
+    return null;
+  }
+}
 
 // Иконка информации
 const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
@@ -698,6 +837,11 @@ function ActionReports({ user }) {
   const [validationError, setValidationError] = useState('');
   const [configValidationErrors, setConfigValidationErrors] = useState({}); // { article: { action: true, subAction: true, ... } }
 
+  // Состояние для журнала изменений (ads_collection)
+  const [showChangesModal, setShowChangesModal] = useState(false);
+  const [changesModalData, setChangesModalData] = useState(null);
+  const [loadingChanges, setLoadingChanges] = useState(false);
+
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
   const buyerDropdownRef = useRef(null);
@@ -1198,6 +1342,56 @@ function ActionReports({ user }) {
       console.log(`✅ Отчет ${reportId} удалён`);
     } catch (error) {
       console.error('❌ Ошибка удаления отчета:', error);
+    }
+  };
+
+  // Открыть журнал изменений для отчета
+  const handleViewChanges = async (report) => {
+    setLoadingChanges(true);
+    setShowChangesModal(true);
+    setChangesModalData({ report, changes: null, error: null });
+
+    try {
+      // Получаем offer_id для артикула
+      const offerId = articleOfferMap[report.article];
+      if (!offerId) {
+        setChangesModalData({ report, changes: null, error: 'Не найден offer_id для артикула' });
+        setLoadingChanges(false);
+        return;
+      }
+
+      // Получаем source_ids байера
+      const buyerSources = await buyerSourceService.getBuyerSourcesWithPeriods(report.createdBy);
+      if (!buyerSources?.traffic_channels?.length) {
+        setChangesModalData({ report, changes: null, error: 'Не найдены источники байера' });
+        setLoadingChanges(false);
+        return;
+      }
+
+      const sourceIds = buyerSources.traffic_channels.map(ch => ch.channel_id);
+
+      // Определяем дату начала отслеживания
+      const createdDate = new Date(report.createdAt);
+      let startDate;
+
+      if (report.when_day === 'today') {
+        // Сегодня - начинаем с даты создания
+        startDate = createdDate.toISOString().split('T')[0];
+      } else {
+        // На завтра - начинаем со следующего дня
+        createdDate.setDate(createdDate.getDate() + 1);
+        startDate = createdDate.toISOString().split('T')[0];
+      }
+
+      // Получаем изменения
+      const changes = await fetchAdsChanges(offerId, sourceIds, startDate);
+
+      setChangesModalData({ report, changes, error: null, startDate, offerId, sourceIds });
+    } catch (error) {
+      console.error('❌ Ошибка получения изменений:', error);
+      setChangesModalData({ report, changes: null, error: error.message });
+    } finally {
+      setLoadingChanges(false);
     }
   };
 
@@ -2573,6 +2767,16 @@ function ActionReports({ user }) {
                   <div className={`px-4 py-2 border-t ${getActionColor(report.action)} flex items-center gap-3`}>
                     <span className="text-xs font-semibold uppercase tracking-wide opacity-60">Действие:</span>
                     <span className="text-sm font-medium">{actionText}</span>
+                    {/* Иконка журнала изменений - только для тимлида */}
+                    {isTeamlead && (
+                      <button
+                        onClick={() => handleViewChanges(report)}
+                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Журнал изменений в рекламе"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                    )}
                     {report.trelloLink && (
                       <a
                         href={report.trelloLink}
@@ -2730,6 +2934,172 @@ function ActionReports({ user }) {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно журнала изменений */}
+      {showChangesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Журнал изменений в рекламе</h3>
+                {changesModalData?.report && (
+                  <p className="text-sm text-slate-500">
+                    Артикул: {changesModalData.report.article} •
+                    Отслеживание с: {changesModalData?.startDate || '—'}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowChangesModal(false);
+                  setChangesModalData(null);
+                }}
+                className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {loadingChanges ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="ml-3 text-slate-600">Загрузка данных...</span>
+                </div>
+              ) : changesModalData?.error ? (
+                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <span className="text-sm text-red-700">{changesModalData.error}</span>
+                </div>
+              ) : changesModalData?.changes ? (
+                <div className="space-y-4">
+                  {!changesModalData.changes.hasChanges ? (
+                    <div className="text-center py-8 text-slate-500">
+                      <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                      <p>Новых уникальных значений не найдено</p>
+                      <p className="text-xs mt-2">
+                        Записей до: {changesModalData.changes.beforeCount} •
+                        Записей после: {changesModalData.changes.afterCount}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm text-slate-600 mb-4">
+                        Найдены новые уникальные значения начиная с <strong>{changesModalData.startDate}</strong>
+                      </div>
+
+                      {/* Новые campaign_id */}
+                      {changesModalData.changes.newValues.campaign_id.length > 0 && (
+                        <div className="border border-green-200 rounded-lg p-3 bg-green-50">
+                          <h4 className="text-sm font-semibold text-green-800 mb-2">
+                            Новые Campaign ID ({changesModalData.changes.newValues.campaign_id.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {changesModalData.changes.newValues.campaign_id.map((id, i) => (
+                              <span key={i} className="px-2 py-1 bg-white border border-green-300 rounded text-xs font-mono">
+                                {id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые adv_group_id */}
+                      {changesModalData.changes.newValues.adv_group_id.length > 0 && (
+                        <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                          <h4 className="text-sm font-semibold text-blue-800 mb-2">
+                            Новые Adv Group ID ({changesModalData.changes.newValues.adv_group_id.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {changesModalData.changes.newValues.adv_group_id.map((id, i) => (
+                              <span key={i} className="px-2 py-1 bg-white border border-blue-300 rounded text-xs font-mono">
+                                {id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые account_id */}
+                      {changesModalData.changes.newValues.account_id.length > 0 && (
+                        <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
+                          <h4 className="text-sm font-semibold text-purple-800 mb-2">
+                            Новые Account ID ({changesModalData.changes.newValues.account_id.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {changesModalData.changes.newValues.account_id.map((id, i) => (
+                              <span key={i} className="px-2 py-1 bg-white border border-purple-300 rounded text-xs font-mono">
+                                {id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые target_url */}
+                      {changesModalData.changes.newValues.target_url.length > 0 && (
+                        <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
+                          <h4 className="text-sm font-semibold text-orange-800 mb-2">
+                            Новые Target URL ({changesModalData.changes.newValues.target_url.length})
+                          </h4>
+                          <div className="space-y-1">
+                            {changesModalData.changes.newValues.target_url.map((url, i) => (
+                              <a
+                                key={i}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block px-2 py-1 bg-white border border-orange-300 rounded text-xs text-blue-600 hover:underline truncate"
+                              >
+                                {url}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые бюджеты */}
+                      {changesModalData.changes.newValues.adv_group_budjet.length > 0 && (
+                        <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50">
+                          <h4 className="text-sm font-semibold text-yellow-800 mb-2">
+                            Новые бюджеты групп ({changesModalData.changes.newValues.adv_group_budjet.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {changesModalData.changes.newValues.adv_group_budjet.map((budget, i) => (
+                              <span key={i} className="px-2 py-1 bg-white border border-yellow-300 rounded text-xs font-mono">
+                                ${budget}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  Нет данных
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+              <button
+                onClick={() => {
+                  setShowChangesModal(false);
+                  setChangesModalData(null);
+                }}
+                className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors"
+              >
+                Закрыть
+              </button>
             </div>
           </div>
         </div>

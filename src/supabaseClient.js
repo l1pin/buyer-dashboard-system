@@ -3901,6 +3901,37 @@ export const buyerSourceService = {
       console.error('❌ Ошибка удаления источников байера:', error);
       throw error;
     }
+  },
+
+  // Получить источники для конкретного байера С ПЕРИОДАМИ ДОСТУПА
+  async getBuyerSourcesWithPeriods(buyerId) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, avatar_url, buyer_settings')
+        .eq('id', buyerId)
+        .eq('role', 'buyer')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (!data) return null;
+
+      const channels = data.buyer_settings?.traffic_channels || [];
+
+      return {
+        buyer_id: data.id,
+        buyer_name: data.name,
+        buyer_avatar: data.avatar_url,
+        traffic_channels: channels.map(ch => ({
+          channel_id: ch.channel_id,
+          access_granted: ch.access_granted || '2020-01-01',
+          access_limited: ch.access_limited || null
+        })).filter(ch => ch.channel_id)
+      };
+    } catch (error) {
+      console.error('❌ Ошибка получения источников байера с периодами:', error);
+      return null;
+    }
   }
 };
 
