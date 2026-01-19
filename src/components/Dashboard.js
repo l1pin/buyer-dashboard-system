@@ -42,7 +42,7 @@ function Dashboard({ user, session, updateUser }) {
     '/analytics/landings': 'landing-analytics',
     '/analytics/offers': 'offers-tl',
     '/reports/actions': 'action-reports',
-    '/server/ads_collection': 'sql-query-builder',
+    '/db/ads_collection': 'sql-query-builder',
     '/settings': 'settings'
   };
 
@@ -60,7 +60,7 @@ function Dashboard({ user, session, updateUser }) {
     'landing-analytics': '/analytics/landings',
     'offers-tl': '/analytics/offers',
     'action-reports': '/reports/actions',
-    'sql-query-builder': '/server/ads_collection',
+    'sql-query-builder': '/db/ads_collection',
     'settings': '/settings'
   };
 
