@@ -1,8 +1,8 @@
 // src/components/SqlQueryBuilder.js
 // Конструктор SQL запросов для таблицы ads_collection
 
-import React, { useState, useCallback } from 'react';
-import { Search, Plus, Trash2, Play, Download, Table2, Loader2, X, ChevronDown, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Search, Plus, Trash2, Play, Download, Table2, Loader2, ChevronDown, AlertCircle, FileSpreadsheet, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // URL API
@@ -76,6 +76,176 @@ const CONDITION_OPTIONS = [
   { value: 'IS NULL', label: 'пусто' },
   { value: 'IS NOT NULL', label: 'не пусто' }
 ];
+
+// Кастомный дропдаун с поиском
+function SearchableDropdown({ value, onChange, options, placeholder, renderOption, className = '' }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Закрытие при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Фильтрация опций
+  const filteredOptions = options.filter(opt => {
+    const label = typeof opt === 'string' ? opt : (opt.name || opt.label || opt.value);
+    return label.toLowerCase().includes(search.toLowerCase());
+  });
+
+  // Текущий выбранный лейбл
+  const selectedLabel = value
+    ? (typeof options[0] === 'string'
+        ? value
+        : options.find(o => (o.name || o.value) === value)?.name || options.find(o => (o.name || o.value) === value)?.label || value)
+    : '';
+
+  return (
+    <div ref={dropdownRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+        className={`w-full px-3 py-2 text-left bg-white border rounded-lg text-sm flex items-center justify-between transition-colors ${
+          isOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-300 hover:border-gray-400'
+        }`}
+      >
+        <span className={value ? 'text-gray-800 font-mono' : 'text-gray-400'}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          {/* Поле поиска */}
+          <div className="p-2 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск..."
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-400"
+              />
+            </div>
+          </div>
+
+          {/* Список опций */}
+          <div className="max-h-48 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-400 text-center">Не найдено</div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const optValue = typeof opt === 'string' ? opt : (opt.name || opt.value);
+                const optLabel = typeof opt === 'string' ? opt : (opt.name || opt.label);
+                const optType = typeof opt === 'object' ? opt.type : null;
+                const isSelected = optValue === value;
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      onChange(optValue);
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors ${
+                      isSelected
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <span className="font-mono">{optLabel}</span>
+                    <div className="flex items-center gap-2">
+                      {optType && <span className="text-xs text-gray-400">{optType}</span>}
+                      {isSelected && <Check className="w-4 h-4 text-blue-600" />}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Кастомный дропдаун для условий (без поиска)
+function ConditionDropdown({ value, onChange, options }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  return (
+    <div ref={dropdownRef} className="relative w-36">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full px-3 py-2 text-left bg-white border rounded-lg text-sm flex items-center justify-between transition-colors ${
+          isOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-300 hover:border-gray-400'
+        }`}
+      >
+        <span className="text-gray-800">{selectedOption?.label || value}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="max-h-60 overflow-y-auto">
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors ${
+                    isSelected
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {isSelected && <Check className="w-4 h-4 text-blue-600" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SqlQueryBuilder({ user }) {
   // Выбранные колонки
@@ -305,7 +475,7 @@ function SqlQueryBuilder({ user }) {
   };
 
   return (
-    <div className="p-6 max-w-full">
+    <div className="p-6 max-w-full pb-12">
       {/* Заголовок */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -383,28 +553,21 @@ function SqlQueryBuilder({ user }) {
             <div className="space-y-3">
               {filters.map((filter, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  {/* Колонка */}
-                  <select
+                  {/* Колонка - кастомный дропдаун с поиском */}
+                  <SearchableDropdown
                     value={filter.column}
-                    onChange={(e) => updateFilter(index, 'column', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Выберите колонку</option>
-                    {AVAILABLE_COLUMNS.map(col => (
-                      <option key={col.name} value={col.name}>{col.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => updateFilter(index, 'column', val)}
+                    options={AVAILABLE_COLUMNS}
+                    placeholder="Выберите колонку"
+                    className="flex-1"
+                  />
 
-                  {/* Условие */}
-                  <select
+                  {/* Условие - кастомный дропдаун */}
+                  <ConditionDropdown
                     value={filter.condition}
-                    onChange={(e) => updateFilter(index, 'condition', e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {CONDITION_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => updateFilter(index, 'condition', val)}
+                    options={CONDITION_OPTIONS}
+                  />
 
                   {/* Значение */}
                   {filter.condition !== 'IS NULL' && filter.condition !== 'IS NOT NULL' && (
@@ -532,19 +695,25 @@ function SqlQueryBuilder({ user }) {
 
       {/* Результаты - отдельный блок на всю ширину */}
       {results && (
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mt-6 mb-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
             <h2 className="font-semibold text-gray-700">
               Результаты: {results.totalRows} записей
             </h2>
             {results.rows.length > 100 && (
               <span className="text-sm text-gray-500">
-                Показаны первые 100 записей. Скачайте CSV для полных данных.
+                Показаны первые 100 записей. Скачайте CSV/XLSX для полных данных.
               </span>
             )}
           </div>
 
-          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 500px)', minHeight: '300px' }}>
+          <div
+            className="overflow-auto"
+            style={{
+              maxHeight: 'calc(100vh - 200px)',
+              minHeight: '300px'
+            }}
+          >
             <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
               <thead className="bg-gray-100 sticky top-0 z-10">
                 <tr>
