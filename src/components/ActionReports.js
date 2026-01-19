@@ -697,14 +697,26 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   );
 }
 
+// Опции для "Когда?"
+const WHEN_OPTIONS = [
+  { value: 'today', label: 'Сегодня' },
+  { value: 'tomorrow', label: 'На завтра' }
+];
+
 // Компонент строки артикула в конфигурации
 function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, validationErrors = {} }) {
   // Получаем массив действий
   const actions = config.actions || [];
+  const when = config.when || '';
 
   // Обновление действий
   const handleActionsChange = (newActions) => {
     onChange({ ...config, actions: newActions });
+  };
+
+  // Обновление "когда"
+  const handleWhenChange = (value) => {
+    onChange({ ...config, when: value });
   };
 
   const hasError = validationErrors.actions || (actions.length === 0 && !isInvalid);
@@ -726,13 +738,30 @@ function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = fal
         {/* Действия */}
         <div className="flex-1">
           {!isInvalid ? (
-            <div>
-              <MultiSelectActionDropdown
-                selectedActions={actions}
-                onChange={handleActionsChange}
-                hasError={hasError}
-              />
-              {hasError && <span className="text-xs text-red-500 mt-1 block">Выберите хотя бы одно действие</span>}
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <MultiSelectActionDropdown
+                  selectedActions={actions}
+                  onChange={handleActionsChange}
+                  hasError={hasError}
+                />
+                {hasError && <span className="text-xs text-red-500 mt-1 block">Выберите хотя бы одно действие</span>}
+              </div>
+              {/* Dropdown "Когда?" */}
+              <div className="w-28 flex-shrink-0">
+                <select
+                  value={when}
+                  onChange={(e) => handleWhenChange(e.target.value)}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    when ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-50 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  <option value="" disabled>Когда?</option>
+                  {WHEN_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           ) : (
             <span className="text-sm text-red-600">Артикул не найден в базе</span>
