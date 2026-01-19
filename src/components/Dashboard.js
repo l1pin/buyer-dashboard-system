@@ -17,6 +17,7 @@ import LandingEditor from './LandingEditor';
 import LandingTeamLead from './LandingTeamLead';
 import LandingAnalytics from './LandingAnalytics';
 import ActionReports from './ActionReports';
+import SqlQueryBuilder from './SqlQueryBuilder';
 import Settings from './Settings';
 import usePermissions from '../hooks/usePermissions';
 
@@ -41,6 +42,7 @@ function Dashboard({ user, session, updateUser }) {
     '/analytics/landings': 'landing-analytics',
     '/analytics/offers': 'offers-tl',
     '/reports/actions': 'action-reports',
+    '/server/ads_collection': 'sql-query-builder',
     '/settings': 'settings'
   };
 
@@ -58,6 +60,7 @@ function Dashboard({ user, session, updateUser }) {
     'landing-analytics': '/analytics/landings',
     'offers-tl': '/analytics/offers',
     'action-reports': '/reports/actions',
+    'sql-query-builder': '/server/ads_collection',
     'settings': '/settings'
   };
 
@@ -102,6 +105,8 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'buyer';
       case 'action-reports':
         return role === 'teamlead' || role === 'buyer';
+      case 'sql-query-builder':
+        return role === 'teamlead'; // SQL Query Builder доступен только тимлидам
       case 'settings':
         return true; // Настройки доступны всем
       default:
@@ -231,6 +236,8 @@ function Dashboard({ user, session, updateUser }) {
         return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
       case 'action-reports':
         return hasAccess('action-reports') ? <ActionReports user={user} /> : null;
+      case 'sql-query-builder':
+        return hasAccess('sql-query-builder') ? <SqlQueryBuilder user={user} /> : null;
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
       default:
