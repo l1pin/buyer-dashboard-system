@@ -1296,15 +1296,30 @@ function ActionReports({ user }) {
     return { errors: allErrors, hasErrors: hasAnyError };
   };
 
-  // Проверка, есть ли хотя бы одно действие у всех валидных артикулов
+  // Проверка, что все валидные артикулы полностью сконфигурированы
   const allArticlesConfigured = useMemo(() => {
     const validArticles = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
     if (validArticles.length === 0) return false;
 
-    // Просто проверяем что у каждого артикула выбрано хотя бы одно действие
     return validArticles.every(([_, config]) => {
       const actions = config.actions || [];
-      return actions.length > 0;
+
+      // Должно быть хотя бы одно действие
+      if (actions.length === 0) return false;
+
+      // Проверяем обязательные поля для каждого действия
+      for (const action of actions) {
+        // Если выбрано "Другое" - текст обязателен
+        if (action.action === 'reconfigured' && action.subAction === 'other') {
+          if (!action.customText?.trim()) return false;
+        }
+        // Если выбран ТЗ Креатив или Лендинг - ссылка обязательна
+        if (action.action === 'tz' && action.subAction) {
+          if (!action.trelloLink?.trim()) return false;
+        }
+      }
+
+      return true;
     });
   }, [articleConfigs]);
 
