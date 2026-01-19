@@ -1381,31 +1381,24 @@ function ActionReports({ user }) {
     // Действие обязательно
     if (!actionData.action) {
       errors.action = true;
+      return errors;
     }
 
-    // Для "Перенастроил" обязательно выбрать подкатегорию
-    if (actionData.action === 'reconfigured' && !actionData.subAction) {
-      errors.subAction = true;
+    // Простые действия без подменю - всегда валидны
+    if (actionData.action === 'enabled_from_arrival' || actionData.action === 'out_of_stock') {
+      return errors; // Пустой объект = нет ошибок
     }
 
-    // Для "Перенастроил" -> "Другое" обязательно заполнить текст
-    if (actionData.action === 'reconfigured' && actionData.subAction === 'other' && !actionData.customText?.trim()) {
-      errors.customText = true;
-    }
-
-    // Для "Новинка" обязательно выбрать откуда
-    if (actionData.action === 'new_product' && !actionData.subAction) {
-      errors.subAction = true;
-    }
-
-    // Для "ТЗ" обязательно выбрать Креатив или Лендинг и указать ссылку
-    if (actionData.action === 'tz') {
-      if (!actionData.subAction) {
-        errors.subAction = true;
+    // Для "Перенастроил" -> "Другое" обязательно заполнить текст (только если выбрано "Другое")
+    if (actionData.action === 'reconfigured' && actionData.subAction === 'other') {
+      if (!actionData.customText?.trim()) {
+        errors.customText = true;
       }
-      // Проверяем trelloLink для каждого подтипа ТЗ
-      if ((actionData.subAction === 'tz_creative' || actionData.subAction === 'tz_landing') &&
-          !isValidTrelloLink(actionData.trelloLink)) {
+    }
+
+    // Для "ТЗ" с выбранным Креатив/Лендинг - обязательна ссылка Trello
+    if (actionData.action === 'tz' && actionData.subAction) {
+      if (!isValidTrelloLink(actionData.trelloLink)) {
         errors.trelloLink = true;
       }
     }
