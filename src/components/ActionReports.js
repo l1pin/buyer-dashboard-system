@@ -1043,25 +1043,39 @@ function ActionReports({ user }) {
 
   // Обработка сохранения
   const handleSaveReport = async () => {
-    // Сначала валидируем все конфигурации
+    // Получаем валидные конфигурации (не невалидные артикулы)
     const validConfigs = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
-    const newValidationErrors = {};
-    let hasErrors = false;
 
-    validConfigs.forEach(([article, config]) => {
-      const { errors, hasErrors: configHasErrors } = validateArticleConfig(config);
-      if (configHasErrors) {
-        newValidationErrors[article] = errors;
-        hasErrors = true;
+    // Простая проверка: у каждого артикула должно быть хотя бы одно действие
+    // и если выбраны поля требующие ввода - они должны быть заполнены
+    for (const [article, config] of validConfigs) {
+      const actions = config.actions || [];
+
+      // Нет действий - ошибка
+      if (actions.length === 0) {
+        setValidationError(`Выберите действие для артикула ${article}`);
+        return;
       }
-    });
 
-    setConfigValidationErrors(newValidationErrors);
-
-    if (hasErrors) {
-      setValidationError('Пожалуйста, заполните все обязательные поля');
-      return;
+      // Проверяем обязательные поля
+      for (const action of actions) {
+        // "Другое" требует текст
+        if (action.action === 'reconfigured' && action.subAction === 'other' && !action.customText?.trim()) {
+          setValidationError(`Заполните поле "Другое" для артикула ${article}`);
+          return;
+        }
+        // ТЗ требует ссылку
+        if (action.action === 'tz' && action.subAction && !action.trelloLink?.trim()) {
+          const subLabel = action.subAction === 'tz_creative' ? 'Креатив' : 'Лендинг';
+          setValidationError(`Заполните ссылку ТЗ ${subLabel} для артикула ${article}`);
+          return;
+        }
+      }
     }
+
+    // Всё ок, очищаем ошибки
+    setValidationError('');
+    setConfigValidationErrors({});
 
     // Подготавливаем отчеты для сохранения в БД
     // Одна запись на артикул с массивом actions в JSONB
@@ -1241,19 +1255,18 @@ function ActionReports({ user }) {
     return /^https:\/\/trello\.com\/c\/[a-zA-Z0-9]+/.test(link.trim());
   };
 
-  // Валидация одного действия
+  // Валидация одного действия (используется для подсветки ошибок в UI)
   const validateSingleAction = (actionData) => {
     const errors = {};
 
-    // Действие обязательно
     if (!actionData.action) {
       errors.action = true;
       return errors;
     }
 
-    // Простые действия без подменю - всегда валидны
+    // Простые действия - всегда валидны
     if (actionData.action === 'enabled_from_arrival' || actionData.action === 'out_of_stock') {
-      return errors; // Пустой объект = нет ошибок
+      return errors;
     }
 
     // Действия с подменю (reconfigured, new_product, tz) - валидны если выбран subAction
