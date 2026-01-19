@@ -695,7 +695,7 @@ function SqlQueryBuilder({ user }) {
 
       {/* Результаты - отдельный блок на всю ширину */}
       {results && (
-        <div className="mt-6 mb-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style={{ marginBottom: '100px' }}>
           <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
             <h2 className="font-semibold text-gray-700">
               Результаты: {results.totalRows} записей
@@ -707,13 +707,7 @@ function SqlQueryBuilder({ user }) {
             )}
           </div>
 
-          <div
-            className="overflow-auto"
-            style={{
-              maxHeight: 'calc(100vh - 200px)',
-              minHeight: '300px'
-            }}
-          >
+          <div className="overflow-x-auto">
             <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
               <thead className="bg-gray-100 sticky top-0 z-10">
                 <tr>
