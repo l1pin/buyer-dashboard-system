@@ -695,8 +695,8 @@ function SqlQueryBuilder({ user }) {
 
       {/* Результаты - отдельный блок на всю ширину */}
       {results && (
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style={{ marginBottom: '100px' }}>
-          <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col" style={{ marginBottom: '60px' }}>
+          <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between flex-shrink-0">
             <h2 className="font-semibold text-gray-700">
               Результаты: {results.totalRows} записей
             </h2>
@@ -707,13 +707,20 @@ function SqlQueryBuilder({ user }) {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Контейнер таблицы с вертикальным и горизонтальным скроллом */}
+          <div
+            className="overflow-auto flex-1"
+            style={{
+              maxHeight: 'calc(100vh - 180px)',
+              minHeight: '400px'
+            }}
+          >
             <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
               <thead className="bg-gray-100 sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b">#</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b bg-gray-100">#</th>
                   {results.headers.map((header, i) => (
-                    <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b whitespace-nowrap">
+                    <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b whitespace-nowrap bg-gray-100">
                       {header}
                     </th>
                   ))}
