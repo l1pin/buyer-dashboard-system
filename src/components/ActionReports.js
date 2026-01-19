@@ -381,6 +381,28 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     return validationErrors[fieldKey] === true;
   };
 
+  // Проверка есть ли ошибка у главного пункта меню
+  const hasMenuItemError = (actionValue) => {
+    if (actionValue === 'reconfigured') {
+      return hasFieldError('reconfigured_other');
+    }
+    if (actionValue === 'tz') {
+      return hasFieldError('tz_creative') || hasFieldError('tz_landing');
+    }
+    return false;
+  };
+
+  // Проверка есть ли ошибка у пункта подменю
+  const hasSubMenuItemError = (actionValue, subValue) => {
+    if (actionValue === 'reconfigured' && subValue === 'other') {
+      return hasFieldError('reconfigured_other');
+    }
+    if (actionValue === 'tz') {
+      return hasFieldError(subValue);
+    }
+    return false;
+  };
+
   // Применить
   const handleApply = () => {
     const fieldErrors = validateSelection();
@@ -464,10 +486,10 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                   <div
                     className={`px-3 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors ${
                       hoveredItem === option.value ? 'bg-slate-100' : ''
-                    } ${isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'}`}
+                    } ${hasMenuItemError(option.value) ? 'text-red-500' : isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'}`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="w-4 text-blue-600 font-bold">
+                      <span className={`w-4 font-bold ${hasMenuItemError(option.value) ? 'text-red-500' : 'text-blue-600'}`}>
                         {isActionSelected(option.value) && '✓'}
                       </span>
                       <span>{option.label}</span>
@@ -528,10 +550,12 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
               <div
                 onClick={() => selectSubOption(hoveredItem, sub.value)}
                 className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
-                  isSubSelected(hoveredItem, sub.value) ? 'text-blue-600' : 'text-slate-700'
+                  hasSubMenuItemError(hoveredItem, sub.value)
+                    ? 'text-red-500'
+                    : isSubSelected(hoveredItem, sub.value) ? 'text-blue-600' : 'text-slate-700'
                 }`}
               >
-                <span className="w-4 text-blue-600 font-bold">
+                <span className={`w-4 font-bold ${hasSubMenuItemError(hoveredItem, sub.value) ? 'text-red-500' : 'text-blue-600'}`}>
                   {isSubSelected(hoveredItem, sub.value) && '✓'}
                 </span>
                 <span>{sub.label}{sub.requiresTrelloLink || sub.requiresText ? ' *' : ''}</span>
