@@ -422,21 +422,93 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     setIsOpen(false);
   };
 
-  // Текст для кнопки
-  const getButtonText = () => {
-    if (!selectedActions || selectedActions.length === 0) return 'Выберите действия';
-    const labels = selectedActions.map(a => {
-      const opt = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === a.action);
-      if (a.subAction) {
-        const subOpt = opt?.subOptions?.find(s => s.value === a.subAction);
-        if (a.subAction === 'other' && a.customText) {
-          return `${opt?.label}: ${a.customText}`;
-        }
-        return `${opt?.label}: ${subOpt?.label || a.subAction}`;
+  // Группировка выбранных действий для отображения
+  const getGroupedActions = () => {
+    if (!selectedActions || selectedActions.length === 0) return null;
+
+    const groups = {};
+    selectedActions.forEach(a => {
+      if (!groups[a.action]) {
+        groups[a.action] = [];
       }
-      return opt?.label || a.action;
+      groups[a.action].push(a);
     });
-    return labels.join(' + ');
+    return groups;
+  };
+
+  // Рендер резюме выбранных действий
+  const renderSummary = () => {
+    const groups = getGroupedActions();
+    if (!groups) return <span className="text-slate-400">Выберите действия</span>;
+
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {Object.entries(groups).map(([actionValue, items]) => {
+          const opt = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === actionValue);
+
+          // Простое действие без подменю
+          if (!opt?.subOptions) {
+            return (
+              <span key={actionValue} className="inline-flex items-center text-slate-700">
+                <span className="text-blue-600 mr-1">✓</span>
+                {opt?.label}
+              </span>
+            );
+          }
+
+          // ТЗ с ссылками
+          if (actionValue === 'tz') {
+            return (
+              <span key={actionValue} className="inline-flex items-center gap-1 text-slate-700">
+                <span className="text-blue-600">✓</span>
+                <span>ТЗ:</span>
+                {items.map((item, idx) => {
+                  const subOpt = opt.subOptions.find(s => s.value === item.subAction);
+                  return (
+                    <span key={item.subAction} className="inline-flex items-center">
+                      {idx > 0 && <span className="text-slate-400 mx-0.5">/</span>}
+                      {item.trelloLink ? (
+                        <a
+                          href={item.trelloLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {subOpt?.label}
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <span>{subOpt?.label}</span>
+                      )}
+                    </span>
+                  );
+                })}
+              </span>
+            );
+          }
+
+          // Перенастроил или Новинка
+          const subLabels = items.map(item => {
+            const subOpt = opt.subOptions.find(s => s.value === item.subAction);
+            if (item.subAction === 'other' && item.customText) {
+              return item.customText;
+            }
+            return subOpt?.label || item.subAction;
+          }).join(', ');
+
+          return (
+            <span key={actionValue} className="inline-flex items-center text-slate-700">
+              <span className="text-blue-600 mr-1">✓</span>
+              <span>{opt?.label}:</span>
+              <span className="ml-1 text-slate-600">{subLabels}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   // Получаем текущий option для подменю
@@ -454,8 +526,10 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
             : 'bg-slate-50 border-slate-200 text-slate-400'
         } hover:border-slate-400 ${hasError ? 'ring-2 ring-red-500' : ''}`}
       >
-        <span className="truncate">{getButtonText()}</span>
-        <ChevronDown className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex-1 min-w-0 mr-2">
+          {renderSummary()}
+        </div>
+        <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Основной dropdown */}
