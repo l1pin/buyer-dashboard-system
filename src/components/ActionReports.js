@@ -1429,14 +1429,15 @@ function ActionReports({ user }) {
     return { errors: allErrors, hasErrors: hasAnyError };
   };
 
-  // Проверка, все ли валидные артикулы полностью настроены
+  // Проверка, есть ли хотя бы одно действие у всех валидных артикулов
   const allArticlesConfigured = useMemo(() => {
     const validArticles = Object.entries(articleConfigs).filter(([_, config]) => !config.isInvalid);
     if (validArticles.length === 0) return false;
 
+    // Просто проверяем что у каждого артикула выбрано хотя бы одно действие
     return validArticles.every(([_, config]) => {
-      const { hasErrors } = validateArticleConfig(config);
-      return !hasErrors;
+      const actions = config.actions || [];
+      return actions.length > 0;
     });
   }, [articleConfigs]);
 
