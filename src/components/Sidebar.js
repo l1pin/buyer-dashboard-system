@@ -17,7 +17,8 @@ import {
   Globe,
   Image,
   Crown,
-  FileText
+  FileText,
+  Database
 } from 'lucide-react';
 import usePermissions from '../hooks/usePermissions';
 
@@ -102,6 +103,12 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       label: 'Метрики аналитика',
       icon: Activity,
       show: canShowSection('metrics-analytics', user?.role === 'teamlead')
+    },
+    {
+      id: 'sql-query-builder',
+      label: 'SQL Query Builder',
+      icon: Database,
+      show: canShowSection('sql-query-builder', user?.role === 'teamlead')
     },
     {
       id: 'users',
