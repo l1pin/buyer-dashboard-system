@@ -499,55 +499,55 @@ function SqlQueryBuilder({ user }) {
             </div>
           )}
 
-          {/* Результаты */}
-          {results && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
-                <h2 className="font-semibold text-gray-700">
-                  Результаты: {results.totalRows} записей
-                </h2>
-              </div>
-
-              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b">#</th>
-                      {results.headers.map((header, i) => (
-                        <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b whitespace-nowrap">
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {results.rows.slice(0, 100).map((row, rowIndex) => (
-                      <tr key={rowIndex} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-400 text-xs">{rowIndex + 1}</td>
-                        {row.map((cell, cellIndex) => (
-                          <td key={cellIndex} className="px-3 py-2 text-gray-700 whitespace-nowrap max-w-[200px] truncate">
-                            {cell === null || cell === undefined ? (
-                              <span className="text-gray-300 italic">null</span>
-                            ) : (
-                              String(cell)
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {results.rows.length > 100 && (
-                  <div className="px-4 py-3 bg-gray-50 border-t text-center text-sm text-gray-500">
-                    Показаны первые 100 записей из {results.totalRows}. Скачайте CSV для полных данных.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Результаты - отдельный блок на всю ширину */}
+      {results && (
+        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+            <h2 className="font-semibold text-gray-700">
+              Результаты: {results.totalRows} записей
+            </h2>
+            {results.rows.length > 100 && (
+              <span className="text-sm text-gray-500">
+                Показаны первые 100 записей. Скачайте CSV для полных данных.
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 500px)', minHeight: '300px' }}>
+            <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
+              <thead className="bg-gray-100 sticky top-0 z-10">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b">#</th>
+                  {results.headers.map((header, i) => (
+                    <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b whitespace-nowrap">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {results.rows.slice(0, 100).map((row, rowIndex) => (
+                  <tr key={rowIndex} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 text-gray-400 text-xs">{rowIndex + 1}</td>
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                        {cell === null || cell === undefined ? (
+                          <span className="text-gray-300 italic">null</span>
+                        ) : (
+                          String(cell)
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
