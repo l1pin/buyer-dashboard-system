@@ -77,17 +77,17 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
 
     console.log('📊 Запрос изменений ads_collection:', { offerId, sourceIds, startDate });
 
-    // Параллельные запросы
+    // Параллельные запросы (формат как в Sql_leads.js)
     const [beforeRes, afterRes] = await Promise.all([
       fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `strSQL=${encodeURIComponent(sqlBefore)}`
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assoc: true, sql: sqlBefore })
       }),
       fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `strSQL=${encodeURIComponent(sqlAfter)}`
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assoc: true, sql: sqlAfter })
       })
     ]);
 
