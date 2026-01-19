@@ -1381,26 +1381,26 @@ function ActionReports({ user }) {
     // Действие обязательно
     if (!actionData.action) {
       errors.action = true;
+      return errors;
     }
 
-    // Для "Перенастроил" обязательно выбрать подкатегорию
-    if (actionData.action === 'reconfigured' && !actionData.subAction) {
-      errors.subAction = true;
+    // Простые действия без подменю - всегда валидны
+    if (actionData.action === 'enabled_from_arrival' || actionData.action === 'out_of_stock') {
+      return errors; // Пустой объект = нет ошибок
     }
 
-    // Для "Перенастроил" -> "Другое" обязательно заполнить текст
-    if (actionData.action === 'reconfigured' && actionData.subAction === 'other' && !actionData.customText?.trim()) {
-      errors.customText = true;
+    // Для "Перенастроил" -> "Другое" обязательно заполнить текст (только если выбрано "Другое")
+    if (actionData.action === 'reconfigured' && actionData.subAction === 'other') {
+      if (!actionData.customText?.trim()) {
+        errors.customText = true;
+      }
     }
 
-    // Для "Новинка" обязательно выбрать откуда
-    if (actionData.action === 'new_product' && !actionData.subAction) {
-      errors.subAction = true;
-    }
-
-    // Для "ТЗ" обязательна валидная Trello ссылка
-    if (actionData.action === 'tz' && !isValidTrelloLink(actionData.trelloLink)) {
-      errors.trelloLink = true;
+    // Для "ТЗ" с выбранным Креатив/Лендинг - обязательна ссылка Trello
+    if (actionData.action === 'tz' && actionData.subAction) {
+      if (!isValidTrelloLink(actionData.trelloLink)) {
+        errors.trelloLink = true;
+      }
     }
 
     return errors;
@@ -1408,7 +1408,13 @@ function ActionReports({ user }) {
 
   // Валидация конфигурации одного артикула (все действия)
   const validateArticleConfig = (config) => {
-    const actions = config.actions || [config]; // Обратная совместимость
+    const actions = config.actions || [];
+
+    // Если нет действий - это ошибка
+    if (actions.length === 0) {
+      return { errors: { actions: true }, hasErrors: true };
+    }
+
     const allErrors = {};
     let hasAnyError = false;
 
