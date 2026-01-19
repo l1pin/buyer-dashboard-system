@@ -1398,9 +1398,16 @@ function ActionReports({ user }) {
       errors.subAction = true;
     }
 
-    // Для "ТЗ" обязательна валидная Trello ссылка
-    if (actionData.action === 'tz' && !isValidTrelloLink(actionData.trelloLink)) {
-      errors.trelloLink = true;
+    // Для "ТЗ" обязательно выбрать Креатив или Лендинг и указать ссылку
+    if (actionData.action === 'tz') {
+      if (!actionData.subAction) {
+        errors.subAction = true;
+      }
+      // Проверяем trelloLink для каждого подтипа ТЗ
+      if ((actionData.subAction === 'tz_creative' || actionData.subAction === 'tz_landing') &&
+          !isValidTrelloLink(actionData.trelloLink)) {
+        errors.trelloLink = true;
+      }
     }
 
     return errors;
@@ -1408,7 +1415,13 @@ function ActionReports({ user }) {
 
   // Валидация конфигурации одного артикула (все действия)
   const validateArticleConfig = (config) => {
-    const actions = config.actions || [config]; // Обратная совместимость
+    const actions = config.actions || [];
+
+    // Если нет действий - это ошибка
+    if (actions.length === 0) {
+      return { errors: { actions: true }, hasErrors: true };
+    }
+
     const allErrors = {};
     let hasAnyError = false;
 
