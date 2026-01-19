@@ -339,7 +339,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[220px]"
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[200px]"
           style={{ top: dropdownPosition.top, left: dropdownPosition.left, zIndex: 9999 }}
         >
           {/* Список действий */}
@@ -348,88 +348,59 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
               <div
                 key={option.value}
                 className="relative"
-                onMouseEnter={() => option.subOptions && setHoveredItem(option.value)}
+                onMouseEnter={() => setHoveredItem(option.value)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
                 {option.subOptions ? (
-                  // Action с подменю
+                  // Action с подменю - при наведении показывается подменю справа
                   <div
                     className={`px-3 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors ${
-                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
-                    }`}
+                      hoveredItem === option.value ? 'bg-slate-100' : ''
+                    } ${isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'}`}
                   >
                     <div className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                        isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
-                      }`}>
-                        {isActionSelected(option.value) && (
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
+                      {/* Синяя галочка если выбрано */}
+                      <span className="w-4 text-blue-600">
+                        {isActionSelected(option.value) && '✓'}
+                      </span>
                       <span>{option.label}</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-slate-400" />
                   </div>
-                ) : option.requiresTrelloLink ? (
-                  // ТЗ с trello link
-                  <div
-                    onClick={() => toggleSimpleAction(option.value)}
-                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
-                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                      isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
-                    }`}>
-                      {isActionSelected(option.value) && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span>{option.label}</span>
-                  </div>
                 ) : (
-                  // Простой action
+                  // Простой action (включая ТЗ)
                   <div
                     onClick={() => toggleSimpleAction(option.value)}
-                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
-                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
+                      isActionSelected(option.value) ? 'text-blue-600' : 'text-slate-700'
                     }`}
                   >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                      isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
-                    }`}>
-                      {isActionSelected(option.value) && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
+                    {/* Синяя галочка если выбрано */}
+                    <span className="w-4 text-blue-600">
+                      {isActionSelected(option.value) && '✓'}
+                    </span>
                     <span>{option.label}</span>
                   </div>
                 )}
 
-                {/* Подменю */}
+                {/* Подменю справа при наведении */}
                 {option.subOptions && hoveredItem === option.value && (
-                  <div className="absolute left-full top-0 ml-1 bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1 z-50">
+                  <div
+                    className="absolute left-full top-0 ml-0 bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1"
+                    style={{ zIndex: 10000 }}
+                  >
                     {option.subOptions.map((sub) => (
                       <div key={sub.value}>
                         <div
                           onClick={() => selectSubOption(option.value, sub.value)}
-                          className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
-                            getSelectedSub(option.value) === sub.value ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                          className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors hover:bg-slate-100 ${
+                            getSelectedSub(option.value) === sub.value ? 'text-blue-600' : 'text-slate-700'
                           }`}
                         >
-                          <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                            getSelectedSub(option.value) === sub.value ? 'border-blue-600' : 'border-slate-300'
-                          }`}>
-                            {getSelectedSub(option.value) === sub.value && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                            )}
-                          </div>
+                          {/* Синяя галочка если выбрано */}
+                          <span className="w-4 text-blue-600">
+                            {getSelectedSub(option.value) === sub.value && '✓'}
+                          </span>
                           <span>{sub.label}</span>
                         </div>
                         {/* Поле для "Другое" */}
