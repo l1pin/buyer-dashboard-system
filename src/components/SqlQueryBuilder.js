@@ -711,8 +711,8 @@ function SqlQueryBuilder({ user }) {
           <div
             className="overflow-auto flex-1"
             style={{
-              maxHeight: 'calc(100vh - 180px)',
-              minHeight: '400px'
+              maxHeight: 'calc(100vh - 120px)',
+              minHeight: '300px'
             }}
           >
             <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
