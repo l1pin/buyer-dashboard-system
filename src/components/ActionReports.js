@@ -2278,6 +2278,7 @@ function ActionReports({ user }) {
           {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
+          <div className="w-[4%] min-w-[35px] text-center">Акт. дней</div>
           <div className="w-[3%] min-w-[30px] text-center" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
           </div>
@@ -2433,6 +2434,11 @@ function ActionReports({ user }) {
                           {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
                         </>
                       )}
+                    </div>
+
+                    {/* Акт. дней - пока заглушка */}
+                    <div className="w-[4%] min-w-[35px] text-center text-xs font-mono text-slate-400">
+                      —
                     </div>
 
                     {/* Рейтинг - loading при loadingCplLeads */}
