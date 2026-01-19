@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import SqlQueryBuilder from './components/SqlQueryBuilder';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -166,7 +167,11 @@ function App() {
         <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/analytics/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/reports/actions" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/db/ads_collection" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/db/ads_collection" element={
+          <div className="h-screen w-screen overflow-auto bg-gray-50">
+            <SqlQueryBuilder user={user} />
+          </div>
+        } />
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Navigate to="/settings" replace />} />
