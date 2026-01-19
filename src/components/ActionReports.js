@@ -70,7 +70,36 @@ const calculateDaysUntilArrival = (dateString) => {
   }
 };
 
-// Опции для действий
+// Опции для действий с подменю
+const ACTION_OPTIONS_WITH_SUBMENU = [
+  { value: 'enabled_from_arrival', label: 'Вкл с прихода' },
+  {
+    value: 'reconfigured',
+    label: 'Перенастроил',
+    subOptions: [
+      { value: 'new_account', label: 'Новый акк' },
+      { value: 'target', label: 'Таргет' },
+      { value: 'creative', label: 'Крео' },
+      { value: 'audience', label: 'Аудитория' },
+      { value: 'landing', label: 'Ленд' },
+      { value: 'budget', label: 'Бюджет' },
+      { value: 'duplicate', label: 'Дубль' },
+      { value: 'other', label: 'Другое' }
+    ]
+  },
+  {
+    value: 'new_product',
+    label: 'Новинка',
+    subOptions: [
+      { value: 'from_old', label: 'Из старого' },
+      { value: 'from_new', label: 'Из нового' }
+    ]
+  },
+  { value: 'out_of_stock', label: 'Закончились' },
+  { value: 'tz', label: 'ТЗ', requiresTrelloLink: true }
+];
+
+// Опции для действий (для обратной совместимости)
 const ACTION_OPTIONS = [
   { value: 'enabled_from_arrival', label: 'Вкл с прихода' },
   { value: 'reconfigured', label: 'Перенастроил' },
@@ -176,121 +205,299 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
   );
 }
 
-// Компонент одного действия в строке артикула
-function ActionItemRow({ actionData, onChange, onRemove, showRemove, validationErrors = {} }) {
-  const hasActionError = validationErrors.action;
-  const hasSubActionError = validationErrors.subAction;
-  const hasCustomTextError = validationErrors.customText;
-  const hasTrelloLinkError = validationErrors.trelloLink;
+// Компонент мультивыбора действий с подменю
+function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [tempSelection, setTempSelection] = useState(selectedActions || []);
+  const [customTexts, setCustomTexts] = useState({});
+  const [trelloLinks, setTrelloLinks] = useState({});
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // Синхронизируем temp selection при открытии
+  useEffect(() => {
+    if (isOpen) {
+      setTempSelection(selectedActions || []);
+      // Восстанавливаем customTexts и trelloLinks из selectedActions
+      const texts = {};
+      const links = {};
+      (selectedActions || []).forEach(action => {
+        if (action.customText) texts[`${action.action}_${action.subAction}`] = action.customText;
+        if (action.trelloLink) links[action.action] = action.trelloLink;
+      });
+      setCustomTexts(texts);
+      setTrelloLinks(links);
+    }
+  }, [isOpen, selectedActions]);
+
+  // Закрытие при клике вне
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (buttonRef.current && !buttonRef.current.contains(event.target) &&
+          dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Позиция dropdown
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left
+      });
+    }
+  }, [isOpen]);
+
+  // Проверка выбран ли action
+  const isActionSelected = (actionValue, subValue = null) => {
+    return tempSelection.some(a =>
+      a.action === actionValue && (subValue === null || a.subAction === subValue)
+    );
+  };
+
+  // Получить выбранный sub для action
+  const getSelectedSub = (actionValue) => {
+    const found = tempSelection.find(a => a.action === actionValue);
+    return found?.subAction || null;
+  };
+
+  // Переключение простого action (без подменю)
+  const toggleSimpleAction = (actionValue) => {
+    if (isActionSelected(actionValue)) {
+      setTempSelection(tempSelection.filter(a => a.action !== actionValue));
+    } else {
+      setTempSelection([...tempSelection, { action: actionValue, subAction: '', customText: '', trelloLink: '' }]);
+    }
+  };
+
+  // Выбор sub-option для action с подменю
+  const selectSubOption = (actionValue, subValue) => {
+    const existing = tempSelection.filter(a => a.action !== actionValue);
+    const customText = subValue === 'other' ? (customTexts[`${actionValue}_${subValue}`] || '') : '';
+    setTempSelection([...existing, { action: actionValue, subAction: subValue, customText, trelloLink: '' }]);
+  };
+
+  // Сброс
+  const handleReset = () => {
+    setTempSelection([]);
+    setCustomTexts({});
+    setTrelloLinks({});
+  };
+
+  // Применить
+  const handleApply = () => {
+    // Добавляем customText и trelloLink к действиям
+    const finalSelection = tempSelection.map(action => ({
+      ...action,
+      customText: action.subAction === 'other' ? (customTexts[`${action.action}_${action.subAction}`] || '') : '',
+      trelloLink: action.action === 'tz' ? (trelloLinks[action.action] || '') : ''
+    }));
+    onChange(finalSelection);
+    setIsOpen(false);
+  };
+
+  // Текст для кнопки
+  const getButtonText = () => {
+    if (!selectedActions || selectedActions.length === 0) return 'Выберите действия';
+    const labels = selectedActions.map(a => {
+      const opt = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.value === a.action);
+      if (a.subAction) {
+        const subOpt = opt?.subOptions?.find(s => s.value === a.subAction);
+        if (a.subAction === 'other' && a.customText) {
+          return `${opt?.label}: ${a.customText}`;
+        }
+        return `${opt?.label}: ${subOpt?.label || a.subAction}`;
+      }
+      return opt?.label || a.action;
+    });
+    return labels.join(' + ');
+  };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-col">
-        <CustomDropdown
-          value={actionData.action}
-          options={ACTION_OPTIONS}
-          onChange={(val) => onChange({ ...actionData, action: val, subAction: '', customText: '', trelloLink: '' })}
-          placeholder="Выберите действие"
-          className={`w-40 ${hasActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-        />
-        {hasActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-      </div>
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full min-w-[200px] px-3 py-2 text-left text-sm border rounded-lg flex items-center justify-between transition-colors ${
+          selectedActions?.length
+            ? 'bg-white border-slate-300 text-slate-700'
+            : 'bg-slate-50 border-slate-200 text-slate-400'
+        } hover:border-slate-400 ${hasError ? 'ring-2 ring-red-500' : ''}`}
+      >
+        <span className="truncate">{getButtonText()}</span>
+        <ChevronDown className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
 
-      {/* Дополнительные поля в зависимости от выбора */}
-      {actionData.action === 'reconfigured' && (
-        <div className="flex flex-col">
-          <CustomDropdown
-            value={actionData.subAction}
-            options={RECONFIGURED_OPTIONS}
-            onChange={(val) => onChange({ ...actionData, subAction: val, customText: '' })}
-            placeholder="Что изменили?"
-            className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-          />
-          {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-        </div>
-      )}
-
-      {actionData.action === 'reconfigured' && actionData.subAction === 'other' && (
-        <div className="flex flex-col">
-          <input
-            type="text"
-            value={actionData.customText || ''}
-            onChange={(e) => onChange({ ...actionData, customText: e.target.value })}
-            placeholder="Укажите что..."
-            className={`w-32 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              hasCustomTextError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
-            }`}
-          />
-          {hasCustomTextError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-        </div>
-      )}
-
-      {actionData.action === 'new_product' && (
-        <div className="flex flex-col">
-          <CustomDropdown
-            value={actionData.subAction}
-            options={NEW_PRODUCT_OPTIONS}
-            onChange={(val) => onChange({ ...actionData, subAction: val })}
-            placeholder="Откуда?"
-            className={`w-36 ${hasSubActionError ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
-          />
-          {hasSubActionError && <span className="text-xs text-red-500 mt-1">Обязательное поле</span>}
-        </div>
-      )}
-
-      {actionData.action === 'tz' && (
-        <div className="flex flex-col flex-1">
-          <input
-            type="text"
-            value={actionData.trelloLink || ''}
-            onChange={(e) => onChange({ ...actionData, trelloLink: e.target.value })}
-            placeholder="https://trello.com/c/..."
-            className={`min-w-[200px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              hasTrelloLinkError ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-300'
-            }`}
-          />
-          {hasTrelloLinkError && <span className="text-xs text-red-500 mt-1">Введите ссылку: https://trello.com/c/...</span>}
-        </div>
-      )}
-
-      {/* Кнопка удаления действия (показываем только если >1 действия) */}
-      {showRemove && (
-        <button
-          onClick={onRemove}
-          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-          title="Удалить действие"
+      {isOpen && (
+        <div
+          ref={dropdownRef}
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[220px]"
+          style={{ top: dropdownPosition.top, left: dropdownPosition.left, zIndex: 9999 }}
         >
-          <X className="h-3.5 w-3.5" />
-        </button>
+          {/* Список действий */}
+          <div className="py-1 max-h-64 overflow-auto">
+            {ACTION_OPTIONS_WITH_SUBMENU.map((option) => (
+              <div
+                key={option.value}
+                className="relative"
+                onMouseEnter={() => option.subOptions && setHoveredItem(option.value)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                {option.subOptions ? (
+                  // Action с подменю
+                  <div
+                    className={`px-3 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors ${
+                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                        isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                      }`}>
+                        {isActionSelected(option.value) && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span>{option.label}</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </div>
+                ) : option.requiresTrelloLink ? (
+                  // ТЗ с trello link
+                  <div
+                    onClick={() => toggleSimpleAction(option.value)}
+                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
+                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                      isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                    }`}>
+                      {isActionSelected(option.value) && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span>{option.label}</span>
+                  </div>
+                ) : (
+                  // Простой action
+                  <div
+                    onClick={() => toggleSimpleAction(option.value)}
+                    className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
+                      isActionSelected(option.value) ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                      isActionSelected(option.value) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                    }`}>
+                      {isActionSelected(option.value) && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span>{option.label}</span>
+                  </div>
+                )}
+
+                {/* Подменю */}
+                {option.subOptions && hoveredItem === option.value && (
+                  <div className="absolute left-full top-0 ml-1 bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1 z-50">
+                    {option.subOptions.map((sub) => (
+                      <div key={sub.value}>
+                        <div
+                          onClick={() => selectSubOption(option.value, sub.value)}
+                          className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer transition-colors ${
+                            getSelectedSub(option.value) === sub.value ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                            getSelectedSub(option.value) === sub.value ? 'border-blue-600' : 'border-slate-300'
+                          }`}>
+                            {getSelectedSub(option.value) === sub.value && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                            )}
+                          </div>
+                          <span>{sub.label}</span>
+                        </div>
+                        {/* Поле для "Другое" */}
+                        {sub.value === 'other' && getSelectedSub(option.value) === 'other' && (
+                          <div className="px-3 pb-2">
+                            <input
+                              type="text"
+                              value={customTexts[`${option.value}_other`] || ''}
+                              onChange={(e) => setCustomTexts({ ...customTexts, [`${option.value}_other`]: e.target.value })}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="Укажите что..."
+                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Поле Trello если выбран ТЗ */}
+          {isActionSelected('tz') && (
+            <div className="px-3 py-2 border-t border-slate-100">
+              <input
+                type="text"
+                value={trelloLinks['tz'] || ''}
+                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz: e.target.value })}
+                placeholder="https://trello.com/c/..."
+                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          )}
+
+          {/* Кнопки */}
+          <div className="flex items-center justify-between px-3 py-2 border-t border-slate-200 bg-slate-50 rounded-b-lg">
+            <button
+              onClick={handleReset}
+              className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 transition-colors"
+            >
+              Сбросить
+            </button>
+            <button
+              onClick={handleApply}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Ок
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-// Компонент строки артикула в конфигурации (с поддержкой множественных действий)
+// Компонент строки артикула в конфигурации
 function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = false, validationErrors = {} }) {
-  // Получаем массив действий (для обратной совместимости)
-  const actions = config.actions || [{ action: config.action || '', subAction: config.subAction || '', customText: config.customText || '', trelloLink: config.trelloLink || '' }];
+  // Получаем массив действий
+  const actions = config.actions || [];
 
-  // Обновление конкретного действия
-  const updateAction = (index, newActionData) => {
-    const newActions = [...actions];
-    newActions[index] = newActionData;
+  // Обновление действий
+  const handleActionsChange = (newActions) => {
     onChange({ ...config, actions: newActions });
   };
 
-  // Добавление нового действия
-  const addAction = () => {
-    const newActions = [...actions, { action: '', subAction: '', customText: '', trelloLink: '' }];
-    onChange({ ...config, actions: newActions });
-  };
-
-  // Удаление действия
-  const removeAction = (index) => {
-    if (actions.length <= 1) return;
-    const newActions = actions.filter((_, i) => i !== index);
-    onChange({ ...config, actions: newActions });
-  };
+  const hasError = validationErrors.actions || (actions.length === 0 && !isInvalid);
 
   return (
     <div className={`py-3 border-b last:border-b-0 ${isInvalid ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
@@ -309,26 +516,13 @@ function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = fal
         {/* Действия */}
         <div className="flex-1">
           {!isInvalid ? (
-            <div className="space-y-2">
-              {actions.map((actionData, index) => (
-                <ActionItemRow
-                  key={index}
-                  actionData={actionData}
-                  onChange={(newData) => updateAction(index, newData)}
-                  onRemove={() => removeAction(index)}
-                  showRemove={actions.length > 1}
-                  validationErrors={validationErrors[index] || {}}
-                />
-              ))}
-
-              {/* Кнопка "Добавить действие" */}
-              <button
-                onClick={addAction}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-1"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Добавить действие
-              </button>
+            <div>
+              <MultiSelectActionDropdown
+                selectedActions={actions}
+                onChange={handleActionsChange}
+                hasError={hasError}
+              />
+              {hasError && <span className="text-xs text-red-500 mt-1 block">Выберите хотя бы одно действие</span>}
             </div>
           ) : (
             <span className="text-sm text-red-600">Артикул не найден в базе</span>
