@@ -224,6 +224,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   const [customTexts, setCustomTexts] = useState({});
   const [trelloLinks, setTrelloLinks] = useState({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [validationErrors, setValidationErrors] = useState([]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const submenuRef = useRef(null);
@@ -378,9 +379,10 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
   const handleApply = () => {
     const errors = validateSelection();
     if (errors.length > 0) {
-      alert(errors.join('\n'));
+      setValidationErrors(errors);
       return;
     }
+    setValidationErrors([]);
 
     // Добавляем customText и trelloLink к действиям
     const finalSelection = tempSelection.map(action => ({
@@ -477,32 +479,6 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
             ))}
           </div>
 
-          {/* Поля Trello для ТЗ Креатив и Лендинг */}
-          {isSubSelected('tz', 'tz_creative') && (
-            <div className="px-3 py-2 border-t border-slate-100">
-              <label className="text-xs text-slate-500 mb-1 block">Trello для Креатива *</label>
-              <input
-                type="text"
-                value={trelloLinks['tz_creative'] || ''}
-                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz_creative: e.target.value })}
-                placeholder="https://trello.com/c/..."
-                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-              />
-            </div>
-          )}
-          {isSubSelected('tz', 'tz_landing') && (
-            <div className="px-3 py-2 border-t border-slate-100">
-              <label className="text-xs text-slate-500 mb-1 block">Trello для Лендинга *</label>
-              <input
-                type="text"
-                value={trelloLinks['tz_landing'] || ''}
-                onChange={(e) => setTrelloLinks({ ...trelloLinks, tz_landing: e.target.value })}
-                placeholder="https://trello.com/c/..."
-                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-              />
-            </div>
-          )}
-
           {/* Кнопки */}
           <div className="flex items-center justify-between px-3 py-2 border-t border-slate-200 bg-slate-50 rounded-b-lg">
             <button
@@ -525,7 +501,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
       {isOpen && hoveredItem && hoveredOption?.subOptions && (
         <div
           ref={submenuRef}
-          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[150px] py-1"
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl min-w-[180px] py-1"
           style={{
             top: submenuPosition.top,
             left: submenuPosition.left,
@@ -545,24 +521,70 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
                 <span className="w-4 text-blue-600 font-bold">
                   {isSubSelected(hoveredItem, sub.value) && '✓'}
                 </span>
-                <span>{sub.label}</span>
+                <span>{sub.label}{sub.requiresTrelloLink || sub.requiresText ? ' *' : ''}</span>
               </div>
               {/* Поле для "Другое" (обязательное) */}
-              {sub.value === 'other' && isSubSelected(hoveredItem, 'other') && (
+              {sub.requiresText && isSubSelected(hoveredItem, sub.value) && (
                 <div className="px-3 pb-2">
-                  <label className="text-xs text-slate-500 mb-1 block">Укажите что именно *</label>
                   <input
                     type="text"
                     value={customTexts[`${hoveredItem}_other`] || ''}
                     onChange={(e) => setCustomTexts({ ...customTexts, [`${hoveredItem}_other`]: e.target.value })}
                     onClick={(e) => e.stopPropagation()}
-                    placeholder="Обязательное поле"
+                    placeholder="Укажите что именно..."
+                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
+              {/* Поле для Trello ссылки (для ТЗ Креатив/Лендинг) */}
+              {sub.requiresTrelloLink && isSubSelected(hoveredItem, sub.value) && (
+                <div className="px-3 pb-2">
+                  <input
+                    type="text"
+                    value={trelloLinks[sub.value] || ''}
+                    onChange={(e) => setTrelloLinks({ ...trelloLinks, [sub.value]: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="https://trello.com/c/..."
                     className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-blue-500"
                   />
                 </div>
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Модалка ошибок валидации */}
+      {validationErrors.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+            <div className="bg-red-50 px-4 py-3 border-b border-red-100">
+              <h3 className="text-red-800 font-semibold flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Заполните обязательные поля
+              </h3>
+            </div>
+            <div className="px-4 py-3">
+              <ul className="space-y-2">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="text-sm text-slate-700 flex items-start gap-2">
+                    <span className="text-red-500 mt-0.5">•</span>
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="px-4 py-3 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setValidationErrors([])}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
