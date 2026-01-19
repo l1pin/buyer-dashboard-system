@@ -1256,16 +1256,19 @@ function ActionReports({ user }) {
       return errors; // Пустой объект = нет ошибок
     }
 
-    // Для "Перенастроил" -> "Другое" обязательно заполнить текст (только если выбрано "Другое")
+    // Действия с подменю (reconfigured, new_product, tz) - валидны если выбран subAction
+    // Исключение: для "Другое" нужен текст, для "ТЗ" нужна ссылка
+
+    // Для "Перенастроил" -> "Другое" обязательно заполнить текст
     if (actionData.action === 'reconfigured' && actionData.subAction === 'other') {
       if (!actionData.customText?.trim()) {
         errors.customText = true;
       }
     }
 
-    // Для "ТЗ" с выбранным Креатив/Лендинг - обязательна ссылка Trello
+    // Для "ТЗ" с выбранным Креатив/Лендинг - обязательна ссылка (просто не пустая)
     if (actionData.action === 'tz' && actionData.subAction) {
-      if (!isValidTrelloLink(actionData.trelloLink)) {
+      if (!actionData.trelloLink?.trim()) {
         errors.trelloLink = true;
       }
     }
