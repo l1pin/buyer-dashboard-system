@@ -1048,8 +1048,14 @@ function ActionReports({ user }) {
     const newValidationErrors = {};
     let hasErrors = false;
 
+    console.log('=== DEBUG VALIDATION ===');
+    console.log('validConfigs:', validConfigs);
+
     validConfigs.forEach(([article, config]) => {
+      console.log(`Article: ${article}, config:`, config);
+      console.log(`Actions:`, config.actions);
       const { errors, hasErrors: configHasErrors } = validateArticleConfig(config);
+      console.log(`Validation result - errors:`, errors, `hasErrors:`, configHasErrors);
       if (configHasErrors) {
         newValidationErrors[article] = errors;
         hasErrors = true;
@@ -1243,16 +1249,19 @@ function ActionReports({ user }) {
 
   // Валидация одного действия
   const validateSingleAction = (actionData) => {
+    console.log('validateSingleAction called with:', actionData);
     const errors = {};
 
     // Действие обязательно
     if (!actionData.action) {
+      console.log('No action - returning error');
       errors.action = true;
       return errors;
     }
 
     // Простые действия без подменю - всегда валидны
     if (actionData.action === 'enabled_from_arrival' || actionData.action === 'out_of_stock') {
+      console.log('Simple action - returning empty errors');
       return errors; // Пустой объект = нет ошибок
     }
 
