@@ -3202,7 +3202,7 @@ function ActionReports({ user }) {
                                       <span className="font-medium text-slate-800">{campaign.name}</span>
                                       <CopyButton value={campaign.name} size="xs" />
                                       {campaign.isNew && (
-                                        <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
+                                        <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                       )}
                                     </div>
                                     <div className="text-xs text-slate-400">
@@ -3228,7 +3228,7 @@ function ActionReports({ user }) {
                                           <span className="font-medium text-slate-700">{advGroup.name}</span>
                                           <CopyButton value={advGroup.name} size="xs" />
                                           {advGroup.isNew && (
-                                            <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
+                                            <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                           )}
                                         </div>
                                         <div className="text-xs text-slate-400">
@@ -3238,7 +3238,7 @@ function ActionReports({ user }) {
                                           <div className="mt-1">
                                             <span className="text-slate-500 text-xs">Бюджет: </span>
                                             <span className="font-medium text-slate-700">${advGroup.budget}</span>
-                                            <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
+                                            <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                           </div>
                                         )}
                                       </div>
@@ -3261,7 +3261,7 @@ function ActionReports({ user }) {
                                               <span className="font-medium text-slate-600">{ad.name}</span>
                                               <CopyButton value={ad.name} size="xs" />
                                               {ad.isNew && (
-                                                <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
+                                                <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                               )}
                                             </div>
                                             <div className="text-xs text-slate-400">
@@ -3281,7 +3281,7 @@ function ActionReports({ user }) {
                                                   <div>
                                                     <span className="font-medium text-purple-700">{ad.details.accountName}</span>
                                                     <CopyButton value={ad.details.accountName} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                                   </div>
                                                   <div className="text-slate-400">
                                                     {ad.details.accountId} <CopyButton value={ad.details.accountId} size="xs" />
@@ -3297,7 +3297,7 @@ function ActionReports({ user }) {
                                                   <div>
                                                     <span className="font-medium text-pink-700">{ad.details.videoName}</span>
                                                     <CopyButton value={ad.details.videoName} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                                   </div>
                                                   {ad.details.videoId && (
                                                     <div className="text-slate-400">
@@ -3322,7 +3322,7 @@ function ActionReports({ user }) {
                                                       {ad.details.targetUrl}
                                                     </a>
                                                     <CopyButton value={ad.details.targetUrl} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                                   </div>
                                                 </div>
                                               </div>
