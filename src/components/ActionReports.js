@@ -576,7 +576,8 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     const sql = `
       SELECT
         SUM(CAST(cost AS DECIMAL(10,2))) as total_cost,
-        SUM(CAST(valid AS SIGNED)) as total_leads
+        SUM(CAST(valid AS SIGNED)) as total_leads,
+        COUNT(DISTINCT CASE WHEN CAST(cost AS DECIMAL(10,2)) > 0 THEN adv_date END) as active_days
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -599,19 +600,21 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
 
     const totalCost = parseFloat(row.total_cost) || 0;
     const totalLeads = parseInt(row.total_leads) || 0;
+    const activeDays = parseInt(row.active_days) || 0;
     const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
 
-    console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, cpl=${cpl.toFixed(2)}`);
+    console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, days=${activeDays}, cpl=${cpl.toFixed(2)}`);
 
     return {
       leads: totalLeads,
       cost: totalCost,
-      cpl: cpl
+      cpl: cpl,
+      activeDays: activeDays
     };
 
   } catch (error) {
     console.error('❌ Ошибка расчёта CPL:', error);
-    return { leads: 0, cost: 0, cpl: 0 };
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0 };
   }
 }
 
@@ -2199,6 +2202,7 @@ function ActionReports({ user }) {
           newParamsCpl: cacheEntry.cplData.cpl,
           newParamsLeads: cacheEntry.cplData.leads,
           newParamsCost: cacheEntry.cplData.cost,
+          newParamsActiveDays: cacheEntry.cplData.activeDays,
           hasNewParamsData: true
         };
       } else {
@@ -3122,7 +3126,7 @@ function ActionReports({ user }) {
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
           <div className="w-[5%] min-w-[42px] text-center">Расход</div>
-          <div className="w-[4%] min-w-[35px] text-center">Акт. дней</div>
+          <div className="w-[4%] min-w-[35px] text-center">Дней</div>
           <div className="w-[3%] min-w-[30px] text-center" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
           </div>
@@ -3309,9 +3313,17 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* Акт. дней - пока заглушка */}
-                    <div className="w-[4%] min-w-[35px] text-center text-xs font-mono text-slate-400">
-                      —
+                    {/* Дней - количество дней с cost > 0 */}
+                    <div className="w-[4%] min-w-[35px] text-center text-xs font-mono">
+                      {loadingAdsChangesCache ? (
+                        <SkeletonCell width="w-6" />
+                      ) : metric.hasNewParamsData ? (
+                        <span className={`font-semibold ${metric.newParamsActiveDays > 0 ? 'text-blue-600' : 'text-slate-500'}`}>
+                          {metric.newParamsActiveDays}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </div>
 
                     {/* Рейтинг - loading при loadingCplLeads */}
