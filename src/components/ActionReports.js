@@ -2356,7 +2356,7 @@ function ActionReports({ user }) {
   }, [updatedMetricsMap, allMetrics, articleOfferMap, adsChangesCache]);
 
   // Проверка, идет ли какое-либо обновление
-  const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
+  const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones || loadingAdsChangesCache;
 
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
   const updateVisibleReportsMetrics = useCallback(async (forDate = null) => {
@@ -2677,17 +2677,14 @@ function ActionReports({ user }) {
     }
   }, [savedReports, articleOfferMap, adsChangesCache]);
 
-  // Автоматическая предзагрузка при смене даты (после загрузки метрик)
+  // Автоматическая предзагрузка при смене даты
+  const isBaseDataLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
   useEffect(() => {
-    if (selectedDate && savedReports.length > 0 && Object.keys(articleOfferMap).length > 0 && !isAnyLoading) {
-      // Небольшая задержка чтобы не блокировать основную загрузку
-      const timer = setTimeout(() => {
-        prefetchAdsChangesForDate(selectedDate);
-      }, 500);
-      return () => clearTimeout(timer);
+    if (selectedDate && savedReports.length > 0 && Object.keys(articleOfferMap).length > 0 && !isBaseDataLoading && !loadingAdsChangesCache) {
+      prefetchAdsChangesForDate(selectedDate);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, savedReports.length, articleOfferMap, isAnyLoading]);
+  }, [selectedDate, savedReports.length, articleOfferMap, isBaseDataLoading]);
 
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
@@ -3410,7 +3407,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-10" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                          <span className="font-mono text-xs text-slate-700">
                             {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
                           </span>
                           {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsCpl', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
@@ -3426,7 +3423,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-8" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
+                          <span className="font-mono text-xs text-slate-700">
                             {metric.newParamsLeads}
                           </span>
                           {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsLeads', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
@@ -3441,7 +3438,7 @@ function ActionReports({ user }) {
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
                       ) : metric.hasNewParamsData ? (
-                        <span className={`font-mono text-xs font-semibold ${metric.newParamsCost > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
+                        <span className="font-mono text-xs text-slate-700">
                           {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
                         </span>
                       ) : (
@@ -3455,7 +3452,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-6" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className={`font-semibold ${metric.newParamsActiveDays > 0 ? 'text-blue-600' : 'text-slate-500'}`}>
+                          <span className="text-slate-700">
                             {metric.newParamsActiveDays}
                           </span>
                           <span
