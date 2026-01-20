@@ -18,7 +18,9 @@ import {
   User,
   Filter,
   Zap,
-  FileText
+  FileText,
+  Copy,
+  Check
 } from 'lucide-react';
 import { metricsAnalyticsService, userService, buyerSourceService } from '../supabaseClient';
 import { offerStatusService, articleOfferMappingService, offerSeasonService, actionReportsService } from '../services/OffersSupabase';
@@ -36,7 +38,7 @@ const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
  * @param {string} offerId - ID оффера (offer_id_tracker)
  * @param {string[]} sourceIds - ID источников байера (source_id_tracker)
  * @param {string} targetDate - Целевая дата для сравнения (YYYY-MM-DD)
- * @returns {Promise<Object>} НОВЫЕ уникальные значения, которые появились в targetDate и не было раньше
+ * @returns {Promise<Object>} НОВЫЕ уникальные значения в иерархической структуре
  */
 async function fetchAdsChanges(offerId, sourceIds, targetDate) {
   if (!offerId || !sourceIds?.length || !targetDate) {
@@ -47,18 +49,29 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
   try {
     const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
 
-    // Запрос 1: Уникальные значения ДО целевой даты (история)
-    const sqlBefore = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
+    // Поля для выборки (ID + названия)
+    const selectFields = `
+      source_id_tracker, source_tracker,
+      campaign_id, campaign_name_tracker,
+      adv_group_id, adv_group_name,
+      adv_id, adv_name,
+      account_id, account_name,
+      video_id, video_name,
+      target_url, adv_group_budjet
+    `;
+
+    // Запрос 1: Уникальные значения ДО целевой даты (история) - только ID для сравнения
+    const sqlBeforeIds = `
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, account_id, video_id
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
         AND adv_date < '${targetDate}'
     `;
 
-    // Запрос 2: Уникальные значения ТОЛЬКО за целевую дату
+    // Запрос 2: Полные данные ТОЛЬКО за целевую дату
     const sqlTarget = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
+      SELECT DISTINCT ${selectFields}
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -72,7 +85,7 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       fetch(CORE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assoc: true, sql: sqlBefore })
+        body: JSON.stringify({ assoc: true, sql: sqlBeforeIds })
       }),
       fetch(CORE_URL, {
         method: 'POST',
@@ -86,112 +99,141 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       responseTarget.json()
     ]);
 
-    // Собираем уникальные значения ИЗ ИСТОРИИ (до targetDate)
-    const historyValues = {
+    // Собираем уникальные ID из ИСТОРИИ
+    const historyIds = {
       campaign_id: new Set(),
       adv_group_id: new Set(),
       adv_id: new Set(),
-      target_url: new Set(),
-      adv_group_budjet: new Set(),
       account_id: new Set(),
-      video_name: new Set()
+      video_id: new Set()
     };
 
     (dataBefore || []).forEach(row => {
-      if (row.campaign_id) historyValues.campaign_id.add(row.campaign_id);
-      if (row.adv_group_id) historyValues.adv_group_id.add(row.adv_group_id);
-      if (row.adv_id) historyValues.adv_id.add(row.adv_id);
-      if (row.target_url) historyValues.target_url.add(row.target_url);
-      if (row.adv_group_budjet) historyValues.adv_group_budjet.add(String(row.adv_group_budjet));
-      if (row.account_id) historyValues.account_id.add(row.account_id);
-      if (row.video_name) historyValues.video_name.add(row.video_name);
+      if (row.campaign_id) historyIds.campaign_id.add(row.campaign_id);
+      if (row.adv_group_id) historyIds.adv_group_id.add(row.adv_group_id);
+      if (row.adv_id) historyIds.adv_id.add(row.adv_id);
+      if (row.account_id) historyIds.account_id.add(row.account_id);
+      if (row.video_id) historyIds.video_id.add(row.video_id);
     });
 
-    // Собираем уникальные значения за ЦЕЛЕВОЙ ДЕНЬ и фильтруем НОВЫЕ (которых не было в истории)
-    const newValues = {
-      campaign_id: [],
-      adv_group_id: [],
-      adv_id: [],
-      target_url: [],
-      adv_group_budjet: [],
-      account_id: [],
-      video_name: []
-    };
-
-    const targetDayValues = {
+    // Строим иерархическую структуру из НОВЫХ данных
+    // Структура: sources -> campaigns -> adv_groups -> ads -> details
+    const hierarchy = {};
+    const seenIds = {
       campaign_id: new Set(),
       adv_group_id: new Set(),
-      adv_id: new Set(),
-      target_url: new Set(),
-      adv_group_budjet: new Set(),
-      account_id: new Set(),
-      video_name: new Set()
+      adv_id: new Set()
     };
 
     (dataTarget || []).forEach(row => {
-      // Campaign ID
-      if (row.campaign_id && !targetDayValues.campaign_id.has(row.campaign_id)) {
-        targetDayValues.campaign_id.add(row.campaign_id);
-        if (!historyValues.campaign_id.has(row.campaign_id)) {
-          newValues.campaign_id.push(row.campaign_id);
+      const sourceId = row.source_id_tracker;
+      const sourceName = row.source_tracker || sourceId;
+      const campaignId = row.campaign_id;
+      const campaignName = row.campaign_name_tracker || campaignId;
+      const advGroupId = row.adv_group_id;
+      const advGroupName = row.adv_group_name || advGroupId;
+      const advId = row.adv_id;
+      const advName = row.adv_name || advId;
+
+      // Инициализируем source
+      if (!hierarchy[sourceId]) {
+        hierarchy[sourceId] = {
+          id: sourceId,
+          name: sourceName,
+          campaigns: {},
+          isNew: false
+        };
+      }
+
+      // Проверяем новая ли кампания
+      const isNewCampaign = campaignId && !historyIds.campaign_id.has(campaignId);
+      if (campaignId && !hierarchy[sourceId].campaigns[campaignId]) {
+        hierarchy[sourceId].campaigns[campaignId] = {
+          id: campaignId,
+          name: campaignName,
+          isNew: isNewCampaign,
+          advGroups: {}
+        };
+        if (isNewCampaign && !seenIds.campaign_id.has(campaignId)) {
+          seenIds.campaign_id.add(campaignId);
+          hierarchy[sourceId].isNew = true;
         }
       }
-      // Adv Group ID
-      if (row.adv_group_id && !targetDayValues.adv_group_id.has(row.adv_group_id)) {
-        targetDayValues.adv_group_id.add(row.adv_group_id);
-        if (!historyValues.adv_group_id.has(row.adv_group_id)) {
-          newValues.adv_group_id.push(row.adv_group_id);
+
+      if (!campaignId) return;
+
+      // Проверяем новая ли группа объявлений
+      const isNewAdvGroup = advGroupId && !historyIds.adv_group_id.has(advGroupId);
+      if (advGroupId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId]) {
+        hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId] = {
+          id: advGroupId,
+          name: advGroupName,
+          isNew: isNewAdvGroup,
+          budget: row.adv_group_budjet,
+          ads: {}
+        };
+        if (isNewAdvGroup && !seenIds.adv_group_id.has(advGroupId)) {
+          seenIds.adv_group_id.add(advGroupId);
         }
       }
-      // Adv ID
-      if (row.adv_id && !targetDayValues.adv_id.has(row.adv_id)) {
-        targetDayValues.adv_id.add(row.adv_id);
-        if (!historyValues.adv_id.has(row.adv_id)) {
-          newValues.adv_id.push(row.adv_id);
-        }
-      }
-      // Target URL
-      if (row.target_url && !targetDayValues.target_url.has(row.target_url)) {
-        targetDayValues.target_url.add(row.target_url);
-        if (!historyValues.target_url.has(row.target_url)) {
-          newValues.target_url.push(row.target_url);
-        }
-      }
-      // Budget
-      const budgetStr = row.adv_group_budjet ? String(row.adv_group_budjet) : null;
-      if (budgetStr && !targetDayValues.adv_group_budjet.has(budgetStr)) {
-        targetDayValues.adv_group_budjet.add(budgetStr);
-        if (!historyValues.adv_group_budjet.has(budgetStr)) {
-          newValues.adv_group_budjet.push(budgetStr);
-        }
-      }
-      // Account ID
-      if (row.account_id && !targetDayValues.account_id.has(row.account_id)) {
-        targetDayValues.account_id.add(row.account_id);
-        if (!historyValues.account_id.has(row.account_id)) {
-          newValues.account_id.push(row.account_id);
-        }
-      }
-      // Video Name
-      if (row.video_name && !targetDayValues.video_name.has(row.video_name)) {
-        targetDayValues.video_name.add(row.video_name);
-        if (!historyValues.video_name.has(row.video_name)) {
-          newValues.video_name.push(row.video_name);
+
+      if (!advGroupId) return;
+
+      // Проверяем новое ли объявление
+      const isNewAd = advId && !historyIds.adv_id.has(advId);
+      if (advId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId]) {
+        hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId] = {
+          id: advId,
+          name: advName,
+          isNew: isNewAd,
+          details: {
+            accountId: row.account_id,
+            accountName: row.account_name || row.account_id,
+            isNewAccount: row.account_id && !historyIds.account_id.has(row.account_id),
+            videoId: row.video_id,
+            videoName: row.video_name || row.video_id,
+            isNewVideo: row.video_id && !historyIds.video_id.has(row.video_id),
+            targetUrl: row.target_url
+          }
+        };
+        if (isNewAd && !seenIds.adv_id.has(advId)) {
+          seenIds.adv_id.add(advId);
         }
       }
     });
 
-    const hasChanges = Object.values(newValues).some(arr => arr.length > 0);
+    // Подсчет новых элементов
+    let newCampaigns = 0, newAdvGroups = 0, newAds = 0;
+    Object.values(hierarchy).forEach(source => {
+      Object.values(source.campaigns).forEach(campaign => {
+        if (campaign.isNew) newCampaigns++;
+        Object.values(campaign.advGroups).forEach(advGroup => {
+          if (advGroup.isNew) newAdvGroups++;
+          Object.values(advGroup.ads).forEach(ad => {
+            if (ad.isNew) newAds++;
+          });
+        });
+      });
+    });
+
+    const hasChanges = newCampaigns > 0 || newAdvGroups > 0 || newAds > 0;
 
     console.log('✅ Сравнение за', targetDate, ':', {
       historyRecords: dataBefore?.length || 0,
       targetDayRecords: dataTarget?.length || 0,
-      newValues: hasChanges ? newValues : 'нет новых'
+      newCampaigns,
+      newAdvGroups,
+      newAds
     });
 
     return {
       hasChanges,
-      newValues,
+      hierarchy,
+      stats: {
+        newCampaigns,
+        newAdvGroups,
+        newAds
+      },
       targetDate,
       beforeCount: dataBefore?.length || 0,
       targetCount: dataTarget?.length || 0
@@ -202,6 +244,42 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
     return null;
   }
 }
+
+// Кнопка копирования ID в буфер
+const CopyButton = memo(({ value, size = 'sm' }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const sizeClasses = size === 'xs'
+    ? 'h-3 w-3'
+    : 'h-3.5 w-3.5';
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`inline-flex items-center justify-center p-0.5 rounded hover:bg-slate-200 transition-colors ${
+        copied ? 'text-green-600' : 'text-slate-400 hover:text-slate-600'
+      }`}
+      title={copied ? 'Скопировано!' : 'Копировать ID'}
+    >
+      {copied ? (
+        <Check className={sizeClasses} />
+      ) : (
+        <Copy className={sizeClasses} />
+      )}
+    </button>
+  );
+});
 
 // Иконка информации
 const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
@@ -3027,130 +3105,144 @@ function ActionReports({ user }) {
                     </div>
                   ) : (
                     <>
-                      <div className="text-sm text-slate-600 mb-4">
-                        Новые уникальные значения за <strong>{changesModalData.startDate}</strong>, которых не было раньше
-                        <span className="text-xs text-slate-400 ml-2">
-                          (история: {changesModalData.changes.beforeCount || 0} записей, за день: {changesModalData.changes.targetCount || 0})
-                        </span>
+                      {/* Статистика */}
+                      <div className="text-sm text-slate-600 mb-4 flex flex-wrap gap-3">
+                        <span>Новые за <strong>{changesModalData.startDate}</strong>:</span>
+                        {changesModalData.changes.stats?.newCampaigns > 0 && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                            {changesModalData.changes.stats.newCampaigns} кампаний
+                          </span>
+                        )}
+                        {changesModalData.changes.stats?.newAdvGroups > 0 && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                            {changesModalData.changes.stats.newAdvGroups} групп
+                          </span>
+                        )}
+                        {changesModalData.changes.stats?.newAds > 0 && (
+                          <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-xs">
+                            {changesModalData.changes.stats.newAds} объявлений
+                          </span>
+                        )}
                       </div>
 
-                      {/* Новые Campaign ID */}
-                      {changesModalData.changes.newValues.campaign_id.length > 0 && (
-                        <div className="border border-green-200 rounded-lg p-3 bg-green-50">
-                          <h4 className="text-sm font-semibold text-green-800 mb-2">
-                            Новые Campaign ID ({changesModalData.changes.newValues.campaign_id.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {changesModalData.changes.newValues.campaign_id.map((id, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-green-300 rounded text-xs font-mono">
-                                {id}
-                              </span>
-                            ))}
+                      {/* Иерархическое отображение по источникам */}
+                      {changesModalData.changes.hierarchy && Object.entries(changesModalData.changes.hierarchy).map(([sourceId, source]) => (
+                        <div key={sourceId} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
+                          {/* Source header */}
+                          <div className="bg-slate-100 px-4 py-2 flex items-center gap-2">
+                            <User className="h-4 w-4 text-slate-500" />
+                            <span className="font-medium text-slate-700">{source.name}</span>
+                            <CopyButton value={source.id} />
                           </div>
-                        </div>
-                      )}
 
-                      {/* Новые Adv Group ID */}
-                      {changesModalData.changes.newValues.adv_group_id.length > 0 && (
-                        <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
-                          <h4 className="text-sm font-semibold text-blue-800 mb-2">
-                            Новые Adv Group ID ({changesModalData.changes.newValues.adv_group_id.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {changesModalData.changes.newValues.adv_group_id.map((id, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-blue-300 rounded text-xs font-mono">
-                                {id}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                          {/* Campaigns */}
+                          <div className="divide-y divide-slate-100">
+                            {Object.values(source.campaigns).map(campaign => (
+                              <div key={campaign.id} className="bg-white">
+                                {/* Campaign row */}
+                                <div className={`px-4 py-2 pl-6 flex items-center gap-2 ${campaign.isNew ? 'bg-green-50' : ''}`}>
+                                  <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-slate-800 truncate">
+                                      {campaign.isNew && <span className="text-green-600 text-xs mr-1">NEW</span>}
+                                      {campaign.name}
+                                    </div>
+                                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                                      {campaign.id}
+                                      <CopyButton value={campaign.id} size="xs" />
+                                    </div>
+                                  </div>
+                                </div>
 
-                      {/* Новые Adv ID */}
-                      {changesModalData.changes.newValues.adv_id.length > 0 && (
-                        <div className="border border-cyan-200 rounded-lg p-3 bg-cyan-50">
-                          <h4 className="text-sm font-semibold text-cyan-800 mb-2">
-                            Новые Adv ID ({changesModalData.changes.newValues.adv_id.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {changesModalData.changes.newValues.adv_id.map((id, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-cyan-300 rounded text-xs font-mono">
-                                {id}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                                {/* Adv Groups */}
+                                {Object.values(campaign.advGroups).map(advGroup => (
+                                  <div key={advGroup.id}>
+                                    {/* Adv Group row */}
+                                    <div className={`px-4 py-2 pl-10 flex items-center gap-2 ${advGroup.isNew ? 'bg-blue-50' : 'bg-slate-50'}`}>
+                                      <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-slate-700 truncate text-sm">
+                                          {advGroup.isNew && <span className="text-blue-600 text-xs mr-1">NEW</span>}
+                                          {advGroup.name}
+                                          {advGroup.budget && (
+                                            <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded">
+                                              ${advGroup.budget}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-slate-400 flex items-center gap-1">
+                                          {advGroup.id}
+                                          <CopyButton value={advGroup.id} size="xs" />
+                                        </div>
+                                      </div>
+                                    </div>
 
-                      {/* Новые Account ID */}
-                      {changesModalData.changes.newValues.account_id.length > 0 && (
-                        <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
-                          <h4 className="text-sm font-semibold text-purple-800 mb-2">
-                            Новые Account ID ({changesModalData.changes.newValues.account_id.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {changesModalData.changes.newValues.account_id.map((id, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-purple-300 rounded text-xs font-mono">
-                                {id}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                                    {/* Ads */}
+                                    {Object.values(advGroup.ads).map(ad => (
+                                      <div key={ad.id} className={`px-4 py-2 pl-14 ${ad.isNew ? 'bg-cyan-50' : ''}`}>
+                                        {/* Ad row */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <div className="w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-slate-600 truncate text-sm">
+                                              {ad.isNew && <span className="text-cyan-600 text-xs mr-1">NEW</span>}
+                                              {ad.name}
+                                            </div>
+                                            <div className="text-xs text-slate-400 flex items-center gap-1">
+                                              {ad.id}
+                                              <CopyButton value={ad.id} size="xs" />
+                                            </div>
+                                          </div>
+                                        </div>
 
-                      {/* Новые Target URL */}
-                      {changesModalData.changes.newValues.target_url.length > 0 && (
-                        <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
-                          <h4 className="text-sm font-semibold text-orange-800 mb-2">
-                            Новые Target URL ({changesModalData.changes.newValues.target_url.length})
-                          </h4>
-                          <div className="space-y-1">
-                            {changesModalData.changes.newValues.target_url.map((url, i) => (
-                              <a
-                                key={i}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block px-2 py-1 bg-white border border-orange-300 rounded text-xs text-blue-600 hover:underline truncate"
-                              >
-                                {url}
-                              </a>
+                                        {/* Details (Level 4) */}
+                                        <div className="pl-4 mt-2 space-y-1 text-xs">
+                                          {ad.details.accountId && (
+                                            <div className={`flex items-center gap-2 ${ad.details.isNewAccount ? 'text-purple-700' : 'text-slate-500'}`}>
+                                              <span className="w-20 text-slate-400">Account:</span>
+                                              <span className="font-medium">{ad.details.accountName}</span>
+                                              <span className="text-slate-400">({ad.details.accountId})</span>
+                                              <CopyButton value={ad.details.accountId} size="xs" />
+                                              {ad.details.isNewAccount && <span className="text-purple-600 text-xs">NEW</span>}
+                                            </div>
+                                          )}
+                                          {ad.details.videoName && (
+                                            <div className={`flex items-center gap-2 ${ad.details.isNewVideo ? 'text-pink-700' : 'text-slate-500'}`}>
+                                              <span className="w-20 text-slate-400">Video:</span>
+                                              <span className="font-medium truncate max-w-[200px]">{ad.details.videoName}</span>
+                                              {ad.details.videoId && (
+                                                <>
+                                                  <span className="text-slate-400">({ad.details.videoId})</span>
+                                                  <CopyButton value={ad.details.videoId} size="xs" />
+                                                </>
+                                              )}
+                                              {ad.details.isNewVideo && <span className="text-pink-600 text-xs">NEW</span>}
+                                            </div>
+                                          )}
+                                          {ad.details.targetUrl && (
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                              <span className="w-20 text-slate-400">URL:</span>
+                                              <a
+                                                href={ad.details.targetUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:underline truncate max-w-[250px]"
+                                              >
+                                                {ad.details.targetUrl}
+                                              </a>
+                                              <CopyButton value={ad.details.targetUrl} size="xs" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
                             ))}
                           </div>
                         </div>
-                      )}
-
-                      {/* Новые бюджеты групп */}
-                      {changesModalData.changes.newValues.adv_group_budjet.length > 0 && (
-                        <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50">
-                          <h4 className="text-sm font-semibold text-yellow-800 mb-2">
-                            Новые бюджеты групп ({changesModalData.changes.newValues.adv_group_budjet.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {changesModalData.changes.newValues.adv_group_budjet.map((budget, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-yellow-300 rounded text-xs font-mono">
-                                ${budget}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Новые Video Name */}
-                      {changesModalData.changes.newValues.video_name.length > 0 && (
-                        <div className="border border-pink-200 rounded-lg p-3 bg-pink-50">
-                          <h4 className="text-sm font-semibold text-pink-800 mb-2">
-                            Новые Video Name ({changesModalData.changes.newValues.video_name.length})
-                          </h4>
-                          <div className="space-y-1">
-                            {changesModalData.changes.newValues.video_name.map((name, i) => (
-                              <span key={i} className="block px-2 py-1 bg-white border border-pink-300 rounded text-xs">
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      ))}
                     </>
                   )}
                 </div>
