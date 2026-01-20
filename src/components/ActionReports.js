@@ -487,16 +487,29 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     }
   });
 
-  // Подсчет
+  // Подсчет и сбор новых ID для расчёта CPL
   let newCampaigns = 0, newAdvGroups = 0, newAds = 0, newBudgets = 0, newCreatives = 0, newLandings = 0;
+  const newCampaignIds = [];
+  const newAdvGroupIds = [];
+  const newAdvIds = [];
+
   Object.values(hierarchy).forEach(source => {
     Object.values(source.campaigns).forEach(campaign => {
-      if (campaign.isNew) newCampaigns++;
+      if (campaign.isNew) {
+        newCampaigns++;
+        newCampaignIds.push(campaign.id);
+      }
       Object.values(campaign.advGroups).forEach(advGroup => {
-        if (advGroup.isNew) newAdvGroups++;
+        if (advGroup.isNew) {
+          newAdvGroups++;
+          newAdvGroupIds.push(advGroup.id);
+        }
         if (advGroup.isNewBudget) newBudgets++;
         Object.values(advGroup.ads).forEach(ad => {
-          if (ad.isNew) newAds++;
+          if (ad.isNew) {
+            newAds++;
+            newAdvIds.push(ad.id);
+          }
           if (ad.details.isNewVideo) newCreatives++;
           if (ad.details.isNewUrl) newLandings++;
         });
@@ -511,8 +524,93 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     stats: { newCampaigns, newAdvGroups, newAds, newBudgets, newCreatives, newLandings },
     targetDate,
     beforeCount: dataBefore?.length || 0,
-    targetCount: dataTarget?.length || 0
+    targetCount: dataTarget?.length || 0,
+    // Новые ID для расчёта CPL
+    newParams: {
+      campaignIds: newCampaignIds,
+      advGroupIds: newAdvGroupIds,
+      advIds: newAdvIds
+    }
   };
+}
+
+/**
+ * Расчёт CPL и Leads на основе новых параметров из журнала изменений
+ * Суммирует cost и valid за все дни >= startDate для указанных параметров
+ * @param {string} offerId
+ * @param {Array<string>} sourceIds
+ * @param {string} startDate - дата начала (YYYY-MM-DD)
+ * @param {Object} newParams - { campaignIds, advGroupIds, advIds, budgets }
+ * @returns {Promise<{leads: number, cost: number, cpl: number}>}
+ */
+async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParams) {
+  if (!offerId || !sourceIds?.length || !startDate || !newParams) {
+    return { leads: 0, cost: 0, cpl: 0 };
+  }
+
+  const { campaignIds, advGroupIds, advIds } = newParams;
+
+  // Если нет новых параметров - возвращаем нули
+  if (!campaignIds?.length && !advGroupIds?.length && !advIds?.length) {
+    return { leads: 0, cost: 0, cpl: 0 };
+  }
+
+  try {
+    const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
+
+    // Строим условия WHERE для новых параметров
+    const conditions = [];
+    if (campaignIds?.length) {
+      conditions.push(`campaign_id IN (${campaignIds.map(id => `'${id}'`).join(',')})`);
+    }
+    if (advGroupIds?.length) {
+      conditions.push(`adv_group_id IN (${advGroupIds.map(id => `'${id}'`).join(',')})`);
+    }
+    if (advIds?.length) {
+      conditions.push(`adv_id IN (${advIds.map(id => `'${id}'`).join(',')})`);
+    }
+
+    const paramsCondition = conditions.length > 0 ? `AND (${conditions.join(' OR ')})` : '';
+
+    // SQL запрос: сумма cost и valid за все дни >= startDate для новых параметров
+    const sql = `
+      SELECT
+        SUM(CAST(cost AS DECIMAL(10,2))) as total_cost,
+        SUM(CAST(valid AS SIGNED)) as total_leads
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerId}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date >= '${startDate}'
+        ${paramsCondition}
+    `;
+
+    console.log('📊 Расчёт CPL для новых параметров:', { offerId, startDate, campaignIds: campaignIds?.length, advGroupIds: advGroupIds?.length, advIds: advIds?.length });
+
+    const response = await fetch(CORE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assoc: true, sql })
+    });
+
+    const data = await response.json();
+    const row = data?.[0] || {};
+
+    const totalCost = parseFloat(row.total_cost) || 0;
+    const totalLeads = parseInt(row.total_leads) || 0;
+    const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+    console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, cpl=${cpl.toFixed(2)}`);
+
+    return {
+      leads: totalLeads,
+      cost: totalCost,
+      cpl: cpl
+    };
+
+  } catch (error) {
+    console.error('❌ Ошибка расчёта CPL:', error);
+    return { leads: 0, cost: 0, cpl: 0 };
+  }
 }
 
 // Кнопка копирования ID в буфер
@@ -2051,6 +2149,8 @@ function ActionReports({ user }) {
   const getReportMetric = useCallback((report) => {
     // Сначала ищем метрики специфичные для байера (по ключу article__buyerId)
     const reportKey = `${report.article}__${report.createdBy}`;
+    let result;
+
     if (updatedMetricsMap[reportKey]) {
       // Объединяем базовые метрики артикула с метриками байера
       const baseMetric = updatedMetricsMap[report.article] || {};
@@ -2058,25 +2158,51 @@ function ActionReports({ user }) {
 
       // Используем buyer_leads_data напрямую - там уже все периоды (4, 7, 14, 30, 60, 90)
       // отфильтрованные по source_id байера
-      return {
+      result = {
         ...baseMetric,
         ...buyerMetric,
         leads_4days: buyerMetric.buyer_leads_data?.[4]?.leads ?? baseMetric.leads_4days,
         leads_data: buyerMetric.buyer_leads_data || baseMetric.leads_data
       };
+    } else if (updatedMetricsMap[report.article]) {
+      // Если есть обновленные данные из updateVisibleReportsMetrics - приоритет им
+      result = updatedMetricsMap[report.article];
+    } else {
+      // Иначе ищем в загруженных метриках по артикулу
+      const articleLower = report.article?.toLowerCase();
+      result = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
     }
 
-    // Если есть обновленные данные из updateVisibleReportsMetrics - приоритет им
-    if (updatedMetricsMap[report.article]) {
-      return updatedMetricsMap[report.article];
+    // Проверяем, есть ли расчитанный CPL из новых параметров в кэше
+    const offerId = articleOfferMap[report.article];
+    if (offerId) {
+      // Определяем дату для ключа кэша (как в prefetch)
+      const createdDate = new Date(report.createdAt);
+      let startDate;
+      if (report.when_day === 'today') {
+        startDate = createdDate.toISOString().split('T')[0];
+      } else {
+        createdDate.setDate(createdDate.getDate() + 1);
+        startDate = createdDate.toISOString().split('T')[0];
+      }
+
+      const cacheKey = `${offerId}_${startDate}`;
+      const cacheEntry = adsChangesCache[cacheKey];
+
+      // Если есть данные CPL из новых параметров - добавляем их
+      if (cacheEntry?.cplData) {
+        result = {
+          ...result,
+          newParamsCpl: cacheEntry.cplData.cpl,
+          newParamsLeads: cacheEntry.cplData.leads,
+          newParamsCost: cacheEntry.cplData.cost,
+          hasNewParamsData: true
+        };
+      }
     }
 
-    // Иначе ищем в загруженных метриках по артикулу
-    const articleLower = report.article?.toLowerCase();
-    const baseMetric = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
-
-    return baseMetric;
-  }, [updatedMetricsMap, allMetrics]);
+    return result;
+  }, [updatedMetricsMap, allMetrics, articleOfferMap, adsChangesCache]);
 
   // Проверка, идет ли какое-либо обновление
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones;
@@ -2363,6 +2489,29 @@ function ActionReports({ user }) {
 
       if (offerRequests.length > 0) {
         const newCache = await fetchAdsChangesBatch(offerRequests);
+
+        // Рассчитываем CPL для каждого оффера с новыми параметрами
+        console.log('📊 Расчёт CPL для офферов с новыми параметрами...');
+        await Promise.all(offerRequests.map(async (req) => {
+          const cacheKey = `${req.offerId}_${req.targetDate}`;
+          const cacheEntry = newCache[cacheKey];
+
+          if (cacheEntry?.hasChanges && cacheEntry?.newParams) {
+            const { campaignIds, advGroupIds, advIds } = cacheEntry.newParams;
+            // Рассчитываем только если есть новые параметры
+            if (campaignIds?.length || advGroupIds?.length || advIds?.length) {
+              const cplData = await calculateCplFromNewParams(
+                req.offerId,
+                req.sourceIds,
+                req.targetDate,
+                cacheEntry.newParams
+              );
+              // Добавляем CPL данные в кэш
+              newCache[cacheKey] = { ...cacheEntry, cplData };
+            }
+          }
+        }));
+
         setAdsChangesCache(prev => ({ ...prev, ...newCache }));
       } else {
         console.log('📦 Все данные уже в кэше');
@@ -3095,30 +3244,42 @@ function ActionReports({ user }) {
                     </div>
                   )}
 
-                    {/* CPL - loading при loadingCplLeads */}
+                    {/* CPL - из новых параметров или стандартный */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {loadingCplLeads ? (
+                      {loadingCplLeads || loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
                       ) : (
                         <>
-                          <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                            {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
-                          </span>
-                          {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                          {metric.hasNewParamsData ? (
+                            <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                              {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
+                            </span>
+                          ) : (
+                            <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                              {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
+                            </span>
+                          )}
+                          {metric.leads_data && !metric.hasNewParamsData && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
                         </>
                       )}
                     </div>
 
-                    {/* Лиды - loading при loadingCplLeads */}
+                    {/* Лиды - из новых параметров или стандартный */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
-                      {loadingCplLeads ? (
+                      {loadingCplLeads || loadingAdsChangesCache ? (
                         <SkeletonCell width="w-8" />
                       ) : (
                         <>
-                          <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                            {metric.leads_data?.[4]?.leads || '—'}
-                          </span>
-                          {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                          {metric.hasNewParamsData ? (
+                            <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                              {metric.newParamsLeads || '—'}
+                            </span>
+                          ) : (
+                            <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                              {metric.leads_data?.[4]?.leads || '—'}
+                            </span>
+                          )}
+                          {metric.leads_data && !metric.hasNewParamsData && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
                         </>
                       )}
                     </div>
