@@ -618,6 +618,40 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
       todayStatus = 'yellow';
     }
 
+    // Второй запрос: данные по дням для тултипа
+    const sqlDaily = `
+      SELECT
+        adv_date,
+        SUM(CAST(cost AS DECIMAL(10,2))) as day_cost,
+        SUM(CAST(valid AS SIGNED)) as day_leads
+      FROM ads_collection
+      WHERE offer_id_tracker = '${offerId}'
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date >= '${startDate}'
+        ${paramsCondition}
+      GROUP BY adv_date
+      ORDER BY adv_date DESC
+    `;
+
+    let dailyData = [];
+    try {
+      const responseDaily = await fetch(CORE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assoc: true, sql: sqlDaily })
+      });
+      const dataDaily = await responseDaily.json();
+      dailyData = (dataDaily || []).map(d => ({
+        date: d.adv_date,
+        cost: parseFloat(d.day_cost) || 0,
+        leads: parseInt(d.day_leads) || 0,
+        cpl: parseInt(d.day_leads) > 0 ? (parseFloat(d.day_cost) || 0) / parseInt(d.day_leads) : 0
+      }));
+      console.log(`📅 Данные по дням: ${dailyData.length} записей`);
+    } catch (e) {
+      console.error('❌ Ошибка загрузки данных по дням:', e);
+    }
+
     console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, days=${activeDays}, today=${todayStatus}, cpl=${cpl.toFixed(2)}`);
 
     return {
@@ -625,14 +659,104 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
       cost: totalCost,
       cpl: cpl,
       activeDays: activeDays,
-      todayStatus: todayStatus
+      todayStatus: todayStatus,
+      dailyData: dailyData
     };
 
   } catch (error) {
     console.error('❌ Ошибка расчёта CPL:', error);
-    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red' };
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red', dailyData: [] };
   }
 }
+
+// Компонент таблицы с пагинацией для тултипа (данные по дням)
+const PaginatedDailyTable = memo(({ dailyData, type }) => {
+  const [page, setPage] = useState(0);
+  const perPage = 5;
+  const totalPages = Math.ceil((dailyData?.length || 0) / perPage);
+
+  const startIdx = page * perPage;
+  const endIdx = startIdx + perPage;
+  const currentData = (dailyData || []).slice(startIdx, endIdx);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  };
+
+  if (!dailyData?.length) {
+    return <div className="text-xs text-gray-500 italic">Нет данных по дням</div>;
+  }
+
+  // type === 'cpl': Дата, CPL, Расход, Лидов
+  // type === 'leads': Дата, Лидов, CPL, Расход
+  return (
+    <div className="flex flex-col gap-2">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left py-1 px-2">Дата</th>
+            {type === 'cpl' ? (
+              <>
+                <th className="text-right py-1 px-2">CPL</th>
+                <th className="text-right py-1 px-2">Расход</th>
+                <th className="text-right py-1 px-2">Лидов</th>
+              </>
+            ) : (
+              <>
+                <th className="text-right py-1 px-2">Лидов</th>
+                <th className="text-right py-1 px-2">CPL</th>
+                <th className="text-right py-1 px-2">Расход</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {currentData.map((d, i) => (
+            <tr key={i} className="border-b border-gray-100">
+              <td className="py-1 px-2">{formatDate(d.date)}</td>
+              {type === 'cpl' ? (
+                <>
+                  <td className="py-1 px-2 text-right font-mono">{d.cpl > 0 ? d.cpl.toFixed(2) : '—'}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.cost > 0 ? d.cost.toFixed(2) : '0'}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.leads}</td>
+                </>
+              ) : (
+                <>
+                  <td className="py-1 px-2 text-right font-mono">{d.leads}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.cpl > 0 ? d.cpl.toFixed(2) : '—'}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.cost > 0 ? d.cost.toFixed(2) : '0'}</td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Пагинация */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-xs">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className={`px-2 py-1 rounded ${page === 0 ? 'text-gray-300' : 'text-blue-600 hover:bg-blue-50'}`}
+          >
+            &lt;
+          </button>
+          <span className="text-gray-600">{page + 1}/{totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className={`px-2 py-1 rounded ${page >= totalPages - 1 ? 'text-gray-300' : 'text-blue-600 hover:bg-blue-50'}`}
+          >
+            &gt;
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // Кнопка копирования ID в буфер
 const CopyButton = memo(({ value, size = 'sm' }) => {
@@ -2220,6 +2344,7 @@ function ActionReports({ user }) {
           newParamsCost: cacheEntry.cplData.cost,
           newParamsActiveDays: cacheEntry.cplData.activeDays,
           newParamsTodayStatus: cacheEntry.cplData.todayStatus,
+          newParamsDailyData: cacheEntry.cplData.dailyData || [],
           hasNewParamsData: true
         };
       } else {
@@ -2576,6 +2701,8 @@ function ActionReports({ user }) {
     const titles = {
       cpl: 'CPL по периодам',
       leads: 'Лиды по периодам',
+      newParamsCpl: 'CPL по дням',
+      newParamsLeads: 'Лиды по дням',
       rating: 'История рейтинга',
       zone: 'Зоны эффективности',
       stock: 'Остатки по модификациям',
@@ -2649,6 +2776,10 @@ function ActionReports({ user }) {
             </tbody>
           </table>
         );
+      case 'newParamsCpl':
+        return <PaginatedDailyTable dailyData={data.dailyData} type="cpl" />;
+      case 'newParamsLeads':
+        return <PaginatedDailyTable dailyData={data.dailyData} type="leads" />;
       case 'stock':
         const baseArticle = data.article?.split("-")[0];
         const mods = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
@@ -3280,15 +3411,20 @@ function ActionReports({ user }) {
                       ) : (
                         <>
                           {metric.hasNewParamsData ? (
-                            <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                              {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
-                            </span>
+                            <>
+                              <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                                {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
+                              </span>
+                              {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsCpl', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
+                            </>
                           ) : (
-                            <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                              {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
-                            </span>
+                            <>
+                              <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                                {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
+                              </span>
+                              {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                            </>
                           )}
-                          {metric.leads_data && !metric.hasNewParamsData && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
                         </>
                       )}
                     </div>
@@ -3300,15 +3436,20 @@ function ActionReports({ user }) {
                       ) : (
                         <>
                           {metric.hasNewParamsData ? (
-                            <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
-                              {metric.newParamsLeads}
-                            </span>
+                            <>
+                              <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
+                                {metric.newParamsLeads}
+                              </span>
+                              {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsLeads', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
+                            </>
                           ) : (
-                            <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                              {metric.leads_data?.[4]?.leads || '—'}
-                            </span>
+                            <>
+                              <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
+                                {metric.leads_data?.[4]?.leads || '—'}
+                              </span>
+                              {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                            </>
                           )}
-                          {metric.leads_data && !metric.hasNewParamsData && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
                         </>
                       )}
                     </div>
