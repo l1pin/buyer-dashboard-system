@@ -126,7 +126,11 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
     const seenIds = {
       campaign_id: new Set(),
       adv_group_id: new Set(),
-      adv_id: new Set()
+      adv_id: new Set(),
+      account_id: new Set(),
+      video_id: new Set(),
+      target_url: new Set(),
+      adv_group_budget: new Set()
     };
 
     (dataTarget || []).forEach(row => {
@@ -168,7 +172,8 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
 
       // Проверяем новая ли группа объявлений
       const isNewAdvGroup = advGroupId && !historyIds.adv_group_id.has(advGroupId);
-      const isNewBudget = row.adv_group_budjet && !historyIds.adv_group_budget.has(row.adv_group_budjet);
+      // Бюджет новый только если не было в истории И ещё не показывали
+      const isNewBudget = row.adv_group_budjet && !historyIds.adv_group_budget.has(row.adv_group_budjet) && !seenIds.adv_group_budget.has(row.adv_group_budjet);
       if (advGroupId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId]) {
         hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId] = {
           id: advGroupId,
@@ -181,12 +186,21 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
         if (isNewAdvGroup && !seenIds.adv_group_id.has(advGroupId)) {
           seenIds.adv_group_id.add(advGroupId);
         }
+        // Отмечаем бюджет как показанный
+        if (isNewBudget) {
+          seenIds.adv_group_budget.add(row.adv_group_budjet);
+        }
       }
 
       if (!advGroupId) return;
 
       // Проверяем новое ли объявление
       const isNewAd = advId && !historyIds.adv_id.has(advId);
+      // Проверяем уникальность деталей (не было в истории И ещё не показывали)
+      const isNewAccount = row.account_id && !historyIds.account_id.has(row.account_id) && !seenIds.account_id.has(row.account_id);
+      const isNewVideo = row.video_id && !historyIds.video_id.has(row.video_id) && !seenIds.video_id.has(row.video_id);
+      const isNewUrl = row.target_url && !historyIds.target_url.has(row.target_url) && !seenIds.target_url.has(row.target_url);
+
       if (advId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId]) {
         hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId] = {
           id: advId,
@@ -195,17 +209,21 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
           details: {
             accountId: row.account_id,
             accountName: row.account_name || row.account_id,
-            isNewAccount: row.account_id && !historyIds.account_id.has(row.account_id),
+            isNewAccount: isNewAccount,
             videoId: row.video_id,
             videoName: row.video_name || row.video_id,
-            isNewVideo: row.video_id && !historyIds.video_id.has(row.video_id),
+            isNewVideo: isNewVideo,
             targetUrl: row.target_url,
-            isNewUrl: row.target_url && !historyIds.target_url.has(row.target_url)
+            isNewUrl: isNewUrl
           }
         };
         if (isNewAd && !seenIds.adv_id.has(advId)) {
           seenIds.adv_id.add(advId);
         }
+        // Отмечаем детали как показанные
+        if (isNewAccount) seenIds.account_id.add(row.account_id);
+        if (isNewVideo) seenIds.video_id.add(row.video_id);
+        if (isNewUrl) seenIds.target_url.add(row.target_url);
       }
     });
 
