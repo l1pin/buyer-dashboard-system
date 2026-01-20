@@ -57,7 +57,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
 
     // Запрос данных ДО действия
     const sqlBefore = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -67,7 +67,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
 
     // Запрос данных ПОСЛЕ действия
     const sqlAfter = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -101,7 +101,8 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       adv_id: new Set(),
       target_url: new Set(),
       adv_group_budjet: new Set(),
-      account_id: new Set()
+      account_id: new Set(),
+      video_name: new Set()
     };
 
     (beforeData || []).forEach(row => {
@@ -111,6 +112,7 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       if (row.target_url) beforeValues.target_url.add(row.target_url);
       if (row.adv_group_budjet) beforeValues.adv_group_budjet.add(String(row.adv_group_budjet));
       if (row.account_id) beforeValues.account_id.add(row.account_id);
+      if (row.video_name) beforeValues.video_name.add(row.video_name);
     });
 
     // Находим НОВЫЕ значения (есть в ПОСЛЕ, но нет в ДО)
@@ -120,7 +122,8 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       adv_id: [],
       target_url: [],
       adv_group_budjet: [],
-      account_id: []
+      account_id: [],
+      video_name: []
     };
 
     (afterData || []).forEach(row => {
@@ -152,6 +155,11 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       if (row.account_id && !beforeValues.account_id.has(row.account_id)) {
         if (!newValues.account_id.includes(row.account_id)) {
           newValues.account_id.push(row.account_id);
+        }
+      }
+      if (row.video_name && !beforeValues.video_name.has(row.video_name)) {
+        if (!newValues.video_name.includes(row.video_name)) {
+          newValues.video_name.push(row.video_name);
         }
       }
     });
@@ -3098,6 +3106,22 @@ function ActionReports({ user }) {
                             {changesModalData.changes.newValues.adv_group_budjet.map((budget, i) => (
                               <span key={i} className="px-2 py-1 bg-white border border-yellow-300 rounded text-xs font-mono">
                                 ${budget}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Новые video_name */}
+                      {changesModalData.changes.newValues.video_name.length > 0 && (
+                        <div className="border border-pink-200 rounded-lg p-3 bg-pink-50">
+                          <h4 className="text-sm font-semibold text-pink-800 mb-2">
+                            Новые Video Name ({changesModalData.changes.newValues.video_name.length})
+                          </h4>
+                          <div className="space-y-1">
+                            {changesModalData.changes.newValues.video_name.map((name, i) => (
+                              <span key={i} className="block px-2 py-1 bg-white border border-pink-300 rounded text-xs">
+                                {name}
                               </span>
                             ))}
                           </div>
