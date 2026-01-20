@@ -3404,70 +3404,48 @@ function ActionReports({ user }) {
                     </div>
                   )}
 
-                    {/* CPL - из новых параметров или стандартный */}
+                    {/* CPL - только из новых параметров */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {loadingCplLeads || loadingAdsChangesCache ? (
+                      {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
-                      ) : (
+                      ) : metric.hasNewParamsData ? (
                         <>
-                          {metric.hasNewParamsData ? (
-                            <>
-                              <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                                {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
-                              </span>
-                              {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsCpl', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
-                            </>
-                          ) : (
-                            <>
-                              <span className={`font-mono text-xs ${metric.leads_data?.[4]?.cpl != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                                {metric.leads_data?.[4]?.cpl?.toFixed(2) || '—'}
-                              </span>
-                              {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('cpl', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
-                            </>
-                          )}
+                          <span className={`font-mono text-xs font-semibold ${metric.newParamsCpl > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                            {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
+                          </span>
+                          {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsCpl', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
                         </>
+                      ) : (
+                        <span className="font-mono text-xs text-slate-400">—</span>
                       )}
                     </div>
 
-                    {/* Лиды - из новых параметров или стандартный */}
+                    {/* Лиды - только из новых параметров */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
-                      {loadingCplLeads || loadingAdsChangesCache ? (
+                      {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-8" />
-                      ) : (
+                      ) : metric.hasNewParamsData ? (
                         <>
-                          {metric.hasNewParamsData ? (
-                            <>
-                              <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
-                                {metric.newParamsLeads}
-                              </span>
-                              {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsLeads', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
-                            </>
-                          ) : (
-                            <>
-                              <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                                {metric.leads_data?.[4]?.leads || '—'}
-                              </span>
-                              {metric.leads_data && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
-                            </>
-                          )}
+                          <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
+                            {metric.newParamsLeads}
+                          </span>
+                          {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsLeads', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
                         </>
+                      ) : (
+                        <span className="font-mono text-xs text-slate-400">—</span>
                       )}
                     </div>
 
-                    {/* Расход - из новых параметров */}
+                    {/* Расход - только из новых параметров */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {loadingCplLeads || loadingAdsChangesCache ? (
+                      {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
+                      ) : metric.hasNewParamsData ? (
+                        <span className={`font-mono text-xs font-semibold ${metric.newParamsCost > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
+                          {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
+                        </span>
                       ) : (
-                        <>
-                          {metric.hasNewParamsData ? (
-                            <span className={`font-mono text-xs font-semibold ${metric.newParamsCost > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
-                              {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
-                            </span>
-                          ) : (
-                            <span className="font-mono text-xs text-slate-400">—</span>
-                          )}
-                        </>
+                        <span className="font-mono text-xs text-slate-400">—</span>
                       )}
                     </div>
 
