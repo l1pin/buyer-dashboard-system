@@ -584,7 +584,8 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
         ${paramsCondition}
     `;
 
-    console.log('📊 Расчёт CPL для новых параметров:', { offerId, startDate, campaignIds: campaignIds?.length, advGroupIds: advGroupIds?.length, advIds: advIds?.length });
+    console.log('📊 Расчёт CPL SQL:', sql);
+    console.log('📊 Параметры:', { offerId, startDate, sourceIds, newParams });
 
     const response = await fetch(CORE_URL, {
       method: 'POST',
@@ -593,6 +594,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     });
 
     const data = await response.json();
+    console.log('📊 Ответ БД:', data);
     const row = data?.[0] || {};
 
     const totalCost = parseFloat(row.total_cost) || 0;
@@ -2191,6 +2193,7 @@ function ActionReports({ user }) {
 
       // Если есть данные CPL из новых параметров - добавляем их
       if (cacheEntry?.cplData) {
+        console.log(`📈 getReportMetric ${report.article}: cplData найден`, cacheEntry.cplData);
         result = {
           ...result,
           newParamsCpl: cacheEntry.cplData.cpl,
@@ -2198,6 +2201,8 @@ function ActionReports({ user }) {
           newParamsCost: cacheEntry.cplData.cost,
           hasNewParamsData: true
         };
+      } else {
+        console.log(`⚠️ getReportMetric ${report.article}: cplData НЕ найден, cacheKey=${cacheKey}, hasEntry=${!!cacheEntry}`);
       }
     }
 
@@ -2500,12 +2505,14 @@ function ActionReports({ user }) {
             const { campaignIds, advGroupIds, advIds } = cacheEntry.newParams;
             // Рассчитываем только если есть новые параметры
             if (campaignIds?.length || advGroupIds?.length || advIds?.length) {
+              console.log(`🔄 Расчёт CPL для ${cacheKey}:`, { campaignIds, advGroupIds, advIds });
               const cplData = await calculateCplFromNewParams(
                 req.offerId,
                 req.sourceIds,
                 req.targetDate,
                 cacheEntry.newParams
               );
+              console.log(`💰 CPL результат для ${cacheKey}:`, cplData);
               // Добавляем CPL данные в кэш
               newCache[cacheKey] = { ...cacheEntry, cplData };
             }
