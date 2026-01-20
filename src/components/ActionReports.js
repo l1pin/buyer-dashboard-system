@@ -577,7 +577,9 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
       SELECT
         SUM(CAST(cost AS DECIMAL(10,2))) as total_cost,
         SUM(CAST(valid AS SIGNED)) as total_leads,
-        COUNT(DISTINCT CASE WHEN CAST(cost AS DECIMAL(10,2)) > 0 THEN adv_date END) as active_days
+        COUNT(DISTINCT CASE WHEN CAST(cost AS DECIMAL(10,2)) > 0 THEN adv_date END) as active_days,
+        SUM(CASE WHEN adv_date = CURDATE() THEN 1 ELSE 0 END) as today_rows,
+        SUM(CASE WHEN adv_date = CURDATE() AND CAST(cost AS DECIMAL(10,2)) > 0 THEN 1 ELSE 0 END) as today_cost_rows
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -601,20 +603,34 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     const totalCost = parseFloat(row.total_cost) || 0;
     const totalLeads = parseInt(row.total_leads) || 0;
     const activeDays = parseInt(row.active_days) || 0;
+    const todayRows = parseInt(row.today_rows) || 0;
+    const todayCostRows = parseInt(row.today_cost_rows) || 0;
     const cpl = totalLeads > 0 ? totalCost / totalLeads : 0;
 
-    console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, days=${activeDays}, cpl=${cpl.toFixed(2)}`);
+    // Определяем статус активности сегодня
+    // green: есть строка за сегодня с cost > 0
+    // yellow: есть строка за сегодня, но cost = 0
+    // red: нет строки за сегодня
+    let todayStatus = 'red';
+    if (todayCostRows > 0) {
+      todayStatus = 'green';
+    } else if (todayRows > 0) {
+      todayStatus = 'yellow';
+    }
+
+    console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, days=${activeDays}, today=${todayStatus}, cpl=${cpl.toFixed(2)}`);
 
     return {
       leads: totalLeads,
       cost: totalCost,
       cpl: cpl,
-      activeDays: activeDays
+      activeDays: activeDays,
+      todayStatus: todayStatus
     };
 
   } catch (error) {
     console.error('❌ Ошибка расчёта CPL:', error);
-    return { leads: 0, cost: 0, cpl: 0, activeDays: 0 };
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red' };
   }
 }
 
@@ -2203,6 +2219,7 @@ function ActionReports({ user }) {
           newParamsLeads: cacheEntry.cplData.leads,
           newParamsCost: cacheEntry.cplData.cost,
           newParamsActiveDays: cacheEntry.cplData.activeDays,
+          newParamsTodayStatus: cacheEntry.cplData.todayStatus,
           hasNewParamsData: true
         };
       } else {
@@ -3313,14 +3330,28 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* Дней - количество дней с cost > 0 */}
-                    <div className="w-[4%] min-w-[35px] text-center text-xs font-mono">
+                    {/* Дней - количество дней с cost > 0 + индикатор активности сегодня */}
+                    <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-xs font-mono">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-6" />
                       ) : metric.hasNewParamsData ? (
-                        <span className={`font-semibold ${metric.newParamsActiveDays > 0 ? 'text-blue-600' : 'text-slate-500'}`}>
-                          {metric.newParamsActiveDays}
-                        </span>
+                        <>
+                          <span className={`font-semibold ${metric.newParamsActiveDays > 0 ? 'text-blue-600' : 'text-slate-500'}`}>
+                            {metric.newParamsActiveDays}
+                          </span>
+                          <span
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              metric.newParamsTodayStatus === 'green' ? 'bg-green-500' :
+                              metric.newParamsTodayStatus === 'yellow' ? 'bg-yellow-400' :
+                              'bg-red-500'
+                            }`}
+                            title={
+                              metric.newParamsTodayStatus === 'green' ? 'Сегодня активно (cost > 0)' :
+                              metric.newParamsTodayStatus === 'yellow' ? 'Сегодня есть данные, но cost = 0' :
+                              'Сегодня нет данных'
+                            }
+                          />
+                        </>
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
