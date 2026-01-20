@@ -105,7 +105,9 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       adv_group_id: new Set(),
       adv_id: new Set(),
       account_id: new Set(),
-      video_id: new Set()
+      video_id: new Set(),
+      target_url: new Set(),
+      adv_group_budget: new Set()
     };
 
     (dataBefore || []).forEach(row => {
@@ -114,6 +116,8 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       if (row.adv_id) historyIds.adv_id.add(row.adv_id);
       if (row.account_id) historyIds.account_id.add(row.account_id);
       if (row.video_id) historyIds.video_id.add(row.video_id);
+      if (row.target_url) historyIds.target_url.add(row.target_url);
+      if (row.adv_group_budjet) historyIds.adv_group_budget.add(row.adv_group_budjet);
     });
 
     // Строим иерархическую структуру из НОВЫХ данных
@@ -164,12 +168,14 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
 
       // Проверяем новая ли группа объявлений
       const isNewAdvGroup = advGroupId && !historyIds.adv_group_id.has(advGroupId);
+      const isNewBudget = row.adv_group_budjet && !historyIds.adv_group_budget.has(row.adv_group_budjet);
       if (advGroupId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId]) {
         hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId] = {
           id: advGroupId,
           name: advGroupName,
           isNew: isNewAdvGroup,
           budget: row.adv_group_budjet,
+          isNewBudget: isNewBudget,
           ads: {}
         };
         if (isNewAdvGroup && !seenIds.adv_group_id.has(advGroupId)) {
@@ -193,7 +199,8 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
             videoId: row.video_id,
             videoName: row.video_name || row.video_id,
             isNewVideo: row.video_id && !historyIds.video_id.has(row.video_id),
-            targetUrl: row.target_url
+            targetUrl: row.target_url,
+            isNewUrl: row.target_url && !historyIds.target_url.has(row.target_url)
           }
         };
         if (isNewAd && !seenIds.adv_id.has(advId)) {
@@ -3126,21 +3133,7 @@ function ActionReports({ user }) {
                       </div>
 
                       {/* Иерархическое отображение по источникам */}
-                      {changesModalData.changes.hierarchy && Object.entries(changesModalData.changes.hierarchy)
-                        .filter(([, source]) => source.isNew) // Только источники с новыми элементами
-                        .map(([sourceId, source]) => {
-                          // Фильтруем кампании: только новые или с новыми дочерними элементами
-                          const newCampaigns = Object.values(source.campaigns).filter(campaign => {
-                            const hasNewAdvGroups = Object.values(campaign.advGroups).some(ag => ag.isNew);
-                            const hasNewAds = Object.values(campaign.advGroups).some(ag =>
-                              Object.values(ag.ads).some(ad => ad.isNew)
-                            );
-                            return campaign.isNew || hasNewAdvGroups || hasNewAds;
-                          });
-
-                          if (newCampaigns.length === 0) return null;
-
-                          return (
+                      {changesModalData.changes.hierarchy && Object.entries(changesModalData.changes.hierarchy).map(([sourceId, source]) => (
                         <div key={sourceId} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
                           {/* Source header */}
                           <div className="bg-slate-100 px-4 py-2 flex items-center gap-2">
@@ -3151,25 +3144,14 @@ function ActionReports({ user }) {
 
                           {/* Campaigns */}
                           <div className="divide-y divide-slate-100">
-                            {newCampaigns.map(campaign => {
-                              // Фильтруем группы: только новые или с новыми объявлениями
-                              const newAdvGroups = Object.values(campaign.advGroups).filter(advGroup => {
-                                const hasNewAds = Object.values(advGroup.ads).some(ad => ad.isNew);
-                                return advGroup.isNew || hasNewAds;
-                              });
-
-                              // Показываем кампанию только если она новая или есть новые дочерние элементы
-                              if (!campaign.isNew && newAdvGroups.length === 0) return null;
-
-                              return (
+                            {Object.values(source.campaigns).map(campaign => (
                               <div key={campaign.id} className="bg-white">
-                                {/* Campaign row - показываем только если кампания новая */}
-                                {campaign.isNew && (
-                                <div className="px-4 py-2 pl-6 flex items-center gap-2 bg-green-50">
+                                {/* Campaign row */}
+                                <div className={`px-4 py-2 pl-6 flex items-center gap-2 ${campaign.isNew ? 'bg-green-50' : ''}`}>
                                   <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium text-slate-800 truncate">
-                                      <span className="text-green-600 text-xs mr-1">NEW</span>
+                                      {campaign.isNew && <span className="text-green-600 text-xs mr-1">NEW</span>}
                                       {campaign.name}
                                     </div>
                                     <div className="text-xs text-slate-400 flex items-center gap-1">
@@ -3178,26 +3160,20 @@ function ActionReports({ user }) {
                                     </div>
                                   </div>
                                 </div>
-                                )}
 
-                                {/* Adv Groups - показываем только новые или с новыми объявлениями */}
-                                {newAdvGroups.map(advGroup => {
-                                  // Фильтруем объявления: только новые
-                                  const newAds = Object.values(advGroup.ads).filter(ad => ad.isNew);
-
-                                  return (
+                                {/* Adv Groups */}
+                                {Object.values(campaign.advGroups).map(advGroup => (
                                   <div key={advGroup.id}>
-                                    {/* Adv Group row - показываем только если группа новая */}
-                                    {advGroup.isNew && (
-                                    <div className="px-4 py-2 pl-10 flex items-center gap-2 bg-blue-50">
+                                    {/* Adv Group row */}
+                                    <div className={`px-4 py-2 pl-10 flex items-center gap-2 ${advGroup.isNew ? 'bg-blue-50' : 'bg-slate-50'}`}>
                                       <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <div className="font-medium text-slate-700 truncate text-sm">
-                                          <span className="text-blue-600 text-xs mr-1">NEW</span>
+                                          {advGroup.isNew && <span className="text-blue-600 text-xs mr-1">NEW</span>}
                                           {advGroup.name}
-                                          {advGroup.budget && (
+                                          {advGroup.isNewBudget && advGroup.budget && (
                                             <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded">
-                                              ${advGroup.budget}
+                                              ${advGroup.budget} <span className="text-yellow-700">NEW</span>
                                             </span>
                                           )}
                                         </div>
@@ -3207,17 +3183,16 @@ function ActionReports({ user }) {
                                         </div>
                                       </div>
                                     </div>
-                                    )}
 
-                                    {/* Ads - показываем только новые */}
-                                    {newAds.map(ad => (
-                                      <div key={ad.id} className="px-4 py-2 pl-14 bg-cyan-50">
+                                    {/* Ads */}
+                                    {Object.values(advGroup.ads).map(ad => (
+                                      <div key={ad.id} className={`px-4 py-2 pl-14 ${ad.isNew ? 'bg-cyan-50' : ''}`}>
                                         {/* Ad row */}
                                         <div className="flex items-center gap-2 mb-1">
                                           <div className="w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0" />
                                           <div className="flex-1 min-w-0">
                                             <div className="font-medium text-slate-600 truncate text-sm">
-                                              <span className="text-cyan-600 text-xs mr-1">NEW</span>
+                                              {ad.isNew && <span className="text-cyan-600 text-xs mr-1">NEW</span>}
                                               {ad.name}
                                             </div>
                                             <div className="text-xs text-slate-400 flex items-center gap-1">
@@ -3227,9 +3202,9 @@ function ActionReports({ user }) {
                                           </div>
                                         </div>
 
-                                        {/* Details (Level 4) - показываем только новые */}
+                                        {/* Details (Level 4) - только новые */}
                                         <div className="pl-4 mt-2 space-y-1 text-xs">
-                                          {ad.details.accountId && ad.details.isNewAccount && (
+                                          {ad.details.isNewAccount && ad.details.accountId && (
                                             <div className="flex items-center gap-2 text-purple-700">
                                               <span className="w-20 text-slate-400">Account:</span>
                                               <span className="font-medium">{ad.details.accountName}</span>
@@ -3238,7 +3213,7 @@ function ActionReports({ user }) {
                                               <span className="text-purple-600 text-xs">NEW</span>
                                             </div>
                                           )}
-                                          {ad.details.videoName && ad.details.isNewVideo && (
+                                          {ad.details.isNewVideo && ad.details.videoName && (
                                             <div className="flex items-center gap-2 text-pink-700">
                                               <span className="w-20 text-slate-400">Video:</span>
                                               <span className="font-medium truncate max-w-[200px]">{ad.details.videoName}</span>
@@ -3251,8 +3226,8 @@ function ActionReports({ user }) {
                                               <span className="text-pink-600 text-xs">NEW</span>
                                             </div>
                                           )}
-                                          {ad.details.targetUrl && (
-                                            <div className="flex items-center gap-2 text-slate-500">
+                                          {ad.details.isNewUrl && ad.details.targetUrl && (
+                                            <div className="flex items-center gap-2 text-orange-700">
                                               <span className="w-20 text-slate-400">URL:</span>
                                               <a
                                                 href={ad.details.targetUrl}
@@ -3263,21 +3238,19 @@ function ActionReports({ user }) {
                                                 {ad.details.targetUrl}
                                               </a>
                                               <CopyButton value={ad.details.targetUrl} size="xs" />
+                                              <span className="text-orange-600 text-xs">NEW</span>
                                             </div>
                                           )}
                                         </div>
                                       </div>
                                     ))}
                                   </div>
-                                  );
-                                })}
+                                ))}
                               </div>
-                              );
-                            })}
+                            ))}
                           </div>
                         </div>
-                          );
-                      })}
+                      ))}
                     </>
                   )}
                 </div>
