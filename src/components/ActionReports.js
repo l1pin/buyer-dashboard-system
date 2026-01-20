@@ -60,9 +60,9 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       target_url, adv_group_budjet
     `;
 
-    // Запрос 1: Уникальные значения ДО целевой даты (история) - только ID для сравнения
+    // Запрос 1: Уникальные значения ДО целевой даты (история) - ID и значения для сравнения
     const sqlBeforeIds = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, account_id, video_id
+      SELECT DISTINCT campaign_id, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
