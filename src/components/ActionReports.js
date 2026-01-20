@@ -279,6 +279,242 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
   }
 }
 
+/**
+ * Batch-загрузка ads_changes для нескольких офферов одновременно
+ * @param {Array} offerRequests - Массив { offerId, sourceIds, targetDate, reportId }
+ * @returns {Promise<Object>} Кэш: { `${offerId}_${targetDate}`: changes }
+ */
+async function fetchAdsChangesBatch(offerRequests) {
+  if (!offerRequests?.length) return {};
+
+  console.log(`🚀 Batch-загрузка ads_changes для ${offerRequests.length} офферов...`);
+  const startTime = Date.now();
+
+  // Группируем по targetDate для оптимизации
+  const byDate = {};
+  offerRequests.forEach(req => {
+    if (!byDate[req.targetDate]) byDate[req.targetDate] = [];
+    byDate[req.targetDate].push(req);
+  });
+
+  const cache = {};
+
+  // Для каждой даты делаем batch-запросы
+  await Promise.all(Object.entries(byDate).map(async ([targetDate, requests]) => {
+    // Собираем все offer_id и source_ids для этой даты
+    const allOfferIds = [...new Set(requests.map(r => r.offerId))];
+    const allSourceIds = [...new Set(requests.flatMap(r => r.sourceIds))];
+
+    const offerIdsStr = allOfferIds.map(id => `'${id}'`).join(',');
+    const sourceIdsStr = allSourceIds.map(id => `'${id}'`).join(',');
+
+    const selectFields = `
+      offer_id_tracker, source_id_tracker, source_tracker,
+      campaign_id, campaign_name_tracker,
+      adv_group_id, adv_group_name,
+      adv_id, adv_name,
+      account_id, account_name,
+      video_id, video_name,
+      target_url, adv_group_budjet
+    `;
+
+    // Один запрос на историю, один на target - для ВСЕХ офферов этой даты
+    const sqlBefore = `
+      SELECT DISTINCT offer_id_tracker, source_id_tracker, campaign_id, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
+      FROM ads_collection
+      WHERE offer_id_tracker IN (${offerIdsStr})
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date < '${targetDate}'
+    `;
+
+    const sqlTarget = `
+      SELECT DISTINCT ${selectFields}
+      FROM ads_collection
+      WHERE offer_id_tracker IN (${offerIdsStr})
+        AND source_id_tracker IN (${sourceIdsStr})
+        AND adv_date = '${targetDate}'
+    `;
+
+    try {
+      const [responseBefore, responseTarget] = await Promise.all([
+        fetch(CORE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assoc: true, sql: sqlBefore })
+        }),
+        fetch(CORE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assoc: true, sql: sqlTarget })
+        })
+      ]);
+
+      const [dataBefore, dataTarget] = await Promise.all([
+        responseBefore.json(),
+        responseTarget.json()
+      ]);
+
+      // Теперь для каждого запроса фильтруем данные и строим иерархию
+      requests.forEach(req => {
+        const { offerId, sourceIds, targetDate: reqDate } = req;
+        const sourceIdsSet = new Set(sourceIds);
+
+        // Фильтруем данные для этого оффера и его source_ids
+        const offerDataBefore = (dataBefore || []).filter(row =>
+          row.offer_id_tracker === offerId && sourceIdsSet.has(row.source_id_tracker)
+        );
+        const offerDataTarget = (dataTarget || []).filter(row =>
+          row.offer_id_tracker === offerId && sourceIdsSet.has(row.source_id_tracker)
+        );
+
+        // Строим результат как в fetchAdsChanges
+        const result = buildAdsChangesResult(offerDataBefore, offerDataTarget, reqDate);
+        cache[`${offerId}_${reqDate}`] = result;
+      });
+
+    } catch (error) {
+      console.error(`❌ Ошибка batch-загрузки для даты ${targetDate}:`, error);
+    }
+  }));
+
+  console.log(`✅ Batch-загрузка завершена за ${Date.now() - startTime}ms, загружено ${Object.keys(cache).length} записей`);
+  return cache;
+}
+
+/**
+ * Построение результата ads_changes из сырых данных
+ */
+function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
+  // Собираем уникальные ID из истории
+  const historyIds = {
+    campaign_id: new Set(),
+    adv_group_id: new Set(),
+    adv_id: new Set(),
+    account_id: new Set(),
+    video_id: new Set(),
+    target_url: new Set(),
+    adv_group_budget: new Set()
+  };
+
+  (dataBefore || []).forEach(row => {
+    if (row.campaign_id) historyIds.campaign_id.add(row.campaign_id);
+    if (row.adv_group_id) historyIds.adv_group_id.add(row.adv_group_id);
+    if (row.adv_id) historyIds.adv_id.add(row.adv_id);
+    if (row.account_id) historyIds.account_id.add(row.account_id);
+    if (row.video_id) historyIds.video_id.add(row.video_id);
+    if (row.target_url) historyIds.target_url.add(row.target_url);
+    if (row.adv_group_budjet) historyIds.adv_group_budget.add(row.adv_group_budjet);
+  });
+
+  // Строим иерархию
+  const hierarchy = {};
+  const seenIds = {
+    campaign_id: new Set(),
+    adv_group_id: new Set(),
+    adv_id: new Set(),
+    account_id: new Set(),
+    video_id: new Set(),
+    target_url: new Set(),
+    adv_group_budget: new Set()
+  };
+
+  (dataTarget || []).forEach(row => {
+    const sourceId = row.source_id_tracker;
+    const sourceName = row.source_tracker || sourceId;
+    const campaignId = row.campaign_id;
+    const campaignName = row.campaign_name_tracker || campaignId;
+    const advGroupId = row.adv_group_id;
+    const advGroupName = row.adv_group_name || advGroupId;
+    const advId = row.adv_id;
+    const advName = row.adv_name || advId;
+
+    if (!hierarchy[sourceId]) {
+      hierarchy[sourceId] = { id: sourceId, name: sourceName, campaigns: {}, isNew: false };
+    }
+
+    const isNewCampaign = campaignId && !historyIds.campaign_id.has(campaignId);
+    if (campaignId && !hierarchy[sourceId].campaigns[campaignId]) {
+      hierarchy[sourceId].campaigns[campaignId] = {
+        id: campaignId, name: campaignName, isNew: isNewCampaign, advGroups: {}
+      };
+      if (isNewCampaign && !seenIds.campaign_id.has(campaignId)) {
+        seenIds.campaign_id.add(campaignId);
+        hierarchy[sourceId].isNew = true;
+      }
+    }
+
+    if (!campaignId) return;
+
+    const isNewAdvGroup = advGroupId && !historyIds.adv_group_id.has(advGroupId);
+    const isNewBudget = row.adv_group_budjet && !historyIds.adv_group_budget.has(row.adv_group_budjet) && !seenIds.adv_group_budget.has(row.adv_group_budjet);
+
+    if (advGroupId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId]) {
+      hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId] = {
+        id: advGroupId, name: advGroupName, isNew: isNewAdvGroup,
+        budget: row.adv_group_budjet, isNewBudget, ads: {}
+      };
+      if (isNewAdvGroup && !seenIds.adv_group_id.has(advGroupId)) {
+        seenIds.adv_group_id.add(advGroupId);
+      }
+      if (isNewBudget) seenIds.adv_group_budget.add(row.adv_group_budjet);
+    }
+
+    if (!advGroupId) return;
+
+    const isNewAd = advId && !historyIds.adv_id.has(advId);
+    const isNewAccount = row.account_id && !historyIds.account_id.has(row.account_id) && !seenIds.account_id.has(row.account_id);
+    const isNewVideo = row.video_id && !historyIds.video_id.has(row.video_id) && !seenIds.video_id.has(row.video_id);
+    const isNewUrl = row.target_url && !historyIds.target_url.has(row.target_url) && !seenIds.target_url.has(row.target_url);
+
+    if (advId && !hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId]) {
+      hierarchy[sourceId].campaigns[campaignId].advGroups[advGroupId].ads[advId] = {
+        id: advId, name: advName, isNew: isNewAd,
+        details: {
+          accountId: row.account_id,
+          accountName: row.account_name || row.account_id,
+          isNewAccount,
+          videoId: row.video_id,
+          videoName: row.video_name || row.video_id,
+          isNewVideo,
+          targetUrl: row.target_url,
+          isNewUrl
+        }
+      };
+      if (isNewAd && !seenIds.adv_id.has(advId)) seenIds.adv_id.add(advId);
+      if (isNewAccount) seenIds.account_id.add(row.account_id);
+      if (isNewVideo) seenIds.video_id.add(row.video_id);
+      if (isNewUrl) seenIds.target_url.add(row.target_url);
+    }
+  });
+
+  // Подсчет
+  let newCampaigns = 0, newAdvGroups = 0, newAds = 0, newBudgets = 0, newCreatives = 0, newLandings = 0;
+  Object.values(hierarchy).forEach(source => {
+    Object.values(source.campaigns).forEach(campaign => {
+      if (campaign.isNew) newCampaigns++;
+      Object.values(campaign.advGroups).forEach(advGroup => {
+        if (advGroup.isNew) newAdvGroups++;
+        if (advGroup.isNewBudget) newBudgets++;
+        Object.values(advGroup.ads).forEach(ad => {
+          if (ad.isNew) newAds++;
+          if (ad.details.isNewVideo) newCreatives++;
+          if (ad.details.isNewUrl) newLandings++;
+        });
+      });
+    });
+  });
+
+  const hasChanges = newCampaigns > 0 || newAdvGroups > 0 || newAds > 0 || newBudgets > 0 || newCreatives > 0 || newLandings > 0;
+
+  return {
+    hasChanges, hierarchy,
+    stats: { newCampaigns, newAdvGroups, newAds, newBudgets, newCreatives, newLandings },
+    targetDate,
+    beforeCount: dataBefore?.length || 0,
+    targetCount: dataTarget?.length || 0
+  };
+}
+
 // Кнопка копирования ID в буфер
 const CopyButton = memo(({ value, size = 'sm' }) => {
   const [copied, setCopied] = useState(false);
@@ -990,6 +1226,8 @@ function ActionReports({ user }) {
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [changesModalData, setChangesModalData] = useState(null);
   const [loadingChanges, setLoadingChanges] = useState(false);
+  const [adsChangesCache, setAdsChangesCache] = useState({}); // Кэш: { `${offerId}_${date}`: changes }
+  const [loadingAdsChangesCache, setLoadingAdsChangesCache] = useState(false);
 
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
@@ -1496,19 +1734,39 @@ function ActionReports({ user }) {
 
   // Открыть журнал изменений для отчета
   const handleViewChanges = async (report) => {
-    setLoadingChanges(true);
     setShowChangesModal(true);
+
+    // Получаем offer_id для артикула
+    const offerId = articleOfferMap[report.article];
+    if (!offerId) {
+      setChangesModalData({ report, changes: null, error: 'Не найден offer_id для артикула' });
+      return;
+    }
+
+    // Определяем дату начала отслеживания
+    const createdDate = new Date(report.createdAt);
+    let startDate;
+    if (report.when_day === 'today') {
+      startDate = createdDate.toISOString().split('T')[0];
+    } else {
+      const nextDay = new Date(createdDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      startDate = nextDay.toISOString().split('T')[0];
+    }
+
+    // Проверяем кэш
+    const cacheKey = `${offerId}_${startDate}`;
+    if (adsChangesCache[cacheKey]) {
+      console.log(`✅ Данные из кэша для ${cacheKey}`);
+      setChangesModalData({ report, changes: adsChangesCache[cacheKey], error: null, startDate, offerId });
+      return;
+    }
+
+    // Если нет в кэше - загружаем
+    setLoadingChanges(true);
     setChangesModalData({ report, changes: null, error: null });
 
     try {
-      // Получаем offer_id для артикула
-      const offerId = articleOfferMap[report.article];
-      if (!offerId) {
-        setChangesModalData({ report, changes: null, error: 'Не найден offer_id для артикула' });
-        setLoadingChanges(false);
-        return;
-      }
-
       // Получаем source_ids байера
       const buyerSources = await buyerSourceService.getBuyerSourcesWithPeriods(report.createdBy);
       if (!buyerSources?.traffic_channels?.length) {
@@ -1519,21 +1777,11 @@ function ActionReports({ user }) {
 
       const sourceIds = buyerSources.traffic_channels.map(ch => ch.channel_id);
 
-      // Определяем дату начала отслеживания
-      const createdDate = new Date(report.createdAt);
-      let startDate;
-
-      if (report.when_day === 'today') {
-        // Сегодня - начинаем с даты создания
-        startDate = createdDate.toISOString().split('T')[0];
-      } else {
-        // На завтра - начинаем со следующего дня
-        createdDate.setDate(createdDate.getDate() + 1);
-        startDate = createdDate.toISOString().split('T')[0];
-      }
-
       // Получаем изменения
       const changes = await fetchAdsChanges(offerId, sourceIds, startDate);
+
+      // Сохраняем в кэш
+      setAdsChangesCache(prev => ({ ...prev, [cacheKey]: changes }));
 
       setChangesModalData({ report, changes, error: null, startDate, offerId, sourceIds });
     } catch (error) {
@@ -2051,6 +2299,93 @@ function ActionReports({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // ========== ПРЕДЗАГРУЗКА ADS_CHANGES ==========
+
+  // Предзагрузка ads_changes для всех отчётов выбранной даты
+  const prefetchAdsChangesForDate = useCallback(async (forDate) => {
+    if (!forDate || !savedReports.length || !Object.keys(articleOfferMap).length) return;
+
+    // Фильтруем отчёты по дате
+    const reportsForDate = savedReports.filter(r => {
+      const reportDate = new Date(r.createdAt);
+      reportDate.setHours(0, 0, 0, 0);
+      const targetDate = new Date(forDate);
+      targetDate.setHours(0, 0, 0, 0);
+      return reportDate.getTime() === targetDate.getTime();
+    });
+
+    if (!reportsForDate.length) return;
+
+    console.log(`📦 Предзагрузка ads_changes для ${reportsForDate.length} отчётов...`);
+    setLoadingAdsChangesCache(true);
+
+    try {
+      // Загружаем source_ids для всех байеров
+      const buyerIds = [...new Set(reportsForDate.map(r => r.createdBy))];
+      const buyerSourcesMap = {};
+
+      await Promise.all(buyerIds.map(async (buyerId) => {
+        try {
+          const sources = await buyerSourceService.getBuyerSourcesWithPeriods(buyerId);
+          if (sources?.traffic_channels?.length) {
+            buyerSourcesMap[buyerId] = sources.traffic_channels.map(ch => ch.channel_id);
+          }
+        } catch (e) {
+          console.error(`Ошибка загрузки источников байера ${buyerId}:`, e);
+        }
+      }));
+
+      // Собираем запросы для batch-загрузки
+      const offerRequests = [];
+      reportsForDate.forEach(report => {
+        const offerId = articleOfferMap[report.article];
+        const sourceIds = buyerSourcesMap[report.createdBy];
+
+        if (!offerId || !sourceIds?.length) return;
+
+        // Определяем дату
+        const createdDate = new Date(report.createdAt);
+        let startDate;
+        if (report.when_day === 'today') {
+          startDate = createdDate.toISOString().split('T')[0];
+        } else {
+          createdDate.setDate(createdDate.getDate() + 1);
+          startDate = createdDate.toISOString().split('T')[0];
+        }
+
+        // Проверяем, нет ли уже в кэше
+        const cacheKey = `${offerId}_${startDate}`;
+        if (!adsChangesCache[cacheKey]) {
+          offerRequests.push({ offerId, sourceIds, targetDate: startDate, reportId: report.id });
+        }
+      });
+
+      if (offerRequests.length > 0) {
+        const newCache = await fetchAdsChangesBatch(offerRequests);
+        setAdsChangesCache(prev => ({ ...prev, ...newCache }));
+      } else {
+        console.log('📦 Все данные уже в кэше');
+      }
+
+    } catch (error) {
+      console.error('❌ Ошибка предзагрузки ads_changes:', error);
+    } finally {
+      setLoadingAdsChangesCache(false);
+    }
+  }, [savedReports, articleOfferMap, adsChangesCache]);
+
+  // Автоматическая предзагрузка при смене даты (после загрузки метрик)
+  useEffect(() => {
+    if (selectedDate && savedReports.length > 0 && Object.keys(articleOfferMap).length > 0 && !isAnyLoading) {
+      // Небольшая задержка чтобы не блокировать основную загрузку
+      const timer = setTimeout(() => {
+        prefetchAdsChangesForDate(selectedDate);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, savedReports.length, articleOfferMap, isAnyLoading]);
 
   // ========== СИСТЕМА ТУЛТИПОВ ==========
 
