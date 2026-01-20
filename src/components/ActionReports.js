@@ -32,91 +32,42 @@ import TooltipManager from './TooltipManager';
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
 /**
- * Получить изменения в ads_collection после создания действия
+ * Получить уникальные значения из ads_collection за конкретный день
  * @param {string} offerId - ID оффера (offer_id_tracker)
  * @param {string[]} sourceIds - ID источников байера (source_id_tracker)
- * @param {string} startDate - Дата начала отслеживания (YYYY-MM-DD)
- * @returns {Promise<Object>} Новые уникальные значения
+ * @param {string} targetDate - Дата для поиска (YYYY-MM-DD)
+ * @returns {Promise<Object>} Уникальные значения за этот день
  */
-async function fetchAdsChanges(offerId, sourceIds, startDate) {
-  if (!offerId || !sourceIds?.length || !startDate) {
-    console.log('⚠️ fetchAdsChanges: отсутствуют параметры', { offerId, sourceIds, startDate });
+async function fetchAdsChanges(offerId, sourceIds, targetDate) {
+  if (!offerId || !sourceIds?.length || !targetDate) {
+    console.log('⚠️ fetchAdsChanges: отсутствуют параметры', { offerId, sourceIds, targetDate });
     return null;
   }
 
   try {
-    // Получаем данные ДО startDate (за 30 дней до)
-    const beforeDate = new Date(startDate);
-    beforeDate.setDate(beforeDate.getDate() - 30);
-    const beforeDateStr = beforeDate.toISOString().split('T')[0];
-
-    // Получаем данные ПОСЛЕ startDate (до сегодня)
-    const today = new Date().toISOString().split('T')[0];
-
     const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
 
-    // Запрос данных ДО действия
-    const sqlBefore = `
+    // Запрос уникальных значений только за ОДИН конкретный день
+    const sql = `
       SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
-        AND adv_date >= '${beforeDateStr}'
-        AND adv_date < '${startDate}'
+        AND adv_date = '${targetDate}'
     `;
 
-    // Запрос данных ПОСЛЕ действия
-    const sqlAfter = `
-      SELECT DISTINCT campaign_id, adv_group_id, adv_id, target_url, adv_group_budjet, account_id, video_name
-      FROM ads_collection
-      WHERE offer_id_tracker = '${offerId}'
-        AND source_id_tracker IN (${sourceIdsStr})
-        AND adv_date >= '${startDate}'
-        AND adv_date <= '${today}'
-    `;
+    console.log('📊 Запрос ads_collection за день:', { offerId, sourceIds, targetDate });
 
-    console.log('📊 Запрос изменений ads_collection:', { offerId, sourceIds, startDate });
-
-    // Параллельные запросы (формат как в Sql_leads.js)
-    const [beforeRes, afterRes] = await Promise.all([
-      fetch(CORE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assoc: true, sql: sqlBefore })
-      }),
-      fetch(CORE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assoc: true, sql: sqlAfter })
-      })
-    ]);
-
-    const beforeData = await beforeRes.json();
-    const afterData = await afterRes.json();
-
-    // Собираем уникальные значения ДО
-    const beforeValues = {
-      campaign_id: new Set(),
-      adv_group_id: new Set(),
-      adv_id: new Set(),
-      target_url: new Set(),
-      adv_group_budjet: new Set(),
-      account_id: new Set(),
-      video_name: new Set()
-    };
-
-    (beforeData || []).forEach(row => {
-      if (row.campaign_id) beforeValues.campaign_id.add(row.campaign_id);
-      if (row.adv_group_id) beforeValues.adv_group_id.add(row.adv_group_id);
-      if (row.adv_id) beforeValues.adv_id.add(row.adv_id);
-      if (row.target_url) beforeValues.target_url.add(row.target_url);
-      if (row.adv_group_budjet) beforeValues.adv_group_budjet.add(String(row.adv_group_budjet));
-      if (row.account_id) beforeValues.account_id.add(row.account_id);
-      if (row.video_name) beforeValues.video_name.add(row.video_name);
+    const response = await fetch(CORE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assoc: true, sql })
     });
 
-    // Находим НОВЫЕ значения (есть в ПОСЛЕ, но нет в ДО)
-    const newValues = {
+    const data = await response.json();
+
+    // Собираем уникальные значения
+    const uniqueValues = {
       campaign_id: [],
       adv_group_id: [],
       adv_id: [],
@@ -126,54 +77,39 @@ async function fetchAdsChanges(offerId, sourceIds, startDate) {
       video_name: []
     };
 
-    (afterData || []).forEach(row => {
-      if (row.campaign_id && !beforeValues.campaign_id.has(row.campaign_id)) {
-        if (!newValues.campaign_id.includes(row.campaign_id)) {
-          newValues.campaign_id.push(row.campaign_id);
-        }
+    (data || []).forEach(row => {
+      if (row.campaign_id && !uniqueValues.campaign_id.includes(row.campaign_id)) {
+        uniqueValues.campaign_id.push(row.campaign_id);
       }
-      if (row.adv_group_id && !beforeValues.adv_group_id.has(row.adv_group_id)) {
-        if (!newValues.adv_group_id.includes(row.adv_group_id)) {
-          newValues.adv_group_id.push(row.adv_group_id);
-        }
+      if (row.adv_group_id && !uniqueValues.adv_group_id.includes(row.adv_group_id)) {
+        uniqueValues.adv_group_id.push(row.adv_group_id);
       }
-      if (row.adv_id && !beforeValues.adv_id.has(row.adv_id)) {
-        if (!newValues.adv_id.includes(row.adv_id)) {
-          newValues.adv_id.push(row.adv_id);
-        }
+      if (row.adv_id && !uniqueValues.adv_id.includes(row.adv_id)) {
+        uniqueValues.adv_id.push(row.adv_id);
       }
-      if (row.target_url && !beforeValues.target_url.has(row.target_url)) {
-        if (!newValues.target_url.includes(row.target_url)) {
-          newValues.target_url.push(row.target_url);
-        }
+      if (row.target_url && !uniqueValues.target_url.includes(row.target_url)) {
+        uniqueValues.target_url.push(row.target_url);
       }
-      if (row.adv_group_budjet && !beforeValues.adv_group_budjet.has(String(row.adv_group_budjet))) {
-        if (!newValues.adv_group_budjet.includes(String(row.adv_group_budjet))) {
-          newValues.adv_group_budjet.push(String(row.adv_group_budjet));
-        }
+      if (row.adv_group_budjet && !uniqueValues.adv_group_budjet.includes(String(row.adv_group_budjet))) {
+        uniqueValues.adv_group_budjet.push(String(row.adv_group_budjet));
       }
-      if (row.account_id && !beforeValues.account_id.has(row.account_id)) {
-        if (!newValues.account_id.includes(row.account_id)) {
-          newValues.account_id.push(row.account_id);
-        }
+      if (row.account_id && !uniqueValues.account_id.includes(row.account_id)) {
+        uniqueValues.account_id.push(row.account_id);
       }
-      if (row.video_name && !beforeValues.video_name.has(row.video_name)) {
-        if (!newValues.video_name.includes(row.video_name)) {
-          newValues.video_name.push(row.video_name);
-        }
+      if (row.video_name && !uniqueValues.video_name.includes(row.video_name)) {
+        uniqueValues.video_name.push(row.video_name);
       }
     });
 
-    const hasChanges = Object.values(newValues).some(arr => arr.length > 0);
+    const hasData = Object.values(uniqueValues).some(arr => arr.length > 0);
 
-    console.log('✅ Найдены изменения:', hasChanges ? newValues : 'нет изменений');
+    console.log('✅ Найдено за', targetDate, ':', hasData ? uniqueValues : 'нет данных');
 
     return {
-      hasChanges,
-      newValues,
-      startDate,
-      beforeCount: beforeData?.length || 0,
-      afterCount: afterData?.length || 0
+      hasChanges: hasData,
+      newValues: uniqueValues,
+      targetDate,
+      recordCount: data?.length || 0
     };
 
   } catch (error) {
@@ -2966,7 +2902,7 @@ function ActionReports({ user }) {
                 {changesModalData?.report && (
                   <p className="text-sm text-slate-500">
                     Артикул: {changesModalData.report.article} •
-                    Отслеживание с: {changesModalData?.startDate || '—'}
+                    Дата отслеживания: {changesModalData?.startDate || '—'}
                   </p>
                 )}
               </div>
@@ -2998,23 +2934,22 @@ function ActionReports({ user }) {
                   {!changesModalData.changes.hasChanges ? (
                     <div className="text-center py-8 text-slate-500">
                       <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                      <p>Новых уникальных значений не найдено</p>
+                      <p>Данные за {changesModalData?.startDate || 'этот день'} не найдены</p>
                       <p className="text-xs mt-2">
-                        Записей до: {changesModalData.changes.beforeCount} •
-                        Записей после: {changesModalData.changes.afterCount}
+                        Записей: {changesModalData.changes.recordCount || 0}
                       </p>
                     </div>
                   ) : (
                     <>
                       <div className="text-sm text-slate-600 mb-4">
-                        Найдены новые уникальные значения начиная с <strong>{changesModalData.startDate}</strong>
+                        Уникальные значения за <strong>{changesModalData.startDate}</strong> (записей: {changesModalData.changes.recordCount || 0})
                       </div>
 
-                      {/* Новые campaign_id */}
+                      {/* Campaign ID */}
                       {changesModalData.changes.newValues.campaign_id.length > 0 && (
                         <div className="border border-green-200 rounded-lg p-3 bg-green-50">
                           <h4 className="text-sm font-semibold text-green-800 mb-2">
-                            Новые Campaign ID ({changesModalData.changes.newValues.campaign_id.length})
+                            Campaign ID ({changesModalData.changes.newValues.campaign_id.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.campaign_id.map((id, i) => (
@@ -3026,11 +2961,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые adv_group_id */}
+                      {/* Adv Group ID */}
                       {changesModalData.changes.newValues.adv_group_id.length > 0 && (
                         <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
                           <h4 className="text-sm font-semibold text-blue-800 mb-2">
-                            Новые Adv Group ID ({changesModalData.changes.newValues.adv_group_id.length})
+                            Adv Group ID ({changesModalData.changes.newValues.adv_group_id.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.adv_group_id.map((id, i) => (
@@ -3042,11 +2977,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые adv_id */}
+                      {/* Adv ID */}
                       {changesModalData.changes.newValues.adv_id.length > 0 && (
                         <div className="border border-cyan-200 rounded-lg p-3 bg-cyan-50">
                           <h4 className="text-sm font-semibold text-cyan-800 mb-2">
-                            Новые Adv ID ({changesModalData.changes.newValues.adv_id.length})
+                            Adv ID ({changesModalData.changes.newValues.adv_id.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.adv_id.map((id, i) => (
@@ -3058,11 +2993,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые account_id */}
+                      {/* Account ID */}
                       {changesModalData.changes.newValues.account_id.length > 0 && (
                         <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
                           <h4 className="text-sm font-semibold text-purple-800 mb-2">
-                            Новые Account ID ({changesModalData.changes.newValues.account_id.length})
+                            Account ID ({changesModalData.changes.newValues.account_id.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.account_id.map((id, i) => (
@@ -3074,11 +3009,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые target_url */}
+                      {/* Target URL */}
                       {changesModalData.changes.newValues.target_url.length > 0 && (
                         <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
                           <h4 className="text-sm font-semibold text-orange-800 mb-2">
-                            Новые Target URL ({changesModalData.changes.newValues.target_url.length})
+                            Target URL ({changesModalData.changes.newValues.target_url.length})
                           </h4>
                           <div className="space-y-1">
                             {changesModalData.changes.newValues.target_url.map((url, i) => (
@@ -3096,11 +3031,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые бюджеты */}
+                      {/* Бюджеты групп */}
                       {changesModalData.changes.newValues.adv_group_budjet.length > 0 && (
                         <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50">
                           <h4 className="text-sm font-semibold text-yellow-800 mb-2">
-                            Новые бюджеты групп ({changesModalData.changes.newValues.adv_group_budjet.length})
+                            Бюджеты групп ({changesModalData.changes.newValues.adv_group_budjet.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {changesModalData.changes.newValues.adv_group_budjet.map((budget, i) => (
@@ -3112,11 +3047,11 @@ function ActionReports({ user }) {
                         </div>
                       )}
 
-                      {/* Новые video_name */}
+                      {/* Video Name */}
                       {changesModalData.changes.newValues.video_name.length > 0 && (
                         <div className="border border-pink-200 rounded-lg p-3 bg-pink-50">
                           <h4 className="text-sm font-semibold text-pink-800 mb-2">
-                            Новые Video Name ({changesModalData.changes.newValues.video_name.length})
+                            Video Name ({changesModalData.changes.newValues.video_name.length})
                           </h4>
                           <div className="space-y-1">
                             {changesModalData.changes.newValues.video_name.map((name, i) => (
