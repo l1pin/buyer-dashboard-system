@@ -3198,14 +3198,14 @@ function ActionReports({ user }) {
                                   <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
                                   <div className="flex-1 min-w-0">
                                     <div className="text-slate-500 text-xs">Кампания:</div>
-                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                    <div>
                                       <span className="font-medium text-slate-800">{campaign.name}</span>
                                       <CopyButton value={campaign.name} size="xs" />
                                       {campaign.isNew && (
-                                        <span className="px-1.5 py-0.5 bg-green-500 text-white text-xs font-bold rounded">Новый</span>
+                                        <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
                                       )}
                                     </div>
-                                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                                    <div className="text-xs text-slate-400">
                                       {campaign.id} <CopyButton value={campaign.id} size="xs" />
                                     </div>
                                   </div>
@@ -3224,21 +3224,21 @@ function ActionReports({ user }) {
                                       <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupPrefix}</span>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-slate-500 text-xs">Группа:</div>
-                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                        <div>
                                           <span className="font-medium text-slate-700">{advGroup.name}</span>
                                           <CopyButton value={advGroup.name} size="xs" />
                                           {advGroup.isNew && (
-                                            <span className="px-1.5 py-0.5 bg-blue-500 text-white text-xs font-bold rounded">Новый</span>
+                                            <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
                                           )}
                                         </div>
-                                        <div className="text-xs text-slate-400 flex items-center gap-1">
+                                        <div className="text-xs text-slate-400">
                                           {advGroup.id} <CopyButton value={advGroup.id} size="xs" />
                                         </div>
                                         {advGroup.isNewBudget && advGroup.budget && (
-                                          <div className="flex items-center gap-1.5 mt-1">
-                                            <span className="text-slate-500 text-xs">Бюджет:</span>
-                                            <span className="font-medium text-yellow-700">${advGroup.budget}</span>
-                                            <span className="px-1.5 py-0.5 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">Новый</span>
+                                          <div className="mt-1">
+                                            <span className="text-slate-500 text-xs">Бюджет: </span>
+                                            <span className="font-medium text-slate-700">${advGroup.budget}</span>
+                                            <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
                                           </div>
                                         )}
                                       </div>
@@ -3257,14 +3257,14 @@ function ActionReports({ user }) {
                                           <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adPrefix}</span>
                                           <div className="flex-1 min-w-0">
                                             <div className="text-slate-500 text-xs">Объявление:</div>
-                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                            <div>
                                               <span className="font-medium text-slate-600">{ad.name}</span>
                                               <CopyButton value={ad.name} size="xs" />
                                               {ad.isNew && (
-                                                <span className="px-1.5 py-0.5 bg-cyan-500 text-white text-xs font-bold rounded">Новый</span>
+                                                <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black text-xs font-bold rounded">NEW</span>
                                               )}
                                             </div>
-                                            <div className="text-xs text-slate-400 flex items-center gap-1">
+                                            <div className="text-xs text-slate-400">
                                               {ad.id} <CopyButton value={ad.id} size="xs" />
                                             </div>
                                           </div>
@@ -3278,12 +3278,12 @@ function ActionReports({ user }) {
                                                 <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Аккаунт:</div>
-                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                  <div>
                                                     <span className="font-medium text-purple-700">{ad.details.accountName}</span>
                                                     <CopyButton value={ad.details.accountName} size="xs" />
-                                                    <span className="px-1.5 py-0.5 bg-purple-500 text-white font-bold rounded">Новый</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
                                                   </div>
-                                                  <div className="text-slate-400 flex items-center gap-1">
+                                                  <div className="text-slate-400">
                                                     {ad.details.accountId} <CopyButton value={ad.details.accountId} size="xs" />
                                                   </div>
                                                 </div>
@@ -3294,13 +3294,13 @@ function ActionReports({ user }) {
                                                 <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Креатив:</div>
-                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                  <div>
                                                     <span className="font-medium text-pink-700">{ad.details.videoName}</span>
                                                     <CopyButton value={ad.details.videoName} size="xs" />
-                                                    <span className="px-1.5 py-0.5 bg-pink-500 text-white font-bold rounded">Новый</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
                                                   </div>
                                                   {ad.details.videoId && (
-                                                    <div className="text-slate-400 flex items-center gap-1">
+                                                    <div className="text-slate-400">
                                                       {ad.details.videoId} <CopyButton value={ad.details.videoId} size="xs" />
                                                     </div>
                                                   )}
@@ -3312,7 +3312,7 @@ function ActionReports({ user }) {
                                                 <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Лендинг:</div>
-                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                  <div>
                                                     <a
                                                       href={ad.details.targetUrl}
                                                       target="_blank"
@@ -3322,7 +3322,7 @@ function ActionReports({ user }) {
                                                       {ad.details.targetUrl}
                                                     </a>
                                                     <CopyButton value={ad.details.targetUrl} size="xs" />
-                                                    <span className="px-1.5 py-0.5 bg-orange-500 text-white font-bold rounded">Новый</span>
+                                                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-400 text-black font-bold rounded">NEW</span>
                                                   </div>
                                                 </div>
                                               </div>
