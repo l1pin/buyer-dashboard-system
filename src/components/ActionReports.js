@@ -584,7 +584,8 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
         ${paramsCondition}
     `;
 
-    console.log('📊 Расчёт CPL для новых параметров:', { offerId, startDate, campaignIds: campaignIds?.length, advGroupIds: advGroupIds?.length, advIds: advIds?.length });
+    console.log('📊 Расчёт CPL SQL:', sql);
+    console.log('📊 Параметры:', { offerId, startDate, sourceIds, newParams });
 
     const response = await fetch(CORE_URL, {
       method: 'POST',
@@ -593,6 +594,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     });
 
     const data = await response.json();
+    console.log('📊 Ответ БД:', data);
     const row = data?.[0] || {};
 
     const totalCost = parseFloat(row.total_cost) || 0;
@@ -2191,6 +2193,7 @@ function ActionReports({ user }) {
 
       // Если есть данные CPL из новых параметров - добавляем их
       if (cacheEntry?.cplData) {
+        console.log(`📈 getReportMetric ${report.article}: cplData найден`, cacheEntry.cplData);
         result = {
           ...result,
           newParamsCpl: cacheEntry.cplData.cpl,
@@ -2198,6 +2201,8 @@ function ActionReports({ user }) {
           newParamsCost: cacheEntry.cplData.cost,
           hasNewParamsData: true
         };
+      } else {
+        console.log(`⚠️ getReportMetric ${report.article}: cplData НЕ найден, cacheKey=${cacheKey}, hasEntry=${!!cacheEntry}`);
       }
     }
 
@@ -2500,12 +2505,14 @@ function ActionReports({ user }) {
             const { campaignIds, advGroupIds, advIds } = cacheEntry.newParams;
             // Рассчитываем только если есть новые параметры
             if (campaignIds?.length || advGroupIds?.length || advIds?.length) {
+              console.log(`🔄 Расчёт CPL для ${cacheKey}:`, { campaignIds, advGroupIds, advIds });
               const cplData = await calculateCplFromNewParams(
                 req.offerId,
                 req.sourceIds,
                 req.targetDate,
                 cacheEntry.newParams
               );
+              console.log(`💰 CPL результат для ${cacheKey}:`, cplData);
               // Добавляем CPL данные в кэш
               newCache[cacheKey] = { ...cacheEntry, cplData };
             }
@@ -3114,6 +3121,7 @@ function ActionReports({ user }) {
           {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
+          <div className="w-[5%] min-w-[42px] text-center">Расход</div>
           <div className="w-[4%] min-w-[35px] text-center">Акт. дней</div>
           <div className="w-[3%] min-w-[30px] text-center" title="Рейтинг">
             <Star className="h-3.5 w-3.5 mx-auto text-slate-500" />
@@ -3271,8 +3279,8 @@ function ActionReports({ user }) {
                       ) : (
                         <>
                           {metric.hasNewParamsData ? (
-                            <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                              {metric.newParamsLeads || '—'}
+                            <span className={`font-mono text-xs font-semibold ${metric.newParamsLeads > 0 ? 'text-green-600' : 'text-slate-500'}`}>
+                              {metric.newParamsLeads}
                             </span>
                           ) : (
                             <span className={`font-mono text-xs ${metric.leads_data?.[4]?.leads != null ? 'text-slate-800' : 'text-slate-400'}`}>
@@ -3280,6 +3288,23 @@ function ActionReports({ user }) {
                             </span>
                           )}
                           {metric.leads_data && !metric.hasNewParamsData && <InfoIcon onClick={(e) => openTooltip('leads', index, { leadsData: metric.leads_data, article: report.article }, e)} />}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Расход - из новых параметров */}
+                    <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
+                      {loadingCplLeads || loadingAdsChangesCache ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        <>
+                          {metric.hasNewParamsData ? (
+                            <span className={`font-mono text-xs font-semibold ${metric.newParamsCost > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
+                              {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs text-slate-400">—</span>
+                          )}
                         </>
                       )}
                     </div>
