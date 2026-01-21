@@ -222,6 +222,98 @@ class EffectivityZonesService {
   }
 
   /**
+   * Получить zone_history по offer_id
+   * @param {string} offerId - ID оффера в offers_collection
+   * @returns {Promise<object|null>} - объект zone_history или null
+   */
+  async getZoneHistoryByOfferId(offerId) {
+    if (!offerId) {
+      return null;
+    }
+
+    const sql = `
+      SELECT zone_history
+      FROM offers_collection
+      WHERE id = '${this.escapeString(offerId)}'
+    `;
+
+    try {
+      const response = await fetch(OFFERS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assoc: true, sql })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const row = data?.[0];
+
+      if (!row?.zone_history) {
+        return null;
+      }
+
+      // Парсим JSON если это строка
+      const zoneHistory = typeof row.zone_history === 'string'
+        ? JSON.parse(row.zone_history)
+        : row.zone_history;
+
+      return zoneHistory;
+
+    } catch (error) {
+      console.error('❌ Ошибка получения zone_history:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Рассчитать среднюю first зону за указанные даты
+   * @param {object} zoneHistory - объект zone_history
+   * @param {string[]} dates - массив дат (формат YYYY-MM-DD)
+   * @returns {object} - { avgFirstZone, zonesByDate }
+   */
+  calculateAvgZoneForDates(zoneHistory, dates) {
+    if (!zoneHistory || !dates?.length) {
+      return { avgFirstZone: null, zonesByDate: [] };
+    }
+
+    const zonesByDate = [];
+    let totalFirst = 0;
+    let countFirst = 0;
+
+    for (const date of dates) {
+      const dayData = zoneHistory[date];
+      if (dayData?.effectivity_zone) {
+        const zone = dayData.effectivity_zone;
+        // Проверяем что зоны не нулевые
+        if (zone.first && zone.first > 0) {
+          zonesByDate.push({
+            date,
+            first: parseFloat(zone.first) || 0,
+            second: parseFloat(zone.second) || 0,
+            third: parseFloat(zone.third) || 0,
+            fourth: parseFloat(zone.fourth) || 0
+          });
+          totalFirst += parseFloat(zone.first) || 0;
+          countFirst++;
+        }
+      }
+    }
+
+    // Сортируем по дате (от новых к старым)
+    zonesByDate.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const avgFirstZone = countFirst > 0 ? totalFirst / countFirst : null;
+
+    return {
+      avgFirstZone: avgFirstZone ? Math.round(avgFirstZone * 100) / 100 : null,
+      zonesByDate
+    };
+  }
+
+  /**
    * Обновить метрики с данными зон эффективности
    * @param {array} metrics - массив метрик с полем article
    * @returns {Promise<array>} - метрики с добавленными данными зон
