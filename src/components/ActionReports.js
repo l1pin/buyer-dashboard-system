@@ -654,18 +654,83 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
 
     console.log(`✅ CPL расчитан: cost=${totalCost.toFixed(2)}, leads=${totalLeads}, days=${activeDays}, today=${todayStatus}, cpl=${cpl.toFixed(2)}`);
 
+    // Третий запрос: получаем zone_history для расчёта средней зоны за даты с тратами
+    let avgFirstZone = null;
+    let zonesByDate = [];
+
+    if (dailyData.length > 0) {
+      try {
+        const sqlZoneHistory = `
+          SELECT zone_history
+          FROM offers_collection
+          WHERE id = '${offerId}'
+        `;
+
+        const responseZone = await fetch(CORE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assoc: true, sql: sqlZoneHistory })
+        });
+        const zoneData = await responseZone.json();
+        const zoneRow = zoneData?.[0];
+
+        if (zoneRow?.zone_history) {
+          const zoneHistory = typeof zoneRow.zone_history === 'string'
+            ? JSON.parse(zoneRow.zone_history)
+            : zoneRow.zone_history;
+
+          // Получаем даты из dailyData
+          const dates = dailyData.map(d => d.date);
+
+          // Рассчитываем среднюю first зону и собираем данные по датам
+          let totalFirst = 0;
+          let countFirst = 0;
+
+          for (const date of dates) {
+            const dayData = zoneHistory[date];
+            if (dayData?.effectivity_zone) {
+              const zone = dayData.effectivity_zone;
+              // Проверяем что зоны не нулевые
+              if (zone.first && zone.first > 0) {
+                zonesByDate.push({
+                  date,
+                  // Красная = first (худшая), Розовая = second, Золотая = third, Зеленая = fourth (лучшая)
+                  red: parseFloat(zone.first) || 0,
+                  pink: parseFloat(zone.second) || 0,
+                  gold: parseFloat(zone.third) || 0,
+                  green: parseFloat(zone.fourth) || 0
+                });
+                totalFirst += parseFloat(zone.first) || 0;
+                countFirst++;
+              }
+            }
+          }
+
+          // Сортируем по дате (от новых к старым)
+          zonesByDate.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+          avgFirstZone = countFirst > 0 ? Math.round((totalFirst / countFirst) * 100) / 100 : null;
+          console.log(`🎯 Средняя first зона: ${avgFirstZone}, дат с зонами: ${zonesByDate.length}`);
+        }
+      } catch (e) {
+        console.error('❌ Ошибка загрузки zone_history:', e);
+      }
+    }
+
     return {
       leads: totalLeads,
       cost: totalCost,
       cpl: cpl,
       activeDays: activeDays,
       todayStatus: todayStatus,
-      dailyData: dailyData
+      dailyData: dailyData,
+      avgFirstZone: avgFirstZone,
+      zonesByDate: zonesByDate
     };
 
   } catch (error) {
     console.error('❌ Ошибка расчёта CPL:', error);
-    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red', dailyData: [] };
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red', dailyData: [], avgFirstZone: null, zonesByDate: [] };
   }
 }
 
@@ -729,6 +794,83 @@ const PaginatedDailyTable = memo(({ dailyData, type }) => {
                   <td className="py-1 px-2 text-right font-mono">{d.cost > 0 ? d.cost.toFixed(2) : '0'}</td>
                 </>
               )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Пагинация */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-xs">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className={`px-2 py-1 rounded ${page === 0 ? 'text-gray-300' : 'text-blue-600 hover:bg-blue-50'}`}
+          >
+            &lt;
+          </button>
+          <span className="text-gray-600">{page + 1}/{totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className={`px-2 py-1 rounded ${page >= totalPages - 1 ? 'text-gray-300' : 'text-blue-600 hover:bg-blue-50'}`}
+          >
+            &gt;
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Компонент таблицы с пагинацией для тултипа зон (данные по дням)
+const PaginatedZoneTable = memo(({ zonesByDate }) => {
+  const [page, setPage] = useState(0);
+  const perPage = 5;
+  const totalPages = Math.ceil((zonesByDate?.length || 0) / perPage);
+
+  const startIdx = page * perPage;
+  const endIdx = startIdx + perPage;
+  const currentData = (zonesByDate || []).slice(startIdx, endIdx);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  };
+
+  if (!zonesByDate?.length) {
+    return <div className="text-xs text-gray-500 italic">Нет данных о зонах по дням</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left py-1 px-1.5">Дата</th>
+            <th className="text-center py-1 px-1.5">
+              <span className="inline-block w-3 h-3 rounded-full bg-red-500" title="Красная"></span>
+            </th>
+            <th className="text-center py-1 px-1.5">
+              <span className="inline-block w-3 h-3 rounded-full bg-pink-400" title="Розовая"></span>
+            </th>
+            <th className="text-center py-1 px-1.5">
+              <span className="inline-block w-3 h-3 rounded-full bg-yellow-400" title="Золотая"></span>
+            </th>
+            <th className="text-center py-1 px-1.5">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-500" title="Зеленая"></span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {currentData.map((d, i) => (
+            <tr key={i} className="border-b border-gray-100">
+              <td className="py-1 px-1.5">{formatDate(d.date)}</td>
+              <td className="py-1 px-1.5 text-center font-mono text-red-600">{d.red > 0 ? d.red.toFixed(2) : '—'}</td>
+              <td className="py-1 px-1.5 text-center font-mono text-pink-600">{d.pink > 0 ? d.pink.toFixed(2) : '—'}</td>
+              <td className="py-1 px-1.5 text-center font-mono text-yellow-600">{d.gold > 0 ? d.gold.toFixed(2) : '—'}</td>
+              <td className="py-1 px-1.5 text-center font-mono text-green-600">{d.green > 0 ? d.green.toFixed(2) : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -2345,6 +2487,8 @@ function ActionReports({ user }) {
           newParamsActiveDays: cacheEntry.cplData.activeDays,
           newParamsTodayStatus: cacheEntry.cplData.todayStatus,
           newParamsDailyData: cacheEntry.cplData.dailyData || [],
+          newParamsAvgFirstZone: cacheEntry.cplData.avgFirstZone,
+          newParamsZonesByDate: cacheEntry.cplData.zonesByDate || [],
           hasNewParamsData: true
         };
       } else {
@@ -2786,18 +2930,7 @@ function ActionReports({ user }) {
       case 'date':
         return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
       case 'zone':
-        const m = data.metric;
-        return <div className="flex flex-col gap-2">
-          {['red', 'pink', 'gold', 'green'].map(z => {
-            const price = m[`${z}_zone_price`];
-            if (price == null) return null;
-            const c = getZoneColorsLocal(z);
-            return <div key={z} className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 w-20 capitalize">{z === 'red' ? 'Красная' : z === 'pink' ? 'Розовая' : z === 'gold' ? 'Золотая' : 'Зеленая'}:</span>
-              <span className={`font-mono px-2 py-1 rounded-full text-xs border ${c.bg} ${c.text} ${c.border}`}>${Number(price).toFixed(2)}</span>
-            </div>;
-          })}
-        </div>;
+        return <PaginatedZoneTable zonesByDate={data.zonesByDate} />;
       case 'season':
         return <div className="flex flex-col gap-3">
           <div><div className="text-xs font-medium text-gray-600 mb-1">Категория:</div><div className="text-sm">{data.category || '—'}</div></div>
@@ -3521,20 +3654,22 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* CPL зона - loading при loadingZones */}
+                    {/* CPL зона - среднее first зоны за даты с уникальными параметрами */}
                     <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                      {loadingZones ? (
+                      {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-12" />
                       ) : (
                         <>
-                          {metric.red_zone_price != null ? (
-                            <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
-                              ${Number(metric.red_zone_price).toFixed(2)}
+                          {metric.newParamsAvgFirstZone != null ? (
+                            <span className="font-mono text-xs text-slate-700">
+                              {Number(metric.newParamsAvgFirstZone).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>
                           )}
-                          <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
+                          {metric.newParamsZonesByDate?.length > 0 && (
+                            <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article, zonesByDate: metric.newParamsZonesByDate }, e)} />
+                          )}
                         </>
                       )}
                     </div>
