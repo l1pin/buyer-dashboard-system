@@ -3257,6 +3257,19 @@ function ActionReports({ user }) {
               ))}
             </div>
           </div>
+
+          {/* Кнопка закрытия всех тултипов */}
+          <button
+            onClick={() => {
+              if (tooltipManagerRef.current) {
+                tooltipManagerRef.current.closeAll();
+              }
+            }}
+            className="ml-auto inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm"
+          >
+            <X className="h-4 w-4 mr-1.5" />
+            Закрыть все окна
+          </button>
         </div>
       </div>
 
