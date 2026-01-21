@@ -3281,6 +3281,7 @@ function ActionReports({ user }) {
           <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left`}>Название</div>
           <div className="w-[5%] min-w-[45px] text-center">Статус</div>
           {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
+          <div className="w-[5%] min-w-[50px] text-center">Когда</div>
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
           <div className="w-[5%] min-w-[42px] text-center">Расход</div>
@@ -3413,6 +3414,17 @@ function ActionReports({ user }) {
                       })()}
                     </div>
                   )}
+
+                    {/* Когда - На завтра/Сегодня */}
+                    <div className="w-[5%] min-w-[50px] flex items-center justify-center">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        report.when_day === 'today'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {report.when_day === 'today' ? 'Сегодня' : 'Завтра'}
+                      </span>
+                    </div>
 
                     {/* CPL - только из новых параметров */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
