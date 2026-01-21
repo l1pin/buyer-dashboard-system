@@ -690,19 +690,34 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
             const dayData = zoneHistory[date];
             if (dayData?.effectivity_zone) {
               const zone = dayData.effectivity_zone;
-              // Проверяем что зоны не нулевые
-              if (zone.first && zone.first > 0) {
-                zonesByDate.push({
-                  date,
-                  // Красная = first (худшая), Розовая = second, Золотая = third, Зеленая = fourth (лучшая)
-                  red: parseFloat(zone.first) || 0,
-                  pink: parseFloat(zone.second) || 0,
-                  gold: parseFloat(zone.third) || 0,
-                  green: parseFloat(zone.fourth) || 0
-                });
-                totalFirst += parseFloat(zone.first) || 0;
+              const firstVal = parseFloat(zone.first) || 0;
+              const secondVal = parseFloat(zone.second) || 0;
+              const thirdVal = parseFloat(zone.third) || 0;
+              const fourthVal = parseFloat(zone.fourth) || 0;
+
+              // Добавляем все даты в zonesByDate (даже с нулевыми зонами)
+              zonesByDate.push({
+                date,
+                red: firstVal,
+                pink: secondVal,
+                gold: thirdVal,
+                green: fourthVal
+              });
+
+              // Но в среднее считаем только ненулевые
+              if (firstVal > 0) {
+                totalFirst += firstVal;
                 countFirst++;
               }
+            } else {
+              // Если в zone_history нет данных для этой даты - добавляем с нулями
+              zonesByDate.push({
+                date,
+                red: 0,
+                pink: 0,
+                gold: 0,
+                green: 0
+              });
             }
           }
 
