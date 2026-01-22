@@ -85,8 +85,9 @@ function parseCampaignName(fullName) {
     try {
         console.log("🔍 Parsing campaign name:", fullName);
 
-        // Ищем артикул в начале (буквы + цифры)
-        const articleMatch = fullName.match(/^([A-Z]+\d+)/);
+        // Ищем артикул в начале (буквы + цифры + опционально буква + опционально дефис с цифрами)
+        // Примеры: Y01714, Y01714-1, C01116F, C01116F-1
+        const articleMatch = fullName.match(/^([A-Z]+\d+[A-Z]?(?:-\d+)?)/);
         if (articleMatch) {
             result.article = articleMatch[1];
         }
