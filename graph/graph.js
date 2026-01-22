@@ -335,7 +335,7 @@ function openAnalyticsWebApp() {
     try {
         // URL вашего веб-приложения (замените на ваш реальный URL после развертывания)
         const webAppUrl =
-            "https://script.google.com/macros/s/AKfycbwmvPWfW7Y5egprkfNwIf_28D_prHENR3MOdcBRnc2nFvK3_U3_J_9HSTUBSqM4JJEXXw/exec";
+            "https://script.google.com/macros/s/AKfycbyMY-iqY85I2VvJ6WLuBdP4FXAmL8Mu8LDpPjg0CyJ6x0b4jX_r0N9Tq8T4ISV2F_mZ/exec";
 
         // Создаем HTML для открытия в новой вкладке
         const html = `
@@ -694,6 +694,17 @@ function buildChartForArticle(article, periodStart, periodEnd) {
                     console.log("❌ Article not found in КАПЫ 3.0");
                     throw new Error(
                         `📝 Неверный артикул!\n\nАртикул "${article}" не найден в системе.\n\nПроверьте правильность написания артикула.`
+                    );
+                }
+
+                // ПРОВЕРКА 2: Разрешение на просмотр (колонка BQ = столбец 69)
+                const permissionValue = sheetKapy.getRange(articleRow, 69).getValue();
+                console.log("🔐 Checking permission for article:", article, "Permission value:", permissionValue);
+
+                if (permissionValue !== 1 && permissionValue !== "1") {
+                    console.log("❌ No permission to view article:", article);
+                    throw new Error(
+                        `🔒 Нет разрешения на просмотр!\n\nДоступ к артикулу "${article}" ограничен.\n\nОбратитесь к администратору для получения разрешения.`
                     );
                 }
 
@@ -2812,7 +2823,8 @@ function buildGeneralDataAnalysis(periodStart, periodEnd) {
                 cost,
                 valid
             FROM \`ads_collection\`
-            WHERE \`campaign_name_tracker\` IS NOT NULL 
+            WHERE \`source\` = 'facebook'
+                AND \`campaign_name_tracker\` IS NOT NULL 
                 AND \`campaign_name_tracker\` != ''
                 AND \`source_id_tracker\` IS NOT NULL 
                 AND \`source_id_tracker\` != ''${dateFilter}
