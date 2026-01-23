@@ -992,33 +992,43 @@ const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
   </svg>
 ));
 
-// Компонент skeleton для ячейки таблицы с анимацией появления
+// Компонент skeleton для ячейки таблицы
 function SkeletonCell({ width = 'w-10' }) {
   return (
-    <div
-      className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto`}
-      style={{ animation: 'fadeIn 0.2s ease-in' }}
-    />
+    <div className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto skeleton-fade`} />
   );
 }
 
-// Компонент-обёртка для плавного появления данных
-function DataCell({ children, className = '' }) {
-  return (
-    <div
-      className={className}
-      style={{ animation: 'fadeIn 0.3s ease-out' }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// CSS keyframes (добавляем через style tag)
+// CSS стили для плавных переходов
 const animationStyles = `
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(2px); }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes skeletonFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .skeleton-fade {
+    animation: skeletonFade 0.15s ease-out;
+  }
+
+  .data-row {
+    transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+  }
+
+  .data-row.loading {
+    opacity: 0.4;
+  }
+
+  .data-row.loaded {
+    animation: fadeInUp 0.35s ease-out;
+  }
+
+  .metric-cell {
+    transition: opacity 0.2s ease-out;
   }
 `;
 
@@ -2845,6 +2855,21 @@ function ActionReports({ user }) {
   // Проверка, идет ли какое-либо обновление
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones || loadingAdsChangesCache;
 
+  // Ref для отслеживания предыдущего состояния loading (для анимации)
+  const prevLoadingRef = useRef(isAnyLoading);
+  const [showDataAnimation, setShowDataAnimation] = useState(false);
+
+  // Эффект для плавной анимации при переходе loading -> loaded
+  useEffect(() => {
+    if (prevLoadingRef.current && !isAnyLoading) {
+      // Переход из loading в loaded - показываем анимацию
+      setShowDataAnimation(true);
+      const timer = setTimeout(() => setShowDataAnimation(false), 400);
+      return () => clearTimeout(timer);
+    }
+    prevLoadingRef.current = isAnyLoading;
+  }, [isAnyLoading]);
+
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
   const updateVisibleReportsMetrics = useCallback(async (forDate = null, forceRefresh = false) => {
     // Определяем ключ кэша для даты
@@ -4179,13 +4204,7 @@ function ActionReports({ user }) {
                   className="bg-white border-b border-slate-200 hover:bg-slate-50 transition-colors"
                 >
                   {/* Основная строка с метриками */}
-                  <div
-                    className="flex items-center text-sm px-4 py-2.5"
-                    style={{
-                      animation: isAnyLoading ? 'none' : 'fadeIn 0.3s ease-out',
-                      transition: 'opacity 0.2s ease-in-out'
-                    }}
-                  >
+                  <div className={`flex items-center text-sm px-4 py-2.5 data-row ${isAnyLoading ? 'loading' : ''} ${showDataAnimation ? 'loaded' : ''}`}>
                     <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
