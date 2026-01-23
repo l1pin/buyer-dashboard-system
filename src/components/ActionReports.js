@@ -1644,10 +1644,7 @@ function ActionReports({ user }) {
   const [validationError, setValidationError] = useState('');
   const [configValidationErrors, setConfigValidationErrors] = useState({}); // { article: { action: true, subAction: true, ... } }
 
-  // Состояние для журнала изменений (ads_collection)
-  const [showChangesModal, setShowChangesModal] = useState(false);
-  const [changesModalData, setChangesModalData] = useState(null);
-  const [loadingChanges, setLoadingChanges] = useState(false);
+  // Кэш для журнала изменений (ads_collection)
   const [adsChangesCache, setAdsChangesCache] = useState({}); // Кэш: { `${offerId}_${date}`: changes }
   const [loadingAdsChangesCache, setLoadingAdsChangesCache] = useState(false);
 
@@ -2154,14 +2151,23 @@ function ActionReports({ user }) {
     }
   };
 
-  // Открыть журнал изменений для отчета
-  const handleViewChanges = async (report) => {
-    setShowChangesModal(true);
+  // Открыть журнал изменений для отчета (в виде тултипа)
+  const handleViewChanges = async (report, index, event) => {
+    if (!tooltipManagerRef.current) return;
+
+    const tooltipId = `changes-${index}`;
+    let position = { x: 100, y: 100 };
+    if (event && event.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      position = { x: rect.left + rect.width + 10, y: rect.top };
+    }
 
     // Получаем offer_id для артикула
     const offerId = articleOfferMap[report.article];
     if (!offerId) {
-      setChangesModalData({ report, changes: null, error: 'Не найден offer_id для артикула' });
+      const title = getTooltipTitleSync('changes', report.article);
+      const content = renderTooltipContentSync('changes', { error: 'Не найден offer_id для артикула' });
+      tooltipManagerRef.current.open(tooltipId, title, content, position);
       return;
     }
 
@@ -2180,20 +2186,24 @@ function ActionReports({ user }) {
     const cacheKey = `${offerId}_${startDate}`;
     if (adsChangesCache[cacheKey]) {
       console.log(`✅ Данные из кэша для ${cacheKey}`);
-      setChangesModalData({ report, changes: adsChangesCache[cacheKey], error: null, startDate, offerId });
+      const title = getTooltipTitleSync('changes', report.article);
+      const content = renderTooltipContentSync('changes', { changes: adsChangesCache[cacheKey], startDate });
+      tooltipManagerRef.current.open(tooltipId, title, content, position);
       return;
     }
 
-    // Если нет в кэше - загружаем
-    setLoadingChanges(true);
-    setChangesModalData({ report, changes: null, error: null });
+    // Показываем тултип с индикатором загрузки
+    const loadingTitle = getTooltipTitleSync('changes', report.article);
+    const loadingContent = renderTooltipContentSync('changes', { loading: true });
+    tooltipManagerRef.current.open(tooltipId, loadingTitle, loadingContent, position);
 
     try {
       // Получаем source_ids байера
       const buyerSources = await buyerSourceService.getBuyerSourcesWithPeriods(report.createdBy);
       if (!buyerSources?.traffic_channels?.length) {
-        setChangesModalData({ report, changes: null, error: 'Не найдены источники байера' });
-        setLoadingChanges(false);
+        const title = getTooltipTitleSync('changes', report.article);
+        const content = renderTooltipContentSync('changes', { error: 'Не найдены источники байера' });
+        tooltipManagerRef.current.open(tooltipId, title, content, position);
         return;
       }
 
@@ -2205,12 +2215,15 @@ function ActionReports({ user }) {
       // Сохраняем в кэш
       setAdsChangesCache(prev => ({ ...prev, [cacheKey]: changes }));
 
-      setChangesModalData({ report, changes, error: null, startDate, offerId, sourceIds });
+      // Обновляем тултип с данными
+      const title = getTooltipTitleSync('changes', report.article);
+      const content = renderTooltipContentSync('changes', { changes, startDate });
+      tooltipManagerRef.current.open(tooltipId, title, content, position);
     } catch (error) {
       console.error('❌ Ошибка получения изменений:', error);
-      setChangesModalData({ report, changes: null, error: error.message });
-    } finally {
-      setLoadingChanges(false);
+      const title = getTooltipTitleSync('changes', report.article);
+      const content = renderTooltipContentSync('changes', { error: error.message });
+      tooltipManagerRef.current.open(tooltipId, title, content, position);
     }
   };
 
@@ -2887,7 +2900,8 @@ function ActionReports({ user }) {
       stock: 'Остатки по модификациям',
       date: 'Дата прихода',
       season: 'Сезонность',
-      actions: 'Действия'
+      actions: 'Действия',
+      changes: 'Журнал изменений в рекламе'
     };
     return <div className="flex items-center gap-2"><span>{titles[type] || 'Информация'}</span>{articleBadge}</div>;
   };
@@ -3022,6 +3036,259 @@ function ActionReports({ user }) {
                 )}
               </div>
             )) : <div className="text-xs text-gray-500 italic">Нет действий</div>}
+          </div>
+        );
+      case 'changes':
+        // Состояния: loading, error, no changes, changes with hierarchy
+        if (data.loading) {
+          return (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="ml-2 text-slate-600 text-sm">Загрузка данных...</span>
+            </div>
+          );
+        }
+        if (data.error) {
+          return (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+              <span className="text-xs text-red-700">{data.error}</span>
+            </div>
+          );
+        }
+        if (!data.changes) {
+          return <div className="text-xs text-gray-500 italic text-center py-4">Нет данных</div>;
+        }
+        if (!data.changes.hasChanges) {
+          return (
+            <div className="text-center py-4 text-slate-500">
+              <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <p className="text-xs">Новых уникальных значений не найдено</p>
+              <p className="text-[10px] mt-1 text-slate-400">
+                Записей в истории: {data.changes.beforeCount || 0} •
+                Записей за {data.startDate}: {data.changes.targetCount || 0}
+              </p>
+            </div>
+          );
+        }
+        // Есть изменения - отображаем статистику и иерархию
+        return (
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {/* Дата отслеживания */}
+            <div className="text-xs text-slate-500 pb-2 border-b border-slate-100">
+              Дата отслеживания: <strong>{data.startDate || '—'}</strong>
+            </div>
+            {/* Статистика */}
+            <div className="text-xs text-slate-600 flex flex-wrap gap-1.5">
+              <span>Новые:</span>
+              {data.changes.stats?.newCampaigns > 0 && (
+                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px]">
+                  {data.changes.stats.newCampaigns} кампаний
+                </span>
+              )}
+              {data.changes.stats?.newAdvGroups > 0 && (
+                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
+                  {data.changes.stats.newAdvGroups} групп
+                </span>
+              )}
+              {data.changes.stats?.newAds > 0 && (
+                <span className="px-1.5 py-0.5 bg-cyan-100 text-cyan-700 rounded text-[10px]">
+                  {data.changes.stats.newAds} объявлений
+                </span>
+              )}
+              {data.changes.stats?.newBudgets > 0 && (
+                <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-[10px]">
+                  {data.changes.stats.newBudgets} бюджетов
+                </span>
+              )}
+              {data.changes.stats?.newCreatives > 0 && (
+                <span className="px-1.5 py-0.5 bg-pink-100 text-pink-700 rounded text-[10px]">
+                  {data.changes.stats.newCreatives} креативов
+                </span>
+              )}
+              {data.changes.stats?.newLandings > 0 && (
+                <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px]">
+                  {data.changes.stats.newLandings} лендингов
+                </span>
+              )}
+            </div>
+            {/* Иерархия по источникам */}
+            {data.changes.hierarchy && Object.entries(data.changes.hierarchy).map(([sourceId, source]) => (
+              <div key={sourceId} className="border border-slate-200 rounded-lg overflow-hidden">
+                {/* Source header */}
+                <div className="bg-slate-100 px-3 py-1.5 flex items-center gap-2">
+                  <User className="h-3 w-3 text-slate-500" />
+                  <span className="font-medium text-slate-700 text-xs">{source.name}</span>
+                  <CopyButton value={source.id} size="xs" />
+                </div>
+                {/* Tree structure */}
+                <div className="bg-white px-3 py-2 font-mono text-[10px]">
+                  {Object.values(source.campaigns).map((campaign, campIdx, campArr) => {
+                    const isLastCampaign = campIdx === campArr.length - 1;
+                    const campPrefix = isLastCampaign ? '└── ' : '├── ';
+                    const campChildPrefix = isLastCampaign ? '    ' : '│   ';
+                    return (
+                      <div key={campaign.id}>
+                        {/* Кампания FB */}
+                        <div className="flex items-start gap-1 py-0.5">
+                          <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-slate-500 text-[9px]">Кампания FB:</div>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="font-medium text-slate-800">{campaign.fbName || '—'}</span>
+                              {campaign.fbName && <CopyButton value={campaign.fbName} size="xs" />}
+                              {campaign.isNew && (
+                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-slate-400">
+                              {campaign.id} <CopyButton value={campaign.id} size="xs" />
+                            </div>
+                          </div>
+                        </div>
+                        {/* Кампания трекер */}
+                        <div className="flex items-start gap-1 py-0.5">
+                          <span className="text-slate-400 whitespace-pre">{campChildPrefix}└── </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-slate-500 text-[9px]">Кампания трекер:</div>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="font-medium text-slate-800">{campaign.name}</span>
+                              <CopyButton value={campaign.name} size="xs" />
+                            </div>
+                            {campaign.trackerId && (
+                              <div className="text-[9px] text-slate-400">
+                                {campaign.trackerId} <CopyButton value={campaign.trackerId} size="xs" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Группы */}
+                        {Object.values(campaign.advGroups).map((advGroup, groupIdx, groupArr) => {
+                          const isLastGroup = groupIdx === groupArr.length - 1;
+                          const groupPrefix = isLastGroup ? '└── ' : '├── ';
+                          const groupChildPrefix = isLastGroup ? '    ' : '│   ';
+                          const trackerChildPrefix = '    ';
+                          return (
+                            <div key={advGroup.id}>
+                              {/* Группа */}
+                              <div className="flex items-start gap-1 py-0.5">
+                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupPrefix}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-slate-500 text-[9px]">Группа:</div>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="font-medium text-slate-700">{advGroup.name}</span>
+                                    <CopyButton value={advGroup.name} size="xs" />
+                                    {advGroup.isNew && (
+                                      <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">
+                                    {advGroup.id} <CopyButton value={advGroup.id} size="xs" />
+                                  </div>
+                                  {advGroup.isNewBudget && advGroup.budget && (
+                                    <div className="mt-0.5">
+                                      <span className="text-slate-500 text-[9px]">Бюджет: </span>
+                                      <span className="font-medium text-slate-700">${advGroup.budget}</span>
+                                      <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Объявления */}
+                              {Object.values(advGroup.ads).map((ad, adIdx, adArr) => {
+                                const isLastAd = adIdx === adArr.length - 1;
+                                const adPrefix = isLastAd ? '└── ' : '├── ';
+                                const adChildPrefix = isLastAd ? '    ' : '│   ';
+                                return (
+                                  <div key={ad.id}>
+                                    {/* Объявление */}
+                                    <div className="flex items-start gap-1 py-0.5">
+                                      <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adPrefix}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-slate-500 text-[9px]">Объявление:</div>
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                          <span className="font-medium text-slate-600">{ad.name}</span>
+                                          <CopyButton value={ad.name} size="xs" />
+                                          {ad.isNew && (
+                                            <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[9px] text-slate-400">
+                                          {ad.id} <CopyButton value={ad.id} size="xs" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {/* Details - только новые */}
+                                    {(ad.details.isNewAccount || ad.details.isNewVideo || ad.details.isNewUrl) && (
+                                      <div className="text-[10px]">
+                                        {ad.details.isNewAccount && ad.details.accountId && (
+                                          <div className="flex items-start gap-1 py-0.5">
+                                            <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-slate-500 text-[9px]">Аккаунт:</div>
+                                              <div className="flex items-center gap-1 flex-wrap">
+                                                <span className="font-medium text-purple-700">{ad.details.accountName}</span>
+                                                <CopyButton value={ad.details.accountName} size="xs" />
+                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                              </div>
+                                              <div className="text-[9px] text-slate-400">
+                                                {ad.details.accountId} <CopyButton value={ad.details.accountId} size="xs" />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                        {ad.details.isNewVideo && ad.details.videoName && (
+                                          <div className="flex items-start gap-1 py-0.5">
+                                            <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-slate-500 text-[9px]">Креатив:</div>
+                                              <div className="flex items-center gap-1 flex-wrap">
+                                                <span className="font-medium text-pink-700">{ad.details.videoName}</span>
+                                                <CopyButton value={ad.details.videoName} size="xs" />
+                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                              </div>
+                                              {ad.details.videoId && (
+                                                <div className="text-[9px] text-slate-400">
+                                                  {ad.details.videoId} <CopyButton value={ad.details.videoId} size="xs" />
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {ad.details.isNewUrl && ad.details.targetUrl && (
+                                          <div className="flex items-start gap-1 py-0.5">
+                                            <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-slate-500 text-[9px]">Лендинг:</div>
+                                              <div className="flex items-center gap-1 flex-wrap">
+                                                <a
+                                                  href={ad.details.targetUrl}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 hover:underline break-all"
+                                                >
+                                                  {ad.details.targetUrl.length > 50 ? ad.details.targetUrl.substring(0, 50) + '...' : ad.details.targetUrl}
+                                                </a>
+                                                <CopyButton value={ad.details.targetUrl} size="xs" />
+                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         );
       default:
@@ -3662,7 +3929,7 @@ function ActionReports({ user }) {
                             {/* Иконка журнала - только для тимлида */}
                             {isTeamlead && (
                               <button
-                                onClick={() => handleViewChanges(report)}
+                                onClick={(e) => handleViewChanges(report, index, e)}
                                 className="p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                 title="Журнал изменений в рекламе"
                               >
@@ -4054,304 +4321,6 @@ function ActionReports({ user }) {
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Модальное окно журнала изменений */}
-      {showChangesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Журнал изменений в рекламе</h3>
-                {changesModalData?.report && (
-                  <p className="text-sm text-slate-500">
-                    Артикул: {changesModalData.report.article} •
-                    Дата отслеживания: {changesModalData?.startDate || '—'}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  setShowChangesModal(false);
-                  setChangesModalData(null);
-                }}
-                className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5 text-slate-500" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-auto px-6 py-4">
-              {loadingChanges ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                  <span className="ml-3 text-slate-600">Загрузка данных...</span>
-                </div>
-              ) : changesModalData?.error ? (
-                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-sm text-red-700">{changesModalData.error}</span>
-                </div>
-              ) : changesModalData?.changes ? (
-                <div className="space-y-4">
-                  {!changesModalData.changes.hasChanges ? (
-                    <div className="text-center py-8 text-slate-500">
-                      <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                      <p>Новых уникальных значений не найдено</p>
-                      <p className="text-xs mt-2">
-                        Записей в истории: {changesModalData.changes.beforeCount || 0} •
-                        Записей за {changesModalData?.startDate}: {changesModalData.changes.targetCount || 0}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Статистика */}
-                      <div className="text-sm text-slate-600 mb-4 flex flex-wrap gap-2">
-                        <span>Новые за <strong>{changesModalData.startDate}</strong>:</span>
-                        {changesModalData.changes.stats?.newCampaigns > 0 && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
-                            {changesModalData.changes.stats.newCampaigns} кампаний
-                          </span>
-                        )}
-                        {changesModalData.changes.stats?.newAdvGroups > 0 && (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                            {changesModalData.changes.stats.newAdvGroups} групп
-                          </span>
-                        )}
-                        {changesModalData.changes.stats?.newAds > 0 && (
-                          <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-xs">
-                            {changesModalData.changes.stats.newAds} объявлений
-                          </span>
-                        )}
-                        {changesModalData.changes.stats?.newBudgets > 0 && (
-                          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">
-                            {changesModalData.changes.stats.newBudgets} бюджетов
-                          </span>
-                        )}
-                        {changesModalData.changes.stats?.newCreatives > 0 && (
-                          <span className="px-2 py-0.5 bg-pink-100 text-pink-700 rounded text-xs">
-                            {changesModalData.changes.stats.newCreatives} креативов
-                          </span>
-                        )}
-                        {changesModalData.changes.stats?.newLandings > 0 && (
-                          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">
-                            {changesModalData.changes.stats.newLandings} лендингов
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Иерархическое отображение по источникам */}
-                      {changesModalData.changes.hierarchy && Object.entries(changesModalData.changes.hierarchy).map(([sourceId, source]) => (
-                        <div key={sourceId} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
-                          {/* Source header */}
-                          <div className="bg-slate-100 px-4 py-2 flex items-center gap-2">
-                            <User className="h-4 w-4 text-slate-500" />
-                            <span className="font-medium text-slate-700">{source.name}</span>
-                            <CopyButton value={source.id} />
-                          </div>
-
-                          {/* Tree structure */}
-                          <div className="bg-white px-4 py-2 font-mono text-sm">
-                            {Object.values(source.campaigns).map((campaign, campIdx, campArr) => {
-                              const isLastCampaign = campIdx === campArr.length - 1;
-                              const campPrefix = isLastCampaign ? '└── ' : '├── ';
-                              const campChildPrefix = isLastCampaign ? '    ' : '│   ';
-
-                              return (
-                              <div key={campaign.id}>
-                                {/* Уровень 1: Кампания FB */}
-                                <div className="flex items-start gap-1 py-1">
-                                  <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-slate-500 text-xs">Кампания FB:</div>
-                                    <div>
-                                      <span className="font-medium text-slate-800">{campaign.fbName || '—'}</span>
-                                      {campaign.fbName && <CopyButton value={campaign.fbName} size="xs" />}
-                                      {campaign.isNew && (
-                                        <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-slate-400">
-                                      {campaign.id} <CopyButton value={campaign.id} size="xs" />
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Уровень 2: Кампания трекер */}
-                                <div className="flex items-start gap-1 py-1">
-                                  <span className="text-slate-400 whitespace-pre">{campChildPrefix}└── </span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-slate-500 text-xs">Кампания трекер:</div>
-                                    <div>
-                                      <span className="font-medium text-slate-800">{campaign.name}</span>
-                                      <CopyButton value={campaign.name} size="xs" />
-                                    </div>
-                                    {campaign.trackerId && (
-                                      <div className="text-xs text-slate-400">
-                                        {campaign.trackerId} <CopyButton value={campaign.trackerId} size="xs" />
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Уровень 3: Группы */}
-                                {Object.values(campaign.advGroups).map((advGroup, groupIdx, groupArr) => {
-                                  const isLastGroup = groupIdx === groupArr.length - 1;
-                                  const groupPrefix = isLastGroup ? '└── ' : '├── ';
-                                  const groupChildPrefix = isLastGroup ? '    ' : '│   ';
-                                  // Отступ под трекером (трекер использует └── поэтому пробелы)
-                                  const trackerChildPrefix = '    ';
-
-                                  return (
-                                  <div key={advGroup.id}>
-                                    {/* Adv Group */}
-                                    <div className="flex items-start gap-1 py-1">
-                                      <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupPrefix}</span>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-slate-500 text-xs">Группа:</div>
-                                        <div>
-                                          <span className="font-medium text-slate-700">{advGroup.name}</span>
-                                          <CopyButton value={advGroup.name} size="xs" />
-                                          {advGroup.isNew && (
-                                            <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                          )}
-                                        </div>
-                                        <div className="text-xs text-slate-400">
-                                          {advGroup.id} <CopyButton value={advGroup.id} size="xs" />
-                                        </div>
-                                        {advGroup.isNewBudget && advGroup.budget && (
-                                          <div className="mt-1">
-                                            <span className="text-slate-500 text-xs">Бюджет: </span>
-                                            <span className="font-medium text-slate-700">${advGroup.budget}</span>
-                                            <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Уровень 4: Объявления */}
-                                    {Object.values(advGroup.ads).map((ad, adIdx, adArr) => {
-                                      const isLastAd = adIdx === adArr.length - 1;
-                                      const adPrefix = isLastAd ? '└── ' : '├── ';
-                                      const adChildPrefix = isLastAd ? '    ' : '│   ';
-
-                                      return (
-                                      <div key={ad.id}>
-                                        {/* Ad */}
-                                        <div className="flex items-start gap-1 py-1">
-                                          <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adPrefix}</span>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-slate-500 text-xs">Объявление:</div>
-                                            <div>
-                                              <span className="font-medium text-slate-600">{ad.name}</span>
-                                              <CopyButton value={ad.name} size="xs" />
-                                              {ad.isNew && (
-                                                <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                              )}
-                                            </div>
-                                            <div className="text-xs text-slate-400">
-                                              {ad.id} <CopyButton value={ad.id} size="xs" />
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {/* Details - только новые */}
-                                        {(ad.details.isNewAccount || ad.details.isNewVideo || ad.details.isNewUrl) && (
-                                          <div className="text-xs">
-                                            {ad.details.isNewAccount && ad.details.accountId && (
-                                              <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-slate-500">Аккаунт:</div>
-                                                  <div>
-                                                    <span className="font-medium text-purple-700">{ad.details.accountName}</span>
-                                                    <CopyButton value={ad.details.accountName} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                                  </div>
-                                                  <div className="text-slate-400">
-                                                    {ad.details.accountId} <CopyButton value={ad.details.accountId} size="xs" />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            )}
-                                            {ad.details.isNewVideo && ad.details.videoName && (
-                                              <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-slate-500">Креатив:</div>
-                                                  <div>
-                                                    <span className="font-medium text-pink-700">{ad.details.videoName}</span>
-                                                    <CopyButton value={ad.details.videoName} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                                  </div>
-                                                  {ad.details.videoId && (
-                                                    <div className="text-slate-400">
-                                                      {ad.details.videoId} <CopyButton value={ad.details.videoId} size="xs" />
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            )}
-                                            {ad.details.isNewUrl && ad.details.targetUrl && (
-                                              <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-slate-500">Лендинг:</div>
-                                                  <div>
-                                                    <a
-                                                      href={ad.details.targetUrl}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="text-blue-600 hover:underline"
-                                                    >
-                                                      {ad.details.targetUrl}
-                                                    </a>
-                                                    <CopyButton value={ad.details.targetUrl} size="xs" />
-                                                    <span className="ml-1 px-1.5 py-0.5 text-white font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
-                                      );
-                                    })}
-                                  </div>
-                                  );
-                                })}
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  Нет данных
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
-              <button
-                onClick={() => {
-                  setShowChangesModal(false);
-                  setChangesModalData(null);
-                }}
-                className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors"
-              >
-                Закрыть
-              </button>
             </div>
           </div>
         </div>
