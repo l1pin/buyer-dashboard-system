@@ -3073,7 +3073,7 @@ function ActionReports({ user }) {
         }
         // Есть изменения - отображаем статистику и иерархию
         return (
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="space-y-3">
             {/* Дата отслеживания */}
             <div className="text-xs text-slate-500 pb-2 border-b border-slate-100">
               Дата отслеживания: <strong>{data.startDate || '—'}</strong>
