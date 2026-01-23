@@ -1588,6 +1588,223 @@ function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = fal
   );
 }
 
+// Компонент линейки-ползунка для календаря
+const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) => {
+  const rulerRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hoverIndex, setHoverIndex] = useState(null);
+
+  // Вычисляем позицию ползунка в процентах
+  const sliderPercent = days.length > 1 ? (currentIndex / (days.length - 1)) * 100 : 50;
+
+  // Определяем какие даты показывать с эффектом fish-eye
+  const getDateVisibility = (index) => {
+    const activeIndex = hoverIndex !== null ? hoverIndex : currentIndex;
+    const distance = Math.abs(index - activeIndex);
+
+    if (distance === 0) return { show: true, scale: 1, opacity: 1, showFull: true };
+    if (distance <= 2) return { show: true, scale: 0.85, opacity: 0.9, showFull: true };
+    if (distance <= 4) return { show: true, scale: 0.7, opacity: 0.6, showFull: false };
+    return { show: false, scale: 0.5, opacity: 0, showFull: false };
+  };
+
+  // Определяем тип штриха
+  const getTickType = (day, index) => {
+    // Первый день месяца - большой штрих
+    if (day.day === 1) return 'month';
+    // Понедельник - средний штрих
+    if (day.date.getDay() === 1) return 'week';
+    // Остальные - маленький
+    return 'day';
+  };
+
+  // Обработка перетаскивания
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    updateIndexFromEvent(e);
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      updateIndexFromEvent(e);
+    } else if (rulerRef.current) {
+      // Hover эффект
+      const rect = rulerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      const index = Math.round((percent / 100) * (days.length - 1));
+      setHoverIndex(index);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIndex(null);
+    if (isDragging) {
+      setIsDragging(false);
+    }
+  };
+
+  const updateIndexFromEvent = (e) => {
+    if (!rulerRef.current) return;
+    const rect = rulerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const newIndex = Math.round((percent / 100) * (days.length - 1));
+    onIndexChange(newIndex);
+  };
+
+  const handleTickClick = (index) => {
+    onIndexChange(index);
+    if (onDayClick && days[index]) {
+      onDayClick(days[index]);
+    }
+  };
+
+  // Группируем дни по месяцам для отображения меток
+  const monthLabels = useMemo(() => {
+    const labels = [];
+    let currentMonth = null;
+
+    days.forEach((day, index) => {
+      const monthKey = `${day.date.getFullYear()}-${day.date.getMonth()}`;
+      if (monthKey !== currentMonth) {
+        currentMonth = monthKey;
+        labels.push({
+          index,
+          month: day.date.toLocaleString('ru', { month: 'short' }),
+          year: day.date.getFullYear()
+        });
+      }
+    });
+
+    return labels;
+  }, [days]);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging]);
+
+  if (days.length === 0) return null;
+
+  return (
+    <div className="mt-3 px-2 select-none">
+      {/* Метки дат с fish-eye эффектом */}
+      <div className="relative h-6 mb-1">
+        {days.map((day, index) => {
+          const visibility = getDateVisibility(index);
+          if (!visibility.show) return null;
+
+          const left = days.length > 1 ? (index / (days.length - 1)) * 100 : 50;
+
+          return (
+            <div
+              key={index}
+              className="absolute transform -translate-x-1/2 transition-all duration-150 ease-out whitespace-nowrap"
+              style={{
+                left: `${left}%`,
+                opacity: visibility.opacity,
+                transform: `translateX(-50%) scale(${visibility.scale})`,
+                zIndex: visibility.showFull ? 10 : 1
+              }}
+            >
+              <span className={`text-xs font-medium ${index === currentIndex ? 'text-blue-600' : 'text-slate-500'}`}>
+                {visibility.showFull ? `${day.day} ${day.month}` : day.day}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Линейка со штрихами */}
+      <div
+        ref={rulerRef}
+        className="relative h-8 bg-slate-100 rounded-lg cursor-pointer"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Штрихи */}
+        <div className="absolute inset-0 flex items-end">
+          {days.map((day, index) => {
+            const tickType = getTickType(day, index);
+            const left = days.length > 1 ? (index / (days.length - 1)) * 100 : 50;
+
+            let tickHeight = 'h-2'; // day
+            let tickColor = 'bg-slate-300';
+
+            if (tickType === 'month') {
+              tickHeight = 'h-5';
+              tickColor = 'bg-slate-500';
+            } else if (tickType === 'week') {
+              tickHeight = 'h-3.5';
+              tickColor = 'bg-slate-400';
+            }
+
+            // Подсветка при наведении/выборе
+            if (index === currentIndex) {
+              tickColor = 'bg-blue-500';
+            } else if (hoverIndex !== null && Math.abs(index - hoverIndex) <= 2) {
+              tickColor = tickType === 'month' ? 'bg-blue-400' : tickType === 'week' ? 'bg-blue-300' : 'bg-blue-200';
+            }
+
+            return (
+              <div
+                key={index}
+                className={`absolute bottom-1 w-0.5 ${tickHeight} ${tickColor} rounded-full transition-all duration-100`}
+                style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTickClick(index);
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Метки месяцев под штрихами */}
+        <div className="absolute -bottom-5 left-0 right-0">
+          {monthLabels.map((label, i) => {
+            const left = days.length > 1 ? (label.index / (days.length - 1)) * 100 : 50;
+            return (
+              <span
+                key={i}
+                className="absolute text-[10px] text-slate-400 font-medium transform -translate-x-1/2"
+                style={{ left: `${left}%` }}
+              >
+                {label.month}
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Ползунок */}
+        <div
+          className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 transition-all duration-75"
+          style={{ left: `${sliderPercent}%` }}
+        >
+          <div className={`w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-lg ${isDragging ? 'scale-110' : ''} transition-transform`}>
+            <div className="w-full h-full rounded-full bg-blue-500 animate-pulse opacity-30 absolute inset-0" />
+          </div>
+        </div>
+      </div>
+
+      {/* Отступ для меток месяцев */}
+      <div className="h-4" />
+    </div>
+  );
+});
+
 function ActionReports({ user }) {
   // Состояния
   const [searchTerm, setSearchTerm] = useState('');
@@ -3529,32 +3746,27 @@ function ActionReports({ user }) {
           })}
         </div>
 
-        {/* Простой слайдер */}
-        <div className="mt-3 px-2">
-          <input
-            type="range"
-            min="0"
-            max={calendarDays.length - 1}
-            value={Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1))}
-            onChange={(e) => {
-              const dayIndex = Number(e.target.value);
-              const percent = (dayIndex / (calendarDays.length - 1)) * 100;
-              setCalendarScrollPercent(percent);
+        {/* Линейка-ползунок */}
+        <CalendarRuler
+          days={calendarDays}
+          currentIndex={Math.round((calendarScrollPercent / 100) * (calendarDays.length - 1)) || 0}
+          onIndexChange={(newIndex) => {
+            const percent = calendarDays.length > 1 ? (newIndex / (calendarDays.length - 1)) * 100 : 0;
+            setCalendarScrollPercent(percent);
 
-              // Скроллим карточки
-              if (calendarRef.current) {
-                const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
-                calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
-              }
+            // Скроллим карточки
+            if (calendarRef.current) {
+              const maxScroll = calendarRef.current.scrollWidth - calendarRef.current.clientWidth;
+              calendarRef.current.scrollLeft = (percent / 100) * maxScroll;
+            }
 
-              // Выбираем день
-              if (calendarDays[dayIndex]) {
-                setSelectedDate(calendarDays[dayIndex].date);
-              }
-            }}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-        </div>
+            // Выбираем день
+            if (calendarDays[newIndex]) {
+              setSelectedDate(calendarDays[newIndex].date);
+            }
+          }}
+          onDayClick={(day) => setSelectedDate(day.date)}
+        />
       </div>
 
       {/* Панель поиска и фильтров - стиль как в OffersTL */}
