@@ -52,7 +52,7 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
     // Поля для выборки (ID + названия)
     const selectFields = `
       source_id_tracker, source_tracker,
-      campaign_id, campaign_name_tracker,
+      campaign_id, campaign_name_tracker, campaign_name,
       adv_group_id, adv_group_name,
       adv_id, adv_name,
       account_id, account_name,
@@ -138,6 +138,7 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       const sourceName = row.source_tracker || sourceId;
       const campaignId = row.campaign_id;
       const campaignName = row.campaign_name_tracker || campaignId;
+      const campaignFbName = row.campaign_name || null; // Кампания FB
       const advGroupId = row.adv_group_id;
       const advGroupName = row.adv_group_name || advGroupId;
       const advId = row.adv_id;
@@ -159,6 +160,7 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
         hierarchy[sourceId].campaigns[campaignId] = {
           id: campaignId,
           name: campaignName,
+          fbName: campaignFbName, // Кампания FB
           isNew: isNewCampaign,
           advGroups: {}
         };
@@ -310,7 +312,7 @@ async function fetchAdsChangesBatch(offerRequests) {
 
     const selectFields = `
       offer_id_tracker, source_id_tracker, source_tracker,
-      campaign_id, campaign_name_tracker,
+      campaign_id, campaign_name_tracker, campaign_name,
       adv_group_id, adv_group_name,
       adv_id, adv_name,
       account_id, account_name,
@@ -320,7 +322,7 @@ async function fetchAdsChangesBatch(offerRequests) {
 
     // Один запрос на историю, один на target - для ВСЕХ офферов этой даты
     const sqlBefore = `
-      SELECT DISTINCT offer_id_tracker, source_id_tracker, campaign_id, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
+      SELECT DISTINCT offer_id_tracker, source_id_tracker, campaign_id, campaign_name, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
       FROM ads_collection
       WHERE offer_id_tracker IN (${offerIdsStr})
         AND source_id_tracker IN (${sourceIdsStr})
@@ -423,6 +425,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     const sourceName = row.source_tracker || sourceId;
     const campaignId = row.campaign_id;
     const campaignName = row.campaign_name_tracker || campaignId;
+    const campaignFbName = row.campaign_name || null; // Кампания FB
     const advGroupId = row.adv_group_id;
     const advGroupName = row.adv_group_name || advGroupId;
     const advId = row.adv_id;
@@ -435,7 +438,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     const isNewCampaign = campaignId && !historyIds.campaign_id.has(campaignId);
     if (campaignId && !hierarchy[sourceId].campaigns[campaignId]) {
       hierarchy[sourceId].campaigns[campaignId] = {
-        id: campaignId, name: campaignName, isNew: isNewCampaign, advGroups: {}
+        id: campaignId, name: campaignName, fbName: campaignFbName, isNew: isNewCampaign, advGroups: {}
       };
       if (isNewCampaign && !seenIds.campaign_id.has(campaignId)) {
         seenIds.campaign_id.add(campaignId);
@@ -4052,6 +4055,17 @@ function ActionReports({ user }) {
                                 <div className="flex items-start gap-1 py-1">
                                   <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
                                   <div className="flex-1 min-w-0">
+                                    {/* Кампания FB */}
+                                    {campaign.fbName && (
+                                      <div className="mb-1">
+                                        <div className="text-slate-500 text-xs">Кампания FB:</div>
+                                        <div>
+                                          <span className="font-medium text-blue-700">{campaign.fbName}</span>
+                                          <CopyButton value={campaign.fbName} size="xs" />
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Кампания (tracker) */}
                                     <div className="text-slate-500 text-xs">Кампания:</div>
                                     <div>
                                       <span className="font-medium text-slate-800">{campaign.name}</span>
