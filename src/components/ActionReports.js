@@ -3546,14 +3546,14 @@ function ActionReports({ user }) {
               const statusDisplay = getStatusDisplay(report);
               const metric = getReportMetric(report);
 
-              // Определение цвета рейтинга
+              // Определение цвета рейтинга (без подложки, только цвет текста)
               const getRatingColor = (rating) => {
                 switch (rating) {
-                  case 'A': return 'bg-green-100 text-green-800';
-                  case 'B': return 'bg-yellow-100 text-yellow-800';
-                  case 'C': return 'bg-orange-100 text-orange-800';
-                  case 'D': return 'bg-red-100 text-red-800';
-                  default: return 'bg-gray-100 text-gray-400';
+                  case 'A': return 'text-green-600';
+                  case 'B': return 'text-yellow-500';
+                  case 'C': return 'text-orange-500';
+                  case 'D': return 'text-red-500';
+                  default: return 'text-gray-400';
                 }
               };
 
@@ -3783,7 +3783,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-6" />
                       ) : (
                         <>
-                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(metric.lead_rating)}`}>
+                          <span className={`text-sm font-extrabold ${getRatingColor(metric.lead_rating)}`}>
                             {metric.lead_rating || '—'}
                           </span>
                           {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
