@@ -1799,12 +1799,13 @@ function ActionReports({ user }) {
   const [savedReports, setSavedReports] = useState([]); // Сохраненные отчеты
 
   // Фильтры для тимлида
-  const [selectedBuyerFilter, setSelectedBuyerFilter] = useState('all');
+  const [selectedBuyerFilter, setSelectedBuyerFilter] = useState([]); // Массив выбранных байеров (пустой = все)
   const [selectedActionFilter, setSelectedActionFilter] = useState([]); // Массив выбранных действий (пустой = все)
   const [selectedSubActionFilter, setSelectedSubActionFilter] = useState('all');
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
   const [hoveredAction, setHoveredAction] = useState(null);
+  const [hoveredTeamlead, setHoveredTeamlead] = useState(null);
 
   const [selectedDate, setSelectedDate] = useState(() => {
     // По умолчанию выбран сегодняшний день
@@ -2681,9 +2682,9 @@ function ActionReports({ user }) {
       reports = reports.filter(r => r.createdBy === user.id);
     }
 
-    // Фильтр по байеру (только для тимлида)
-    if (isUserTeamlead && selectedBuyerFilter !== 'all') {
-      reports = reports.filter(r => r.createdBy === selectedBuyerFilter);
+    // Фильтр по байеру (только для тимлида) - мультивыбор
+    if (isUserTeamlead && selectedBuyerFilter.length > 0) {
+      reports = reports.filter(r => selectedBuyerFilter.includes(r.createdBy));
     }
 
     // Фильтр по типу действия (мультивыбор) - проверяем все actions из JSONB
@@ -2742,12 +2743,52 @@ function ActionReports({ user }) {
         buyerMap.set(r.createdBy, {
           id: r.createdBy,
           name: r.createdByName || buyerUser?.name || 'Неизвестно',
-          avatar_url: buyerUser?.avatar_url || null
+          avatar_url: buyerUser?.avatar_url || null,
+          team_lead_id: buyerUser?.team_lead_id || null,
+          team_lead_name: buyerUser?.team_lead_name || null
         });
       }
     });
     return Array.from(buyerMap.values());
   }, [savedReports, allUsers]);
+
+  // Тимлиды с их байерами для фильтра
+  const teamleadsWithBuyers = useMemo(() => {
+    const teamleadMap = new Map();
+    const unassignedBuyers = [];
+
+    uniqueBuyers.forEach(buyer => {
+      if (buyer.team_lead_id) {
+        if (!teamleadMap.has(buyer.team_lead_id)) {
+          // Ищем тимлида в allUsers
+          const teamlead = allUsers.find(u => u.id === buyer.team_lead_id);
+          teamleadMap.set(buyer.team_lead_id, {
+            id: buyer.team_lead_id,
+            name: buyer.team_lead_name || teamlead?.name || 'Неизвестный TL',
+            avatar_url: teamlead?.avatar_url || null,
+            buyers: []
+          });
+        }
+        teamleadMap.get(buyer.team_lead_id).buyers.push(buyer);
+      } else {
+        unassignedBuyers.push(buyer);
+      }
+    });
+
+    const result = Array.from(teamleadMap.values());
+
+    // Добавляем байеров без тимлида в отдельную группу
+    if (unassignedBuyers.length > 0) {
+      result.push({
+        id: 'unassigned',
+        name: 'Без тимлида',
+        avatar_url: null,
+        buyers: unassignedBuyers
+      });
+    }
+
+    return result;
+  }, [uniqueBuyers, allUsers]);
 
   // Уникальные типы действий из отчетов (из JSONB массива actions)
   const uniqueActions = useMemo(() => {
@@ -3917,7 +3958,7 @@ function ActionReports({ user }) {
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-slate-400" />
 
-              {/* Фильтр по байеру */}
+              {/* Фильтр по байеру (мультивыбор с группировкой по тимлидам) */}
               <div className="relative" ref={buyerDropdownRef}>
                 <button
                   onClick={() => {
@@ -3925,68 +3966,140 @@ function ActionReports({ user }) {
                     setShowActionDropdown(false);
                   }}
                   className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                    selectedBuyerFilter !== 'all'
+                    selectedBuyerFilter.length > 0
                       ? 'bg-blue-50 border-blue-300 text-blue-700'
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {selectedBuyerFilter === 'all' ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      {uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.avatar_url ? (
-                        <img
-                          src={uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.avatar_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-3 w-3 text-gray-400" />
-                      )}
-                    </div>
-                  )}
-                  <span className="max-w-[100px] truncate">
-                    {selectedBuyerFilter === 'all' ? 'Все байеры' : uniqueBuyers.find(b => b.id === selectedBuyerFilter)?.name || 'Байер'}
+                  <User className="h-4 w-4" />
+                  <span className="max-w-[120px] truncate">
+                    {selectedBuyerFilter.length === 0
+                      ? 'Все байеры'
+                      : selectedBuyerFilter.length === 1
+                        ? uniqueBuyers.find(b => b.id === selectedBuyerFilter[0])?.name || 'Байер'
+                        : `Выбрано: ${selectedBuyerFilter.length}`
+                    }
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
 
+                {/* Кнопка сброса фильтра */}
+                {selectedBuyerFilter.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedBuyerFilter([]);
+                    }}
+                    className="absolute -right-7 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                    title="Сбросить фильтр"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+
                 {showBuyerDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                    {/* Все байеры */}
                     <button
                       onClick={() => {
-                        setSelectedBuyerFilter('all');
-                        setShowBuyerDropdown(false);
+                        setSelectedBuyerFilter([]);
                       }}
                       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
-                        selectedBuyerFilter === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                        selectedBuyerFilter.length === 0 ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
                       }`}
                     >
-                      <User className="h-5 w-5 text-slate-400" />
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        {selectedBuyerFilter.length === 0 && (
+                          <Check className="h-4 w-4 text-blue-600" />
+                        )}
+                      </div>
+                      <User className="h-4 w-4 text-slate-400" />
                       <span>Все байеры</span>
                     </button>
                     <div className="border-t border-slate-100 my-1" />
-                    {uniqueBuyers.map(buyer => (
-                      <button
-                        key={buyer.id}
-                        onClick={() => {
-                          setSelectedBuyerFilter(buyer.id);
-                          setShowBuyerDropdown(false);
-                        }}
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
-                          selectedBuyerFilter === buyer.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
-                          {buyer.avatar_url ? (
-                            <img src={buyer.avatar_url} alt={buyer.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <User className="h-3 w-3 text-gray-400" />
+
+                    {/* Список тимлидов с подменю */}
+                    {teamleadsWithBuyers.map((teamlead) => {
+                      // Проверяем, выбраны ли все байеры этого тимлида
+                      const allBuyersSelected = teamlead.buyers.every(b => selectedBuyerFilter.includes(b.id));
+                      const someBuyersSelected = teamlead.buyers.some(b => selectedBuyerFilter.includes(b.id));
+
+                      return (
+                        <div
+                          key={teamlead.id}
+                          className="relative"
+                          onMouseEnter={() => setHoveredTeamlead(teamlead.id)}
+                          onMouseLeave={() => setHoveredTeamlead(null)}
+                        >
+                          <button
+                            onClick={() => {
+                              // При клике на тимлида выбираем/снимаем всех его байеров
+                              if (allBuyersSelected) {
+                                setSelectedBuyerFilter(prev => prev.filter(id => !teamlead.buyers.some(b => b.id === id)));
+                              } else {
+                                const newIds = teamlead.buyers.map(b => b.id);
+                                setSelectedBuyerFilter(prev => [...new Set([...prev, ...newIds])]);
+                              }
+                            }}
+                            className={`flex items-center justify-between w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                              allBuyersSelected ? 'bg-blue-50 text-blue-700 font-medium' : someBuyersSelected ? 'text-blue-600' : 'text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-5 h-5 flex items-center justify-center">
+                                {allBuyersSelected && (
+                                  <Check className="h-4 w-4 text-blue-600" />
+                                )}
+                                {someBuyersSelected && !allBuyersSelected && (
+                                  <div className="w-2 h-2 bg-blue-400 rounded-sm" />
+                                )}
+                              </div>
+                              <span>{teamlead.name}</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          </button>
+
+                          {/* Подменю с байерами */}
+                          {hoveredTeamlead === teamlead.id && (
+                            <div className="absolute left-full top-0 ml-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-64 overflow-y-auto">
+                              {teamlead.buyers.map(buyer => {
+                                const isSelected = selectedBuyerFilter.includes(buyer.id);
+                                return (
+                                  <button
+                                    key={buyer.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isSelected) {
+                                        setSelectedBuyerFilter(prev => prev.filter(id => id !== buyer.id));
+                                      } else {
+                                        setSelectedBuyerFilter(prev => [...prev, buyer.id]);
+                                      }
+                                    }}
+                                    className={`flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
+                                      isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
+                                    }`}
+                                  >
+                                    <div className="w-4 h-4 flex items-center justify-center">
+                                      {isSelected && (
+                                        <Check className="h-3.5 w-3.5 text-blue-600" />
+                                      )}
+                                    </div>
+                                    <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                      {buyer.avatar_url ? (
+                                        <img src={buyer.avatar_url} alt={buyer.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <User className="h-3 w-3 text-gray-400" />
+                                      )}
+                                    </div>
+                                    <span className="truncate">{buyer.name}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
-                        <span className="truncate">{buyer.name}</span>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -4043,13 +4156,6 @@ function ActionReports({ user }) {
                       const isSelected = selectedActionFilter.includes(option.label);
                       const hasSubOptions = option.subOptions && option.subOptions.length > 0;
 
-                      // Цвет точки
-                      const dotColor = option.label === 'Перенастроил' ? 'bg-blue-500' :
-                        option.label === 'Новинка' ? 'bg-green-500' :
-                        option.label === 'ТЗ' ? 'bg-purple-500' :
-                        option.label === 'Закончились' ? 'bg-orange-500' :
-                        option.label === 'Вкл с прихода' ? 'bg-emerald-500' : 'bg-slate-400';
-
                       return (
                         <div
                           key={option.value}
@@ -4075,7 +4181,6 @@ function ActionReports({ user }) {
                                   <Check className="h-4 w-4 text-purple-600" />
                                 )}
                               </div>
-                              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
                               <span>{option.label}</span>
                             </div>
                             {hasSubOptions && (
@@ -4122,16 +4227,16 @@ function ActionReports({ user }) {
                 )}
               </div>
 
-              {/* Кнопка сброса фильтров */}
-              {(selectedBuyerFilter !== 'all' || selectedActionFilter.length > 0) && (
+              {/* Кнопка сброса всех фильтров */}
+              {(selectedBuyerFilter.length > 0 || selectedActionFilter.length > 0) && (
                 <button
                   onClick={() => {
-                    setSelectedBuyerFilter('all');
+                    setSelectedBuyerFilter([]);
                     setSelectedActionFilter([]);
                     setSelectedSubActionFilter('all');
                   }}
                   className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Сбросить фильтры"
+                  title="Сбросить все фильтры"
                 >
                   <X className="h-4 w-4" />
                 </button>
