@@ -4263,184 +4263,6 @@ function ActionReports({ user }) {
                   <X className="h-4 w-4" />
                 </button>
               )}
-
-              {/* Выбранные фильтры - красивые плашки */}
-              {(selectedBuyerFilter.length > 0 || selectedActionFilter.length > 0) && (
-                <div className="flex items-center gap-2 ml-2 pl-3 border-l border-slate-200">
-                  {/* Плашки для выбранных байеров */}
-                  {(() => {
-                    // Группируем выбранных байеров по тимлидам
-                    const selectedByTeamlead = new Map();
-                    selectedBuyerFilter.forEach(buyerId => {
-                      const buyer = uniqueBuyers.find(b => b.id === buyerId);
-                      if (buyer) {
-                        const tlId = buyer.team_lead_id || 'unassigned';
-                        if (!selectedByTeamlead.has(tlId)) {
-                          selectedByTeamlead.set(tlId, []);
-                        }
-                        selectedByTeamlead.get(tlId).push(buyer);
-                      }
-                    });
-
-                    const pills = [];
-
-                    selectedByTeamlead.forEach((buyers, tlId) => {
-                      const teamlead = teamleadsWithBuyers.find(tl => tl.id === tlId);
-                      const isFullTeam = teamlead && teamlead.buyers.length === buyers.length;
-
-                      if (isFullTeam) {
-                        // Вся команда выбрана
-                        pills.push(
-                          <span
-                            key={`team-${tlId}`}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200"
-                          >
-                            <User className="h-3 w-3" />
-                            Команда {teamlead?.name || 'TL'}
-                            <button
-                              onClick={() => {
-                                setSelectedBuyerFilter(prev =>
-                                  prev.filter(id => !buyers.some(b => b.id === id))
-                                );
-                              }}
-                              className="ml-0.5 hover:text-blue-900"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        );
-                      } else {
-                        // Отдельные байеры
-                        buyers.forEach(buyer => {
-                          pills.push(
-                            <span
-                              key={`buyer-${buyer.id}`}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full border border-slate-200"
-                            >
-                              {buyer.avatar_url ? (
-                                <img src={buyer.avatar_url} alt="" className="w-4 h-4 rounded-full" />
-                              ) : (
-                                <User className="h-3 w-3" />
-                              )}
-                              {buyer.name}
-                              <button
-                                onClick={() => {
-                                  setSelectedBuyerFilter(prev => prev.filter(id => id !== buyer.id));
-                                }}
-                                className="ml-0.5 hover:text-slate-900"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          );
-                        });
-                      }
-                    });
-
-                    return pills;
-                  })()}
-
-                  {/* Плашки для выбранных действий */}
-                  {(() => {
-                    // Группируем по родительским действиям
-                    const actionGroups = new Map();
-
-                    selectedActionFilter.forEach(action => {
-                      if (action.includes(': ')) {
-                        // Это подопция "Перенастроил: Крео"
-                        const [parent] = action.split(': ');
-                        if (!actionGroups.has(parent)) {
-                          actionGroups.set(parent, []);
-                        }
-                        actionGroups.get(parent).push(action);
-                      } else {
-                        // Это простое действие без подопций
-                        if (!actionGroups.has(action)) {
-                          actionGroups.set(action, []);
-                        }
-                      }
-                    });
-
-                    const pills = [];
-
-                    actionGroups.forEach((subActions, parentAction) => {
-                      const parentOption = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.label === parentAction);
-                      const hasSubOptions = parentOption?.subOptions && parentOption.subOptions.length > 0;
-
-                      if (hasSubOptions && subActions.length > 0) {
-                        // Проверяем, все ли подопции выбраны
-                        const allSubLabels = parentOption.subOptions.map(s => `${parentAction}: ${s.label}`);
-                        const allSelected = allSubLabels.every(l => selectedActionFilter.includes(l));
-
-                        if (allSelected) {
-                          // Все подопции выбраны - показываем как группу
-                          pills.push(
-                            <span
-                              key={`action-group-${parentAction}`}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full border border-purple-200"
-                            >
-                              <Zap className="h-3 w-3" />
-                              {parentAction} (все)
-                              <button
-                                onClick={() => {
-                                  setSelectedActionFilter(prev =>
-                                    prev.filter(a => !allSubLabels.includes(a))
-                                  );
-                                }}
-                                className="ml-0.5 hover:text-purple-900"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          );
-                        } else {
-                          // Отдельные подопции
-                          subActions.forEach(subAction => {
-                            const subLabel = subAction.split(': ')[1];
-                            pills.push(
-                              <span
-                                key={`action-${subAction}`}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full border border-purple-200"
-                              >
-                                {subLabel}
-                                <button
-                                  onClick={() => {
-                                    setSelectedActionFilter(prev => prev.filter(a => a !== subAction));
-                                  }}
-                                  className="ml-0.5 hover:text-purple-900"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </span>
-                            );
-                          });
-                        }
-                      } else if (!hasSubOptions) {
-                        // Простое действие без подопций
-                        pills.push(
-                          <span
-                            key={`action-${parentAction}`}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full border border-purple-200"
-                          >
-                            <Zap className="h-3 w-3" />
-                            {parentAction}
-                            <button
-                              onClick={() => {
-                                setSelectedActionFilter(prev => prev.filter(a => a !== parentAction));
-                              }}
-                              className="ml-0.5 hover:text-purple-900"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        );
-                      }
-                    });
-
-                    return pills;
-                  })()}
-                </div>
-              )}
             </div>
           )}
 
@@ -4528,6 +4350,200 @@ function ActionReports({ user }) {
           )}
         </div>
       </div>
+
+      {/* Выбранные фильтры - красивые плашки под фильтрами */}
+      {(selectedBuyerFilter.length > 0 || selectedActionFilter.length > 0) && (
+        <div className="bg-white border-b border-slate-200 px-6 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500 mr-1">Фильтры:</span>
+
+            {/* Плашки для выбранных байеров */}
+            {(() => {
+              // Группируем выбранных байеров по тимлидам
+              const selectedByTeamlead = new Map();
+              selectedBuyerFilter.forEach(buyerId => {
+                const buyer = uniqueBuyers.find(b => b.id === buyerId);
+                if (buyer) {
+                  const tlId = buyer.team_lead_id || 'unassigned';
+                  if (!selectedByTeamlead.has(tlId)) {
+                    selectedByTeamlead.set(tlId, []);
+                  }
+                  selectedByTeamlead.get(tlId).push(buyer);
+                }
+              });
+
+              const pills = [];
+
+              selectedByTeamlead.forEach((buyers, tlId) => {
+                const teamlead = teamleadsWithBuyers.find(tl => tl.id === tlId);
+                const isFullTeam = teamlead && teamlead.buyers.length === buyers.length;
+
+                if (isFullTeam) {
+                  // Вся команда выбрана
+                  pills.push(
+                    <span
+                      key={`team-${tlId}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 text-xs font-medium rounded-full border border-blue-200 shadow-sm"
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      Команда {teamlead?.name || 'TL'}
+                      <button
+                        onClick={() => {
+                          setSelectedBuyerFilter(prev =>
+                            prev.filter(id => !buyers.some(b => b.id === id))
+                          );
+                        }}
+                        className="ml-1 p-0.5 hover:bg-blue-200 rounded-full transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                } else {
+                  // Отдельные байеры
+                  buyers.forEach(buyer => {
+                    pills.push(
+                      <span
+                        key={`buyer-${buyer.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 text-xs font-medium rounded-full border border-slate-200 shadow-sm"
+                      >
+                        {buyer.avatar_url ? (
+                          <img src={buyer.avatar_url} alt="" className="w-4 h-4 rounded-full" />
+                        ) : (
+                          <User className="h-3.5 w-3.5 text-slate-400" />
+                        )}
+                        {buyer.name}
+                        <button
+                          onClick={() => {
+                            setSelectedBuyerFilter(prev => prev.filter(id => id !== buyer.id));
+                          }}
+                          className="ml-1 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    );
+                  });
+                }
+              });
+
+              return pills;
+            })()}
+
+            {/* Плашки для выбранных действий */}
+            {(() => {
+              // Группируем по родительским действиям
+              const actionGroups = new Map();
+
+              selectedActionFilter.forEach(action => {
+                if (action.includes(': ')) {
+                  // Это подопция "Перенастроил: Крео"
+                  const [parent] = action.split(': ');
+                  if (!actionGroups.has(parent)) {
+                    actionGroups.set(parent, []);
+                  }
+                  actionGroups.get(parent).push(action);
+                } else {
+                  // Это простое действие без подопций
+                  if (!actionGroups.has(action)) {
+                    actionGroups.set(action, []);
+                  }
+                }
+              });
+
+              const pills = [];
+
+              actionGroups.forEach((subActions, parentAction) => {
+                const parentOption = ACTION_OPTIONS_WITH_SUBMENU.find(o => o.label === parentAction);
+                const hasSubOptions = parentOption?.subOptions && parentOption.subOptions.length > 0;
+
+                if (hasSubOptions && subActions.length > 0) {
+                  // Проверяем, все ли подопции выбраны
+                  const allSubLabels = parentOption.subOptions.map(s => `${parentAction}: ${s.label}`);
+                  const allSelected = allSubLabels.every(l => selectedActionFilter.includes(l));
+
+                  if (allSelected) {
+                    // Все подопции выбраны - показываем как группу
+                    pills.push(
+                      <span
+                        key={`action-group-${parentAction}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 text-xs font-medium rounded-full border border-purple-200 shadow-sm"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        {parentAction} (все)
+                        <button
+                          onClick={() => {
+                            setSelectedActionFilter(prev =>
+                              prev.filter(a => !allSubLabels.includes(a))
+                            );
+                          }}
+                          className="ml-1 p-0.5 hover:bg-purple-200 rounded-full transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    );
+                  } else {
+                    // Отдельные подопции
+                    subActions.forEach(subAction => {
+                      const subLabel = subAction.split(': ')[1];
+                      pills.push(
+                        <span
+                          key={`action-${subAction}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-full border border-purple-200 shadow-sm"
+                        >
+                          <span className="text-purple-400">{parentAction}:</span>
+                          {subLabel}
+                          <button
+                            onClick={() => {
+                              setSelectedActionFilter(prev => prev.filter(a => a !== subAction));
+                            }}
+                            className="ml-1 p-0.5 hover:bg-purple-200 rounded-full transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    });
+                  }
+                } else if (!hasSubOptions) {
+                  // Простое действие без подопций
+                  pills.push(
+                    <span
+                      key={`action-${parentAction}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 text-xs font-medium rounded-full border border-purple-200 shadow-sm"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      {parentAction}
+                      <button
+                        onClick={() => {
+                          setSelectedActionFilter(prev => prev.filter(a => a !== parentAction));
+                        }}
+                        className="ml-1 p-0.5 hover:bg-purple-200 rounded-full transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                }
+              });
+
+              return pills;
+            })()}
+
+            {/* Кнопка очистить все */}
+            <button
+              onClick={() => {
+                setSelectedBuyerFilter([]);
+                setSelectedActionFilter([]);
+              }}
+              className="text-xs text-slate-400 hover:text-red-500 ml-2 flex items-center gap-1 transition-colors"
+            >
+              Очистить все
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Заголовки таблицы - стиль как в OffersTL */}
       <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 overflow-hidden">
