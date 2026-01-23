@@ -554,16 +554,13 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
  * @returns {Promise<{leads: number, cost: number, cpl: number}>}
  */
 async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParams) {
-  if (!offerId || !sourceIds?.length || !startDate || !newParams) {
-    return { leads: 0, cost: 0, cpl: 0 };
+  if (!offerId || !sourceIds?.length || !startDate) {
+    return { leads: 0, cost: 0, cpl: 0, activeDays: 0, todayStatus: 'red', dailyData: [], avgFirstZone: null, zonesByDate: [] };
   }
 
-  const { campaignIds, advGroupIds, advIds } = newParams;
+  const { campaignIds, advGroupIds, advIds } = newParams || {};
 
-  // Если нет новых параметров - возвращаем нули
-  if (!campaignIds?.length && !advGroupIds?.length && !advIds?.length) {
-    return { leads: 0, cost: 0, cpl: 0 };
-  }
+  // Если нет параметров - считаем по ВСЕМ данным оффера (без фильтра по кампаниям/группам/объявлениям)
 
   try {
     const sourceIdsStr = sourceIds.map(id => `'${id}'`).join(',');
@@ -3132,28 +3129,25 @@ function ActionReports({ user }) {
       if (offerRequests.length > 0) {
         const newCache = await fetchAdsChangesBatch(offerRequests);
 
-        // Рассчитываем CPL для каждого оффера с новыми параметрами
-        console.log('📊 Расчёт CPL для офферов с новыми параметрами...');
+        // Рассчитываем зоны для ВСЕХ офферов (не только с новыми параметрами)
+        console.log('📊 Расчёт зон для всех офферов...');
         await Promise.all(offerRequests.map(async (req) => {
           const cacheKey = `${req.offerId}_${req.targetDate}`;
-          const cacheEntry = newCache[cacheKey];
+          const cacheEntry = newCache[cacheKey] || {};
 
-          if (cacheEntry?.hasChanges && cacheEntry?.newParams) {
-            const { campaignIds, advGroupIds, advIds } = cacheEntry.newParams;
-            // Рассчитываем только если есть новые параметры
-            if (campaignIds?.length || advGroupIds?.length || advIds?.length) {
-              console.log(`🔄 Расчёт CPL для ${cacheKey}:`, { campaignIds, advGroupIds, advIds });
-              const cplData = await calculateCplFromNewParams(
-                req.offerId,
-                req.sourceIds,
-                req.targetDate,
-                cacheEntry.newParams
-              );
-              console.log(`💰 CPL результат для ${cacheKey}:`, cplData);
-              // Добавляем CPL данные в кэш
-              newCache[cacheKey] = { ...cacheEntry, cplData };
-            }
-          }
+          // Определяем параметры для расчёта - если есть новые, используем их; иначе пустые (считаем по всем данным)
+          const newParams = cacheEntry?.newParams || { campaignIds: [], advGroupIds: [], advIds: [] };
+
+          console.log(`🔄 Расчёт зон для ${cacheKey}:`, { hasChanges: cacheEntry?.hasChanges, newParams });
+          const cplData = await calculateCplFromNewParams(
+            req.offerId,
+            req.sourceIds,
+            req.targetDate,
+            newParams
+          );
+          console.log(`💰 CPL результат для ${cacheKey}:`, cplData);
+          // Добавляем CPL данные в кэш
+          newCache[cacheKey] = { ...cacheEntry, cplData };
         }));
 
         setAdsChangesCache(prev => ({ ...prev, ...newCache }));
@@ -3282,33 +3276,7 @@ function ActionReports({ user }) {
       case 'date':
         return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
       case 'zone':
-        // Показываем зоны эффективности оффера
-        return (
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                <span className="text-gray-600">Красная:</span>
-                <span className="font-mono font-medium">{data.metric?.red_zone_price != null ? `$${Number(data.metric.red_zone_price).toFixed(2)}` : '—'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-pink-400"></span>
-                <span className="text-gray-600">Розовая:</span>
-                <span className="font-mono font-medium">{data.metric?.pink_zone_price != null ? `$${Number(data.metric.pink_zone_price).toFixed(2)}` : '—'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
-                <span className="text-gray-600">Золотая:</span>
-                <span className="font-mono font-medium">{data.metric?.gold_zone_price != null ? `$${Number(data.metric.gold_zone_price).toFixed(2)}` : '—'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                <span className="text-gray-600">Зелёная:</span>
-                <span className="font-mono font-medium">{data.metric?.green_zone_price != null ? `$${Number(data.metric.green_zone_price).toFixed(2)}` : '—'}</span>
-              </div>
-            </div>
-          </div>
-        );
+        return <PaginatedZoneTable zonesByDate={data.zonesByDate} />;
       case 'season':
         return <div className="flex flex-col gap-3">
           <div><div className="text-xs font-medium text-gray-600 mb-1">Категория:</div><div className="text-sm">{data.category || '—'}</div></div>
@@ -4402,21 +4370,22 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* CPL зона - красная зона (first) из зон эффективности оффера */}
+                    {/* CPL зона - среднее red зоны за даты с уникальными параметрами */}
                     <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                      {loadingZones ? (
+                      {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-12" />
                       ) : (
                         <>
-                          {metric.red_zone_price != null ? (
+                          {metric.newParamsAvgFirstZone != null ? (
                             <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
-                              ${Number(metric.red_zone_price).toFixed(2)}
+                              ${Number(metric.newParamsAvgFirstZone).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>
                           )}
-                          {metric.red_zone_price != null && (
-                            <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
+                          {/* Иконка всегда если есть хоть какие-то данные или zonesByDate */}
+                          {(metric.newParamsZonesByDate?.length > 0 || metric.hasNewParamsData) && (
+                            <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article, zonesByDate: metric.newParamsZonesByDate || [] }, e)} />
                           )}
                         </>
                       )}
