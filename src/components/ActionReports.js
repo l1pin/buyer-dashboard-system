@@ -3821,7 +3821,8 @@ function ActionReports({ user }) {
 
       {/* Панель поиска и фильтров - стиль как в OffersTL */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
           {/* Кнопка фильтров */}
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -4103,6 +4104,52 @@ function ActionReports({ user }) {
               ))}
             </div>
           </div>
+          </div>
+
+          {/* Сводка метрик справа - компактная плашка */}
+          {filteredReports.length > 0 && (
+            <div className="flex items-center bg-slate-100 rounded-lg border border-slate-200 divide-x divide-slate-300 text-xs">
+              {/* CPL */}
+              <div className="flex items-center gap-1.5 px-3 py-2">
+                <span className="text-slate-500">CPL:</span>
+                <span className="font-bold text-slate-700 font-mono">
+                  {isAnyLoading ? '—' : aggregatedMetrics.avgCpl > 0 ? `$${aggregatedMetrics.avgCpl.toFixed(2)}` : '—'}
+                </span>
+              </div>
+              {/* Лиды */}
+              <div className="flex items-center gap-1.5 px-3 py-2">
+                <span className="text-slate-500">Лиды:</span>
+                <span className="font-bold text-slate-700 font-mono">
+                  {isAnyLoading ? '—' : aggregatedMetrics.totalLeads || '—'}
+                </span>
+              </div>
+              {/* Расход */}
+              <div className="flex items-center gap-1.5 px-3 py-2">
+                <span className="text-slate-500">Расход:</span>
+                <span className="font-bold text-slate-700 font-mono">
+                  {isAnyLoading ? '—' : aggregatedMetrics.totalCost > 0 ? `$${aggregatedMetrics.totalCost.toFixed(2)}` : '—'}
+                </span>
+              </div>
+              {/* Активные */}
+              <div className="flex items-center gap-1 px-3 py-2" title="Активные (сегодня есть траты)">
+                <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z"/>
+                </svg>
+                <span className="font-bold text-green-700">
+                  {isAnyLoading ? '—' : aggregatedMetrics.activeCount}
+                </span>
+              </div>
+              {/* На паузе */}
+              <div className="flex items-center gap-1 px-3 py-2" title="На паузе (нет данных сегодня)">
+                <svg className="w-3.5 h-3.5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2 6C2 4.11 2 3.17 2.59 2.59C3.17 2 4.11 2 6 2s2.83 0 3.41.59C10 3.17 10 4.11 10 6v12c0 1.89 0 2.83-.59 3.41C8.83 22 7.89 22 6 22s-2.83 0-3.41-.59C2 20.83 2 19.89 2 18V6zM14 6c0-1.89 0-2.83.59-3.41C15.17 2 16.11 2 18 2s2.83 0 3.41.59C22 3.17 22 4.11 22 6v12c0 1.89 0 2.83-.59 3.41-.58.59-1.52.59-3.41.59s-2.83 0-3.41-.59C14 20.83 14 19.89 14 18V6z"/>
+                </svg>
+                <span className="font-bold text-red-700">
+                  {isAnyLoading ? '—' : aggregatedMetrics.pausedCount}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
