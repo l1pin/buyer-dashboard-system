@@ -2716,6 +2716,42 @@ function ActionReports({ user }) {
     );
   }, [savedReports, searchTerm, selectedDate, user, selectedBuyerFilter, selectedActionFilter, selectedSubActionFilter]);
 
+  // Агрегированные метрики для отображаемых отчётов
+  const aggregatedMetrics = useMemo(() => {
+    let totalLeads = 0;
+    let totalCost = 0;
+    let activeCount = 0; // Зелёный статус (сегодня активно)
+    let pausedCount = 0; // Красный статус (на паузе)
+
+    filteredReports.forEach(report => {
+      const metric = getReportMetric(report);
+
+      // Считаем только офферы с уникальными параметрами
+      if (metric.hasUniqueParams) {
+        totalLeads += metric.newParamsLeads || 0;
+        totalCost += metric.newParamsCost || 0;
+
+        // Статус активности
+        if (metric.newParamsTodayStatus === 'green') {
+          activeCount++;
+        } else if (metric.newParamsTodayStatus === 'red') {
+          pausedCount++;
+        }
+      }
+    });
+
+    const avgCpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+    return {
+      totalLeads,
+      totalCost,
+      avgCpl,
+      activeCount,
+      pausedCount,
+      totalWithParams: activeCount + pausedCount
+    };
+  }, [filteredReports, getReportMetric]);
+
   // Уникальные байеры из отчетов (для фильтра тимлида)
   const uniqueBuyers = useMemo(() => {
     const buyerMap = new Map();
