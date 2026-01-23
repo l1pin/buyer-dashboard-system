@@ -4252,7 +4252,7 @@ function ActionReports({ user }) {
 
                     {/* CPL - только если есть уникальные параметры */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {loadingAdsChangesCache ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-10" />
                       ) : metric.hasUniqueParams ? (
                         <>
@@ -4268,7 +4268,7 @@ function ActionReports({ user }) {
 
                     {/* Лиды - только если есть уникальные параметры */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
-                      {loadingAdsChangesCache ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-8" />
                       ) : metric.hasUniqueParams ? (
                         <>
@@ -4284,7 +4284,7 @@ function ActionReports({ user }) {
 
                     {/* Расход - только если есть уникальные параметры */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {loadingAdsChangesCache ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-10" />
                       ) : metric.hasUniqueParams ? (
                         <>
@@ -4302,7 +4302,7 @@ function ActionReports({ user }) {
 
                     {/* Дней - количество дней с cost > 0 + индикатор активности сегодня (только если есть уникальные параметры) */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-xs font-mono">
-                      {loadingAdsChangesCache ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-6" />
                       ) : metric.hasUniqueParams ? (
                         <>
@@ -4344,7 +4344,7 @@ function ActionReports({ user }) {
 
                     {/* Рейтинг - loading при loadingCplLeads */}
                     <div className="w-[3%] min-w-[30px] flex items-center justify-center gap-1">
-                      {loadingCplLeads ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-6" />
                       ) : (
                         <>
@@ -4358,7 +4358,7 @@ function ActionReports({ user }) {
 
                     {/* ROI - loading при loadingZones */}
                     <div className="w-[5%] min-w-[38px] flex items-center justify-center">
-                      {loadingZones ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-10" />
                       ) : (
                         (() => {
@@ -4380,7 +4380,7 @@ function ActionReports({ user }) {
 
                     {/* CPL зона - среднее red зоны за даты с уникальными параметрами */}
                     <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                      {loadingAdsChangesCache ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-12" />
                       ) : metric.hasUniqueParams ? (
                         <>
@@ -4403,12 +4403,16 @@ function ActionReports({ user }) {
 
                     {/* Прибыль */}
                     <div className="w-[5%] min-w-[42px] text-center text-xs font-mono text-green-600 font-medium">
-                      {metric.profit != null ? `$${metric.profit}` : '—'}
+                      {isAnyLoading ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        metric.profit != null ? `$${metric.profit}` : '—'
+                      )}
                     </div>
 
                     {/* Дни - loading при loadingDays */}
                     <div className="w-[4%] min-w-[32px] text-center text-xs text-slate-700">
-                      {loadingDays ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-8" />
                       ) : (
                         metric.days_remaining ?? '—'
@@ -4417,7 +4421,7 @@ function ActionReports({ user }) {
 
                     {/* Ост. - loading при loadingStock */}
                     <div className="w-[4%] min-w-[32px] text-center text-xs font-mono text-slate-800">
-                      {loadingStock ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-8" />
                       ) : (
                         metric.stock_quantity ?? '—'
@@ -4426,22 +4430,26 @@ function ActionReports({ user }) {
 
                     {/* Приход - дней до прихода */}
                     <div className="w-[5%] min-w-[38px] text-center text-xs font-mono">
-                      {(() => {
-                        const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
-                        if (daysUntil === null) {
-                          return <span className="text-slate-400">—</span>;
-                        }
-                        return (
-                          <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
-                            {daysUntil}
-                          </span>
-                        );
-                      })()}
+                      {isAnyLoading ? (
+                        <SkeletonCell width="w-8" />
+                      ) : (
+                        (() => {
+                          const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
+                          if (daysUntil === null) {
+                            return <span className="text-slate-400">—</span>;
+                          }
+                          return (
+                            <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                              {daysUntil}
+                            </span>
+                          );
+                        })()
+                      )}
                     </div>
 
                     {/* Апрув - loading при loadingZones */}
                     <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                      {loadingZones ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-10" />
                       ) : (
                         metric.approve_percent != null ? `${metric.approve_percent}%` : '—'
@@ -4450,7 +4458,7 @@ function ActionReports({ user }) {
 
                     {/* Выкуп - loading при loadingZones */}
                     <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                      {loadingZones ? (
+                      {isAnyLoading ? (
                         <SkeletonCell width="w-10" />
                       ) : (
                         metric.sold_percent != null ? `${metric.sold_percent}%` : '—'
@@ -4459,14 +4467,22 @@ function ActionReports({ user }) {
 
                     {/* Сезон */}
                     <div className="w-[5%] min-w-[55px] text-center whitespace-nowrap">
-                      <span className="text-sm">{offerSeasons[report.article]?.length > 0
-                        ? offerSeasons[report.article].join('')
-                        : <span className="text-slate-400 text-xs">—</span>
-                      }</span>
+                      {isAnyLoading ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        <span className="text-sm">{offerSeasons[report.article]?.length > 0
+                          ? offerSeasons[report.article].join('')
+                          : <span className="text-slate-400 text-xs">—</span>
+                        }</span>
+                      )}
                     </div>
                     {/* Цена */}
                     <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
-                      {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
+                      {isAnyLoading ? (
+                        <SkeletonCell width="w-10" />
+                      ) : (
+                        metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'
+                      )}
                     </div>
                     <div className="w-[5%] min-w-[35px] text-center">
                       <button
