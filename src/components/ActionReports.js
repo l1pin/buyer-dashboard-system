@@ -1800,7 +1800,7 @@ function ActionReports({ user }) {
 
   // Фильтры для тимлида
   const [selectedBuyerFilter, setSelectedBuyerFilter] = useState('all');
-  const [selectedActionFilter, setSelectedActionFilter] = useState('all');
+  const [selectedActionFilter, setSelectedActionFilter] = useState([]); // Массив выбранных действий (пустой = все)
   const [selectedSubActionFilter, setSelectedSubActionFilter] = useState('all');
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
@@ -2686,9 +2686,9 @@ function ActionReports({ user }) {
       reports = reports.filter(r => r.createdBy === selectedBuyerFilter);
     }
 
-    // Фильтр по типу действия
-    if (selectedActionFilter !== 'all') {
-      reports = reports.filter(r => r.action === selectedActionFilter);
+    // Фильтр по типу действия (мультивыбор)
+    if (selectedActionFilter.length > 0) {
+      reports = reports.filter(r => selectedActionFilter.includes(r.action));
     }
 
     // Фильтр по подкатегории действия
@@ -3973,7 +3973,7 @@ function ActionReports({ user }) {
                 )}
               </div>
 
-              {/* Фильтр по типу действия */}
+              {/* Фильтр по типу действия (мультивыбор) */}
               <div className="relative" ref={actionDropdownRef}>
                 <button
                   onClick={() => {
@@ -3981,18 +3981,18 @@ function ActionReports({ user }) {
                     setShowBuyerDropdown(false);
                   }}
                   className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                    selectedActionFilter !== 'all'
+                    selectedActionFilter.length > 0
                       ? 'bg-purple-50 border-purple-300 text-purple-700'
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   <Zap className="h-4 w-4" />
-                  <span className="max-w-[120px] truncate">
-                    {selectedActionFilter === 'all'
+                  <span className="max-w-[150px] truncate">
+                    {selectedActionFilter.length === 0
                       ? 'Все действия'
-                      : selectedSubActionFilter !== 'all'
-                        ? `${selectedActionFilter}: ${selectedSubActionFilter}`
-                        : selectedActionFilter
+                      : selectedActionFilter.length === 1
+                        ? selectedActionFilter[0]
+                        : `Выбрано: ${selectedActionFilter.length}`
                     }
                   </span>
                   <ChevronDown className="h-4 w-4" />
@@ -4002,105 +4002,67 @@ function ActionReports({ user }) {
                   <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
                     <button
                       onClick={() => {
-                        setSelectedActionFilter('all');
+                        setSelectedActionFilter([]);
                         setSelectedSubActionFilter('all');
-                        setShowActionDropdown(false);
-                        setHoveredAction(null);
                       }}
                       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
-                        selectedActionFilter === 'all' ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
+                        selectedActionFilter.length === 0 ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
                       }`}
                     >
-                      <Zap className="h-5 w-5 text-slate-400" />
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        {selectedActionFilter.length === 0 && (
+                          <Check className="h-4 w-4 text-purple-600" />
+                        )}
+                      </div>
+                      <Zap className="h-4 w-4 text-slate-400" />
                       <span>Все действия</span>
                     </button>
                     <div className="border-t border-slate-100 my-1" />
-                    {uniqueActions.map(({ action, subActions }) => (
-                      <div
-                        key={action}
-                        className="relative"
-                        onMouseEnter={() => setHoveredAction(action)}
-                        onMouseLeave={() => setHoveredAction(null)}
-                      >
+                    {uniqueActions.map(({ action, subActions }) => {
+                      const isSelected = selectedActionFilter.includes(action);
+                      return (
                         <button
+                          key={action}
                           onClick={() => {
-                            if (subActions.length === 0) {
-                              setSelectedActionFilter(action);
-                              setSelectedSubActionFilter('all');
-                              setShowActionDropdown(false);
+                            if (isSelected) {
+                              // Убираем из выбранных
+                              setSelectedActionFilter(prev => prev.filter(a => a !== action));
+                            } else {
+                              // Добавляем к выбранным
+                              setSelectedActionFilter(prev => [...prev, action]);
                             }
+                            setSelectedSubActionFilter('all');
                           }}
-                          className={`flex items-center justify-between w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
-                            selectedActionFilter === action ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
+                          className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                            isSelected ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className={`w-2 h-2 rounded-full ${
-                              action === 'Перенастроил' ? 'bg-blue-500' :
-                              action === 'Новинка' ? 'bg-green-500' :
-                              action === 'ТЗ' ? 'bg-purple-500' :
-                              action === 'Выключил' ? 'bg-red-500' :
-                              action === 'Включил' ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`} />
-                            <span>{action}</span>
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-purple-600" />
+                            )}
                           </div>
-                          {subActions.length > 0 && (
-                            <ChevronRight className="h-4 w-4 text-slate-400" />
-                          )}
+                          <span className={`w-2 h-2 rounded-full ${
+                            action === 'Перенастроил' ? 'bg-blue-500' :
+                            action === 'Новинка' ? 'bg-green-500' :
+                            action === 'ТЗ' ? 'bg-purple-500' :
+                            action === 'Выключил' ? 'bg-red-500' :
+                            action === 'Включил' ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`} />
+                          <span>{action}</span>
                         </button>
-
-                        {/* Подменю для подкатегорий */}
-                        {subActions.length > 0 && hoveredAction === action && (
-                          <div className="absolute left-full top-0 ml-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
-                            <button
-                              onClick={() => {
-                                setSelectedActionFilter(action);
-                                setSelectedSubActionFilter('all');
-                                setShowActionDropdown(false);
-                                setHoveredAction(null);
-                              }}
-                              className={`flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                                selectedActionFilter === action && selectedSubActionFilter === 'all'
-                                  ? 'bg-purple-50 text-purple-700 font-medium'
-                                  : 'text-slate-700'
-                              }`}
-                            >
-                              Все «{action}»
-                            </button>
-                            <div className="border-t border-slate-100 my-1" />
-                            {subActions.map(sub => (
-                              <button
-                                key={sub}
-                                onClick={() => {
-                                  setSelectedActionFilter(action);
-                                  setSelectedSubActionFilter(sub);
-                                  setShowActionDropdown(false);
-                                  setHoveredAction(null);
-                                }}
-                                className={`flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                                  selectedActionFilter === action && selectedSubActionFilter === sub
-                                    ? 'bg-purple-50 text-purple-700 font-medium'
-                                    : 'text-slate-600'
-                                }`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                {sub}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
               {/* Кнопка сброса фильтров */}
-              {(selectedBuyerFilter !== 'all' || selectedActionFilter !== 'all') && (
+              {(selectedBuyerFilter !== 'all' || selectedActionFilter.length > 0) && (
                 <button
                   onClick={() => {
                     setSelectedBuyerFilter('all');
-                    setSelectedActionFilter('all');
+                    setSelectedActionFilter([]);
                     setSelectedSubActionFilter('all');
                   }}
                   className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
