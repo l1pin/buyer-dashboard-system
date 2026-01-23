@@ -493,6 +493,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
   // Подсчет и сбор новых ID для расчёта CPL
   let newCampaigns = 0, newAdvGroups = 0, newAds = 0, newBudgets = 0, newCreatives = 0, newLandings = 0;
   const newCampaignIds = [];
+  const newCampaignNames = []; // FB campaign names
   const newAdvGroupIds = [];
   const newAdvIds = [];
 
@@ -501,6 +502,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
       if (campaign.isNew) {
         newCampaigns++;
         newCampaignIds.push(campaign.id);
+        if (campaign.fbName) newCampaignNames.push(campaign.fbName);
       }
       Object.values(campaign.advGroups).forEach(advGroup => {
         if (advGroup.isNew) {
@@ -531,6 +533,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     // Новые ID для расчёта CPL
     newParams: {
       campaignIds: newCampaignIds,
+      campaignNames: newCampaignNames, // FB campaign names
       advGroupIds: newAdvGroupIds,
       advIds: newAdvIds
     }
