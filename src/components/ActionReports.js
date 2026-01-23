@@ -2686,9 +2686,16 @@ function ActionReports({ user }) {
       reports = reports.filter(r => r.createdBy === selectedBuyerFilter);
     }
 
-    // Фильтр по типу действия (мультивыбор)
+    // Фильтр по типу действия (мультивыбор) - проверяем все actions из JSONB
     if (selectedActionFilter.length > 0) {
-      reports = reports.filter(r => selectedActionFilter.includes(r.action));
+      reports = reports.filter(r => {
+        // Проверяем массив actions
+        if (r.actions && Array.isArray(r.actions)) {
+          return r.actions.some(act => selectedActionFilter.includes(act.action_type));
+        }
+        // Фолбэк на старое поле
+        return selectedActionFilter.includes(r.action);
+      });
     }
 
     // Фильтр по подкатегории действия
@@ -2732,25 +2739,26 @@ function ActionReports({ user }) {
     return Array.from(buyerMap.values());
   }, [savedReports, allUsers]);
 
-  // Уникальные типы действий из отчетов
+  // Уникальные типы действий из отчетов (из JSONB массива actions)
   const uniqueActions = useMemo(() => {
-    const actionMap = new Map();
+    const actionSet = new Set();
+
     savedReports.forEach(r => {
-      if (r.action && !actionMap.has(r.action)) {
-        // Собираем подкатегории для этого действия
-        const subActions = new Set();
-        savedReports.forEach(report => {
-          if (report.action === r.action && report.subAction) {
-            subActions.add(report.subAction);
+      // Собираем все action_type из массива actions
+      if (r.actions && Array.isArray(r.actions)) {
+        r.actions.forEach(act => {
+          if (act.action_type) {
+            actionSet.add(act.action_type);
           }
         });
-        actionMap.set(r.action, {
-          action: r.action,
-          subActions: Array.from(subActions)
-        });
+      }
+      // Фолбэк на старое поле action
+      if (r.action) {
+        actionSet.add(r.action);
       }
     });
-    return Array.from(actionMap.values());
+
+    return Array.from(actionSet).map(action => ({ action, subActions: [] }));
   }, [savedReports]);
 
   // Получение цвета статуса и дней в статусе - данные подтягиваются динамически
