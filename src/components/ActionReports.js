@@ -4063,7 +4063,7 @@ function ActionReports({ user }) {
                                   <div className="flex-1 min-w-0">
                                     <div className="text-slate-500 text-xs">Кампания FB:</div>
                                     <div>
-                                      <span className="font-medium text-blue-700">{campaign.fbName || '—'}</span>
+                                      <span className="font-medium text-slate-800">{campaign.fbName || '—'}</span>
                                       {campaign.fbName && <CopyButton value={campaign.fbName} size="xs" />}
                                       {campaign.isNew && (
                                         <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
@@ -4077,7 +4077,7 @@ function ActionReports({ user }) {
 
                                 {/* Уровень 2: Кампания трекер */}
                                 <div className="flex items-start gap-1 py-1">
-                                  <span className="text-slate-400 whitespace-pre">{campChildPrefix}├── </span>
+                                  <span className="text-slate-400 whitespace-pre">{campChildPrefix}└── </span>
                                   <div className="flex-1 min-w-0">
                                     <div className="text-slate-500 text-xs">Кампания трекер:</div>
                                     <div>
@@ -4097,8 +4097,8 @@ function ActionReports({ user }) {
                                   const isLastGroup = groupIdx === groupArr.length - 1;
                                   const groupPrefix = isLastGroup ? '└── ' : '├── ';
                                   const groupChildPrefix = isLastGroup ? '    ' : '│   ';
-                                  // Дополнительный отступ для уровня трекера
-                                  const trackerChildPrefix = '│   ';
+                                  // Отступ под трекером (трекер использует └── поэтому пробелы)
+                                  const trackerChildPrefix = '    ';
 
                                   return (
                                   <div key={advGroup.id}>
