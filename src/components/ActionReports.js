@@ -3454,6 +3454,7 @@ function ActionReports({ user }) {
           <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left`}>Название</div>
           <div className="w-[5%] min-w-[45px] text-center">Статус</div>
           {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
+          <div className="w-[10%] min-w-[90px] text-center">Действия</div>
           <div className="w-[5%] min-w-[50px] text-center">Когда</div>
           <div className="w-[5%] min-w-[42px] text-center">CPL</div>
           <div className="w-[4%] min-w-[35px] text-center">Лиды</div>
@@ -3537,11 +3538,6 @@ function ActionReports({ user }) {
                 return null;
               };
 
-              // Формирование текста действия
-              const actionText = report.subAction
-                ? `${report.action}: ${report.subAction}${report.customText ? ` — ${report.customText}` : ''}`
-                : report.action || '—';
-
               return (
                 <div
                   key={report.id}
@@ -3599,6 +3595,44 @@ function ActionReports({ user }) {
                       })()}
                     </div>
                   )}
+
+                    {/* Действия - бейджи */}
+                    <div className="w-[10%] min-w-[90px] flex flex-col items-center justify-center gap-0.5 py-1">
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium truncate max-w-[70px] ${getActionColor(report.action)}`} title={report.action}>
+                          {report.action}
+                        </span>
+                        {/* Иконка журнала изменений - только для тимлида */}
+                        {isTeamlead && (
+                          <button
+                            onClick={() => handleViewChanges(report)}
+                            className="p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Журнал изменений в рекламе"
+                          >
+                            <FileText className="h-3 w-3" />
+                          </button>
+                        )}
+                        {/* Trello ссылка */}
+                        {report.trelloLink && (
+                          <a
+                            href={report.trelloLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-0.5 text-blue-500 hover:text-blue-700 rounded transition-colors"
+                            title="Открыть в Trello"
+                          >
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                      {report.subAction && (
+                        <span className="text-[9px] text-slate-500 truncate max-w-full" title={`${report.subAction}${report.customText ? ` — ${report.customText}` : ''}`}>
+                          → {report.subAction}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Когда - На завтра/Сегодня */}
                     <div className="w-[5%] min-w-[50px] flex items-center justify-center">
@@ -3822,34 +3856,6 @@ function ActionReports({ user }) {
                     </div>
                   </div>
 
-                  {/* Панель с типом действия */}
-                  <div className={`px-4 py-2 border-t ${getActionColor(report.action)} flex items-center gap-3`}>
-                    <span className="text-xs font-semibold uppercase tracking-wide opacity-60">Действие:</span>
-                    <span className="text-sm font-medium">{actionText}</span>
-                    {/* Иконка журнала изменений - только для тимлида */}
-                    {isTeamlead && (
-                      <button
-                        onClick={() => handleViewChanges(report)}
-                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Журнал изменений в рекламе"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </button>
-                    )}
-                    {report.trelloLink && (
-                      <a
-                        href={report.trelloLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-auto text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                      >
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
-                        </svg>
-                        Trello
-                      </a>
-                    )}
-                  </div>
                 </div>
               );
             })}
