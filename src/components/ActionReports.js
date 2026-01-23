@@ -992,11 +992,42 @@ const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
   </svg>
 ));
 
-// Компонент skeleton для ячейки таблицы
+// Компонент skeleton для ячейки таблицы с анимацией появления
 function SkeletonCell({ width = 'w-10' }) {
   return (
-    <div className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto`} />
+    <div
+      className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto`}
+      style={{ animation: 'fadeIn 0.2s ease-in' }}
+    />
   );
+}
+
+// Компонент-обёртка для плавного появления данных
+function DataCell({ children, className = '' }) {
+  return (
+    <div
+      className={className}
+      style={{ animation: 'fadeIn 0.3s ease-out' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// CSS keyframes (добавляем через style tag)
+const animationStyles = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+`;
+
+// Инжектим стили один раз
+if (typeof document !== 'undefined' && !document.getElementById('action-reports-animations')) {
+  const styleTag = document.createElement('style');
+  styleTag.id = 'action-reports-animations';
+  styleTag.textContent = animationStyles;
+  document.head.appendChild(styleTag);
 }
 
 // Расчет дней до прихода
@@ -4148,7 +4179,13 @@ function ActionReports({ user }) {
                   className="bg-white border-b border-slate-200 hover:bg-slate-50 transition-colors"
                 >
                   {/* Основная строка с метриками */}
-                  <div className="flex items-center text-sm px-4 py-2.5">
+                  <div
+                    className="flex items-center text-sm px-4 py-2.5"
+                    style={{
+                      animation: isAnyLoading ? 'none' : 'fadeIn 0.3s ease-out',
+                      transition: 'opacity 0.2s ease-in-out'
+                    }}
+                  >
                     <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
