@@ -4168,8 +4168,8 @@ function ActionReports({ user }) {
               </div>
               {/* Активные */}
               <div className="flex items-center gap-1 px-3 py-2" title="Активные (сегодня есть траты)">
-                <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z"/>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                  <path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z" stroke="#16a34a" strokeWidth="2.5"/>
                 </svg>
                 <span className="font-bold text-green-700">
                   {isAnyLoading ? '—' : aggregatedMetrics.activeCount}
@@ -4177,11 +4177,19 @@ function ActionReports({ user }) {
               </div>
               {/* На паузе */}
               <div className="flex items-center gap-1 px-3 py-2" title="На паузе (нет данных сегодня)">
-                <svg className="w-3.5 h-3.5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M2 6C2 4.11 2 3.17 2.59 2.59C3.17 2 4.11 2 6 2s2.83 0 3.41.59C10 3.17 10 4.11 10 6v12c0 1.89 0 2.83-.59 3.41C8.83 22 7.89 22 6 22s-2.83 0-3.41-.59C2 20.83 2 19.89 2 18V6zM14 6c0-1.89 0-2.83.59-3.41C15.17 2 16.11 2 18 2s2.83 0 3.41.59C22 3.17 22 4.11 22 6v12c0 1.89 0 2.83-.59 3.41-.58.59-1.52.59-3.41.59s-2.83 0-3.41-.59C14 20.83 14 19.89 14 18V6z"/>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                  <path d="M2 6C2 4.11438 2 3.17157 2.58579 2.58579C3.17157 2 4.11438 2 6 2C7.88562 2 8.82843 2 9.41421 2.58579C10 3.17157 10 4.11438 10 6V18C10 19.8856 10 20.8284 9.41421 21.4142C8.82843 22 7.88562 22 6 22C4.11438 22 3.17157 22 2.58579 21.4142C2 20.8284 2 19.8856 2 18V6Z" stroke="#dc2626" strokeWidth="2.5"/>
+                  <path d="M14 6C14 4.11438 14 3.17157 14.5858 2.58579C15.1716 2 16.1144 2 18 2C19.8856 2 20.8284 2 21.4142 2.58579C22 3.17157 22 4.11438 22 6V18C22 19.8856 22 20.8284 21.4142 21.4142C20.8284 22 19.8856 22 18 22C16.1144 22 15.1716 22 14.5858 21.4142C14 20.8284 14 19.8856 14 18V6Z" stroke="#dc2626" strokeWidth="2.5"/>
                 </svg>
                 <span className="font-bold text-red-700">
                   {isAnyLoading ? '—' : aggregatedMetrics.pausedCount}
+                </span>
+              </div>
+              {/* Сумма */}
+              <div className="flex items-center gap-1 px-3 py-2" title="Всего офферов с уникальными параметрами">
+                <span className="text-slate-500 font-medium">Σ</span>
+                <span className="font-bold text-slate-700">
+                  {isAnyLoading ? '—' : aggregatedMetrics.totalWithParams}
                 </span>
               </div>
             </div>
