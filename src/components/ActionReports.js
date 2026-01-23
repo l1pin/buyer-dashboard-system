@@ -3525,6 +3525,18 @@ function ActionReports({ user }) {
                 }
               };
 
+              // Цвет ROI на основе зоны оффера (как в Метрики аналитика)
+              const getZoneColors = (zoneName) => {
+                if (!zoneName) return null;
+                const name = zoneName.toLowerCase();
+                if (name.includes('sos')) return { bg: 'bg-black', text: 'text-yellow-400', border: 'border-black' };
+                if (name.includes('красн')) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+                if (name.includes('розов')) return { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' };
+                if (name.includes('золот')) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+                if (name.includes('зелен')) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+                return null;
+              };
+
               // Формирование текста действия
               const actionText = report.subAction
                 ? `${report.action}: ${report.subAction}${report.customText ? ` — ${report.customText}` : ''}`
@@ -3691,11 +3703,24 @@ function ActionReports({ user }) {
                     </div>
 
                     {/* ROI - loading при loadingZones */}
-                    <div className="w-[5%] min-w-[38px] text-center text-xs font-mono text-slate-700">
+                    <div className="w-[5%] min-w-[38px] flex items-center justify-center">
                       {loadingZones ? (
                         <SkeletonCell width="w-10" />
                       ) : (
-                        metric.actual_roi_percent != null ? `${metric.actual_roi_percent}%` : '—'
+                        (() => {
+                          const zoneColors = getZoneColors(metric.offer_zone);
+                          if (metric.actual_roi_percent != null) {
+                            if (zoneColors) {
+                              return (
+                                <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+                                  {Number(metric.actual_roi_percent).toFixed(1)}%
+                                </span>
+                              );
+                            }
+                            return <span className="font-mono text-xs text-slate-700">{Number(metric.actual_roi_percent).toFixed(1)}%</span>;
+                          }
+                          return <span className="text-gray-400 text-xs">—</span>;
+                        })()
                       )}
                     </div>
 
