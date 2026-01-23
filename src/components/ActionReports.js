@@ -29,6 +29,7 @@ import { updateStocksFromYml } from '../scripts/offers/Offers_stock';
 import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql, aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
 import TooltipManager from './TooltipManager';
+import BuyerMetricsCalendar from './BuyerMetricsCalendar';
 
 // URL для SQL API
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
@@ -1650,6 +1651,10 @@ function ActionReports({ user }) {
   const [adsChangesCache, setAdsChangesCache] = useState({}); // Кэш: { `${offerId}_${date}`: changes }
   const [loadingAdsChangesCache, setLoadingAdsChangesCache] = useState(false);
 
+  // Состояние для календаря метрик байеров
+  const [showMetricsCalendar, setShowMetricsCalendar] = useState(false);
+  const [metricsCalendarData, setMetricsCalendarData] = useState(null);
+
   // Ref для горизонтального скролла календаря
   const calendarRef = useRef(null);
   const buyerDropdownRef = useRef(null);
@@ -2226,6 +2231,87 @@ function ActionReports({ user }) {
       const title = getTooltipTitleSync('changes', report.article);
       const content = renderTooltipContentSync('changes', { error: error.message });
       tooltipManagerRef.current.open(tooltipId, title, content, position);
+    }
+  };
+
+  // Открыть календарь метрик для артикула (все байеры)
+  const handleOpenMetricsCalendar = async (article) => {
+    const offerId = articleOfferMap[article];
+    if (!offerId) {
+      console.warn('❌ Не найден offer_id для артикула:', article);
+      return;
+    }
+
+    try {
+      // 1. Получаем все уникальные source_id_tracker для этого оффера
+      const sqlSourceIds = `
+        SELECT DISTINCT source_id_tracker
+        FROM ads_collection
+        WHERE offer_id_tracker = '${offerId}'
+          AND cost > 0
+      `;
+
+      const response = await fetch(CORE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assoc: true, sql: sqlSourceIds })
+      });
+      const sourceIdsData = await response.json();
+
+      if (!sourceIdsData || sourceIdsData.length === 0) {
+        console.warn('⚠️ Нет данных о source_id для этого оффера');
+        return;
+      }
+
+      const sourceIdsSet = new Set(sourceIdsData.map(r => r.source_id_tracker));
+      console.log('📋 Найдено source_ids:', sourceIdsSet.size);
+
+      // 2. Находим байеров по source_id в их traffic_channels
+      const buyersMap = new Map(); // buyerId -> buyerData
+
+      allUsers.forEach(user => {
+        if (user.role !== 'buyer') return;
+        const trafficChannels = user.buyer_settings?.traffic_channels || [];
+
+        trafficChannels.forEach(channel => {
+          if (sourceIdsSet.has(channel.channel_id)) {
+            if (!buyersMap.has(user.id)) {
+              buyersMap.set(user.id, {
+                buyerId: user.id,
+                buyerName: user.name,
+                avatarUrl: user.avatar_url,
+                source: channel.source || 'Facebook',
+                sourceIds: [],
+                trafficChannels: trafficChannels
+              });
+            }
+            const buyerData = buyersMap.get(user.id);
+            if (!buyerData.sourceIds.includes(channel.channel_id)) {
+              buyerData.sourceIds.push(channel.channel_id);
+            }
+          }
+        });
+      });
+
+      const allBuyers = Array.from(buyersMap.values());
+      console.log('👥 Найдено байеров:', allBuyers.length, allBuyers.map(b => b.buyerName));
+
+      if (allBuyers.length === 0) {
+        console.warn('⚠️ Не найдено байеров для этого оффера');
+        return;
+      }
+
+      // 3. Открываем календарь метрик
+      setMetricsCalendarData({
+        allBuyers,
+        selectedBuyerName: allBuyers[0]?.buyerName,
+        article,
+        source: allBuyers[0]?.source || 'Facebook'
+      });
+      setShowMetricsCalendar(true);
+
+    } catch (error) {
+      console.error('❌ Ошибка загрузки данных для календаря:', error);
     }
   };
 
@@ -3861,7 +3947,11 @@ function ActionReports({ user }) {
                     {index + 1}
                   </div>
                   <div className="w-[6%] min-w-[55px] text-center">
-                    <span className="font-mono text-xs text-slate-800">
+                    <span
+                      className="font-mono text-xs text-slate-800 font-bold cursor-pointer hover:text-blue-600 transition-colors"
+                      onClick={() => handleOpenMetricsCalendar(report.article)}
+                      title="Открыть календарь метрик"
+                    >
                       {report.article}
                     </span>
                   </div>
@@ -4326,6 +4416,20 @@ function ActionReports({ user }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Календарь метрик байеров */}
+      {showMetricsCalendar && metricsCalendarData && (
+        <BuyerMetricsCalendar
+          allBuyers={metricsCalendarData.allBuyers}
+          selectedBuyerName={metricsCalendarData.selectedBuyerName}
+          article={metricsCalendarData.article}
+          source={metricsCalendarData.source}
+          onClose={() => {
+            setShowMetricsCalendar(false);
+            setMetricsCalendarData(null);
+          }}
+        />
       )}
 
       {/* Менеджер тултипов */}
