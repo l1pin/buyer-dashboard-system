@@ -1683,7 +1683,7 @@ const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) =
       {/* Линейка со штрихами */}
       <div
         ref={rulerRef}
-        className="relative h-10 bg-slate-100 rounded-lg cursor-pointer"
+        className="relative h-10 cursor-pointer"
         onMouseDown={handleMouseDown}
         onClick={handleClick}
       >
@@ -1697,11 +1697,8 @@ const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) =
             let tickColor = 'bg-slate-300';
 
             if (tickType === 'month') {
-              tickHeight = 20;
+              tickHeight = 16;
               tickColor = 'bg-slate-500';
-            } else if (tickType === 'week') {
-              tickHeight = 12;
-              tickColor = 'bg-slate-400';
             }
 
             const isActive = index === currentIndex;
