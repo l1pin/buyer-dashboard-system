@@ -3134,11 +3134,11 @@ function ActionReports({ user }) {
                           <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-slate-500 text-[9px]">Кампания FB:</div>
-                            <div className="flex items-center gap-1 flex-wrap">
+                            <div>
                               <span className="font-medium text-slate-800">{campaign.fbName || '—'}</span>
                               {campaign.fbName && <CopyButton value={campaign.fbName} size="xs" />}
                               {campaign.isNew && (
-                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                               )}
                             </div>
                             <div className="text-[9px] text-slate-400">
@@ -3151,7 +3151,7 @@ function ActionReports({ user }) {
                           <span className="text-slate-400 whitespace-pre">{campChildPrefix}└── </span>
                           <div className="flex-1 min-w-0">
                             <div className="text-slate-500 text-[9px]">Кампания трекер:</div>
-                            <div className="flex items-center gap-1 flex-wrap">
+                            <div>
                               <span className="font-medium text-slate-800">{campaign.name}</span>
                               <CopyButton value={campaign.name} size="xs" />
                             </div>
@@ -3175,11 +3175,11 @@ function ActionReports({ user }) {
                                 <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupPrefix}</span>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-slate-500 text-[9px]">Группа:</div>
-                                  <div className="flex items-center gap-1 flex-wrap">
+                                  <div>
                                     <span className="font-medium text-slate-700">{advGroup.name}</span>
                                     <CopyButton value={advGroup.name} size="xs" />
                                     {advGroup.isNew && (
-                                      <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                      <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                     )}
                                   </div>
                                   <div className="text-[9px] text-slate-400">
@@ -3206,11 +3206,11 @@ function ActionReports({ user }) {
                                       <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adPrefix}</span>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-slate-500 text-[9px]">Объявление:</div>
-                                        <div className="flex items-center gap-1 flex-wrap">
+                                        <div>
                                           <span className="font-medium text-slate-600">{ad.name}</span>
                                           <CopyButton value={ad.name} size="xs" />
                                           {ad.isNew && (
-                                            <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                            <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                           )}
                                         </div>
                                         <div className="text-[9px] text-slate-400">
@@ -3226,10 +3226,10 @@ function ActionReports({ user }) {
                                             <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
                                             <div className="flex-1 min-w-0">
                                               <div className="text-slate-500 text-[9px]">Аккаунт:</div>
-                                              <div className="flex items-center gap-1 flex-wrap">
+                                              <div>
                                                 <span className="font-medium text-purple-700">{ad.details.accountName}</span>
                                                 <CopyButton value={ad.details.accountName} size="xs" />
-                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                                <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                               </div>
                                               <div className="text-[9px] text-slate-400">
                                                 {ad.details.accountId} <CopyButton value={ad.details.accountId} size="xs" />
@@ -3242,10 +3242,10 @@ function ActionReports({ user }) {
                                             <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
                                             <div className="flex-1 min-w-0">
                                               <div className="text-slate-500 text-[9px]">Креатив:</div>
-                                              <div className="flex items-center gap-1 flex-wrap">
+                                              <div>
                                                 <span className="font-medium text-pink-700">{ad.details.videoName}</span>
                                                 <CopyButton value={ad.details.videoName} size="xs" />
-                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                                <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                               </div>
                                               {ad.details.videoId && (
                                                 <div className="text-[9px] text-slate-400">
@@ -3260,17 +3260,17 @@ function ActionReports({ user }) {
                                             <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
                                             <div className="flex-1 min-w-0">
                                               <div className="text-slate-500 text-[9px]">Лендинг:</div>
-                                              <div className="flex items-center gap-1 flex-wrap">
+                                              <div>
                                                 <a
                                                   href={ad.details.targetUrl}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
-                                                  className="text-blue-600 hover:underline break-all"
+                                                  className="text-blue-600 hover:underline"
                                                 >
                                                   {ad.details.targetUrl.length > 50 ? ad.details.targetUrl.substring(0, 50) + '...' : ad.details.targetUrl}
                                                 </a>
                                                 <CopyButton value={ad.details.targetUrl} size="xs" />
-                                                <span className="px-1 py-0.5 text-white text-[8px] font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
+                                                <span className="ml-1 px-1 py-0.5 text-white text-[8px] font-bold rounded align-middle" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                               </div>
                                             </div>
                                           </div>
