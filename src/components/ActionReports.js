@@ -2788,7 +2788,8 @@ function ActionReports({ user }) {
 
       // Если есть данные CPL из новых параметров - добавляем их
       if (cacheEntry?.cplData) {
-        console.log(`📈 getReportMetric ${report.article}: cplData найден`, cacheEntry.cplData);
+        const hasUniqueParams = cacheEntry.cplData.hasUniqueParams;
+        console.log(`📈 getReportMetric ${report.article}: cplData найден, hasUniqueParams=${hasUniqueParams}`, cacheEntry.cplData);
         result = {
           ...result,
           newParamsCpl: cacheEntry.cplData.cpl,
@@ -2799,7 +2800,8 @@ function ActionReports({ user }) {
           newParamsDailyData: cacheEntry.cplData.dailyData || [],
           newParamsAvgFirstZone: cacheEntry.cplData.avgFirstZone,
           newParamsZonesByDate: cacheEntry.cplData.zonesByDate || [],
-          hasNewParamsData: true
+          hasNewParamsData: true,
+          hasUniqueParams: hasUniqueParams // Флаг наличия уникальных параметров
         };
       } else {
         console.log(`⚠️ getReportMetric ${report.article}: cplData НЕ найден, cacheKey=${cacheKey}, hasEntry=${!!cacheEntry}`);
@@ -3135,16 +3137,22 @@ function ActionReports({ user }) {
           const cacheKey = `${req.offerId}_${req.targetDate}`;
           const cacheEntry = newCache[cacheKey] || {};
 
+          // Определяем есть ли УНИКАЛЬНЫЕ параметры (изменения)
+          const hasUniqueParams = !!(cacheEntry?.hasChanges && cacheEntry?.newParams &&
+            (cacheEntry.newParams.campaignIds?.length || cacheEntry.newParams.advGroupIds?.length || cacheEntry.newParams.advIds?.length));
+
           // Определяем параметры для расчёта - если есть новые, используем их; иначе пустые (считаем по всем данным)
           const newParams = cacheEntry?.newParams || { campaignIds: [], advGroupIds: [], advIds: [] };
 
-          console.log(`🔄 Расчёт зон для ${cacheKey}:`, { hasChanges: cacheEntry?.hasChanges, newParams });
+          console.log(`🔄 Расчёт зон для ${cacheKey}:`, { hasChanges: cacheEntry?.hasChanges, hasUniqueParams, newParams });
           const cplData = await calculateCplFromNewParams(
             req.offerId,
             req.sourceIds,
             req.targetDate,
             newParams
           );
+          // Добавляем флаг hasUniqueParams в cplData
+          cplData.hasUniqueParams = hasUniqueParams;
           console.log(`💰 CPL результат для ${cacheKey}:`, cplData);
           // Добавляем CPL данные в кэш
           newCache[cacheKey] = { ...cacheEntry, cplData };
@@ -4242,11 +4250,11 @@ function ActionReports({ user }) {
                       </span>
                     </div>
 
-                    {/* CPL - только из новых параметров */}
+                    {/* CPL - только если есть уникальные параметры */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
-                      ) : metric.hasNewParamsData ? (
+                      ) : metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
@@ -4258,11 +4266,11 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* Лиды - только из новых параметров */}
+                    {/* Лиды - только если есть уникальные параметры */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-8" />
-                      ) : metric.hasNewParamsData ? (
+                      ) : metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsLeads}
@@ -4274,11 +4282,11 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* Расход - только из новых параметров */}
+                    {/* Расход - только если есть уникальные параметры */}
                     <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
-                      ) : metric.hasNewParamsData ? (
+                      ) : metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
@@ -4292,11 +4300,11 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* Дней - количество дней с cost > 0 + индикатор активности сегодня */}
+                    {/* Дней - количество дней с cost > 0 + индикатор активности сегодня (только если есть уникальные параметры) */}
                     <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-xs font-mono">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-6" />
-                      ) : metric.hasNewParamsData ? (
+                      ) : metric.hasUniqueParams ? (
                         <>
                           <span className="text-slate-700 font-bold">
                             {metric.newParamsActiveDays}
@@ -4374,7 +4382,7 @@ function ActionReports({ user }) {
                     <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-12" />
-                      ) : (
+                      ) : metric.hasUniqueParams ? (
                         <>
                           {metric.newParamsAvgFirstZone != null ? (
                             <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
@@ -4383,11 +4391,13 @@ function ActionReports({ user }) {
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>
                           )}
-                          {/* Иконка всегда если есть хоть какие-то данные или zonesByDate */}
-                          {(metric.newParamsZonesByDate?.length > 0 || metric.hasNewParamsData) && (
+                          {/* Иконка только если есть данные о зонах */}
+                          {metric.newParamsZonesByDate?.length > 0 && (
                             <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article, zonesByDate: metric.newParamsZonesByDate || [] }, e)} />
                           )}
                         </>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
                       )}
                     </div>
 
