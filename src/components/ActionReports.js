@@ -780,6 +780,7 @@ const PaginatedDailyTable = memo(({ dailyData, type }) => {
 
   // type === 'cpl': Дата, CPL, Расход, Лидов
   // type === 'leads': Дата, Лидов, CPL, Расход
+  // type === 'cost': Дата, Расход, Лидов, CPL
   return (
     <div className="flex flex-col gap-2">
       <table className="w-full text-xs">
@@ -791,6 +792,12 @@ const PaginatedDailyTable = memo(({ dailyData, type }) => {
                 <th className="text-right py-1 px-2">CPL</th>
                 <th className="text-right py-1 px-2">Расход</th>
                 <th className="text-right py-1 px-2">Лидов</th>
+              </>
+            ) : type === 'cost' ? (
+              <>
+                <th className="text-right py-1 px-2">Расход</th>
+                <th className="text-right py-1 px-2">Лидов</th>
+                <th className="text-right py-1 px-2">CPL</th>
               </>
             ) : (
               <>
@@ -810,6 +817,12 @@ const PaginatedDailyTable = memo(({ dailyData, type }) => {
                   <td className="py-1 px-2 text-right font-mono">{d.cpl > 0 ? d.cpl.toFixed(2) : '—'}</td>
                   <td className="py-1 px-2 text-right font-mono">{d.cost > 0 ? d.cost.toFixed(2) : '0'}</td>
                   <td className="py-1 px-2 text-right font-mono">{d.leads}</td>
+                </>
+              ) : type === 'cost' ? (
+                <>
+                  <td className="py-1 px-2 text-right font-mono">{d.cost > 0 ? d.cost.toFixed(2) : '0'}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.leads}</td>
+                  <td className="py-1 px-2 text-right font-mono">{d.cpl > 0 ? d.cpl.toFixed(2) : '—'}</td>
                 </>
               ) : (
                 <>
@@ -2868,6 +2881,7 @@ function ActionReports({ user }) {
       leads: 'Лиды по периодам',
       newParamsCpl: 'CPL по дням',
       newParamsLeads: 'Лиды по дням',
+      newParamsCost: 'Расход по дням',
       rating: 'История рейтинга',
       zone: 'Зоны эффективности',
       stock: 'Остатки по модификациям',
@@ -2945,6 +2959,8 @@ function ActionReports({ user }) {
         return <PaginatedDailyTable dailyData={data.dailyData} type="cpl" />;
       case 'newParamsLeads':
         return <PaginatedDailyTable dailyData={data.dailyData} type="leads" />;
+      case 'newParamsCost':
+        return <PaginatedDailyTable dailyData={data.dailyData} type="cost" />;
       case 'stock':
         const baseArticle = data.article?.split("-")[0];
         const mods = baseArticle && stockData[baseArticle]?.modificationsDisplay || [];
@@ -3620,9 +3636,14 @@ function ActionReports({ user }) {
                       {loadingAdsChangesCache ? (
                         <SkeletonCell width="w-10" />
                       ) : metric.hasNewParamsData ? (
-                        <span className="font-mono text-xs text-slate-700">
-                          {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
-                        </span>
+                        <>
+                          <span className="font-mono text-xs text-slate-700">
+                            {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
+                          </span>
+                          {metric.newParamsDailyData?.length > 0 && (
+                            <InfoIcon onClick={(e) => openTooltip('newParamsCost', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />
+                          )}
+                        </>
                       ) : (
                         <span className="font-mono text-xs text-slate-400">—</span>
                       )}
@@ -3685,8 +3706,8 @@ function ActionReports({ user }) {
                       ) : (
                         <>
                           {metric.newParamsAvgFirstZone != null ? (
-                            <span className="font-mono text-xs text-slate-700">
-                              {Number(metric.newParamsAvgFirstZone).toFixed(2)}
+                            <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
+                              ${Number(metric.newParamsAvgFirstZone).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>
