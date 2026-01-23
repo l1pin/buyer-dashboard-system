@@ -1100,9 +1100,9 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Обновляем позицию dropdown при открытии
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
+  // Открытие с расчётом позиции ДО рендера
+  const handleToggle = () => {
+    if (!isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 4,
@@ -1110,7 +1110,8 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
         width: rect.width
       });
     }
-  }, [isOpen]);
+    setIsOpen(!isOpen);
+  };
 
   const selectedOption = options.find(opt => opt.value === value);
 
@@ -1119,7 +1120,7 @@ function CustomDropdown({ value, options, onChange, placeholder = 'Выбери�
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={`w-full px-3 py-2 text-left text-sm border rounded-lg flex items-center justify-between transition-colors ${
           value
             ? 'bg-white border-slate-300 text-slate-700'
@@ -1189,16 +1190,17 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Позиция dropdown
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
+  // Открытие dropdown с расчётом позиции ДО рендера
+  const handleToggle = () => {
+    if (!isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left
       });
     }
-  }, [isOpen]);
+    setIsOpen(!isOpen);
+  };
 
   // Позиция подменю при наведении
   const handleItemHover = (optionValue) => {
@@ -1382,7 +1384,7 @@ function MultiSelectActionDropdown({ selectedActions, onChange, hasError = false
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={`w-full min-w-[200px] px-3 py-2 text-left text-sm border rounded-lg flex items-center justify-between transition-colors ${
           actions.length
             ? 'bg-white border-slate-300 text-slate-700'
