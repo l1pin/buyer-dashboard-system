@@ -1799,6 +1799,11 @@ function ActionReports({ user }) {
   const [updatedMetricsMap, setUpdatedMetricsMap] = useState({}); // { article: updatedMetric }
   const [offerSeasons, setOfferSeasons] = useState({}); // { article: seasons[] }
   const [stockData, setStockData] = useState({}); // Данные об остатках для тултипа
+  const [loadedDatesCache, setLoadedDatesCache] = useState(new Set()); // Кэш загруженных дат (YYYY-MM-DD)
+
+  // Ref для хранения загруженных метрик по датам (персистентный кэш)
+  // Структура: { 'YYYY-MM-DD': { metricsMap: {...}, stockData: {...} } }
+  const loadedMetricsDataRef = useRef({});
 
   // Ref для tooltip менеджера
   const tooltipManagerRef = useRef(null);
@@ -2735,6 +2740,12 @@ function ActionReports({ user }) {
   const getReportMetric = useCallback((report) => {
     // Сначала ищем метрики специфичные для байера (по ключу article__buyerId)
     const reportKey = `${report.article}__${report.createdBy}`;
+    const articleLower = report.article?.toLowerCase();
+
+    // ВАЖНО: Всегда получаем базовые данные из allMetrics для гарантии наличия offer
+    const originalMetric = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
+    const offerName = originalMetric.offer || originalMetric.offer_name || '';
+
     let result;
 
     if (updatedMetricsMap[reportKey]) {
@@ -2747,16 +2758,19 @@ function ActionReports({ user }) {
       result = {
         ...baseMetric,
         ...buyerMetric,
+        offer: offerName, // Гарантируем offer из allMetrics
         leads_4days: buyerMetric.buyer_leads_data?.[4]?.leads ?? baseMetric.leads_4days,
         leads_data: buyerMetric.buyer_leads_data || baseMetric.leads_data
       };
     } else if (updatedMetricsMap[report.article]) {
       // Если есть обновленные данные из updateVisibleReportsMetrics - приоритет им
-      result = updatedMetricsMap[report.article];
+      result = {
+        ...updatedMetricsMap[report.article],
+        offer: offerName // Гарантируем offer из allMetrics
+      };
     } else {
       // Иначе ищем в загруженных метриках по артикулу
-      const articleLower = report.article?.toLowerCase();
-      result = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
+      result = originalMetric;
     }
 
     // Проверяем, есть ли расчитанный CPL из новых параметров в кэше
@@ -2802,7 +2816,26 @@ function ActionReports({ user }) {
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones || loadingAdsChangesCache;
 
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
-  const updateVisibleReportsMetrics = useCallback(async (forDate = null) => {
+  const updateVisibleReportsMetrics = useCallback(async (forDate = null, forceRefresh = false) => {
+    // Определяем ключ кэша для даты
+    const dateKey = forDate
+      ? new Date(forDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    // ========== ПРОВЕРКА КЭША ==========
+    // Если данные для этой даты уже загружены - используем кэш (без мерцания)
+    if (!forceRefresh && loadedMetricsDataRef.current[dateKey]) {
+      const cachedData = loadedMetricsDataRef.current[dateKey];
+      console.log(`💾 Используем кэш для ${dateKey}: ${Object.keys(cachedData.metricsMap).length} метрик`);
+
+      // Восстанавливаем данные из кэша без состояний загрузки
+      setUpdatedMetricsMap(prev => ({ ...prev, ...cachedData.metricsMap }));
+      if (cachedData.stockData) {
+        setStockData(prev => ({ ...prev, ...cachedData.stockData }));
+      }
+      return; // Выходим - данные уже есть
+    }
+
     // Фильтруем отчеты по дате если указана
     let reportsToUpdate = savedReports;
     if (forDate) {
@@ -2821,23 +2854,27 @@ function ActionReports({ user }) {
 
     if (uniqueArticles.length === 0) {
       console.log('⚠️ Нет артикулов для обновления');
+      // Сохраняем пустой кэш чтобы не пытаться снова
+      loadedMetricsDataRef.current[dateKey] = { metricsMap: {}, stockData: {} };
       return;
     }
 
-    console.log(`🔄 Обновляем метрики для ${uniqueArticles.length} артикулов...`);
+    console.log(`🔄 Обновляем метрики для ${uniqueArticles.length} артикулов (дата: ${dateKey})...`);
 
     // Создаем массив метрик только для видимых артикулов
     // Данные берём из загруженных allMetrics по артикулу
     const visibleMetrics = uniqueArticles.map(article => {
       const articleLower = article.toLowerCase();
       const baseMetric = allMetrics.find(m => m.article?.toLowerCase() === articleLower) || {};
+      // ВАЖНО: сначала spread baseMetric, потом явные поля (чтобы они не затёрлись)
+      const offerName = baseMetric.offer || baseMetric.offer_name || '';
       return {
+        ...baseMetric,
         id: baseMetric.id,
         article: article,
-        offer: baseMetric.offer || baseMetric.offer_name,
+        offer: offerName, // Гарантируем, что offer всегда из allMetrics
         stock_quantity: baseMetric.stock_quantity,
-        offer_price: baseMetric.offer_price,
-        ...baseMetric
+        offer_price: baseMetric.offer_price
       };
     }).filter(m => m.article);
 
@@ -2851,6 +2888,9 @@ function ActionReports({ user }) {
 
     console.log(`📊 Доступно ${Object.keys(visibleArticleOfferMap).length} маппингов для видимых артикулов`);
 
+    // Переменная для сохранения stockData в кэш
+    let loadedStockData = {};
+
     try {
       // ШАГ 1: Загружаем остатки (Ост., Приход)
       setLoadingStock(true);
@@ -2859,7 +2899,8 @@ function ActionReports({ user }) {
       try {
         const stocksResult = await updateStocksFromYml(updatedMetrics);
         updatedMetrics = stocksResult.metrics;
-        setStockData(stocksResult.skuData || {}); // Сохраняем данные для тултипа
+        loadedStockData = stocksResult.skuData || {};
+        setStockData(prev => ({ ...prev, ...loadedStockData })); // Сохраняем данные для тултипа
         console.log('✅ Остатки обновлены');
       } catch (error) {
         console.error('❌ Ошибка загрузки остатков:', error);
@@ -2992,6 +3033,13 @@ function ActionReports({ user }) {
 
       setUpdatedMetricsMap(prev => ({ ...prev, ...newMetricsMap }));
       console.log(`✅ Обновлено ${Object.keys(newMetricsMap).length} метрик`);
+
+      // ========== СОХРАНЯЕМ В КЭШ ==========
+      loadedMetricsDataRef.current[dateKey] = {
+        metricsMap: newMetricsMap,
+        stockData: loadedStockData
+      };
+      console.log(`💾 Сохранено в кэш для ${dateKey}: ${Object.keys(newMetricsMap).length} метрик`);
 
     } catch (error) {
       console.error('❌ Ошибка обновления метрик:', error);
@@ -3610,9 +3658,9 @@ function ActionReports({ user }) {
               Закрыть все окна
             </button>
 
-            {/* Кнопка обновления метрик */}
+            {/* Кнопка обновления метрик (принудительно обновляет, игнорируя кэш) */}
             <button
-              onClick={updateVisibleReportsMetrics}
+              onClick={() => updateVisibleReportsMetrics(selectedDate, true)}
               disabled={isAnyLoading || savedReports.length === 0}
               className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all duration-200 shadow-sm"
             >
