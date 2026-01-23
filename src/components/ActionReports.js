@@ -3541,7 +3541,7 @@ function ActionReports({ user }) {
             </button>
           </div>
         ) : (
-          <div className="px-4 py-2">
+          <div>
             {filteredReports.map((report, index) => {
               const statusDisplay = getStatusDisplay(report);
               const metric = getReportMetric(report);
@@ -3584,10 +3584,10 @@ function ActionReports({ user }) {
               return (
                 <div
                   key={report.id}
-                  className="bg-white rounded-lg border border-slate-200 mb-2 hover:shadow-md transition-shadow overflow-hidden"
+                  className="bg-white border-b border-slate-200 hover:bg-slate-50 transition-colors"
                 >
                   {/* Основная строка с метриками */}
-                  <div className="flex items-center text-sm px-4 py-3">
+                  <div className="flex items-center text-sm px-4 py-2.5">
                     <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
