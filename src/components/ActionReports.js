@@ -670,7 +670,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
         const sqlZoneHistory = `
           SELECT zone_history
           FROM offers_collection
-          WHERE id = '${offerId}'
+          WHERE redtrack_id = '${offerId}'
         `;
 
         const responseZone = await fetch(CORE_URL, {
