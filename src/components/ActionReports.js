@@ -3282,7 +3282,33 @@ function ActionReports({ user }) {
       case 'date':
         return <div className="text-sm text-gray-900 font-mono">{data.date ? formatDateLocal(data.date) : 'Нет данных'}</div>;
       case 'zone':
-        return <PaginatedZoneTable zonesByDate={data.zonesByDate} />;
+        // Показываем зоны эффективности оффера
+        return (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                <span className="text-gray-600">Красная:</span>
+                <span className="font-mono font-medium">{data.metric?.red_zone_price != null ? `$${Number(data.metric.red_zone_price).toFixed(2)}` : '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-pink-400"></span>
+                <span className="text-gray-600">Розовая:</span>
+                <span className="font-mono font-medium">{data.metric?.pink_zone_price != null ? `$${Number(data.metric.pink_zone_price).toFixed(2)}` : '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                <span className="text-gray-600">Золотая:</span>
+                <span className="font-mono font-medium">{data.metric?.gold_zone_price != null ? `$${Number(data.metric.gold_zone_price).toFixed(2)}` : '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                <span className="text-gray-600">Зелёная:</span>
+                <span className="font-mono font-medium">{data.metric?.green_zone_price != null ? `$${Number(data.metric.green_zone_price).toFixed(2)}` : '—'}</span>
+              </div>
+            </div>
+          </div>
+        );
       case 'season':
         return <div className="flex flex-col gap-3">
           <div><div className="text-xs font-medium text-gray-600 mb-1">Категория:</div><div className="text-sm">{data.category || '—'}</div></div>
@@ -4376,21 +4402,21 @@ function ActionReports({ user }) {
                       )}
                     </div>
 
-                    {/* CPL зона - среднее first зоны за даты с уникальными параметрами */}
+                    {/* CPL зона - красная зона (first) из зон эффективности оффера */}
                     <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                      {loadingAdsChangesCache ? (
+                      {loadingZones ? (
                         <SkeletonCell width="w-12" />
                       ) : (
                         <>
-                          {metric.newParamsAvgFirstZone != null ? (
+                          {metric.red_zone_price != null ? (
                             <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
-                              ${Number(metric.newParamsAvgFirstZone).toFixed(2)}
+                              ${Number(metric.red_zone_price).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>
                           )}
-                          {metric.newParamsZonesByDate?.length > 0 && (
-                            <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article, zonesByDate: metric.newParamsZonesByDate }, e)} />
+                          {metric.red_zone_price != null && (
+                            <InfoIcon onClick={(e) => openTooltip('zone', index, { metric, article: report.article }, e)} />
                           )}
                         </>
                       )}
