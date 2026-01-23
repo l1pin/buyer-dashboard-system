@@ -1592,29 +1592,15 @@ function ArticleConfigRow({ article, config, onChange, onRemove, isInvalid = fal
 const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) => {
   const rulerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [hoverIndex, setHoverIndex] = useState(null);
 
   // Вычисляем позицию ползунка в процентах
   const sliderPercent = days.length > 1 ? (currentIndex / (days.length - 1)) * 100 : 50;
-
-  // Определяем какие даты показывать с эффектом fish-eye
-  const getDateVisibility = (index) => {
-    const activeIndex = hoverIndex !== null ? hoverIndex : currentIndex;
-    const distance = Math.abs(index - activeIndex);
-
-    if (distance === 0) return { show: true, scale: 1, opacity: 1, showFull: true };
-    if (distance <= 2) return { show: true, scale: 0.85, opacity: 0.9, showFull: true };
-    if (distance <= 4) return { show: true, scale: 0.7, opacity: 0.6, showFull: false };
-    return { show: false, scale: 0.5, opacity: 0, showFull: false };
-  };
+  const activeDay = days[currentIndex];
 
   // Определяем тип штриха
-  const getTickType = (day, index) => {
-    // Первый день месяца - большой штрих
+  const getTickType = (day) => {
     if (day.day === 1) return 'month';
-    // Понедельник - средний штрих
     if (day.date.getDay() === 1) return 'week';
-    // Остальные - маленький
     return 'day';
   };
 
@@ -1624,29 +1610,18 @@ const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) =
     updateIndexFromEvent(e);
   };
 
-  const handleMouseMove = (e) => {
-    if (isDragging) {
-      updateIndexFromEvent(e);
-    } else if (rulerRef.current) {
-      // Hover эффект
-      const rect = rulerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      const index = Math.round((percent / 100) * (days.length - 1));
-      setHoverIndex(index);
-    }
-  };
+  const handleMouseMove = useCallback((e) => {
+    if (!rulerRef.current) return;
+    const rect = rulerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const newIndex = Math.round((percent / 100) * (days.length - 1));
+    onIndexChange(newIndex);
+  }, [days.length, onIndexChange]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setHoverIndex(null);
-    if (isDragging) {
-      setIsDragging(false);
-    }
-  };
+  }, []);
 
   const updateIndexFromEvent = (e) => {
     if (!rulerRef.current) return;
@@ -1657,10 +1632,14 @@ const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) =
     onIndexChange(newIndex);
   };
 
-  const handleTickClick = (index) => {
-    onIndexChange(index);
-    if (onDayClick && days[index]) {
-      onDayClick(days[index]);
+  const handleClick = (e) => {
+    updateIndexFromEvent(e);
+    const rect = rulerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const newIndex = Math.round((percent / 100) * (days.length - 1));
+    if (onDayClick && days[newIndex]) {
+      onDayClick(days[newIndex]);
     }
   };
 
@@ -1686,121 +1665,89 @@ const CalendarRuler = memo(({ days, currentIndex, onIndexChange, onDayClick }) =
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      const onMove = (e) => handleMouseMove(e);
+      const onUp = () => handleMouseUp();
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
       };
     }
-  }, [isDragging]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   if (days.length === 0) return null;
 
   return (
-    <div className="mt-3 px-2 select-none">
-      {/* Метки дат с fish-eye эффектом */}
-      <div className="relative h-6 mb-1">
-        {days.map((day, index) => {
-          const visibility = getDateVisibility(index);
-          if (!visibility.show) return null;
-
-          const left = days.length > 1 ? (index / (days.length - 1)) * 100 : 50;
-
-          return (
-            <div
-              key={index}
-              className="absolute transform -translate-x-1/2 transition-all duration-150 ease-out whitespace-nowrap"
-              style={{
-                left: `${left}%`,
-                opacity: visibility.opacity,
-                transform: `translateX(-50%) scale(${visibility.scale})`,
-                zIndex: visibility.showFull ? 10 : 1
-              }}
-            >
-              <span className={`text-xs font-medium ${index === currentIndex ? 'text-blue-600' : 'text-slate-500'}`}>
-                {visibility.showFull ? `${day.day} ${day.month}` : day.day}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
+    <div className="mt-4 px-2 select-none">
       {/* Линейка со штрихами */}
       <div
         ref={rulerRef}
-        className="relative h-8 bg-slate-100 rounded-lg cursor-pointer"
+        className="relative h-10 bg-slate-100 rounded-lg cursor-pointer"
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
       >
         {/* Штрихи */}
-        <div className="absolute inset-0 flex items-end">
+        <div className="absolute inset-x-0 bottom-0 h-6">
           {days.map((day, index) => {
-            const tickType = getTickType(day, index);
+            const tickType = getTickType(day);
             const left = days.length > 1 ? (index / (days.length - 1)) * 100 : 50;
 
-            let tickHeight = 'h-2'; // day
+            let tickHeight = 6;
             let tickColor = 'bg-slate-300';
 
             if (tickType === 'month') {
-              tickHeight = 'h-5';
+              tickHeight = 20;
               tickColor = 'bg-slate-500';
             } else if (tickType === 'week') {
-              tickHeight = 'h-3.5';
+              tickHeight = 12;
               tickColor = 'bg-slate-400';
             }
 
-            // Подсветка при наведении/выборе
-            if (index === currentIndex) {
-              tickColor = 'bg-blue-500';
-            } else if (hoverIndex !== null && Math.abs(index - hoverIndex) <= 2) {
-              tickColor = tickType === 'month' ? 'bg-blue-400' : tickType === 'week' ? 'bg-blue-300' : 'bg-blue-200';
-            }
+            const isActive = index === currentIndex;
+            if (isActive) tickColor = 'bg-blue-500';
 
             return (
               <div
                 key={index}
-                className={`absolute bottom-1 w-0.5 ${tickHeight} ${tickColor} rounded-full transition-all duration-100`}
-                style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleTickClick(index);
-                }}
+                className={`absolute bottom-0 w-px ${tickColor} transition-colors`}
+                style={{ left: `${left}%`, height: tickHeight }}
               />
             );
           })}
         </div>
 
-        {/* Метки месяцев под штрихами */}
-        <div className="absolute -bottom-5 left-0 right-0">
-          {monthLabels.map((label, i) => {
-            const left = days.length > 1 ? (label.index / (days.length - 1)) * 100 : 50;
-            return (
-              <span
-                key={i}
-                className="absolute text-[10px] text-slate-400 font-medium transform -translate-x-1/2"
-                style={{ left: `${left}%` }}
-              >
-                {label.month}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Ползунок */}
+        {/* Ползунок с датой */}
         <div
-          className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 transition-all duration-75"
+          className="absolute top-0 transform -translate-x-1/2 transition-all duration-75 flex flex-col items-center"
           style={{ left: `${sliderPercent}%` }}
         >
-          <div className={`w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-lg ${isDragging ? 'scale-110' : ''} transition-transform`}>
-            <div className="w-full h-full rounded-full bg-blue-500 animate-pulse opacity-30 absolute inset-0" />
-          </div>
+          {/* Дата над ползунком */}
+          {activeDay && (
+            <div className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded mb-1 whitespace-nowrap shadow-md">
+              {activeDay.day} {activeDay.month}
+            </div>
+          )}
+          {/* Круглый ползунок */}
+          <div className={`w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg ${isDragging ? 'scale-125' : ''} transition-transform`} />
         </div>
       </div>
 
-      {/* Отступ для меток месяцев */}
-      <div className="h-4" />
+      {/* Метки месяцев под линейкой */}
+      <div className="relative h-5 mt-1">
+        {monthLabels.map((label, i) => {
+          const left = days.length > 1 ? (label.index / (days.length - 1)) * 100 : 50;
+          return (
+            <span
+              key={i}
+              className="absolute text-[10px] text-slate-500 font-medium transform -translate-x-1/2"
+              style={{ left: `${left}%` }}
+            >
+              {label.month}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 });
