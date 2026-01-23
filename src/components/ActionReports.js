@@ -2886,7 +2886,8 @@ function ActionReports({ user }) {
       zone: 'Зоны эффективности',
       stock: 'Остатки по модификациям',
       date: 'Дата прихода',
-      season: 'Сезонность'
+      season: 'Сезонность',
+      actions: 'Действия'
     };
     return <div className="flex items-center gap-2"><span>{titles[type] || 'Информация'}</span>{articleBadge}</div>;
   };
@@ -2981,6 +2982,48 @@ function ActionReports({ user }) {
             {data.specialSeasonStart || data.specialSeasonEnd ? <div className="text-sm font-mono">{data.specialSeasonStart || '—'} — {data.specialSeasonEnd || '—'}</div> : <div className="text-sm text-gray-500 italic">Не задан</div>}
           </div>
         </div>;
+      case 'actions':
+        const getActionColorLocal = (action) => {
+          switch (action) {
+            case 'Перенастроил': return 'bg-blue-50 text-blue-700 border-blue-200';
+            case 'Новинка': return 'bg-green-50 text-green-700 border-green-200';
+            case 'ТЗ': return 'bg-purple-50 text-purple-700 border-purple-200';
+            case 'Выключил': return 'bg-red-50 text-red-700 border-red-200';
+            case 'Включил': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            default: return 'bg-slate-50 text-slate-600 border-slate-200';
+          }
+        };
+        const actions = data.actions || [];
+        return (
+          <div className="flex flex-col gap-2">
+            {actions.length > 0 ? actions.map((act, i) => (
+              <div key={i} className="flex items-center gap-2 pb-2 border-b border-gray-100 last:border-b-0 last:pb-0">
+                <span className={`text-xs px-2 py-1 rounded border font-medium ${getActionColorLocal(act.action_type)}`}>
+                  {act.action_type}
+                </span>
+                {act.sub_action && (
+                  <span className="text-xs text-gray-600">→ {act.sub_action}</span>
+                )}
+                {act.custom_text && (
+                  <span className="text-xs text-gray-500 italic">— {act.custom_text}</span>
+                )}
+                {act.trello_link && (
+                  <a
+                    href={act.trello_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 ml-auto"
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
+                    </svg>
+                    Trello
+                  </a>
+                )}
+              </div>
+            )) : <div className="text-xs text-gray-500 italic">Нет действий</div>}
+          </div>
+        );
       default:
         return <div>Неизвестный тип</div>;
     }
@@ -3602,28 +3645,20 @@ function ActionReports({ user }) {
                         const actions = report.actions && Array.isArray(report.actions) ? report.actions : [];
                         const firstAction = actions[0] || { action_type: report.action, sub_action: report.subAction };
                         const remainingCount = actions.length > 1 ? actions.length - 1 : 0;
-                        const allActionsText = actions.length > 0
-                          ? actions.map(a => `${a.action_type}${a.sub_action ? `: ${a.sub_action}` : ''}`).join('\n')
-                          : firstAction.action_type || '';
 
                         if (!firstAction.action_type) return <span className="text-gray-400 text-xs">—</span>;
 
                         return (
                           <>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${getActionColor(firstAction.action_type)}`}
-                              title={allActionsText}
+                            <button
+                              onClick={(e) => openTooltip('actions', index, { actions: actions.length > 0 ? actions : [firstAction], article: report.article }, e)}
+                              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${getActionColor(firstAction.action_type)}`}
                             >
                               {firstAction.action_type}
-                            </span>
-                            {remainingCount > 0 && (
-                              <span
-                                className="text-[10px] text-slate-500 font-medium"
-                                title={actions.slice(1).map(a => `${a.action_type}${a.sub_action ? `: ${a.sub_action}` : ''}`).join('\n')}
-                              >
-                                +{remainingCount}
-                              </span>
-                            )}
+                              {remainingCount > 0 && (
+                                <span className="ml-1 text-slate-600 font-semibold">+{remainingCount}</span>
+                              )}
+                            </button>
                             {/* Иконка журнала - только для тимлида */}
                             {isTeamlead && (
                               <button
