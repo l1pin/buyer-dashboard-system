@@ -3691,7 +3691,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-10" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className="font-mono text-xs text-slate-700">
+                          <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
                           </span>
                           {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsCpl', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
@@ -3707,7 +3707,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-8" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className="font-mono text-xs text-slate-700">
+                          <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsLeads}
                           </span>
                           {metric.newParamsDailyData?.length > 0 && <InfoIcon onClick={(e) => openTooltip('newParamsLeads', index, { dailyData: metric.newParamsDailyData, article: report.article }, e)} />}
@@ -3723,7 +3723,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-10" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className="font-mono text-xs text-slate-700">
+                          <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
                           </span>
                           {metric.newParamsDailyData?.length > 0 && (
@@ -3741,7 +3741,7 @@ function ActionReports({ user }) {
                         <SkeletonCell width="w-6" />
                       ) : metric.hasNewParamsData ? (
                         <>
-                          <span className="text-slate-700">
+                          <span className="text-slate-700 font-bold">
                             {metric.newParamsActiveDays}
                           </span>
                           <span
