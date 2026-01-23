@@ -52,7 +52,7 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
     // Поля для выборки (ID + названия)
     const selectFields = `
       source_id_tracker, source_tracker,
-      campaign_id, campaign_name_tracker,
+      campaign_id, campaign_name_tracker, campaign_id_tracker, campaign_name,
       adv_group_id, adv_group_name,
       adv_id, adv_name,
       account_id, account_name,
@@ -138,6 +138,8 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       const sourceName = row.source_tracker || sourceId;
       const campaignId = row.campaign_id;
       const campaignName = row.campaign_name_tracker || campaignId;
+      const campaignTrackerId = row.campaign_id_tracker || null; // ID кампании трекер
+      const campaignFbName = row.campaign_name || null; // Кампания FB
       const advGroupId = row.adv_group_id;
       const advGroupName = row.adv_group_name || advGroupId;
       const advId = row.adv_id;
@@ -159,6 +161,8 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
         hierarchy[sourceId].campaigns[campaignId] = {
           id: campaignId,
           name: campaignName,
+          trackerId: campaignTrackerId, // ID кампании трекер
+          fbName: campaignFbName, // Кампания FB
           isNew: isNewCampaign,
           advGroups: {}
         };
@@ -310,7 +314,7 @@ async function fetchAdsChangesBatch(offerRequests) {
 
     const selectFields = `
       offer_id_tracker, source_id_tracker, source_tracker,
-      campaign_id, campaign_name_tracker,
+      campaign_id, campaign_name_tracker, campaign_id_tracker, campaign_name,
       adv_group_id, adv_group_name,
       adv_id, adv_name,
       account_id, account_name,
@@ -320,7 +324,7 @@ async function fetchAdsChangesBatch(offerRequests) {
 
     // Один запрос на историю, один на target - для ВСЕХ офферов этой даты
     const sqlBefore = `
-      SELECT DISTINCT offer_id_tracker, source_id_tracker, campaign_id, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
+      SELECT DISTINCT offer_id_tracker, source_id_tracker, campaign_id, campaign_id_tracker, campaign_name, adv_group_id, adv_id, account_id, video_id, target_url, adv_group_budjet
       FROM ads_collection
       WHERE offer_id_tracker IN (${offerIdsStr})
         AND source_id_tracker IN (${sourceIdsStr})
@@ -423,6 +427,8 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     const sourceName = row.source_tracker || sourceId;
     const campaignId = row.campaign_id;
     const campaignName = row.campaign_name_tracker || campaignId;
+    const campaignTrackerId = row.campaign_id_tracker || null; // ID кампании трекер
+    const campaignFbName = row.campaign_name || null; // Кампания FB
     const advGroupId = row.adv_group_id;
     const advGroupName = row.adv_group_name || advGroupId;
     const advId = row.adv_id;
@@ -435,7 +441,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     const isNewCampaign = campaignId && !historyIds.campaign_id.has(campaignId);
     if (campaignId && !hierarchy[sourceId].campaigns[campaignId]) {
       hierarchy[sourceId].campaigns[campaignId] = {
-        id: campaignId, name: campaignName, isNew: isNewCampaign, advGroups: {}
+        id: campaignId, name: campaignName, trackerId: campaignTrackerId, fbName: campaignFbName, isNew: isNewCampaign, advGroups: {}
       };
       if (isNewCampaign && !seenIds.campaign_id.has(campaignId)) {
         seenIds.campaign_id.add(campaignId);
@@ -490,6 +496,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
   // Подсчет и сбор новых ID для расчёта CPL
   let newCampaigns = 0, newAdvGroups = 0, newAds = 0, newBudgets = 0, newCreatives = 0, newLandings = 0;
   const newCampaignIds = [];
+  const newCampaignNames = []; // FB campaign names
   const newAdvGroupIds = [];
   const newAdvIds = [];
 
@@ -498,6 +505,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
       if (campaign.isNew) {
         newCampaigns++;
         newCampaignIds.push(campaign.id);
+        if (campaign.fbName) newCampaignNames.push(campaign.fbName);
       }
       Object.values(campaign.advGroups).forEach(advGroup => {
         if (advGroup.isNew) {
@@ -528,6 +536,7 @@ function buildAdsChangesResult(dataBefore, dataTarget, targetDate) {
     // Новые ID для расчёта CPL
     newParams: {
       campaignIds: newCampaignIds,
+      campaignNames: newCampaignNames, // FB campaign names
       advGroupIds: newAdvGroupIds,
       advIds: newAdvIds
     }
@@ -4048,14 +4057,14 @@ function ActionReports({ user }) {
 
                               return (
                               <div key={campaign.id}>
-                                {/* Campaign */}
+                                {/* Уровень 1: Кампания FB */}
                                 <div className="flex items-start gap-1 py-1">
                                   <span className="text-slate-400 whitespace-pre">{campPrefix}</span>
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-slate-500 text-xs">Кампания:</div>
+                                    <div className="text-slate-500 text-xs">Кампания FB:</div>
                                     <div>
-                                      <span className="font-medium text-slate-800">{campaign.name}</span>
-                                      <CopyButton value={campaign.name} size="xs" />
+                                      <span className="font-medium text-blue-700">{campaign.fbName || '—'}</span>
+                                      {campaign.fbName && <CopyButton value={campaign.fbName} size="xs" />}
                                       {campaign.isNew && (
                                         <span className="ml-1 px-1.5 py-0.5 text-white text-xs font-bold rounded" style={{ backgroundColor: '#5782ff' }}>NEW</span>
                                       )}
@@ -4066,17 +4075,36 @@ function ActionReports({ user }) {
                                   </div>
                                 </div>
 
-                                {/* Adv Groups */}
+                                {/* Уровень 2: Кампания трекер */}
+                                <div className="flex items-start gap-1 py-1">
+                                  <span className="text-slate-400 whitespace-pre">{campChildPrefix}├── </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-slate-500 text-xs">Кампания трекер:</div>
+                                    <div>
+                                      <span className="font-medium text-slate-800">{campaign.name}</span>
+                                      <CopyButton value={campaign.name} size="xs" />
+                                    </div>
+                                    {campaign.trackerId && (
+                                      <div className="text-xs text-slate-400">
+                                        {campaign.trackerId} <CopyButton value={campaign.trackerId} size="xs" />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Уровень 3: Группы */}
                                 {Object.values(campaign.advGroups).map((advGroup, groupIdx, groupArr) => {
                                   const isLastGroup = groupIdx === groupArr.length - 1;
                                   const groupPrefix = isLastGroup ? '└── ' : '├── ';
                                   const groupChildPrefix = isLastGroup ? '    ' : '│   ';
+                                  // Дополнительный отступ для уровня трекера
+                                  const trackerChildPrefix = '│   ';
 
                                   return (
                                   <div key={advGroup.id}>
                                     {/* Adv Group */}
                                     <div className="flex items-start gap-1 py-1">
-                                      <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupPrefix}</span>
+                                      <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupPrefix}</span>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-slate-500 text-xs">Группа:</div>
                                         <div>
@@ -4099,7 +4127,7 @@ function ActionReports({ user }) {
                                       </div>
                                     </div>
 
-                                    {/* Ads */}
+                                    {/* Уровень 4: Объявления */}
                                     {Object.values(advGroup.ads).map((ad, adIdx, adArr) => {
                                       const isLastAd = adIdx === adArr.length - 1;
                                       const adPrefix = isLastAd ? '└── ' : '├── ';
@@ -4109,7 +4137,7 @@ function ActionReports({ user }) {
                                       <div key={ad.id}>
                                         {/* Ad */}
                                         <div className="flex items-start gap-1 py-1">
-                                          <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adPrefix}</span>
+                                          <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adPrefix}</span>
                                           <div className="flex-1 min-w-0">
                                             <div className="text-slate-500 text-xs">Объявление:</div>
                                             <div>
@@ -4130,7 +4158,7 @@ function ActionReports({ user }) {
                                           <div className="text-xs">
                                             {ad.details.isNewAccount && ad.details.accountId && (
                                               <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
+                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}├── </span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Аккаунт:</div>
                                                   <div>
@@ -4146,7 +4174,7 @@ function ActionReports({ user }) {
                                             )}
                                             {ad.details.isNewVideo && ad.details.videoName && (
                                               <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
+                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}{ad.details.isNewUrl ? '├── ' : '└── '}</span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Креатив:</div>
                                                   <div>
@@ -4164,7 +4192,7 @@ function ActionReports({ user }) {
                                             )}
                                             {ad.details.isNewUrl && ad.details.targetUrl && (
                                               <div className="flex items-start gap-1 py-0.5">
-                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
+                                                <span className="text-slate-400 whitespace-pre">{campChildPrefix}{trackerChildPrefix}{groupChildPrefix}{adChildPrefix}└── </span>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="text-slate-500">Лендинг:</div>
                                                   <div>
