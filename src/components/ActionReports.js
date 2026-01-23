@@ -3596,41 +3596,65 @@ function ActionReports({ user }) {
                     </div>
                   )}
 
-                    {/* Действия - бейджи */}
-                    <div className="w-[10%] min-w-[90px] flex flex-col items-center justify-center gap-0.5 py-1">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium truncate max-w-[70px] ${getActionColor(report.action)}`} title={report.action}>
-                          {report.action}
-                        </span>
-                        {/* Иконка журнала изменений - только для тимлида */}
-                        {isTeamlead && (
-                          <button
-                            onClick={() => handleViewChanges(report)}
-                            className="p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Журнал изменений в рекламе"
-                          >
-                            <FileText className="h-3 w-3" />
-                          </button>
-                        )}
-                        {/* Trello ссылка */}
-                        {report.trelloLink && (
-                          <a
-                            href={report.trelloLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-0.5 text-blue-500 hover:text-blue-700 rounded transition-colors"
-                            title="Открыть в Trello"
-                          >
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
-                            </svg>
-                          </a>
-                        )}
-                      </div>
-                      {report.subAction && (
-                        <span className="text-[9px] text-slate-500 truncate max-w-full" title={`${report.subAction}${report.customText ? ` — ${report.customText}` : ''}`}>
-                          → {report.subAction}
-                        </span>
+                    {/* Действия - бейджи (все действия из JSONB массива) */}
+                    <div className="w-[10%] min-w-[90px] flex flex-col items-start justify-center gap-0.5 py-1">
+                      {report.actions && Array.isArray(report.actions) && report.actions.length > 0 ? (
+                        report.actions.map((act, actIndex) => (
+                          <div key={actIndex} className="flex items-center gap-1 w-full">
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium truncate ${getActionColor(act.action_type)}`}
+                              title={`${act.action_type}${act.sub_action ? `: ${act.sub_action}` : ''}${act.custom_text ? ` — ${act.custom_text}` : ''}`}
+                            >
+                              {act.action_type}
+                              {act.sub_action && <span className="opacity-70">→{act.sub_action}</span>}
+                            </span>
+                            {/* Trello ссылка для этого действия */}
+                            {act.trello_link && (
+                              <a
+                                href={act.trello_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-0.5 text-blue-500 hover:text-blue-700 rounded transition-colors flex-shrink-0"
+                                title="Открыть в Trello"
+                              >
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        // Fallback для старого формата (одно действие)
+                        <div className="flex items-center gap-1">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium truncate ${getActionColor(report.action)}`} title={report.action}>
+                            {report.action || '—'}
+                            {report.subAction && <span className="opacity-70">→{report.subAction}</span>}
+                          </span>
+                          {report.trelloLink && (
+                            <a
+                              href={report.trelloLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-0.5 text-blue-500 hover:text-blue-700 rounded transition-colors"
+                              title="Открыть в Trello"
+                            >
+                              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM10.5 17.25a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-10.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v10.5zm9-4.5a1.5 1.5 0 01-1.5 1.5h-3a1.5 1.5 0 01-1.5-1.5v-6a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v6z"/>
+                              </svg>
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      {/* Иконка журнала изменений - только для тимлида */}
+                      {isTeamlead && (
+                        <button
+                          onClick={() => handleViewChanges(report)}
+                          className="p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors mt-0.5"
+                          title="Журнал изменений в рекламе"
+                        >
+                          <FileText className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
 
