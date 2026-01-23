@@ -2687,11 +2687,21 @@ function ActionReports({ user }) {
     }
 
     // Фильтр по типу действия (мультивыбор) - проверяем все actions из JSONB
+    // Поддерживает как основной тип ("Перенастроил"), так и подтип ("Перенастроил: Крео")
     if (selectedActionFilter.length > 0) {
       reports = reports.filter(r => {
         // Проверяем массив actions
         if (r.actions && Array.isArray(r.actions)) {
-          return r.actions.some(act => selectedActionFilter.includes(act.action_type));
+          return r.actions.some(act => {
+            // Проверяем основной тип действия
+            if (selectedActionFilter.includes(act.action_type)) return true;
+            // Проверяем подтип "Тип: Подтип"
+            if (act.sub_action) {
+              const fullLabel = `${act.action_type}: ${act.sub_action}`;
+              if (selectedActionFilter.includes(fullLabel)) return true;
+            }
+            return false;
+          });
         }
         // Фолбэк на старое поле
         return selectedActionFilter.includes(r.action);
@@ -3981,7 +3991,7 @@ function ActionReports({ user }) {
                 )}
               </div>
 
-              {/* Фильтр по типу действия (мультивыбор) */}
+              {/* Фильтр по типу действия (мультивыбор с подменю) */}
               <div className="relative" ref={actionDropdownRef}>
                 <button
                   onClick={() => {
@@ -4007,7 +4017,8 @@ function ActionReports({ user }) {
                 </button>
 
                 {showActionDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                    {/* Все действия */}
                     <button
                       onClick={() => {
                         setSelectedActionFilter([]);
@@ -4026,39 +4037,85 @@ function ActionReports({ user }) {
                       <span>Все действия</span>
                     </button>
                     <div className="border-t border-slate-100 my-1" />
-                    {uniqueActions.map(({ action, subActions }) => {
-                      const isSelected = selectedActionFilter.includes(action);
+
+                    {/* Список действий из ACTION_OPTIONS_WITH_SUBMENU */}
+                    {ACTION_OPTIONS_WITH_SUBMENU.map((option) => {
+                      const isSelected = selectedActionFilter.includes(option.label);
+                      const hasSubOptions = option.subOptions && option.subOptions.length > 0;
+
+                      // Цвет точки
+                      const dotColor = option.label === 'Перенастроил' ? 'bg-blue-500' :
+                        option.label === 'Новинка' ? 'bg-green-500' :
+                        option.label === 'ТЗ' ? 'bg-purple-500' :
+                        option.label === 'Закончились' ? 'bg-orange-500' :
+                        option.label === 'Вкл с прихода' ? 'bg-emerald-500' : 'bg-slate-400';
+
                       return (
-                        <button
-                          key={action}
-                          onClick={() => {
-                            if (isSelected) {
-                              // Убираем из выбранных
-                              setSelectedActionFilter(prev => prev.filter(a => a !== action));
-                            } else {
-                              // Добавляем к выбранным
-                              setSelectedActionFilter(prev => [...prev, action]);
-                            }
-                            setSelectedSubActionFilter('all');
-                          }}
-                          className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
-                            isSelected ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
-                          }`}
+                        <div
+                          key={option.value}
+                          className="relative"
+                          onMouseEnter={() => hasSubOptions && setHoveredAction(option.value)}
+                          onMouseLeave={() => setHoveredAction(null)}
                         >
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            {isSelected && (
-                              <Check className="h-4 w-4 text-purple-600" />
+                          <button
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedActionFilter(prev => prev.filter(a => a !== option.label));
+                              } else {
+                                setSelectedActionFilter(prev => [...prev, option.label]);
+                              }
+                            }}
+                            className={`flex items-center justify-between w-full px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${
+                              isSelected ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-5 h-5 flex items-center justify-center">
+                                {isSelected && (
+                                  <Check className="h-4 w-4 text-purple-600" />
+                                )}
+                              </div>
+                              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                              <span>{option.label}</span>
+                            </div>
+                            {hasSubOptions && (
+                              <ChevronRight className="h-4 w-4 text-slate-400" />
                             )}
-                          </div>
-                          <span className={`w-2 h-2 rounded-full ${
-                            action === 'Перенастроил' ? 'bg-blue-500' :
-                            action === 'Новинка' ? 'bg-green-500' :
-                            action === 'ТЗ' ? 'bg-purple-500' :
-                            action === 'Выключил' ? 'bg-red-500' :
-                            action === 'Включил' ? 'bg-emerald-500' : 'bg-slate-400'
-                          }`} />
-                          <span>{action}</span>
-                        </button>
+                          </button>
+
+                          {/* Подменю */}
+                          {hasSubOptions && hoveredAction === option.value && (
+                            <div className="absolute left-full top-0 ml-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                              {option.subOptions.map(sub => {
+                                const subLabel = `${option.label}: ${sub.label}`;
+                                const isSubSelected = selectedActionFilter.includes(subLabel);
+                                return (
+                                  <button
+                                    key={sub.value}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isSubSelected) {
+                                        setSelectedActionFilter(prev => prev.filter(a => a !== subLabel));
+                                      } else {
+                                        setSelectedActionFilter(prev => [...prev, subLabel]);
+                                      }
+                                    }}
+                                    className={`flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${
+                                      isSubSelected ? 'bg-purple-50 text-purple-700 font-medium' : 'text-slate-600'
+                                    }`}
+                                  >
+                                    <div className="w-4 h-4 flex items-center justify-center">
+                                      {isSubSelected && (
+                                        <Check className="h-3.5 w-3.5 text-purple-600" />
+                                      )}
+                                    </div>
+                                    <span>{sub.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
