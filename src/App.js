@@ -7,6 +7,9 @@ import SqlQueryBuilder from './components/SqlQueryBuilder';
 import OffersCollectionQuery from './components/OffersCollectionQuery';
 import ConversionsCollectionQuery from './components/ConversionsCollectionQuery';
 import SalesCollectionQuery from './components/SalesCollectionQuery';
+import OperationalCostQuery from './components/OperationalCostQuery';
+import CurrencyCollectionQuery from './components/CurrencyCollectionQuery';
+import DatabaseMenu from './components/DatabaseMenu';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -190,6 +193,17 @@ function App() {
             <SalesCollectionQuery user={user} />
           </div>
         } />
+        <Route path="/db/operational_cost_collection" element={
+          <div className="h-screen w-screen overflow-auto bg-gray-50">
+            <OperationalCostQuery user={user} />
+          </div>
+        } />
+        <Route path="/db/currency_collection" element={
+          <div className="h-screen w-screen overflow-auto bg-gray-50">
+            <CurrencyCollectionQuery user={user} />
+          </div>
+        } />
+        <Route path="/db" element={<DatabaseMenu />} />
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Navigate to="/settings" replace />} />
