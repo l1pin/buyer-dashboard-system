@@ -71,7 +71,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       id: 'offers-buyer',
       label: 'Мои офферы',
       icon: Package,
-      show: canShowSection('offers-buyer', user?.role === 'buyer')
+      show: false // Временно скрыто для Media Buyer
     },
     {
       id: 'action-reports',
