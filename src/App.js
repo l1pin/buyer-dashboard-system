@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import SqlQueryBuilder from './components/SqlQueryBuilder';
 import OffersCollectionQuery from './components/OffersCollectionQuery';
+import ConversionsCollectionQuery from './components/ConversionsCollectionQuery';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -176,6 +177,11 @@ function App() {
         <Route path="/db/offers_collection" element={
           <div className="h-screen w-screen overflow-auto bg-gray-50">
             <OffersCollectionQuery user={user} />
+          </div>
+        } />
+        <Route path="/db/conversions_collection" element={
+          <div className="h-screen w-screen overflow-auto bg-gray-50">
+            <ConversionsCollectionQuery user={user} />
           </div>
         } />
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
