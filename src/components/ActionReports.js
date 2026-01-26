@@ -1066,7 +1066,7 @@ const ACTION_OPTIONS_WITH_SUBMENU = [
       { value: 'new_account', label: 'Новый акк' },
       { value: 'target', label: 'Таргет' },
       { value: 'creative', label: 'Крео' },
-      { value: 'audience', label: 'Аудитория' },
+      { value: 'placement', label: 'Плейсмент' },
       { value: 'landing', label: 'Ленд' },
       { value: 'budget', label: 'Бюджет' },
       { value: 'duplicate', label: 'Дубль' },
@@ -4486,7 +4486,6 @@ function ActionReports({ user }) {
           <div className="w-[3%] min-w-[25px] text-center">№</div>
           <div className="w-[6%] min-w-[55px] text-center">Артикул</div>
           <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left`}>Название</div>
-          <div className="w-[5%] min-w-[45px] text-center">Статус</div>
           {isTeamlead && <div className="w-[8%] min-w-[70px] text-center">Байер</div>}
           <div className="w-[10%] min-w-[90px] text-center">Действия</div>
           <div className="w-[5%] min-w-[50px] text-center">Когда</div>
@@ -4593,13 +4592,6 @@ function ActionReports({ user }) {
                   </div>
                   <div className={`${isTeamlead ? 'w-[12%] min-w-[90px]' : 'w-[20%] min-w-[150px]'} text-left text-slate-700 truncate pr-2`} title={metric.offer}>
                     {metric.offer || '—'}
-                  </div>
-                  {/* Статус - кружок + дни */}
-                  <div className="w-[5%] min-w-[45px] flex items-center justify-center gap-1" title={statusDisplay.status ? `${statusDisplay.status} • ${statusDisplay.days ?? 0} дней` : ''}>
-                    <span className={`w-3 h-3 rounded-full ${statusDisplay.color} shadow-sm border border-white`}></span>
-                    <span className="text-xs font-medium text-slate-700">
-                      {statusDisplay.days !== null ? `${statusDisplay.days}д` : '—'}
-                    </span>
                   </div>
                   {/* Байер - аватар + имя (только для тимлида) */}
                   {isTeamlead && (
