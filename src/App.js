@@ -11,6 +11,7 @@ import OperationalCostQuery from './components/OperationalCostQuery';
 import CurrencyCollectionQuery from './components/CurrencyCollectionQuery';
 import DatabaseMenu from './components/DatabaseMenu';
 import ProfitCheckTest from './components/ProfitCheckTest';
+import ProfitCheckDebug from './components/ProfitCheckDebug';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -208,6 +209,11 @@ function App() {
         <Route path="/profit-check-test" element={
           <div className="h-screen w-screen overflow-auto bg-slate-50">
             <ProfitCheckTest />
+          </div>
+        } />
+        <Route path="/profit-check-debug" element={
+          <div className="h-screen w-screen overflow-auto bg-slate-50">
+            <ProfitCheckDebug />
           </div>
         } />
         <Route path="/settings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
