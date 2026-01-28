@@ -17,13 +17,25 @@ async function executeQuery(sql) {
     cache: 'no-store'
   });
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  const code = response.status;
+  const text = await response.text();
+
+  if (code !== 200) {
+    throw new Error(`HTTP ${code}: ${text}`);
   }
 
-  const json = await response.json();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON: ${e.message}`);
+  }
+
   if (json.error) {
-    throw new Error(json.error);
+    const errorMsg = typeof json.error === 'object'
+      ? JSON.stringify(json.error)
+      : json.error;
+    throw new Error(errorMsg);
   }
 
   return json;
@@ -70,7 +82,25 @@ function ValueDisplay({ value }) {
 }
 
 // Компонент таблицы данных
-function DataTable({ tableName, data, expanded, onToggle }) {
+function DataTable({ tableName, tableInfo, expanded, onToggle }) {
+  const { data = [], error } = tableInfo || {};
+
+  // Показать ошибку
+  if (error) {
+    return (
+      <div className="border rounded-lg mb-4 bg-white border-red-200">
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex items-center gap-2">
+          <Database size={16} className="text-red-500" />
+          <span className="font-medium">{tableName}</span>
+          <span className="text-red-500 text-sm">(ошибка)</span>
+        </div>
+        <div className="p-4 text-red-600 text-sm font-mono">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
   if (!data || data.length === 0) {
     return (
       <div className="border rounded-lg mb-4 bg-white">
@@ -215,11 +245,12 @@ function ProfitCheckDebug() {
 
         try {
           const sql = table.query(offerId.trim(), dateFrom, dateTo);
+          console.log(`SQL for ${table.name}:`, sql);
           const data = await executeQuery(sql);
-          results[table.name] = Array.isArray(data) ? data : [];
+          results[table.name] = { data: Array.isArray(data) ? data : [], error: null };
         } catch (err) {
           console.error(`Error loading ${table.name}:`, err);
-          results[table.name] = [];
+          results[table.name] = { data: [], error: err.message };
         }
       }
 
@@ -256,10 +287,10 @@ function ProfitCheckDebug() {
           };
         }).filter(u => u.channels_count > 0);
 
-        results['supabase_users (traffic_channels)'] = buyersWithChannels;
+        results['supabase_users (traffic_channels)'] = { data: buyersWithChannels, error: null };
       } catch (err) {
         console.error('Error loading users:', err);
-        results['supabase_users (traffic_channels)'] = [];
+        results['supabase_users (traffic_channels)'] = { data: [], error: err.message };
       }
 
       setTableData(results);
@@ -287,7 +318,7 @@ function ProfitCheckDebug() {
   };
 
   // Подсчет общего количества записей
-  const totalRecords = Object.values(tableData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+  const totalRecords = Object.values(tableData).reduce((sum, info) => sum + (info?.data?.length || 0), 0);
 
   return (
     <div className="p-6 max-w-[1800px] mx-auto">
@@ -409,11 +440,11 @@ function ProfitCheckDebug() {
       )}
 
       {/* Данные по таблицам */}
-      {Object.entries(tableData).map(([tableName, data]) => (
+      {Object.entries(tableData).map(([tableName, tableInfo]) => (
         <DataTable
           key={tableName}
           tableName={tableName}
-          data={data}
+          tableInfo={tableInfo}
           expanded={expanded}
           onToggle={toggleExpanded}
         />
