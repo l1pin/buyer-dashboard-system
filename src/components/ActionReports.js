@@ -85,13 +85,13 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
     const [responseBefore, responseTarget] = await Promise.all([
       fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlBeforeIds })
       }),
       fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlTarget })
       })
@@ -346,13 +346,13 @@ async function fetchAdsChangesBatch(offerRequests) {
       const [responseBefore, responseTarget] = await Promise.all([
         fetch(CORE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlBefore })
         }),
         fetch(CORE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlTarget })
         })
@@ -603,7 +603,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
 
     const response = await fetch(CORE_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+      headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
       body: JSON.stringify({ assoc: true, sql })
     });
@@ -649,7 +649,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     try {
       const responseDaily = await fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlDaily })
       });
@@ -681,7 +681,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
 
         const responseZone = await fetch(CORE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlZoneHistory })
         });
@@ -2474,7 +2474,7 @@ function ActionReports({ user }) {
 
       const response = await fetch(CORE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlSourceIds })
       });
