@@ -47,6 +47,18 @@ function formatCurrency(value, currency = '₴') {
   return `${num.toFixed(2)} ${currency}`;
 }
 
+// Форматирование валюты с двумя значениями (UAH и USD)
+function formatCurrencyDual(uahValue, usdValue) {
+  const uah = parseFloat(uahValue) || 0;
+  const usd = parseFloat(usdValue) || 0;
+  return (
+    <span>
+      {uah.toFixed(2)} ₴
+      <span className="text-xs text-slate-400 ml-1">({usd.toFixed(2)} $)</span>
+    </span>
+  );
+}
+
 // Проверка, попадает ли дата в период доступа
 function isDateInAccessPeriod(date, accessGranted, accessLimited) {
   if (!date) return false;
@@ -229,7 +241,7 @@ function ProfitCheckTest() {
       }
 
       // Шаг 4: Загрузка операционных расходов
-      setProgress({ show: true, message: 'Загрузка операционных расходов...', percent: 65 });
+      setProgress({ show: true, message: 'Загрузка операционных расходов...', percent: 60 });
 
       let operationalCosts = {};
       try {
@@ -249,10 +261,32 @@ function ProfitCheckTest() {
         console.warn('Не удалось загрузить операционные расходы:', e);
       }
 
-      // Шаг 5: Построение иерархии
-      setProgress({ show: true, message: 'Построение иерархии...', percent: 80 });
+      // Шаг 5: Загрузка курсов валют
+      setProgress({ show: true, message: 'Загрузка курсов валют...', percent: 70 });
 
-      const hierarchy = buildHierarchy(adsData, conversionsData, salesData, operationalCosts);
+      let currencyRates = {};
+      try {
+        const currencyQuery = `
+          SELECT month, year, value
+          FROM currency_collection
+          WHERE convert_from_currency = 'USD' AND convert_to_currency = 'UAH'
+          ORDER BY year DESC, month DESC
+        `;
+        const currencyData = await executeQuery(currencyQuery);
+        if (currencyData && currencyData.length > 0) {
+          currencyData.forEach(row => {
+            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+            currencyRates[key] = parseFloat(row.value) || 41; // дефолтный курс 41
+          });
+        }
+      } catch (e) {
+        console.warn('Не удалось загрузить курсы валют:', e);
+      }
+
+      // Шаг 6: Построение иерархии
+      setProgress({ show: true, message: 'Построение иерархии...', percent: 85 });
+
+      const hierarchy = buildHierarchy(adsData, conversionsData, salesData, operationalCosts, currencyRates);
 
       // Сохраняем данные
       setOfferData({
@@ -280,7 +314,13 @@ function ProfitCheckTest() {
   };
 
   // Построение иерархической структуры
-  const buildHierarchy = (adsData, conversionsData, salesData, operationalCosts) => {
+  const buildHierarchy = (adsData, conversionsData, salesData, operationalCosts, currencyRates) => {
+    // Функция получения курса валюты по дате
+    const getExchangeRate = (dateStr) => {
+      if (!dateStr) return 41; // дефолтный курс
+      const monthKey = dateStr.substring(0, 7); // YYYY-MM
+      return currencyRates[monthKey] || 41;
+    };
     // Маппинги для быстрого доступа
     const salesByClickId = {};
     salesData.forEach(sale => {
@@ -391,9 +431,14 @@ function ProfitCheckTest() {
 
             // Тоталы по рекламе
             Object.entries(ad.dates).forEach(([date, data]) => {
+              const exchangeRate = getExchangeRate(date);
               ad.totals.leads += data.valid;
-              ad.totals.costRedtrack += data.cost;
-              ad.totals.costCabinet += data.costFromSources;
+              // USD значения
+              ad.totals.costRedtrackUsd += data.cost;
+              ad.totals.costCabinetUsd += data.costFromSources;
+              // UAH значения (конвертированные)
+              ad.totals.costRedtrackUah += data.cost * exchangeRate;
+              ad.totals.costCabinetUah += data.costFromSources * exchangeRate;
             });
 
             // Считаем из конверсий и продаж
@@ -455,8 +500,10 @@ function ProfitCheckTest() {
       soldProfit: 0,      // Вал. прибыль с продаж
       operationalCost: 0, // Операционные расходы
       deliveryCost: 0,    // Расходы на доставку
-      costRedtrack: 0,    // Расходы на рекламу с RedTrack
-      costCabinet: 0      // Расходы с рекламных кабинетов
+      costRedtrackUsd: 0, // Расходы на рекламу с RedTrack (USD)
+      costRedtrackUah: 0, // Расходы на рекламу с RedTrack (UAH)
+      costCabinetUsd: 0,  // Расходы с рекламных кабинетов (USD)
+      costCabinetUah: 0   // Расходы с рекламных кабинетов (UAH)
     };
   }
 
@@ -470,8 +517,10 @@ function ProfitCheckTest() {
     target.soldProfit += source.soldProfit;
     target.operationalCost += source.operationalCost;
     target.deliveryCost += source.deliveryCost;
-    target.costRedtrack += source.costRedtrack;
-    target.costCabinet += source.costCabinet;
+    target.costRedtrackUsd += source.costRedtrackUsd;
+    target.costRedtrackUah += source.costRedtrackUah;
+    target.costCabinetUsd += source.costCabinetUsd;
+    target.costCabinetUah += source.costCabinetUah;
   }
 
   // Переключение раскрытия элемента
@@ -545,8 +594,8 @@ function ProfitCheckTest() {
         <td className={cellClass}>{formatCurrency(totals.soldProfit)}</td>
         <td className={cellClass}>{formatCurrency(totals.operationalCost)}</td>
         <td className={cellClass}>{formatCurrency(totals.deliveryCost)}</td>
-        <td className={cellClass}>{formatCurrency(totals.costRedtrack, '$')}</td>
-        <td className={cellClass}>{formatCurrency(totals.costCabinet, '$')}</td>
+        <td className={cellClass}>{formatCurrencyDual(totals.costRedtrackUah, totals.costRedtrackUsd)}</td>
+        <td className={cellClass}>{formatCurrencyDual(totals.costCabinetUah, totals.costCabinetUsd)}</td>
       </>
     );
   };
