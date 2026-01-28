@@ -315,11 +315,38 @@ function ProfitCheckTest() {
 
   // Построение иерархической структуры
   const buildHierarchy = (adsData, conversionsData, salesData, operationalCosts, currencyRates) => {
-    // Функция получения курса валюты по дате
+    // Функция получения курса валюты по дате (если не найден - берем предыдущий месяц)
     const getExchangeRate = (dateStr) => {
-      if (!dateStr) return 41; // дефолтный курс
-      const monthKey = dateStr.substring(0, 7); // YYYY-MM
-      return currencyRates[monthKey] || 41;
+      if (!dateStr) {
+        // Берем самый последний доступный курс
+        const sortedKeys = Object.keys(currencyRates).sort().reverse();
+        return sortedKeys.length > 0 ? currencyRates[sortedKeys[0]] : 0;
+      }
+
+      let monthKey = dateStr.substring(0, 7); // YYYY-MM
+
+      // Если курс найден - возвращаем
+      if (currencyRates[monthKey]) {
+        return currencyRates[monthKey];
+      }
+
+      // Ищем курс за предыдущие месяцы
+      let [year, month] = monthKey.split('-').map(Number);
+      for (let i = 0; i < 12; i++) { // максимум 12 попыток назад
+        month--;
+        if (month < 1) {
+          month = 12;
+          year--;
+        }
+        const prevKey = `${year}-${String(month).padStart(2, '0')}`;
+        if (currencyRates[prevKey]) {
+          return currencyRates[prevKey];
+        }
+      }
+
+      // Если ничего не найдено, берем любой доступный курс
+      const sortedKeys = Object.keys(currencyRates).sort().reverse();
+      return sortedKeys.length > 0 ? currencyRates[sortedKeys[0]] : 0;
     };
     // Маппинги для быстрого доступа
     const salesByClickId = {};
