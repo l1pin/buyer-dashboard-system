@@ -86,11 +86,13 @@ async function fetchAdsChanges(offerId, sourceIds, targetDate) {
       fetch(CORE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlBeforeIds })
       }),
       fetch(CORE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlTarget })
       })
     ]);
@@ -345,11 +347,13 @@ async function fetchAdsChangesBatch(offerRequests) {
         fetch(CORE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlBefore })
         }),
         fetch(CORE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlTarget })
         })
       ]);
@@ -600,6 +604,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     const response = await fetch(CORE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
       body: JSON.stringify({ assoc: true, sql })
     });
 
@@ -645,6 +650,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
       const responseDaily = await fetch(CORE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlDaily })
       });
       const dataDaily = await responseDaily.json();
@@ -676,6 +682,7 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
         const responseZone = await fetch(CORE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
           body: JSON.stringify({ assoc: true, sql: sqlZoneHistory })
         });
         const zoneData = await responseZone.json();
@@ -1881,6 +1888,15 @@ function ActionReports({ user }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Принудительная очистка кэша при монтировании (перезагрузке страницы)
+  useEffect(() => {
+    loadedMetricsDataRef.current = {};
+    setAdsChangesCache({});
+    setUpdatedMetricsMap({});
+    setLoadedDatesCache(new Set());
+    console.log('🔄 Кэш очищен при монтировании компонента');
+  }, []);
+
   // Загрузка данных офферов и отчетов при монтировании
   useEffect(() => {
     loadOffersData();
@@ -2459,6 +2475,7 @@ function ActionReports({ user }) {
       const response = await fetch(CORE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ assoc: true, sql: sqlSourceIds })
       });
       const sourceIdsData = await response.json();
