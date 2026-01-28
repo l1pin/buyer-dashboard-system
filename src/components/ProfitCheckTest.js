@@ -1,12 +1,17 @@
 // src/components/ProfitCheckTest.js
 // Проверка прибыльности оффера по Offer ID
+// Сопоставление source_id_tracker с users.buyer_settings.traffic_channels
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Loader2, ChevronDown, ChevronRight, AlertCircle, TrendingUp, DollarSign, Users, Target, Package, Calendar, Filter, X, Play } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Loader2, ChevronDown, ChevronRight, AlertCircle, TrendingUp, Package, Calendar, Play, Users } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 // URL API
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
+
+// Статусы заказов
+const SENT_STATUSES = ['1', '5', '6', '10', '11', '15', '16', '17', '18', '19', '20']; // Отправлено
+const SOLD_STATUSES = ['2']; // Продано/Выполнено
 
 // Функция выполнения SQL запроса
 async function executeQuery(sql) {
@@ -37,16 +42,18 @@ function getDateDaysAgo(days) {
 }
 
 // Форматирование валюты
-function formatCurrency(value, currency = '$') {
+function formatCurrency(value, currency = '₴') {
   const num = parseFloat(value) || 0;
-  return `${currency}${num.toFixed(2)}`;
+  return `${num.toFixed(2)} ${currency}`;
 }
 
-// Форматирование даты
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+// Проверка, попадает ли дата в период доступа
+function isDateInAccessPeriod(date, accessGranted, accessLimited) {
+  if (!date) return false;
+  const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+  const granted = accessGranted || '2020-01-01';
+  const limited = accessLimited || '2099-12-31';
+  return dateStr >= granted && dateStr <= limited;
 }
 
 function ProfitCheckTest() {
@@ -59,51 +66,71 @@ function ProfitCheckTest() {
   // Данные
   const [offerData, setOfferData] = useState(null);
   const [hierarchyData, setHierarchyData] = useState(null);
-  const [buyersMap, setBuyersMap] = useState({});
+  const [buyersChannelsMap, setBuyersChannelsMap] = useState({});
 
   // Фильтры
   const [dateFrom, setDateFrom] = useState(getDateDaysAgo(30));
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
   const [selectedBuyers, setSelectedBuyers] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
 
   // Раскрытые элементы иерархии
   const [expanded, setExpanded] = useState({});
 
-  // Загрузка списка байеров из Supabase
+  // Загрузка списка байеров из Supabase с traffic_channels
   useEffect(() => {
-    loadBuyers();
+    loadBuyersWithChannels();
   }, []);
 
-  const loadBuyers = async () => {
+  const loadBuyersWithChannels = async () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, buyer_settings')
+        .select('id, name, email, avatar_url, buyer_settings')
         .not('buyer_settings', 'is', null);
 
       if (error) throw error;
 
+      // Создаём маппинг: channel_id -> { buyer info, access_granted, access_limited }
       const map = {};
       data.forEach(user => {
-        // buyer_settings может содержать source_id_tracker
         const settings = typeof user.buyer_settings === 'string'
           ? JSON.parse(user.buyer_settings)
           : user.buyer_settings;
 
-        if (settings?.source_id_tracker) {
-          map[settings.source_id_tracker] = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            source_id_tracker: settings.source_id_tracker
-          };
-        }
+        const channels = settings?.traffic_channels || [];
+        channels.forEach(ch => {
+          if (ch.channel_id) {
+            if (!map[ch.channel_id]) {
+              map[ch.channel_id] = [];
+            }
+            map[ch.channel_id].push({
+              buyer_id: user.id,
+              buyer_name: user.name,
+              buyer_email: user.email,
+              buyer_avatar: user.avatar_url,
+              access_granted: ch.access_granted || '2020-01-01',
+              access_limited: ch.access_limited || null,
+              source: ch.source || 'unknown'
+            });
+          }
+        });
       });
-      setBuyersMap(map);
+      setBuyersChannelsMap(map);
     } catch (err) {
       console.error('Error loading buyers:', err);
     }
+  };
+
+  // Найти байера по source_id_tracker и дате
+  const findBuyerForSourceAndDate = (sourceId, date) => {
+    const channelBuyers = buyersChannelsMap[sourceId] || [];
+    for (const buyer of channelBuyers) {
+      if (isDateInAccessPeriod(date, buyer.access_granted, buyer.access_limited)) {
+        return buyer;
+      }
+    }
+    // Если не нашли по дате, вернуть первого (или null)
+    return channelBuyers[0] || null;
   };
 
   // Основной поиск
@@ -149,7 +176,6 @@ function ProfitCheckTest() {
 
       let conversionsData = [];
       if (advIds.length > 0) {
-        // Запрос конверсий порциями (если много adv_id)
         const chunkSize = 100;
         for (let i = 0; i < advIds.length; i += chunkSize) {
           const chunk = advIds.slice(i, i + chunkSize);
@@ -190,7 +216,7 @@ function ProfitCheckTest() {
               id, clickid, order_id, order_status, order_date,
               order_base_price, order_price, order_end_price, order_profit,
               order_aditional_sell, initial_sku, initial_offer_name,
-              ordered_list
+              delivery_price, ordered_list
             FROM sales_collection
             WHERE clickid IN (${clickIdsList})
           `;
@@ -202,10 +228,31 @@ function ProfitCheckTest() {
         }
       }
 
-      // Шаг 4: Построение иерархии
-      setProgress({ show: true, message: 'Построение иерархии...', percent: 70 });
+      // Шаг 4: Загрузка операционных расходов
+      setProgress({ show: true, message: 'Загрузка операционных расходов...', percent: 65 });
 
-      const hierarchy = buildHierarchy(adsData, conversionsData, salesData);
+      let operationalCosts = {};
+      try {
+        const opCostQuery = `
+          SELECT month, year, cost_per_conversion
+          FROM operational_cost_collection
+          ORDER BY year DESC, month DESC
+        `;
+        const opCostData = await executeQuery(opCostQuery);
+        if (opCostData && opCostData.length > 0) {
+          opCostData.forEach(row => {
+            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+            operationalCosts[key] = parseFloat(row.cost_per_conversion) || 0;
+          });
+        }
+      } catch (e) {
+        console.warn('Не удалось загрузить операционные расходы:', e);
+      }
+
+      // Шаг 5: Построение иерархии
+      setProgress({ show: true, message: 'Построение иерархии...', percent: 80 });
+
+      const hierarchy = buildHierarchy(adsData, conversionsData, salesData, operationalCosts);
 
       // Сохраняем данные
       setOfferData({
@@ -233,8 +280,8 @@ function ProfitCheckTest() {
   };
 
   // Построение иерархической структуры
-  const buildHierarchy = (adsData, conversionsData, salesData) => {
-    // Создаём маппинги для быстрого доступа
+  const buildHierarchy = (adsData, conversionsData, salesData, operationalCosts) => {
+    // Маппинги для быстрого доступа
     const salesByClickId = {};
     salesData.forEach(sale => {
       salesByClickId[sale.clickid] = sale;
@@ -255,121 +302,177 @@ function ProfitCheckTest() {
     const buyers = {};
 
     adsData.forEach(ad => {
-      const buyerId = ad.source_id_tracker || 'unknown';
+      const sourceId = ad.source_id_tracker || 'unknown';
       const campaignId = ad.campaign_id_tracker || 'unknown';
       const groupId = ad.adv_group_id || 'unknown';
       const advId = ad.adv_id || 'unknown';
+      const adDate = ad.adv_date;
+
+      // Находим байера по source_id_tracker и дате
+      const buyerInfo = findBuyerForSourceAndDate(sourceId, adDate);
+      const buyerKey = buyerInfo ? buyerInfo.buyer_id : `source_${sourceId}`;
+      const buyerName = buyerInfo ? buyerInfo.buyer_name : `Source #${sourceId}`;
+
+      // Проверяем период доступа
+      if (buyerInfo && !isDateInAccessPeriod(adDate, buyerInfo.access_granted, buyerInfo.access_limited)) {
+        return; // Пропускаем данные вне периода доступа байера
+      }
 
       // Инициализация байера
-      if (!buyers[buyerId]) {
-        const buyerInfo = buyersMap[buyerId] || {};
-        buyers[buyerId] = {
-          id: buyerId,
-          name: buyerInfo.name || `Байер #${buyerId}`,
-          email: buyerInfo.email || '',
+      if (!buyers[buyerKey]) {
+        buyers[buyerKey] = {
+          id: buyerKey,
+          sourceId: sourceId,
+          name: buyerName,
+          email: buyerInfo?.buyer_email || '',
+          avatar: buyerInfo?.buyer_avatar || null,
+          accessGranted: buyerInfo?.access_granted,
+          accessLimited: buyerInfo?.access_limited,
           campaigns: {},
-          totals: { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 }
+          totals: createEmptyTotals()
         };
       }
 
       // Инициализация кампании
-      if (!buyers[buyerId].campaigns[campaignId]) {
-        buyers[buyerId].campaigns[campaignId] = {
+      if (!buyers[buyerKey].campaigns[campaignId]) {
+        buyers[buyerKey].campaigns[campaignId] = {
           id: campaignId,
           name: ad.campaign_name_tracker || campaignId,
           groups: {},
-          totals: { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 }
+          totals: createEmptyTotals()
         };
       }
 
       // Инициализация группы
-      if (!buyers[buyerId].campaigns[campaignId].groups[groupId]) {
-        buyers[buyerId].campaigns[campaignId].groups[groupId] = {
+      if (!buyers[buyerKey].campaigns[campaignId].groups[groupId]) {
+        buyers[buyerKey].campaigns[campaignId].groups[groupId] = {
           id: groupId,
           name: ad.adv_group_name || groupId,
           ads: {},
-          totals: { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 }
+          totals: createEmptyTotals()
         };
       }
 
       // Инициализация объявления
-      if (!buyers[buyerId].campaigns[campaignId].groups[groupId].ads[advId]) {
-        buyers[buyerId].campaigns[campaignId].groups[groupId].ads[advId] = {
+      if (!buyers[buyerKey].campaigns[campaignId].groups[groupId].ads[advId]) {
+        buyers[buyerKey].campaigns[campaignId].groups[groupId].ads[advId] = {
           id: advId,
           name: ad.adv_name || advId,
           dates: {},
           conversions: conversionsByAdvId[advId] || [],
-          totals: { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 }
+          totals: createEmptyTotals()
         };
       }
 
       // Добавляем данные за дату
-      const dateKey = ad.adv_date;
-      const adRef = buyers[buyerId].campaigns[campaignId].groups[groupId].ads[advId];
+      const adRef = buyers[buyerKey].campaigns[campaignId].groups[groupId].ads[advId];
 
-      if (!adRef.dates[dateKey]) {
-        adRef.dates[dateKey] = { cost: 0, valid: 0 };
+      if (!adRef.dates[adDate]) {
+        adRef.dates[adDate] = { cost: 0, costFromSources: 0, valid: 0 };
       }
 
-      adRef.dates[dateKey].cost += parseFloat(ad.cost) || 0;
-      adRef.dates[dateKey].valid += parseInt(ad.valid) || 0;
+      adRef.dates[adDate].cost += parseFloat(ad.cost) || 0;
+      adRef.dates[adDate].costFromSources += parseFloat(ad.cost_from_sources) || 0;
+      adRef.dates[adDate].valid += parseInt(ad.valid) || 0;
     });
 
     // Подсчитываем тоталы снизу вверх
     Object.values(buyers).forEach(buyer => {
-      buyer.totals = { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 };
+      buyer.totals = createEmptyTotals();
 
       Object.values(buyer.campaigns).forEach(campaign => {
-        campaign.totals = { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 };
+        campaign.totals = createEmptyTotals();
 
         Object.values(campaign.groups).forEach(group => {
-          group.totals = { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 };
+          group.totals = createEmptyTotals();
 
           Object.values(group.ads).forEach(ad => {
-            // Тоталы по объявлению
-            ad.totals = { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 };
+            ad.totals = createEmptyTotals();
 
-            Object.values(ad.dates).forEach(date => {
-              ad.totals.cost += date.cost;
-              ad.totals.valid += date.valid;
+            // Тоталы по рекламе
+            Object.entries(ad.dates).forEach(([date, data]) => {
+              ad.totals.leads += data.valid;
+              ad.totals.costRedtrack += data.cost;
+              ad.totals.costCabinet += data.costFromSources;
             });
 
-            // Считаем продажи из конверсий
+            // Считаем из конверсий и продаж
             ad.conversions.forEach(conv => {
               if (conv.sale) {
-                ad.totals.sales++;
-                ad.totals.profit += parseFloat(conv.sale.order_profit) || 0;
-                ad.totals.revenue += parseFloat(conv.sale.order_end_price) || 0;
+                const sale = conv.sale;
+                const status = String(sale.order_status);
+
+                // Операционные расходы по месяцу конверсии
+                const convDate = conv.date_of_conversion || conv.date_of_click;
+                if (convDate) {
+                  const monthKey = convDate.substring(0, 7); // YYYY-MM
+                  const opCost = operationalCosts[monthKey] || 0;
+                  ad.totals.operationalCost += opCost;
+                }
+
+                // Расходы на доставку
+                ad.totals.deliveryCost += parseFloat(sale.delivery_price) || 0;
+
+                // Отправления (статусы отправлено)
+                if (SENT_STATUSES.includes(status)) {
+                  ad.totals.sentCount++;
+                  ad.totals.sentSum += parseFloat(sale.order_end_price) || 0;
+                  ad.totals.sentProfit += parseFloat(sale.order_profit) || 0;
+                }
+
+                // Продажи (статус выполнен)
+                if (SOLD_STATUSES.includes(status)) {
+                  ad.totals.soldCount++;
+                  ad.totals.soldProfit += parseFloat(sale.order_profit) || 0;
+                }
               }
             });
 
             // Агрегируем в группу
-            group.totals.cost += ad.totals.cost;
-            group.totals.valid += ad.totals.valid;
-            group.totals.sales += ad.totals.sales;
-            group.totals.profit += ad.totals.profit;
-            group.totals.revenue += ad.totals.revenue;
+            aggregateTotals(group.totals, ad.totals);
           });
 
           // Агрегируем в кампанию
-          campaign.totals.cost += group.totals.cost;
-          campaign.totals.valid += group.totals.valid;
-          campaign.totals.sales += group.totals.sales;
-          campaign.totals.profit += group.totals.profit;
-          campaign.totals.revenue += group.totals.revenue;
+          aggregateTotals(campaign.totals, group.totals);
         });
 
         // Агрегируем в байера
-        buyer.totals.cost += campaign.totals.cost;
-        buyer.totals.valid += campaign.totals.valid;
-        buyer.totals.sales += campaign.totals.sales;
-        buyer.totals.profit += campaign.totals.profit;
-        buyer.totals.revenue += campaign.totals.revenue;
+        aggregateTotals(buyer.totals, campaign.totals);
       });
     });
 
     return buyers;
   };
+
+  // Создать пустой объект тоталов
+  function createEmptyTotals() {
+    return {
+      leads: 0,           // Количество лидов
+      sentCount: 0,       // Количество отправлений
+      sentSum: 0,         // Отправлено на сумму
+      sentProfit: 0,      // Вал. прибыль с отправлений
+      soldCount: 0,       // Количество продаж
+      soldProfit: 0,      // Вал. прибыль с продаж
+      operationalCost: 0, // Операционные расходы
+      deliveryCost: 0,    // Расходы на доставку
+      costRedtrack: 0,    // Расходы на рекламу с RedTrack
+      costCabinet: 0      // Расходы с рекламных кабинетов
+    };
+  }
+
+  // Агрегация тоталов
+  function aggregateTotals(target, source) {
+    target.leads += source.leads;
+    target.sentCount += source.sentCount;
+    target.sentSum += source.sentSum;
+    target.sentProfit += source.sentProfit;
+    target.soldCount += source.soldCount;
+    target.soldProfit += source.soldProfit;
+    target.operationalCost += source.operationalCost;
+    target.deliveryCost += source.deliveryCost;
+    target.costRedtrack += source.costRedtrack;
+    target.costCabinet += source.costCabinet;
+  }
 
   // Переключение раскрытия элемента
   const toggleExpand = (key) => {
@@ -401,25 +504,12 @@ function ProfitCheckTest() {
   const overallTotals = useMemo(() => {
     if (!hierarchyData) return null;
 
-    const totals = { cost: 0, valid: 0, sales: 0, profit: 0, revenue: 0 };
+    const totals = createEmptyTotals();
 
     Object.values(hierarchyData).forEach(buyer => {
-      // Фильтр по выбранным байерам
       if (selectedBuyers.length > 0 && !selectedBuyers.includes(buyer.id)) return;
-
-      totals.cost += buyer.totals.cost;
-      totals.valid += buyer.totals.valid;
-      totals.sales += buyer.totals.sales;
-      totals.profit += buyer.totals.profit;
-      totals.revenue += buyer.totals.revenue;
+      aggregateTotals(totals, buyer.totals);
     });
-
-    // Чистая прибыль = прибыль с продаж - расходы на рекламу
-    totals.netProfit = totals.profit - totals.cost;
-    // ROI
-    totals.roi = totals.cost > 0 ? ((totals.netProfit / totals.cost) * 100) : 0;
-    // CPL
-    totals.cpl = totals.valid > 0 ? (totals.cost / totals.valid) : 0;
 
     return totals;
   }, [hierarchyData, selectedBuyers]);
@@ -436,12 +526,34 @@ function ProfitCheckTest() {
   // Список всех байеров для фильтра
   const availableBuyers = useMemo(() => {
     if (!hierarchyData) return [];
-    return Object.values(hierarchyData).map(b => ({ id: b.id, name: b.name }));
+    return Object.values(hierarchyData).map(b => ({ id: b.id, name: b.name, avatar: b.avatar }));
   }, [hierarchyData]);
+
+  // Рендер строки метрик
+  const renderMetricsCells = (totals, isHeader = false) => {
+    const cellClass = isHeader
+      ? 'px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap'
+      : 'px-3 py-2 text-right text-slate-600 whitespace-nowrap';
+
+    return (
+      <>
+        <td className={cellClass}>{totals.leads}</td>
+        <td className={cellClass}>{totals.sentCount}</td>
+        <td className={cellClass}>{formatCurrency(totals.sentSum)}</td>
+        <td className={cellClass}>{formatCurrency(totals.sentProfit)}</td>
+        <td className={cellClass}>{totals.soldCount}</td>
+        <td className={cellClass}>{formatCurrency(totals.soldProfit)}</td>
+        <td className={cellClass}>{formatCurrency(totals.operationalCost)}</td>
+        <td className={cellClass}>{formatCurrency(totals.deliveryCost)}</td>
+        <td className={cellClass}>{formatCurrency(totals.costRedtrack, '$')}</td>
+        <td className={cellClass}>{formatCurrency(totals.costCabinet, '$')}</td>
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Заголовок */}
         <div className="mb-6 flex items-center gap-4">
           <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
@@ -449,7 +561,7 @@ function ProfitCheckTest() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Проверка прибыльности оффера</h1>
-            <p className="text-sm text-slate-500">Анализ расходов, конверсий и продаж по Offer ID</p>
+            <p className="text-sm text-slate-500">Анализ по Offer ID с сопоставлением байеров из traffic_channels</p>
           </div>
         </div>
 
@@ -459,7 +571,7 @@ function ProfitCheckTest() {
             {/* Offer ID */}
             <div className="flex-1 min-w-[300px]">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Offer ID
+                Offer ID (offer_id_tracker)
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -477,6 +589,7 @@ function ProfitCheckTest() {
             {/* Дата от */}
             <div className="w-40">
               <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Calendar className="inline w-4 h-4 mr-1" />
                 Дата от
               </label>
               <input
@@ -490,6 +603,7 @@ function ProfitCheckTest() {
             {/* Дата до */}
             <div className="w-40">
               <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Calendar className="inline w-4 h-4 mr-1" />
                 Дата до
               </label>
               <input
@@ -555,80 +669,19 @@ function ProfitCheckTest() {
         {/* Результаты */}
         {offerData && hierarchyData && (
           <>
-            {/* Общая статистика */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  Расход
-                </div>
-                <div className="text-xl font-bold text-slate-800">{formatCurrency(overallTotals?.cost)}</div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <Target className="w-4 h-4" />
-                  Лиды
-                </div>
-                <div className="text-xl font-bold text-slate-800">{overallTotals?.valid || 0}</div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <Package className="w-4 h-4" />
-                  Продажи
-                </div>
-                <div className="text-xl font-bold text-slate-800">{overallTotals?.sales || 0}</div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <TrendingUp className="w-4 h-4" />
-                  Выручка
-                </div>
-                <div className="text-xl font-bold text-slate-800">{formatCurrency(overallTotals?.revenue)}</div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  Чистая прибыль
-                </div>
-                <div className={`text-xl font-bold ${overallTotals?.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(overallTotals?.netProfit)}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-                  <TrendingUp className="w-4 h-4" />
-                  ROI
-                </div>
-                <div className={`text-xl font-bold ${overallTotals?.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {overallTotals?.roi?.toFixed(1)}%
-                </div>
-              </div>
-            </div>
-
             {/* Фильтр по байерам */}
-            {availableBuyers.length > 1 && (
+            {availableBuyers.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Filter className="w-5 h-5 text-slate-500" />
-                    <span className="font-medium text-slate-700">Фильтр по байерам</span>
+                    <Users className="w-5 h-5 text-slate-500" />
+                    <span className="font-medium text-slate-700">Байеры ({availableBuyers.length})</span>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={expandAll}
-                      className="text-sm text-indigo-600 hover:text-indigo-800"
-                    >
+                    <button onClick={expandAll} className="text-sm text-indigo-600 hover:text-indigo-800">
                       Раскрыть всё
                     </button>
-                    <button
-                      onClick={collapseAll}
-                      className="text-sm text-slate-500 hover:text-slate-700"
-                    >
+                    <button onClick={collapseAll} className="text-sm text-slate-500 hover:text-slate-700">
                       Свернуть
                     </button>
                   </div>
@@ -644,24 +697,18 @@ function ProfitCheckTest() {
                           setSelectedBuyers([...selectedBuyers, buyer.id]);
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                         selectedBuyers.length === 0 || selectedBuyers.includes(buyer.id)
                           ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
                           : 'bg-slate-100 text-slate-500 border border-slate-200'
                       }`}
                     >
+                      {buyer.avatar && (
+                        <img src={buyer.avatar} alt="" className="w-5 h-5 rounded-full" />
+                      )}
                       {buyer.name}
                     </button>
                   ))}
-                  {selectedBuyers.length > 0 && (
-                    <button
-                      onClick={() => setSelectedBuyers([])}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-600 border border-red-200 flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3" />
-                      Сбросить
-                    </button>
-                  )}
                 </div>
               </div>
             )}
@@ -672,175 +719,144 @@ function ProfitCheckTest() {
                 <h2 className="font-semibold text-slate-700 flex items-center gap-2">
                   <Package className="w-5 h-5 text-indigo-500" />
                   {offerData.offerName}
+                  <span className="text-sm font-normal text-slate-500">({offerData.offerId})</span>
                 </h2>
               </div>
 
-              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-                <table className="w-full text-sm">
+              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                <table className="w-full text-sm" style={{ minWidth: '1400px' }}>
                   <thead className="bg-slate-100 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600">Иерархия</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Расход</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Лиды</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">CPL</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Продажи</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Выручка</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Маржа</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">Чистая прибыль</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600">ROI</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-600 sticky left-0 bg-slate-100 z-20 min-w-[300px]">
+                        Иерархия
+                      </th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Кол-во лидов</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Кол-во отправ.</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Отправ. на сумму</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Вал. приб. отпр.</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Кол-во продаж</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Вал. приб. продаж</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Операц. расх.</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. доставка</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. RedTrack</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. кабинеты</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Общий итог */}
+                    {overallTotals && (
+                      <tr className="bg-indigo-100 border-b-2 border-indigo-200 font-semibold">
+                        <td className="px-4 py-3 sticky left-0 bg-indigo-100 z-10">
+                          <span className="text-indigo-800">ИТОГО</span>
+                        </td>
+                        {renderMetricsCells(overallTotals, true)}
+                      </tr>
+                    )}
+
                     {filteredBuyers.map(buyer => {
                       const buyerKey = `buyer-${buyer.id}`;
                       const isBuyerExpanded = expanded[buyerKey];
-                      const buyerNetProfit = buyer.totals.profit - buyer.totals.cost;
-                      const buyerRoi = buyer.totals.cost > 0 ? ((buyerNetProfit / buyer.totals.cost) * 100) : 0;
-                      const buyerCpl = buyer.totals.valid > 0 ? (buyer.totals.cost / buyer.totals.valid) : 0;
 
                       return (
                         <React.Fragment key={buyerKey}>
                           {/* Уровень байера */}
-                          <tr className="bg-indigo-50 hover:bg-indigo-100 border-b border-indigo-100 cursor-pointer" onClick={() => toggleExpand(buyerKey)}>
-                            <td className="px-4 py-3">
+                          <tr
+                            className="bg-blue-50 hover:bg-blue-100 border-b border-blue-100 cursor-pointer"
+                            onClick={() => toggleExpand(buyerKey)}
+                          >
+                            <td className="px-4 py-3 sticky left-0 bg-blue-50 hover:bg-blue-100 z-10">
                               <div className="flex items-center gap-2">
                                 {isBuyerExpanded ? (
-                                  <ChevronDown className="w-5 h-5 text-indigo-500" />
+                                  <ChevronDown className="w-5 h-5 text-blue-500" />
                                 ) : (
-                                  <ChevronRight className="w-5 h-5 text-indigo-500" />
+                                  <ChevronRight className="w-5 h-5 text-blue-500" />
                                 )}
-                                <Users className="w-5 h-5 text-indigo-600" />
-                                <span className="font-semibold text-indigo-900">{buyer.name}</span>
-                                <span className="text-xs text-indigo-400 font-mono">#{buyer.id}</span>
+                                {buyer.avatar && (
+                                  <img src={buyer.avatar} alt="" className="w-6 h-6 rounded-full" />
+                                )}
+                                <span className="font-semibold text-blue-900">{buyer.name}</span>
+                                <span className="text-xs text-blue-400 font-mono">#{buyer.sourceId}</span>
+                                {buyer.accessGranted && (
+                                  <span className="text-[10px] bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded">
+                                    {buyer.accessGranted} — {buyer.accessLimited || 'н.в.'}
+                                  </span>
+                                )}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right font-medium text-slate-700">{formatCurrency(buyer.totals.cost)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-slate-700">{buyer.totals.valid}</td>
-                            <td className="px-4 py-3 text-right font-medium text-slate-700">{formatCurrency(buyerCpl)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-slate-700">{buyer.totals.sales}</td>
-                            <td className="px-4 py-3 text-right font-medium text-slate-700">{formatCurrency(buyer.totals.revenue)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-green-600">{formatCurrency(buyer.totals.profit)}</td>
-                            <td className={`px-4 py-3 text-right font-bold ${buyerNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrency(buyerNetProfit)}
-                            </td>
-                            <td className={`px-4 py-3 text-right font-bold ${buyerRoi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {buyerRoi.toFixed(1)}%
-                            </td>
+                            {renderMetricsCells(buyer.totals)}
                           </tr>
 
-                          {/* Кампании байера */}
+                          {/* Кампании */}
                           {isBuyerExpanded && Object.values(buyer.campaigns).map(campaign => {
                             const campaignKey = `campaign-${buyer.id}-${campaign.id}`;
                             const isCampaignExpanded = expanded[campaignKey];
-                            const campaignNetProfit = campaign.totals.profit - campaign.totals.cost;
-                            const campaignRoi = campaign.totals.cost > 0 ? ((campaignNetProfit / campaign.totals.cost) * 100) : 0;
-                            const campaignCpl = campaign.totals.valid > 0 ? (campaign.totals.cost / campaign.totals.valid) : 0;
 
                             return (
                               <React.Fragment key={campaignKey}>
-                                {/* Уровень кампании */}
-                                <tr className="bg-blue-50/50 hover:bg-blue-100/50 border-b border-blue-100 cursor-pointer" onClick={() => toggleExpand(campaignKey)}>
-                                  <td className="px-4 py-2.5 pl-10">
+                                <tr
+                                  className="bg-emerald-50/50 hover:bg-emerald-100/50 border-b border-emerald-100 cursor-pointer"
+                                  onClick={() => toggleExpand(campaignKey)}
+                                >
+                                  <td className="px-4 py-2.5 pl-10 sticky left-0 bg-emerald-50/50 hover:bg-emerald-100/50 z-10">
                                     <div className="flex items-center gap-2">
                                       {isCampaignExpanded ? (
-                                        <ChevronDown className="w-4 h-4 text-blue-500" />
+                                        <ChevronDown className="w-4 h-4 text-emerald-500" />
                                       ) : (
-                                        <ChevronRight className="w-4 h-4 text-blue-500" />
+                                        <ChevronRight className="w-4 h-4 text-emerald-500" />
                                       )}
-                                      <Target className="w-4 h-4 text-blue-600" />
-                                      <span className="font-medium text-blue-900 truncate max-w-md" title={campaign.name}>
+                                      <span className="font-medium text-emerald-900 truncate max-w-md" title={campaign.name}>
                                         {campaign.name}
                                       </span>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-2.5 text-right text-slate-600">{formatCurrency(campaign.totals.cost)}</td>
-                                  <td className="px-4 py-2.5 text-right text-slate-600">{campaign.totals.valid}</td>
-                                  <td className="px-4 py-2.5 text-right text-slate-600">{formatCurrency(campaignCpl)}</td>
-                                  <td className="px-4 py-2.5 text-right text-slate-600">{campaign.totals.sales}</td>
-                                  <td className="px-4 py-2.5 text-right text-slate-600">{formatCurrency(campaign.totals.revenue)}</td>
-                                  <td className="px-4 py-2.5 text-right text-green-600">{formatCurrency(campaign.totals.profit)}</td>
-                                  <td className={`px-4 py-2.5 text-right font-medium ${campaignNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {formatCurrency(campaignNetProfit)}
-                                  </td>
-                                  <td className={`px-4 py-2.5 text-right font-medium ${campaignRoi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {campaignRoi.toFixed(1)}%
-                                  </td>
+                                  {renderMetricsCells(campaign.totals)}
                                 </tr>
 
-                                {/* Группы кампании */}
+                                {/* Группы */}
                                 {isCampaignExpanded && Object.values(campaign.groups).map(group => {
                                   const groupKey = `group-${buyer.id}-${campaign.id}-${group.id}`;
                                   const isGroupExpanded = expanded[groupKey];
-                                  const groupNetProfit = group.totals.profit - group.totals.cost;
-                                  const groupRoi = group.totals.cost > 0 ? ((groupNetProfit / group.totals.cost) * 100) : 0;
-                                  const groupCpl = group.totals.valid > 0 ? (group.totals.cost / group.totals.valid) : 0;
 
                                   return (
                                     <React.Fragment key={groupKey}>
-                                      {/* Уровень группы */}
-                                      <tr className="bg-emerald-50/30 hover:bg-emerald-100/30 border-b border-emerald-100 cursor-pointer" onClick={() => toggleExpand(groupKey)}>
-                                        <td className="px-4 py-2 pl-16">
+                                      <tr
+                                        className="bg-amber-50/30 hover:bg-amber-100/30 border-b border-amber-100 cursor-pointer"
+                                        onClick={() => toggleExpand(groupKey)}
+                                      >
+                                        <td className="px-4 py-2 pl-16 sticky left-0 bg-amber-50/30 hover:bg-amber-100/30 z-10">
                                           <div className="flex items-center gap-2">
                                             {isGroupExpanded ? (
-                                              <ChevronDown className="w-4 h-4 text-emerald-500" />
+                                              <ChevronDown className="w-4 h-4 text-amber-500" />
                                             ) : (
-                                              <ChevronRight className="w-4 h-4 text-emerald-500" />
+                                              <ChevronRight className="w-4 h-4 text-amber-500" />
                                             )}
-                                            <span className="text-sm text-emerald-800 truncate max-w-sm" title={group.name}>
+                                            <span className="text-sm text-amber-800 truncate max-w-sm" title={group.name}>
                                               {group.name}
                                             </span>
                                           </div>
                                         </td>
-                                        <td className="px-4 py-2 text-right text-slate-500 text-sm">{formatCurrency(group.totals.cost)}</td>
-                                        <td className="px-4 py-2 text-right text-slate-500 text-sm">{group.totals.valid}</td>
-                                        <td className="px-4 py-2 text-right text-slate-500 text-sm">{formatCurrency(groupCpl)}</td>
-                                        <td className="px-4 py-2 text-right text-slate-500 text-sm">{group.totals.sales}</td>
-                                        <td className="px-4 py-2 text-right text-slate-500 text-sm">{formatCurrency(group.totals.revenue)}</td>
-                                        <td className="px-4 py-2 text-right text-green-500 text-sm">{formatCurrency(group.totals.profit)}</td>
-                                        <td className={`px-4 py-2 text-right text-sm ${groupNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                          {formatCurrency(groupNetProfit)}
-                                        </td>
-                                        <td className={`px-4 py-2 text-right text-sm ${groupRoi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                          {groupRoi.toFixed(1)}%
-                                        </td>
+                                        {renderMetricsCells(group.totals)}
                                       </tr>
 
-                                      {/* Объявления группы */}
-                                      {isGroupExpanded && Object.values(group.ads).map(ad => {
-                                        const adNetProfit = ad.totals.profit - ad.totals.cost;
-                                        const adRoi = ad.totals.cost > 0 ? ((adNetProfit / ad.totals.cost) * 100) : 0;
-                                        const adCpl = ad.totals.valid > 0 ? (ad.totals.cost / ad.totals.valid) : 0;
-
-                                        return (
-                                          <tr key={ad.id} className="bg-amber-50/20 hover:bg-amber-100/30 border-b border-amber-100">
-                                            <td className="px-4 py-2 pl-24">
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                                                <span className="text-xs text-amber-800 truncate max-w-xs" title={ad.name}>
-                                                  {ad.name}
+                                      {/* Объявления */}
+                                      {isGroupExpanded && Object.values(group.ads).map(ad => (
+                                        <tr key={ad.id} className="bg-slate-50/50 hover:bg-slate-100/50 border-b border-slate-100">
+                                          <td className="px-4 py-2 pl-24 sticky left-0 bg-slate-50/50 hover:bg-slate-100/50 z-10">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-2 h-2 rounded-full bg-slate-400" />
+                                              <span className="text-xs text-slate-700 truncate max-w-xs" title={ad.name}>
+                                                {ad.name}
+                                              </span>
+                                              {ad.conversions.length > 0 && (
+                                                <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                                                  {ad.conversions.length} конв.
                                                 </span>
-                                                {ad.conversions.length > 0 && (
-                                                  <span className="text-[10px] bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">
-                                                    {ad.conversions.length} конв.
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </td>
-                                            <td className="px-4 py-2 text-right text-slate-400 text-xs">{formatCurrency(ad.totals.cost)}</td>
-                                            <td className="px-4 py-2 text-right text-slate-400 text-xs">{ad.totals.valid}</td>
-                                            <td className="px-4 py-2 text-right text-slate-400 text-xs">{formatCurrency(adCpl)}</td>
-                                            <td className="px-4 py-2 text-right text-slate-400 text-xs">{ad.totals.sales}</td>
-                                            <td className="px-4 py-2 text-right text-slate-400 text-xs">{formatCurrency(ad.totals.revenue)}</td>
-                                            <td className="px-4 py-2 text-right text-green-400 text-xs">{formatCurrency(ad.totals.profit)}</td>
-                                            <td className={`px-4 py-2 text-right text-xs ${adNetProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                              {formatCurrency(adNetProfit)}
-                                            </td>
-                                            <td className={`px-4 py-2 text-right text-xs ${adRoi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                              {adRoi.toFixed(1)}%
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
+                                              )}
+                                            </div>
+                                          </td>
+                                          {renderMetricsCells(ad.totals)}
+                                        </tr>
+                                      ))}
                                     </React.Fragment>
                                   );
                                 })}
