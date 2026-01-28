@@ -83,7 +83,7 @@ function ValueDisplay({ value }) {
 
 // Компонент таблицы данных
 function DataTable({ tableName, tableInfo, expanded, onToggle }) {
-  const { data = [], error } = tableInfo || {};
+  const { data = [], error, sql } = tableInfo || {};
 
   // Показать ошибку
   if (error) {
@@ -97,6 +97,14 @@ function DataTable({ tableName, tableInfo, expanded, onToggle }) {
         <div className="p-4 text-red-600 text-sm font-mono">
           {error}
         </div>
+        {sql && (
+          <div className="p-4 pt-0">
+            <details className="text-xs">
+              <summary className="text-gray-500 cursor-pointer">SQL запрос</summary>
+              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto">{sql}</pre>
+            </details>
+          </div>
+        )}
       </div>
     );
   }
@@ -109,12 +117,20 @@ function DataTable({ tableName, tableInfo, expanded, onToggle }) {
           <span className="font-medium">{tableName}</span>
           <span className="text-gray-400 text-sm">(0 записей)</span>
         </div>
+        {sql && (
+          <div className="p-4">
+            <details className="text-xs">
+              <summary className="text-gray-500 cursor-pointer">SQL запрос</summary>
+              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto">{sql}</pre>
+            </details>
+          </div>
+        )}
       </div>
     );
   }
 
   const fields = Object.keys(data[0]);
-  const isExpanded = expanded[tableName] !== false; // по умолчанию раскрыто
+  const isExpanded = expanded[tableName] !== false;
 
   return (
     <div className="border rounded-lg mb-4 bg-white overflow-hidden">
@@ -129,32 +145,42 @@ function DataTable({ tableName, tableInfo, expanded, onToggle }) {
       </div>
 
       {isExpanded && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">#</th>
-                {fields.map(field => (
-                  <th key={field} className="px-3 py-2 text-left font-medium text-gray-600 border-b whitespace-nowrap">
-                    {field}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, idx) => (
-                <tr key={idx} className="hover:bg-blue-50 border-b last:border-b-0">
-                  <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+        <>
+          {sql && (
+            <div className="px-4 py-2 bg-gray-50 border-b">
+              <details className="text-xs">
+                <summary className="text-gray-500 cursor-pointer">SQL запрос</summary>
+                <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto">{sql}</pre>
+              </details>
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">#</th>
                   {fields.map(field => (
-                    <td key={field} className="px-3 py-2 max-w-xs">
-                      <ValueDisplay value={row[field]} />
-                    </td>
+                    <th key={field} className="px-3 py-2 text-left font-medium text-gray-600 border-b whitespace-nowrap">
+                      {field}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {data.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-blue-50 border-b last:border-b-0">
+                    <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                    {fields.map(field => (
+                      <td key={field} className="px-3 py-2 max-w-xs">
+                        <ValueDisplay value={row[field]} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
@@ -175,50 +201,7 @@ function ProfitCheckDebug() {
   const [tableData, setTableData] = useState({});
   const [expanded, setExpanded] = useState({});
 
-  // Список таблиц для загрузки
-  const tables = [
-    {
-      name: 'ads_collection',
-      query: (offerId, dateFrom, dateTo) => `
-        SELECT * FROM ads_collection
-        WHERE offer_id_tracker = '${offerId}'
-        AND date >= '${dateFrom}' AND date <= '${dateTo}'
-        ORDER BY date DESC
-        LIMIT 100
-      `
-    },
-    {
-      name: 'conversions_collection',
-      query: (offerId, dateFrom, dateTo) => `
-        SELECT * FROM conversions_collection
-        WHERE offer_id_tracker = '${offerId}'
-        AND date >= '${dateFrom}' AND date <= '${dateTo}'
-        ORDER BY date DESC
-        LIMIT 100
-      `
-    },
-    {
-      name: 'sales_collection',
-      query: (offerId, dateFrom, dateTo) => `
-        SELECT * FROM sales_collection
-        WHERE offer_id = '${offerId}'
-        AND created_at >= '${dateFrom}' AND created_at <= '${dateTo}'
-        ORDER BY created_at DESC
-        LIMIT 100
-      `
-    },
-    {
-      name: 'operational_cost_collection',
-      query: (offerId, dateFrom, dateTo) => `
-        SELECT * FROM operational_cost_collection
-        WHERE offer_id = '${offerId}'
-        ORDER BY month DESC
-        LIMIT 100
-      `
-    }
-  ];
-
-  // Загрузка данных
+  // Загрузка данных (как в ProfitCheckTest)
   const loadData = async () => {
     if (!offerId.trim()) {
       setError('Введите Offer ID');
@@ -228,39 +211,110 @@ function ProfitCheckDebug() {
     setLoading(true);
     setError(null);
     setTableData({});
-    setProgress({ show: true, message: 'Начинаю загрузку...', current: 0, total: tables.length + 1 });
+    setProgress({ show: true, message: 'Начинаю загрузку...', current: 0, total: 5 });
+
+    const results = {};
+    const safeOfferId = offerId.trim().replace(/'/g, "''");
 
     try {
-      const results = {};
+      // Шаг 1: Загрузка рекламных данных из ads_collection
+      setProgress({ show: true, message: 'Загрузка ads_collection...', current: 1, total: 5 });
 
-      // Загрузка данных из каждой таблицы
-      for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        setProgress({
-          show: true,
-          message: `Загрузка ${table.name}...`,
-          current: i + 1,
-          total: tables.length + 1
-        });
+      const adsQuery = `
+        SELECT *
+        FROM ads_collection
+        WHERE offer_id_tracker = '${safeOfferId}'
+          AND adv_date >= '${dateFrom}'
+          AND adv_date <= '${dateTo}'
+        ORDER BY adv_date DESC
+        LIMIT 500
+      `;
 
-        try {
-          const sql = table.query(offerId.trim(), dateFrom, dateTo);
-          console.log(`SQL for ${table.name}:`, sql);
-          const data = await executeQuery(sql);
-          results[table.name] = { data: Array.isArray(data) ? data : [], error: null };
-        } catch (err) {
-          console.error(`Error loading ${table.name}:`, err);
-          results[table.name] = { data: [], error: err.message };
-        }
+      let adsData = [];
+      try {
+        adsData = await executeQuery(adsQuery);
+        results['ads_collection'] = { data: Array.isArray(adsData) ? adsData : [], error: null, sql: adsQuery };
+      } catch (err) {
+        console.error('Error loading ads_collection:', err);
+        results['ads_collection'] = { data: [], error: err.message, sql: adsQuery };
       }
 
-      // Загрузка данных байеров из Supabase
-      setProgress({
-        show: true,
-        message: 'Загрузка данных байеров из Supabase...',
-        current: tables.length + 1,
-        total: tables.length + 1
-      });
+      // Шаг 2: Собираем adv_id и загружаем conversions_collection
+      setProgress({ show: true, message: 'Загрузка conversions_collection...', current: 2, total: 5 });
+
+      const advIds = [...new Set((adsData || []).map(row => row.adv_id).filter(Boolean))];
+
+      if (advIds.length > 0) {
+        const advIdsList = advIds.slice(0, 200).map(id => `'${id}'`).join(',');
+        const convQuery = `
+          SELECT *
+          FROM conversions_collection
+          WHERE adv_id IN (${advIdsList})
+            AND date_of_click >= '${dateFrom}'
+            AND date_of_click <= '${dateTo}'
+          ORDER BY date_of_click DESC
+          LIMIT 500
+        `;
+
+        try {
+          const convData = await executeQuery(convQuery);
+          results['conversions_collection'] = { data: Array.isArray(convData) ? convData : [], error: null, sql: convQuery };
+
+          // Шаг 3: Собираем clickid и загружаем sales_collection
+          setProgress({ show: true, message: 'Загрузка sales_collection...', current: 3, total: 5 });
+
+          const clickIds = [...new Set((convData || []).map(row => row.clickid).filter(Boolean))];
+
+          if (clickIds.length > 0) {
+            const clickIdsList = clickIds.slice(0, 200).map(id => `'${id}'`).join(',');
+            const salesQuery = `
+              SELECT *
+              FROM sales_collection
+              WHERE clickid IN (${clickIdsList})
+              ORDER BY order_date DESC
+              LIMIT 500
+            `;
+
+            try {
+              const salesData = await executeQuery(salesQuery);
+              results['sales_collection'] = { data: Array.isArray(salesData) ? salesData : [], error: null, sql: salesQuery };
+            } catch (err) {
+              console.error('Error loading sales_collection:', err);
+              results['sales_collection'] = { data: [], error: err.message, sql: salesQuery };
+            }
+          } else {
+            results['sales_collection'] = { data: [], error: null, sql: '-- Нет clickid из conversions_collection' };
+          }
+        } catch (err) {
+          console.error('Error loading conversions_collection:', err);
+          results['conversions_collection'] = { data: [], error: err.message, sql: convQuery };
+          results['sales_collection'] = { data: [], error: null, sql: '-- Пропущено (нет данных из conversions_collection)' };
+        }
+      } else {
+        results['conversions_collection'] = { data: [], error: null, sql: '-- Нет adv_id из ads_collection' };
+        results['sales_collection'] = { data: [], error: null, sql: '-- Пропущено (нет данных из ads_collection)' };
+      }
+
+      // Шаг 4: Загрузка operational_cost_collection
+      setProgress({ show: true, message: 'Загрузка operational_cost_collection...', current: 4, total: 5 });
+
+      const opCostQuery = `
+        SELECT *
+        FROM operational_cost_collection
+        ORDER BY year DESC, month DESC
+        LIMIT 100
+      `;
+
+      try {
+        const opCostData = await executeQuery(opCostQuery);
+        results['operational_cost_collection'] = { data: Array.isArray(opCostData) ? opCostData : [], error: null, sql: opCostQuery };
+      } catch (err) {
+        console.error('Error loading operational_cost_collection:', err);
+        results['operational_cost_collection'] = { data: [], error: err.message, sql: opCostQuery };
+      }
+
+      // Шаг 5: Загрузка данных байеров из Supabase
+      setProgress({ show: true, message: 'Загрузка данных байеров из Supabase...', current: 5, total: 5 });
 
       try {
         const { data: usersData, error: usersError } = await supabase
@@ -270,7 +324,6 @@ function ProfitCheckDebug() {
 
         if (usersError) throw usersError;
 
-        // Преобразуем данные для отображения traffic_channels
         const buyersWithChannels = usersData.map(user => {
           const settings = typeof user.buyer_settings === 'string'
             ? JSON.parse(user.buyer_settings)
@@ -287,10 +340,10 @@ function ProfitCheckDebug() {
           };
         }).filter(u => u.channels_count > 0);
 
-        results['supabase_users (traffic_channels)'] = { data: buyersWithChannels, error: null };
+        results['supabase_users (traffic_channels)'] = { data: buyersWithChannels, error: null, sql: 'Supabase: users.buyer_settings.traffic_channels' };
       } catch (err) {
         console.error('Error loading users:', err);
-        results['supabase_users (traffic_channels)'] = { data: [], error: err.message };
+        results['supabase_users (traffic_channels)'] = { data: [], error: err.message, sql: 'Supabase query failed' };
       }
 
       setTableData(results);
@@ -298,6 +351,7 @@ function ProfitCheckDebug() {
 
     } catch (err) {
       setError(err.message);
+      setTableData(results);
       setProgress({ show: false, message: '', current: 0, total: 0 });
     } finally {
       setLoading(false);
@@ -307,7 +361,7 @@ function ProfitCheckDebug() {
   const toggleExpanded = (tableName) => {
     setExpanded(prev => ({
       ...prev,
-      [tableName]: !prev[tableName] === false ? true : !prev[tableName]
+      [tableName]: prev[tableName] === false ? true : false
     }));
   };
 
@@ -317,7 +371,6 @@ function ProfitCheckDebug() {
     }
   };
 
-  // Подсчет общего количества записей
   const totalRecords = Object.values(tableData).reduce((sum, info) => sum + (info?.data?.length || 0), 0);
 
   return (
@@ -329,7 +382,7 @@ function ProfitCheckDebug() {
           Profit Check Debug
         </h1>
         <p className="text-gray-500 mt-1">
-          Просмотр сырых данных из таблиц по Offer ID
+          Просмотр сырых данных из таблиц по Offer ID (алгоритм как в ProfitCheckTest)
         </p>
       </div>
 
