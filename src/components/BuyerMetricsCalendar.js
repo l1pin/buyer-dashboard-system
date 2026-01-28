@@ -803,18 +803,18 @@ function BuyerMetricsCalendar({ allBuyers, selectedBuyerName, article, source, o
         <div className="flex-1 overflow-hidden">
           <div ref={scrollContainerRef} className="h-full overflow-auto" style={{ overflowAnchor: 'none' }}>
             <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
-              <thead>
+              <thead className="sticky top-0 z-40">
                 <tr>
                   {/* Sticky: Иерархия */}
                   <th
-                    className="sticky left-0 z-30 bg-slate-100 border-b-2 border-slate-300 px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide"
+                    className="sticky left-0 z-50 bg-slate-100 border-b-2 border-slate-300 px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide"
                     style={{ width: `${hierarchyColumnWidth}px`, minWidth: `${hierarchyColumnWidth}px`, boxShadow: '2px 0 8px -2px rgba(0,0,0,0.1)' }}
                   >
                     Иерархия
                   </th>
                   {/* Sticky: Итого за период */}
                   <th
-                    className="sticky z-30 bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
+                    className="sticky z-50 bg-slate-800 border-b-2 border-slate-700 px-3 py-3 text-center"
                     style={{ left: `${hierarchyColumnWidth}px`, width: `${periodColumnWidth}px`, minWidth: `${periodColumnWidth}px`, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.15)' }}
                   >
                     <div className="relative" ref={dropdownRef}>
