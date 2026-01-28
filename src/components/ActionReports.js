@@ -3947,12 +3947,12 @@ function ActionReports({ user }) {
             />
           </div>
 
-          {/* Фильтры для тимлида */}
-          {isTeamlead && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-400" />
+          {/* Фильтры */}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-400" />
 
-              {/* Фильтр по байеру (мультивыбор с группировкой по тимлидам) */}
+            {/* Фильтр по байеру (мультивыбор с группировкой по тимлидам) - только для тимлида */}
+            {isTeamlead && (
               <div className="relative" ref={buyerDropdownRef}>
                 <button
                   onClick={() => {
@@ -4083,9 +4083,10 @@ function ActionReports({ user }) {
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Фильтр по типу действия (мультивыбор с подменю) */}
-              <div className="relative" ref={actionDropdownRef}>
+            {/* Фильтр по типу действия (мультивыбор с подменю) - доступен всем */}
+            <div className="relative" ref={actionDropdownRef}>
                 <button
                   onClick={() => {
                     setShowActionDropdown(!showActionDropdown);
@@ -4229,22 +4230,21 @@ function ActionReports({ user }) {
                 )}
               </div>
 
-              {/* Кнопка сброса всех фильтров */}
-              {(selectedBuyerFilter.length > 0 || selectedActionFilter.length > 0) && (
-                <button
-                  onClick={() => {
-                    setSelectedBuyerFilter([]);
-                    setSelectedActionFilter([]);
-                    setSelectedSubActionFilter('all');
-                  }}
-                  className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Сбросить все фильтры"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          )}
+            {/* Кнопка сброса всех фильтров */}
+            {(selectedBuyerFilter.length > 0 || selectedActionFilter.length > 0) && (
+              <button
+                onClick={() => {
+                  setSelectedBuyerFilter([]);
+                  setSelectedActionFilter([]);
+                  setSelectedSubActionFilter('all');
+                }}
+                className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Сбросить все фильтры"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
           </div>
 
