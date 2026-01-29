@@ -1583,31 +1583,51 @@ export const landingService = {
     return landing;
   },
 
-  // Получить лендинги пользователя (только где он контент-менеджер)
+  // Получить лендинги пользователя (только где он контент-менеджер) с пагинацией
   async getUserLandings(userId) {
     try {
       console.log('📡 Запрос лендингов для контент-менеджера:', userId);
 
-      // КРИТИЧНО: Фильтруем ТОЛЬКО по content_manager_id
-      const { data, error } = await supabase
-        .from('landings')
-        .select('*')
-        .eq('content_manager_id', userId)
-        .order('created_at', { ascending: false });
+      // Supabase по умолчанию отдаёт максимум 1000 строк, используем пагинацию
+      const PAGE_SIZE = 1000;
+      let allData = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) {
-        console.error('❌ Ошибка в getUserLandings:', error);
-        throw error;
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        // КРИТИЧНО: Фильтруем ТОЛЬКО по content_manager_id
+        const { data, error } = await supabase
+          .from('landings')
+          .select('*')
+          .eq('content_manager_id', userId)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          console.error('❌ Ошибка в getUserLandings:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          console.log(`📄 Страница ${page + 1}: загружено ${data.length} записей (всего: ${allData.length})`);
+        }
+
+        hasMore = data && data.length === PAGE_SIZE;
+        page++;
       }
 
-      if (!data || data.length === 0) {
+      if (allData.length === 0) {
         console.log('✅ getUserLandings завершен, получено лендингов: 0');
         return [];
       }
 
       // Получаем все уникальные template_id и tag_ids для батчевой загрузки
-      const templateIds = [...new Set(data.map(l => l.template_id).filter(Boolean))];
-      const allTagIds = [...new Set(data.flatMap(l => l.tag_ids || []))];
+      const templateIds = [...new Set(allData.map(l => l.template_id).filter(Boolean))];
+      const allTagIds = [...new Set(allData.flatMap(l => l.tag_ids || []))];
 
       // Батчевая загрузка шаблонов
       let templatesMap = new Map();
@@ -1616,7 +1636,7 @@ export const landingService = {
           .from('landing_templates')
           .select('id, name')
           .in('id', templateIds);
-        
+
         if (templates) {
           templates.forEach(t => templatesMap.set(t.id, t.name));
         }
@@ -1629,14 +1649,14 @@ export const landingService = {
           .from('landing_tags')
           .select('id, name, color')
           .in('id', allTagIds);
-        
+
         if (tags) {
           tags.forEach(t => tagsMap.set(t.id, { name: t.name, color: t.color }));
         }
       }
 
       // Преобразуем данные
-      const result = data.map(landing => {
+      const result = allData.map(landing => {
         const template = landing.template_id ? templatesMap.get(landing.template_id) : null;
         const tags = (landing.tag_ids || [])
           .map(tagId => {
@@ -1662,29 +1682,50 @@ export const landingService = {
     }
   },
 
-  // Получить все лендинги
+  // Получить все лендинги (с пагинацией для обхода лимита Supabase в 1000 строк)
   async getAllLandings() {
     try {
-      console.log('📡 Запрос к таблице landings...');
+      console.log('📡 Запрос к таблице landings с пагинацией...');
 
-      const { data, error } = await supabase
-        .from('landings')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Supabase по умолчанию отдаёт максимум 1000 строк, используем пагинацию
+      const PAGE_SIZE = 1000;
+      let allData = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) {
-        console.error('❌ Ошибка в getAllLandings:', error);
-        throw error;
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from('landings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          console.error('❌ Ошибка в getAllLandings:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          console.log(`📄 Страница ${page + 1}: загружено ${data.length} записей (всего: ${allData.length})`);
+        }
+
+        // Если получили меньше PAGE_SIZE записей, значит это последняя страница
+        hasMore = data && data.length === PAGE_SIZE;
+        page++;
       }
 
-      if (!data || data.length === 0) {
+      if (allData.length === 0) {
         console.log('✅ getAllLandings завершен успешно, получено записей: 0');
         return [];
       }
 
       // Получаем все уникальные template_id и tag_ids для батчевой загрузки
-      const templateIds = [...new Set(data.map(l => l.template_id).filter(Boolean))];
-      const allTagIds = [...new Set(data.flatMap(l => l.tag_ids || []))];
+      const templateIds = [...new Set(allData.map(l => l.template_id).filter(Boolean))];
+      const allTagIds = [...new Set(allData.flatMap(l => l.tag_ids || []))];
 
       console.log('🔍 Батчевая загрузка шаблонов и тегов:', { templateIds: templateIds.length, tagIds: allTagIds.length });
 
@@ -1695,7 +1736,7 @@ export const landingService = {
           .from('landing_templates')
           .select('id, name')
           .in('id', templateIds);
-        
+
         if (templates) {
           templates.forEach(t => templatesMap.set(t.id, t.name));
         }
@@ -1708,14 +1749,14 @@ export const landingService = {
           .from('landing_tags')
           .select('id, name, color')
           .in('id', allTagIds);
-        
+
         if (tags) {
           tags.forEach(t => tagsMap.set(t.id, { name: t.name, color: t.color }));
         }
       }
 
       // Преобразуем данные
-      const result = data.map(landing => {
+      const result = allData.map(landing => {
         const template = landing.template_id ? templatesMap.get(landing.template_id) : null;
         const tags = (landing.tag_ids || [])
           .map(tagId => {
@@ -1732,7 +1773,7 @@ export const landingService = {
       });
 
       console.log('✅ getAllLandings завершен успешно, получено записей:', result.length);
-      
+
       if (result.length > 0) {
         console.log('🔍 ПЕРВЫЙ ЛЕНДИНГ ПОСЛЕ ОБРАБОТКИ:', {
           id: result[0].id,
