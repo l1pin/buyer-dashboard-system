@@ -2459,12 +2459,6 @@ data-rt-sub16="${selectedLandingUuid}"
     return gifer ? gifer.avatar_url : null;
   };
 
-  const getContentManagerName = (contentManagerId) => {
-    if (!contentManagerId) return '—';
-    const cm = contentManagers.find(c => c.id === contentManagerId);
-    return cm ? cm.name : 'Удален';
-  };
-
   // Получение источника для конкретного байера
   const getBuyerSource = (landingId, buyerId) => {
     if (!landingId || !buyerId || !landingMetrics || landingMetrics.size === 0) {
@@ -2487,12 +2481,6 @@ data-rt-sub16="${selectedLandingUuid}"
     }
 
     return null;
-  };
-
-  const getContentManagerAvatar = (contentManagerId) => {
-    if (!contentManagerId) return null;
-    const cm = contentManagers.find(c => c.id === contentManagerId);
-    return cm ? cm.avatar_url : null;
   };
 
   const handleDeleteLanding = async (landing) => {
