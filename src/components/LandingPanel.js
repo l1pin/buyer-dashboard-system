@@ -2569,7 +2569,7 @@ data-rt-sub16="${selectedLandingUuid}"
                       </div>
                     </div>
                   )}
-                  <span>{selectedContentManager === 'all' ? 'Все контент-менеджеры' : getContentManagerName(selectedContentManager)}</span>
+                  <span>{selectedContentManager === 'all' ? 'Все контенты' : getContentManagerName(selectedContentManager)}</span>
                 </div>
                 <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2588,7 +2588,7 @@ data-rt-sub16="${selectedLandingUuid}"
                         }`}
                     >
                       <User className="h-5 w-5 mr-3 text-gray-500" />
-                      Все контент-менеджеры
+                      Все контенты
                     </button>
 
                     {contentManagers.map(cm => (
