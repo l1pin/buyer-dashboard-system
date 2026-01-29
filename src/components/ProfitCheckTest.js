@@ -252,7 +252,7 @@ function ProfitCheckTest() {
               id, clickid, order_id, order_status, order_date,
               order_base_price, order_price, order_end_price, order_profit,
               order_aditional_sell, initial_sku, initial_offer_name,
-              delivery_price, ordered_list
+              delivery_price, delivery_payer, delivery_service, ordered_list
             FROM sales_collection
             WHERE clickid IN (${clickIdsList})
           `;
