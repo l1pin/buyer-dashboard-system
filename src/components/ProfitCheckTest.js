@@ -14,6 +14,29 @@ const SENT_STATUSES = ['5', '7', '18', '87', '4', '11', '10']; // Отправл
 const SOLD_STATUSES = ['5']; // Продано
 const RETURN_STATUSES = ['7', '18', '87']; // Возврат товара
 
+// Валидные статусы для подсчёта лидов
+const VALID_STATUSES = [
+  '1',  // Новый
+  '29', // Перезвонить
+  '9',  // Недозвон
+  '2',  // Принято
+  '45', // Упаковка
+  '48', // Собрано
+  '16', // Предоплата
+  '3',  // На отправку
+  '4',  // Отправлен
+  '11', // В отделении
+  '10', // Ждем наложки
+  '18', // Отказ на почте
+  '47', // Предзаказ
+  '87', // Прием возвратов
+  '92', // Объединения заявок
+  '5',  // Продажа
+  '6',  // Отказ
+  '7',  // Возврат товара (Склад)
+  '74'  // Отказался
+];
+
 // Функция выполнения SQL запроса
 async function executeQuery(sql) {
   const response = await fetch(CORE_URL, {
@@ -500,14 +523,16 @@ function ProfitCheckTest() {
               ad.totals.costCabinetUah += data.costFromSources * exchangeRate;
             });
 
-            // Количество лидов = количество конверсий
-            ad.totals.leads = ad.conversions.length;
-
             // Считаем из конверсий и продаж
             ad.conversions.forEach(conv => {
               if (conv.sale) {
                 const sale = conv.sale;
                 const status = String(sale.order_status);
+
+                // Количество лидов: только Valid статусы
+                if (VALID_STATUSES.includes(status)) {
+                  ad.totals.leads++;
+                }
                 const deliveryPayer = sale.delivery_payer || '';
                 const deliveryService = sale.delivery_service || '';
                 const isReturn = RETURN_STATUSES.includes(status);
