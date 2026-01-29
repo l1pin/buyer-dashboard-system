@@ -656,9 +656,8 @@ function ProfitCheckTest() {
       ? 'px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap'
       : 'px-3 py-2 text-right text-slate-600 whitespace-nowrap';
 
-    // Рассчитываем прибыль: Вал. прибыль с отправлений - все расходы
-    const totalCosts = totals.operationalCost + totals.deliveryCost + totals.costRedtrackUah + totals.costCabinetUah;
-    const profit = totals.sentProfit - totalCosts;
+    // Рассчитываем прибыль: Вал. приб. продаж - Операц. расх. - Расх. доставка - Расх. кабинеты
+    const profit = totals.soldProfit - totals.operationalCost - totals.deliveryCost - totals.costCabinetUah;
     const profitClass = profit >= 0 ? 'text-green-600' : 'text-red-600';
 
     return (
