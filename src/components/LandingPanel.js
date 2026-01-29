@@ -92,6 +92,7 @@ function LandingPanel({ user }) {
 
   const [selectedBuyer, setSelectedBuyer] = useState('all');
   const [selectedSearcher, setSelectedSearcher] = useState('all');
+  const [selectedContentManager, setSelectedContentManager] = useState('all');
 
   const [newLanding, setNewLanding] = useState({
     article: '',
@@ -124,12 +125,14 @@ function LandingPanel({ user }) {
   const [buyers, setBuyers] = useState([]);
   const [searchers, setSearchers] = useState([]);
   const [designers, setDesigners] = useState([]);
+  const [contentManagers, setContentManagers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [showSearcherDropdown, setShowSearcherDropdown] = useState(false);
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false);
   const [showFilterBuyerDropdown, setShowFilterBuyerDropdown] = useState(false);
   const [showFilterSearcherDropdown, setShowFilterSearcherDropdown] = useState(false);
+  const [showFilterContentManagerDropdown, setShowFilterContentManagerDropdown] = useState(false);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);  
   const [showProductDropdown, setShowProductDropdown] = useState(false);
@@ -183,6 +186,11 @@ function LandingPanel({ user }) {
     // Фильтрация по серчеру
     if (selectedSearcher !== 'all') {
       landingsToFilter = landingsToFilter.filter(l => l.searcher_id === selectedSearcher);
+    }
+
+    // Фильтрация по контент-менеджеру
+    if (selectedContentManager !== 'all') {
+      landingsToFilter = landingsToFilter.filter(l => l.content_manager_id === selectedContentManager);
     }
 
     const now = new Date();
@@ -256,7 +264,7 @@ function LandingPanel({ user }) {
     }
 
     return landingsToFilter;
-  }, [landings, selectedBuyer, selectedSearcher, selectedPeriod, customDateFrom, customDateTo]);
+  }, [landings, selectedBuyer, selectedSearcher, selectedContentManager, selectedPeriod, customDateFrom, customDateTo]);
 
   // Хуки для метрик
   const [metricsLastUpdate, setMetricsLastUpdate] = useState(null);
@@ -1118,12 +1126,13 @@ function LandingPanel({ user }) {
       setLoadingUsers(true);
       console.log('👥 Загрузка пользователей...');
 
-      const [buyersData, searchersData, designersData, productManagersData, gifersData] = await Promise.all([
+      const [buyersData, searchersData, designersData, productManagersData, gifersData, contentManagersData] = await Promise.all([
         userService.getUsersByRole('buyer'),
         userService.getUsersByRole('search_manager'),
         userService.getUsersByRole('designer'),
         userService.getUsersByRole('product_manager'),
-        userService.getUsersByRole('gif_creator')
+        userService.getUsersByRole('gif_creator'),
+        userService.getUsersByRole('content_manager')
       ]);
 
       setBuyers(buyersData);
@@ -1131,7 +1140,8 @@ function LandingPanel({ user }) {
       setDesigners(designersData);
       setProductManagers(productManagersData);
       setGifers(gifersData);
-      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${productManagersData.length} продакт менеджеров и ${gifersData.length} гиферов`);
+      setContentManagers(contentManagersData);
+      console.log(`✅ Загружено ${buyersData.length} байеров, ${searchersData.length} серчеров, ${designersData.length} дизайнеров, ${productManagersData.length} продакт менеджеров, ${gifersData.length} гиферов и ${contentManagersData.length} контент менеджеров`);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователей:', error);
     } finally {
@@ -1521,6 +1531,9 @@ data-rt-sub16="${selectedLandingUuid}"
       if (!event.target.closest('.filter-searcher-dropdown') && !event.target.closest('.filter-searcher-trigger')) {
         setShowFilterSearcherDropdown(false);
       }
+      if (!event.target.closest('.filter-content-manager-dropdown') && !event.target.closest('.filter-content-manager-trigger')) {
+        setShowFilterContentManagerDropdown(false);
+      }
       if (!event.target.closest('.designer-dropdown') && !event.target.closest('.designer-trigger')) {
         setShowDesignerDropdown(false);
       }
@@ -1786,6 +1799,18 @@ data-rt-sub16="${selectedLandingUuid}"
     if (!searcherId) return null;
     const searcher = searchers.find(s => s.id === searcherId);
     return searcher ? searcher.avatar_url : null;
+  };
+
+  const getContentManagerName = (contentManagerId) => {
+    if (!contentManagerId) return '—';
+    const cm = contentManagers.find(c => c.id === contentManagerId);
+    return cm ? cm.name : 'Удален';
+  };
+
+  const getContentManagerAvatar = (contentManagerId) => {
+    if (!contentManagerId) return null;
+    const cm = contentManagers.find(c => c.id === contentManagerId);
+    return cm ? cm.avatar_url : null;
   };
 
   const getDesignerAvatar = (designerId) => {
@@ -2510,6 +2535,89 @@ data-rt-sub16="${selectedLandingUuid}"
                           </div>
                         </div>
                         <span className="truncate">{searcher.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Фильтр по контент-менеджерам */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFilterContentManagerDropdown(!showFilterContentManagerDropdown)}
+                className="filter-content-manager-trigger inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  {selectedContentManager === 'all' ? (
+                    <User className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {getContentManagerAvatar(selectedContentManager) ? (
+                        <img
+                          src={getContentManagerAvatar(selectedContentManager)}
+                          alt="Content Manager"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${getContentManagerAvatar(selectedContentManager) ? 'hidden' : ''}`}>
+                        <User className="h-3 w-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
+                  <span>{selectedContentManager === 'all' ? 'Все контент-менеджеры' : getContentManagerName(selectedContentManager)}</span>
+                </div>
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showFilterContentManagerDropdown && (
+                <div className="filter-content-manager-dropdown absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setSelectedContentManager('all');
+                        setShowFilterContentManagerDropdown(false);
+                      }}
+                      className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedContentManager === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                    >
+                      <User className="h-5 w-5 mr-3 text-gray-500" />
+                      Все контент-менеджеры
+                    </button>
+
+                    {contentManagers.map(cm => (
+                      <button
+                        key={cm.id}
+                        onClick={() => {
+                          setSelectedContentManager(cm.id);
+                          setShowFilterContentManagerDropdown(false);
+                        }}
+                        className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-200 ${selectedContentManager === cm.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0 mr-3">
+                          {cm.avatar_url ? (
+                            <img
+                              src={cm.avatar_url}
+                              alt={cm.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${cm.avatar_url ? 'hidden' : ''}`}>
+                            <User className="h-3 w-3 text-gray-400" />
+                          </div>
+                        </div>
+                        <span className="truncate">{cm.name}</span>
                       </button>
                     ))}
                   </div>
