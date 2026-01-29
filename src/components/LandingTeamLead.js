@@ -1666,18 +1666,6 @@ data-rt-sub16="${selectedLandingUuid}"
     return gifer ? gifer.avatar_url : null;
   };
 
-  const getContentManagerName = (contentManagerId) => {
-    if (!contentManagerId) return '—';
-    const cm = contentManagers.find(c => c.id === contentManagerId);
-    return cm ? cm.name : 'Удален';
-  };
-
-  const getContentManagerAvatar = (contentManagerId) => {
-    if (!contentManagerId) return null;
-    const cm = contentManagers.find(c => c.id === contentManagerId);
-    return cm ? cm.avatar_url : null;
-  };
-
   const handleDeleteLanding = async (landing) => {
     if (!window.confirm(`Вы уверены, что хотите удалить лендинг "${landing.article}"?\n\nЭто действие нельзя отменить!`)) {
       return;
