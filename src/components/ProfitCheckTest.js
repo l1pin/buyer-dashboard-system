@@ -247,7 +247,7 @@ function ProfitCheckTest() {
       let operationalCosts = {};
       try {
         const opCostQuery = `
-          SELECT month, year, cost_per_conversion
+          SELECT month, year, value
           FROM operational_cost_collection
           ORDER BY year DESC, month DESC
         `;
@@ -255,7 +255,7 @@ function ProfitCheckTest() {
         if (opCostData && opCostData.length > 0) {
           opCostData.forEach(row => {
             const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-            operationalCosts[key] = parseFloat(row.cost_per_conversion) || 0;
+            operationalCosts[key] = parseFloat(row.value) || 0;
           });
         }
       } catch (e) {
@@ -349,6 +349,38 @@ function ProfitCheckTest() {
       const sortedKeys = Object.keys(currencyRates).sort().reverse();
       return sortedKeys.length > 0 ? currencyRates[sortedKeys[0]] : 0;
     };
+
+    // Функция получения операционных расходов по дате (если не найден - берем предыдущий месяц)
+    const getOperationalCostRate = (dateStr) => {
+      if (!dateStr) {
+        const sortedKeys = Object.keys(operationalCosts).sort().reverse();
+        return sortedKeys.length > 0 ? operationalCosts[sortedKeys[0]] : 0;
+      }
+
+      let monthKey = dateStr.substring(0, 7); // YYYY-MM
+
+      if (operationalCosts[monthKey]) {
+        return operationalCosts[monthKey];
+      }
+
+      // Ищем ставку за предыдущие месяцы
+      let [year, month] = monthKey.split('-').map(Number);
+      for (let i = 0; i < 12; i++) {
+        month--;
+        if (month < 1) {
+          month = 12;
+          year--;
+        }
+        const prevKey = `${year}-${String(month).padStart(2, '0')}`;
+        if (operationalCosts[prevKey]) {
+          return operationalCosts[prevKey];
+        }
+      }
+
+      const sortedKeys = Object.keys(operationalCosts).sort().reverse();
+      return sortedKeys.length > 0 ? operationalCosts[sortedKeys[0]] : 0;
+    };
+
     // Маппинги для быстрого доступа
     const salesByClickId = {};
     salesData.forEach(sale => {
@@ -473,20 +505,13 @@ function ProfitCheckTest() {
 
             // Считаем из конверсий и продаж
             ad.conversions.forEach(conv => {
-              // Операционные расходы по месяцу конверсии
-              const convDate = conv.date_of_conversion || conv.date_of_click;
-              if (convDate) {
-                const monthKey = convDate.substring(0, 7); // YYYY-MM
-                const opCost = operationalCosts[monthKey] || 0;
-                ad.totals.operationalCost += opCost;
-              }
-
               if (conv.sale) {
                 const sale = conv.sale;
                 const status = String(sale.order_status);
                 const deliveryPayer = sale.delivery_payer || '';
                 const deliveryService = sale.delivery_service || '';
                 const isReturn = RETURN_STATUSES.includes(status);
+                const orderDate = sale.order_date || conv.date_of_conversion || conv.date_of_click;
 
                 // Расходы на доставку: если Sender платит ИЛИ это возврат
                 if (deliveryPayer === 'Sender' || isReturn) {
@@ -503,6 +528,10 @@ function ProfitCheckTest() {
                   ad.totals.sentCount++;
                   ad.totals.sentSum += parseFloat(sale.order_end_price) || 0;
                   ad.totals.sentProfit += parseFloat(sale.order_profit) || 0;
+
+                  // Операционные расходы: ставка за месяц × 1 отправка
+                  const opCostRate = getOperationalCostRate(orderDate);
+                  ad.totals.operationalCost += opCostRate;
                 }
 
                 // Продажи (только статус 5)
