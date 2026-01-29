@@ -10,8 +10,9 @@ import { supabase } from '../supabaseClient';
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
 
 // Статусы заказов
-const SENT_STATUSES = ['1', '5', '6', '10', '11', '15', '16', '17', '18', '19', '20']; // Отправлено
-const SOLD_STATUSES = ['2']; // Продано/Выполнено
+const SENT_STATUSES = ['5', '7', '18', '87', '4', '11', '10']; // Отправлено
+const SOLD_STATUSES = ['5']; // Продано
+const RETURN_STATUSES = ['7', '18', '87']; // Возврат товара
 
 // Функция выполнения SQL запроса
 async function executeQuery(sql) {
@@ -456,10 +457,9 @@ function ProfitCheckTest() {
           Object.values(group.ads).forEach(ad => {
             ad.totals = createEmptyTotals();
 
-            // Тоталы по рекламе
+            // Тоталы по рекламе (расходы на рекламу)
             Object.entries(ad.dates).forEach(([date, data]) => {
               const exchangeRate = getExchangeRate(date);
-              ad.totals.leads += data.valid;
               // USD значения
               ad.totals.costRedtrackUsd += data.cost;
               ad.totals.costCabinetUsd += data.costFromSources;
@@ -468,33 +468,47 @@ function ProfitCheckTest() {
               ad.totals.costCabinetUah += data.costFromSources * exchangeRate;
             });
 
+            // Количество лидов = количество конверсий
+            ad.totals.leads = ad.conversions.length;
+
             // Считаем из конверсий и продаж
             ad.conversions.forEach(conv => {
+              // Операционные расходы по месяцу конверсии
+              const convDate = conv.date_of_conversion || conv.date_of_click;
+              if (convDate) {
+                const monthKey = convDate.substring(0, 7); // YYYY-MM
+                const opCost = operationalCosts[monthKey] || 0;
+                ad.totals.operationalCost += opCost;
+              }
+
               if (conv.sale) {
                 const sale = conv.sale;
                 const status = String(sale.order_status);
+                const deliveryPayer = sale.delivery_payer || '';
+                const deliveryService = sale.delivery_service || '';
+                const isReturn = RETURN_STATUSES.includes(status);
 
-                // Операционные расходы по месяцу конверсии
-                const convDate = conv.date_of_conversion || conv.date_of_click;
-                if (convDate) {
-                  const monthKey = convDate.substring(0, 7); // YYYY-MM
-                  const opCost = operationalCosts[monthKey] || 0;
-                  ad.totals.operationalCost += opCost;
+                // Расходы на доставку: если Sender платит ИЛИ это возврат
+                if (deliveryPayer === 'Sender' || isReturn) {
+                  let deliveryCost = parseFloat(sale.delivery_price) || 0;
+                  // Для возвратов с укрпоштой +10 грн
+                  if (isReturn && deliveryService.toLowerCase().includes('ukrposhta')) {
+                    deliveryCost += 10;
+                  }
+                  ad.totals.deliveryCost += deliveryCost;
                 }
 
-                // Расходы на доставку
-                ad.totals.deliveryCost += parseFloat(sale.delivery_price) || 0;
-
-                // Отправления (статусы отправлено)
+                // Отправления (статусы: 5, 7, 18, 87, 4, 11, 10)
                 if (SENT_STATUSES.includes(status)) {
                   ad.totals.sentCount++;
                   ad.totals.sentSum += parseFloat(sale.order_end_price) || 0;
                   ad.totals.sentProfit += parseFloat(sale.order_profit) || 0;
                 }
 
-                // Продажи (статус выполнен)
+                // Продажи (только статус 5)
                 if (SOLD_STATUSES.includes(status)) {
                   ad.totals.soldCount++;
+                  ad.totals.soldSum += parseFloat(sale.order_end_price) || 0;
                   ad.totals.soldProfit += parseFloat(sale.order_profit) || 0;
                 }
               }
@@ -519,11 +533,12 @@ function ProfitCheckTest() {
   // Создать пустой объект тоталов
   function createEmptyTotals() {
     return {
-      leads: 0,           // Количество лидов
+      leads: 0,           // Количество лидов (из conversions_collection)
       sentCount: 0,       // Количество отправлений
       sentSum: 0,         // Отправлено на сумму
       sentProfit: 0,      // Вал. прибыль с отправлений
       soldCount: 0,       // Количество продаж
+      soldSum: 0,         // Продано на сумму
       soldProfit: 0,      // Вал. прибыль с продаж
       operationalCost: 0, // Операционные расходы
       deliveryCost: 0,    // Расходы на доставку
@@ -541,6 +556,7 @@ function ProfitCheckTest() {
     target.sentSum += source.sentSum;
     target.sentProfit += source.sentProfit;
     target.soldCount += source.soldCount;
+    target.soldSum += source.soldSum;
     target.soldProfit += source.soldProfit;
     target.operationalCost += source.operationalCost;
     target.deliveryCost += source.deliveryCost;
@@ -611,6 +627,11 @@ function ProfitCheckTest() {
       ? 'px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap'
       : 'px-3 py-2 text-right text-slate-600 whitespace-nowrap';
 
+    // Рассчитываем прибыль: Вал. прибыль с отправлений - все расходы
+    const totalCosts = totals.operationalCost + totals.deliveryCost + totals.costRedtrackUah + totals.costCabinetUah;
+    const profit = totals.sentProfit - totalCosts;
+    const profitClass = profit >= 0 ? 'text-green-600' : 'text-red-600';
+
     return (
       <>
         <td className={cellClass}>{totals.leads}</td>
@@ -618,11 +639,13 @@ function ProfitCheckTest() {
         <td className={cellClass}>{formatCurrency(totals.sentSum)}</td>
         <td className={cellClass}>{formatCurrency(totals.sentProfit)}</td>
         <td className={cellClass}>{totals.soldCount}</td>
+        <td className={cellClass}>{formatCurrency(totals.soldSum)}</td>
         <td className={cellClass}>{formatCurrency(totals.soldProfit)}</td>
         <td className={cellClass}>{formatCurrency(totals.operationalCost)}</td>
         <td className={cellClass}>{formatCurrency(totals.deliveryCost)}</td>
         <td className={cellClass}>{formatCurrencyDual(totals.costRedtrackUah, totals.costRedtrackUsd)}</td>
         <td className={cellClass}>{formatCurrencyDual(totals.costCabinetUah, totals.costCabinetUsd)}</td>
+        <td className={`${cellClass} font-bold ${profitClass}`}>{formatCurrency(profit)}</td>
       </>
     );
   };
@@ -811,11 +834,13 @@ function ProfitCheckTest() {
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Отправ. на сумму</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Вал. приб. отпр.</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Кол-во продаж</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Продано на сумму</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Вал. приб. продаж</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Операц. расх.</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. доставка</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. RedTrack</th>
                       <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Расх. кабинеты</th>
+                      <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">Прибыль</th>
                     </tr>
                   </thead>
                   <tbody>
