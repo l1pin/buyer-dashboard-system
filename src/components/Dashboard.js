@@ -120,93 +120,14 @@ function Dashboard({ user, session, updateUser }) {
     return 'settings';
   };
 
-  // Старая логика проверки доступности (для fallback)
-  const legacySectionCheck = useCallback((section, role) => {
-    switch (section) {
-      // Админ
-      case 'table':
-        return role === 'teamlead';
-      case 'users':
-        return role === 'teamlead';
-
-      // Офферы (новые)
-      case 'offers-management':
-        return role === 'teamlead';
-      case 'offers-buyer':
-        return role === 'buyer';
-
-      // Отчеты (новые)
-      case 'reports-management':
-        return role === 'teamlead';
-      case 'reports-buyer':
-        return role === 'buyer';
-
-      // Лендинги (новые)
-      case 'landings-management':
-        return role === 'teamlead';
-      case 'landings-create':
-        return role === 'content_manager';
-      case 'landings-edit':
-        return role === 'proofreader';
-      case 'landings-analytics':
-        return role === 'teamlead';
-
-      // Контент (новые)
-      case 'creatives-create':
-        return role === 'editor';
-      case 'creatives-view':
-        return role === 'editor' || role === 'search_manager' || role === 'buyer';
-      case 'creatives-analytics':
-        return role === 'teamlead';
-
-      // Аналитика
-      case 'metrics-analytics':
-        return role === 'teamlead';
-
-      // SQL
-      case 'sql-query-builder':
-        return role === 'teamlead';
-
-      // Настройки
-      case 'settings':
-        return true;
-
-      // Старые секции (для обратной совместимости)
-      case 'creatives':
-        return role === 'editor' || role === 'search_manager' || role === 'buyer';
-      case 'landings':
-        return role === 'content_manager';
-      case 'landing-editor':
-        return role === 'proofreader';
-      case 'landing-teamlead':
-        return role === 'teamlead';
-      case 'landing-analytics':
-        return role === 'teamlead';
-      case 'analytics':
-        return role === 'teamlead';
-      case 'offers-tl':
-        return role === 'teamlead';
-      case 'action-reports':
-        return role === 'teamlead' || role === 'buyer';
-
-      default:
-        return false;
-    }
-  }, []);
-
-  // Функция для проверки доступности раздела
-  // Если права загрузились - используем ТОЛЬКО новую систему
-  // Legacy нужен только пока права грузятся
-  const isSectionAvailableForRole = useCallback((section, role) => {
-    // Если права ещё загружаются — используем старую логику
+  // Функция для проверки доступности раздела - ТОЛЬКО из БД
+  const isSectionAvailableForRole = useCallback((section) => {
+    // Если права ещё загружаются — пока нет доступа (кроме settings)
     if (permissionsLoading) {
-      return legacySectionCheck(section, role);
+      return section === 'settings';
     }
-
-    // Права загружены - используем ТОЛЬКО canAccessSection
-    // Это учитывает excluded_permissions
     return canAccessSection(section);
-  }, [canAccessSection, permissionsLoading, legacySectionCheck]);
+  }, [canAccessSection, permissionsLoading]);
 
   // Определяем секцию из URL при загрузке (только при первой загрузке!)
   React.useEffect(() => {
@@ -221,11 +142,11 @@ function Dashboard({ user, session, updateUser }) {
       const currentPath = location.pathname;
       const sectionFromUrl = urlToSection[currentPath];
 
-      // Если секция из URL доступна для роли пользователя - используем её
-      if (sectionFromUrl && isSectionAvailableForRole(sectionFromUrl, user.role)) {
+      // Если секция из URL доступна для пользователя - используем её
+      if (sectionFromUrl && isSectionAvailableForRole(sectionFromUrl)) {
         setActiveSection(sectionFromUrl);
         localStorage.setItem(`activeSection_${user.id}`, sectionFromUrl);
-      } else if (sectionFromUrl && !isSectionAvailableForRole(sectionFromUrl, user.role)) {
+      } else if (sectionFromUrl && !isSectionAvailableForRole(sectionFromUrl)) {
         // Если секция из URL недоступна - перенаправляем на дефолтную
         const defaultSection = getDefaultSectionForRole(user.role);
         setActiveSection(defaultSection);
@@ -235,7 +156,7 @@ function Dashboard({ user, session, updateUser }) {
         // Если URL не соответствует ни одной секции - проверяем localStorage или используем дефолтную
         const savedSection = localStorage.getItem(`activeSection_${user.id}`);
 
-        if (savedSection && isSectionAvailableForRole(savedSection, user.role)) {
+        if (savedSection && isSectionAvailableForRole(savedSection)) {
           setActiveSection(savedSection);
           navigate(sectionToUrl[savedSection], { replace: true });
         } else {

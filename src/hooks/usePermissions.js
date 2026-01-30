@@ -128,6 +128,10 @@ export const usePermissions = (user) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Сериализуем массивы для корректного сравнения в зависимостях
+  const customPermissionsKey = JSON.stringify(user?.custom_permissions || []);
+  const excludedPermissionsKey = JSON.stringify(user?.excluded_permissions || []);
+
   // Загрузка прав
   useEffect(() => {
     if (!user?.id) {
@@ -142,10 +146,16 @@ export const usePermissions = (user) => {
         setError(null);
 
         let userPermissions = [];
+        const customPerms = user.custom_permissions || [];
+        const excludedPerms = user.excluded_permissions || [];
+
+        console.log('🔐 Loading permissions for user:', user.id);
+        console.log('   role_id:', user.role_id);
+        console.log('   custom_permissions:', customPerms);
+        console.log('   excluded_permissions:', excludedPerms);
 
         // 1. Проверяем is_protected - это суперадмин, все права
         if (user.is_protected) {
-          // Загружаем все права из БД
           const { data: allPermissions } = await supabase
             .from('permissions')
             .select('code');
@@ -156,12 +166,13 @@ export const usePermissions = (user) => {
             userPermissions = ALL_ADMIN_PERMISSIONS;
           }
 
+          console.log('   Admin permissions:', userPermissions.length);
           setPermissions([...new Set(userPermissions)]);
           setLoading(false);
           return;
         }
 
-        // 2. Пробуем загрузить права из новой системы (role_id)
+        // 2. Загружаем права роли из БД
         if (user.role_id) {
           const { data: rolePermissions, error: roleError } = await supabase
             .from('role_permissions')
@@ -173,44 +184,44 @@ export const usePermissions = (user) => {
               .map(rp => rp.permissions?.code)
               .filter(Boolean);
           }
+          console.log('   Role permissions from DB:', userPermissions);
         }
 
-        // 3. Fallback на старую систему (role текстом)
+        // 3. Fallback на LEGACY только если role_permissions полностью пустые
         if (userPermissions.length === 0 && user.role) {
           userPermissions = LEGACY_ROLE_PERMISSIONS[user.role] || [];
+          console.log('   Using LEGACY permissions:', userPermissions);
         }
 
-        // 4. Добавляем индивидуальные права (custom_permissions)
-        if (user.custom_permissions?.length > 0) {
-          userPermissions = [...userPermissions, ...user.custom_permissions];
+        // 4. ВСЕГДА добавляем custom_permissions (это ключевой момент!)
+        if (customPerms.length > 0) {
+          userPermissions = [...userPermissions, ...customPerms];
+          console.log('   After adding custom:', userPermissions);
         }
 
-        // 5. Исключаем права из excluded_permissions
-        if (user.excluded_permissions?.length > 0) {
-          const excludedSet = new Set(user.excluded_permissions);
+        // 5. Исключаем excluded_permissions
+        if (excludedPerms.length > 0) {
+          const excludedSet = new Set(excludedPerms);
           userPermissions = userPermissions.filter(p => !excludedSet.has(p));
+          console.log('   After excluding:', userPermissions);
         }
 
-        // Убираем дубликаты
-        setPermissions([...new Set(userPermissions)]);
+        // Убираем дубликаты и сохраняем
+        const finalPermissions = [...new Set(userPermissions)];
+        console.log('   ✅ Final permissions:', finalPermissions);
+        setPermissions(finalPermissions);
 
       } catch (err) {
         console.error('Error loading permissions:', err);
         setError(err);
-
-        // В случае ошибки — fallback на старую систему
-        const fallbackPermissions = user.role
-          ? LEGACY_ROLE_PERMISSIONS[user.role] || []
-          : [];
-        setPermissions(fallbackPermissions);
-
+        setPermissions([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadPermissions();
-  }, [user?.id, user?.role_id, user?.role, user?.is_protected, user?.custom_permissions, user?.excluded_permissions]);
+  }, [user?.id, user?.role_id, user?.role, user?.is_protected, customPermissionsKey, excludedPermissionsKey]);
 
   // Проверка конкретного права
   const hasPermission = useCallback((permissionCode) => {
