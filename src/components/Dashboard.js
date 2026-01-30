@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Sidebar from './Sidebar';
@@ -26,12 +26,12 @@ function Dashboard({ user, session, updateUser }) {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  const [isManualChange, setIsManualChange] = useState(false); // Флаг ручного выбора секции
+  const isManualChangeRef = useRef(false); // Ref для флага ручного выбора (не вызывает ре-рендер)
   const { canAccessSection, hasPermission, loading: permissionsLoading } = usePermissions(user);
 
   // Обработчик смены секции (вызывается из Sidebar)
   const handleSectionChange = useCallback((section) => {
-    setIsManualChange(true); // Пометить как ручной выбор
+    isManualChangeRef.current = true; // Пометить как ручной выбор
     setActiveSection(section);
   }, []);
 
@@ -212,11 +212,12 @@ function Dashboard({ user, session, updateUser }) {
   // Определяем секцию из URL при загрузке (только при первой загрузке!)
   React.useEffect(() => {
     // Не делаем редирект если это ручной выбор секции
-    if (isManualChange) {
-      setIsManualChange(false);
+    if (isManualChangeRef.current) {
+      isManualChangeRef.current = false;
       return;
     }
 
+    // Только при первой загрузке пользователя
     if (user?.role && user?.id && !isUserLoaded) {
       const currentPath = location.pathname;
       const sectionFromUrl = urlToSection[currentPath];
@@ -248,7 +249,7 @@ function Dashboard({ user, session, updateUser }) {
 
       setIsUserLoaded(true);
     }
-  }, [user?.role, user?.id, isUserLoaded, isManualChange]);
+  }, [user?.role, user?.id, isUserLoaded, isSectionAvailableForRole, navigate, location.pathname]);
 
   // Сохраняем activeSection в localStorage и обновляем URL при изменении секции
   React.useEffect(() => {
@@ -283,61 +284,55 @@ function Dashboard({ user, session, updateUser }) {
   };
 
   const renderActiveSection = () => {
-    // Проверка доступа через новую систему с fallback
-    const hasAccess = (section) => isSectionAvailableForRole(section, user?.role);
-
+    // Sidebar уже отфильтровал недоступные секции - просто рендерим выбранную
     switch (activeSection) {
       // === АДМИН ===
       case 'table':
-        return hasAccess('table') ? <AdminPanel user={user} /> : null;
+        return <AdminPanel user={user} />;
       case 'users':
-        return hasAccess('users') ? <UserManagement user={user} /> : null;
+        return <UserManagement user={user} />;
 
       // === ОФФЕРЫ ===
       case 'offers-management':
-      case 'offers-tl': // Старый ID
-        return hasAccess('offers-management') || hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
+      case 'offers-tl':
+        return <OffersTL user={user} />;
       case 'offers-buyer':
-        return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
+        return <OffersBuyer user={user} />;
 
       // === ОТЧЕТЫ ===
       case 'reports-management':
-        return hasAccess('reports-management') ? <ActionReports user={user} /> : null;
+        return <ActionReports user={user} />;
       case 'reports-buyer':
-      case 'action-reports': // Старый ID
-        return hasAccess('reports-buyer') || hasAccess('action-reports') ? <ActionReports user={user} /> : null;
+      case 'action-reports':
+        return <ActionReports user={user} />;
 
       // === ЛЕНДИНГИ ===
       case 'landings-management':
-      case 'landing-teamlead': // Старый ID
-        return hasAccess('landings-management') || hasAccess('landing-teamlead') ? <LandingTeamLead user={user} /> : null;
+      case 'landing-teamlead':
+        return <LandingTeamLead user={user} />;
       case 'landings-create':
-      case 'landings': // Старый ID
-        return hasAccess('landings-create') || hasAccess('landings') ? <LandingPanel user={user} /> : null;
+      case 'landings':
+        return <LandingPanel user={user} />;
       case 'landings-edit':
-      case 'landing-editor': // Старый ID
-        return hasAccess('landings-edit') || hasAccess('landing-editor') ? <LandingEditor user={user} /> : null;
+      case 'landing-editor':
+        return <LandingEditor user={user} />;
       case 'landings-analytics':
-      case 'landing-analytics': // Старый ID
-        return hasAccess('landings-analytics') || hasAccess('landing-analytics') ? <LandingAnalytics user={user} /> : null;
+      case 'landing-analytics':
+        return <LandingAnalytics user={user} />;
 
       // === КОНТЕНТ ===
       case 'creatives-create':
-        return hasAccess('creatives-create') ? <CreativePanel user={user} /> : null;
+        return <CreativePanel user={user} />;
       case 'creatives-view':
-        if (!hasAccess('creatives-view')) return null;
-        // Для search_manager — специальный компонент поиска
         if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
         }
-        // Для остальных — показываем CreativeBuyer
         return <CreativeBuyer user={user} />;
       case 'creatives-analytics':
-      case 'analytics': // Старый ID
-        return hasAccess('creatives-analytics') || hasAccess('analytics') ? <CreativeAnalytics user={user} /> : null;
-      case 'creatives': // Старый ID - определяем компонент по правам
-        if (!hasAccess('creatives') && !hasAccess('creatives-create') && !hasAccess('creatives-view')) return null;
-        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
+      case 'analytics':
+        return <CreativeAnalytics user={user} />;
+      case 'creatives':
+        if (user?.role === 'editor') {
           return <CreativePanel user={user} />;
         }
         if (user?.role === 'search_manager') {
@@ -347,33 +342,16 @@ function Dashboard({ user, session, updateUser }) {
 
       // === АНАЛИТИКА ===
       case 'metrics-analytics':
-        return hasAccess('metrics-analytics') ? <MetricsAnalytics user={user} /> : null;
+        return <MetricsAnalytics user={user} />;
 
       // === SQL ===
       case 'sql-query-builder':
-        return hasAccess('sql-query-builder') ? <SqlQueryBuilder user={user} /> : null;
+        return <SqlQueryBuilder user={user} />;
 
       // === НАСТРОЙКИ ===
       case 'settings':
-        return <Settings user={user} updateUser={updateUser} />;
-
       default:
-        // Определяем дефолтную секцию по правам
-        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
-          return <CreativePanel user={user} />;
-        } else if (user?.role === 'search_manager') {
-          return <CreativeSearch user={user} />;
-        } else if (hasPermission('creatives.view')) {
-          return <CreativeBuyer user={user} />;
-        } else if (hasPermission('landings.edit') || hasPermission('landings.create')) {
-          return <LandingPanel user={user} />;
-        } else if (user?.role === 'proofreader') {
-          return <LandingEditor user={user} />;
-        } else if (user?.role === 'teamlead' || user?.is_protected) {
-          return <LandingTeamLead user={user} />;
-        } else {
-          return <Settings user={user} updateUser={updateUser} />;
-        }
+        return <Settings user={user} updateUser={updateUser} />;
     }
   };
 
