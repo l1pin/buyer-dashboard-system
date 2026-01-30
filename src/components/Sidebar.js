@@ -45,19 +45,20 @@ const AdIcon = ({ className }) => (
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { canAccessSection, loading: permissionsLoading } = usePermissions(user);
+  const { canAccessSection, loading: permissionsLoading, permissions } = usePermissions(user);
 
-  // Fallback на старую систему если новая ещё не загружена
+  // Проверка доступа к секции
+  // Если права загрузились - используем ТОЛЬКО новую систему
+  // Legacy нужен только пока права грузятся
   const canShowSection = (sectionId, legacyCheck) => {
-    // Если права загружаются — используем старую логику
+    // Если права еще загружаются — используем старую логику
     if (permissionsLoading) {
       return legacyCheck;
     }
-    // Пробуем новую систему, fallback на старую
-    const newSystemResult = canAccessSection(sectionId);
-    // Если новая система вернула true — используем её
-    // Иначе — проверяем старую (для обратной совместимости)
-    return newSystemResult || legacyCheck;
+
+    // Права загружены - используем ТОЛЬКО canAccessSection
+    // Это учитывает excluded_permissions
+    return canAccessSection(sectionId);
   };
 
   const menuItems = useMemo(() => [

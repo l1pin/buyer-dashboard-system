@@ -194,19 +194,18 @@ function Dashboard({ user, session, updateUser }) {
     }
   }, []);
 
-  // Функция для проверки доступности раздела (новая система + fallback)
+  // Функция для проверки доступности раздела
+  // Если права загрузились - используем ТОЛЬКО новую систему
+  // Legacy нужен только пока права грузятся
   const isSectionAvailableForRole = useCallback((section, role) => {
     // Если права ещё загружаются — используем старую логику
     if (permissionsLoading) {
       return legacySectionCheck(section, role);
     }
 
-    // Пробуем новую систему
-    const newSystemResult = canAccessSection(section);
-
-    // Если новая система вернула true — используем её
-    // Иначе — проверяем старую логику (для обратной совместимости)
-    return newSystemResult || legacySectionCheck(section, role);
+    // Права загружены - используем ТОЛЬКО canAccessSection
+    // Это учитывает excluded_permissions
+    return canAccessSection(section);
   }, [canAccessSection, permissionsLoading, legacySectionCheck]);
 
   // Определяем секцию из URL при загрузке (только при первой загрузке!)
