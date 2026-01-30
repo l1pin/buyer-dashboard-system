@@ -197,9 +197,12 @@ export const usePermissions = (user) => {
     }
 
     const loadPermissions = async () => {
-      // Если есть кеш - не показываем loading, обновляем в фоне
+      // Если есть кеш - сразу устанавливаем права для мгновенного отображения
       const cachedPerms = getCachedPermissions(user.id);
-      if (!cachedPerms) {
+      if (cachedPerms) {
+        // Синхронно устанавливаем права из кеша - это предотвращает race condition
+        setPermissions(cachedPerms);
+      } else {
         setLoading(true);
       }
       setError(null);
@@ -377,9 +380,11 @@ export const usePermissions = (user) => {
     return user?.is_protected || hasPermission('users.edit.all');
   }, [user?.is_protected, hasPermission]);
 
-  // Права готовы если есть хотя бы одно право или loading завершён
-  // Это позволяет использовать кешированные права мгновенно
-  const permissionsReady = permissions.length > 0 || !loading;
+  // Права готовы если:
+  // - loading завершён И
+  // - Либо user не указан (нет прав для анонимных), либо права загружены (permissions > 0)
+  // Это предотвращает race condition при обновлении страницы
+  const permissionsReady = !loading && (!user?.id || permissions.length > 0);
 
   return {
     permissions,
