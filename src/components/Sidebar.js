@@ -47,119 +47,51 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { canAccessSection, loading: permissionsLoading, permissions } = usePermissions(user);
 
-  // Проверка доступа к секции
-  // Если права загрузились - используем ТОЛЬКО новую систему
-  // Legacy нужен только пока права грузятся
-  const canShowSection = (sectionId, legacyCheck) => {
-    // Если права еще загружаются — используем старую логику
-    if (permissionsLoading) {
-      return legacyCheck;
-    }
-
-    // Права загружены - используем ТОЛЬКО canAccessSection
-    // Это учитывает excluded_permissions
-    return canAccessSection(sectionId);
-  };
-
-  const menuItems = useMemo(() => [
+  // Все доступные пункты меню
+  const allMenuItems = [
     // === ОФФЕРЫ ===
-    {
-      id: 'offers-management',
-      label: 'Офферы',
-      icon: Package,
-      show: canShowSection('offers-management', user?.role === 'teamlead')
-    },
-    {
-      id: 'offers-buyer',
-      label: 'Мои офферы',
-      icon: Package,
-      show: canShowSection('offers-buyer', user?.role === 'buyer')
-    },
+    { id: 'offers-management', label: 'Офферы', icon: Package, permissionCode: 'section.offers_management' },
+    { id: 'offers-buyer', label: 'Мои офферы', icon: Package, permissionCode: 'section.offers_buyer' },
 
     // === ОТЧЕТЫ ===
-    {
-      id: 'reports-management',
-      label: 'Отчеты по байерам',
-      icon: FileText,
-      show: canShowSection('reports-management', user?.role === 'teamlead')
-    },
-    {
-      id: 'reports-buyer',
-      label: 'Отчет по действиям',
-      icon: FileText,
-      show: canShowSection('reports-buyer', user?.role === 'buyer')
-    },
+    { id: 'reports-management', label: 'Отчеты по байерам', icon: FileText, permissionCode: 'section.reports_management' },
+    { id: 'reports-buyer', label: 'Отчет по действиям', icon: FileText, permissionCode: 'section.reports_buyer' },
 
     // === ЛЕНДИНГИ ===
-    {
-      id: 'landings-management',
-      label: 'Лендинги',
-      icon: Globe,
-      show: canShowSection('landings-management', user?.role === 'teamlead')
-    },
-    {
-      id: 'landings-create',
-      label: 'Лендинги',
-      icon: Globe,
-      show: canShowSection('landings-create', user?.role === 'content_manager')
-    },
-    {
-      id: 'landings-edit',
-      label: 'Лендинги',
-      icon: Globe,
-      show: canShowSection('landings-edit', user?.role === 'proofreader')
-    },
-    {
-      id: 'landings-analytics',
-      label: 'Аналитика лендингов',
-      icon: BarChart3,
-      show: canShowSection('landings-analytics', user?.role === 'teamlead')
-    },
+    { id: 'landings-management', label: 'Лендинги', icon: Globe, permissionCode: 'section.landings_management' },
+    { id: 'landings-create', label: 'Лендинги', icon: Globe, permissionCode: 'section.landings_create' },
+    { id: 'landings-edit', label: 'Лендинги', icon: Globe, permissionCode: 'section.landings_edit' },
+    { id: 'landings-analytics', label: 'Аналитика лендингов', icon: BarChart3, permissionCode: 'section.landings_analytics' },
 
     // === АНАЛИТИКА ===
-    {
-      id: 'metrics-analytics',
-      label: 'Метрики аналитика',
-      icon: Activity,
-      show: canShowSection('metrics-analytics', user?.role === 'teamlead')
-    },
+    { id: 'metrics-analytics', label: 'Метрики аналитика', icon: Activity, permissionCode: 'section.metrics_analytics' },
 
     // === АДМИНИСТРИРОВАНИЕ ===
-    {
-      id: 'users',
-      label: 'Пользователи',
-      icon: Users,
-      show: canShowSection('users', user?.role === 'teamlead')
-    },
+    { id: 'users', label: 'Пользователи', icon: Users, permissionCode: 'section.users' },
 
     // === КОНТЕНТ ===
-    {
-      id: 'creatives-create',
-      label: 'Креативы',
-      icon: Video,
-      show: canShowSection('creatives-create', user?.role === 'editor')
-    },
-    {
-      id: 'creatives-view',
-      label: 'Креативы',
-      icon: Video,
-      show: canShowSection('creatives-view', user?.role === 'buyer' || user?.role === 'search_manager')
-    },
-    {
-      id: 'creatives-analytics',
-      label: 'Аналитика креативов',
-      icon: BarChart3,
-      show: canShowSection('creatives-analytics', user?.role === 'teamlead')
-    },
+    { id: 'creatives-create', label: 'Креативы', icon: Video, permissionCode: 'section.creatives_create' },
+    { id: 'creatives-view', label: 'Креативы', icon: Video, permissionCode: 'section.creatives_view' },
+    { id: 'creatives-analytics', label: 'Аналитика креативов', icon: BarChart3, permissionCode: 'section.creatives_analytics' },
 
-    // === НАСТРОЙКИ ===
-    {
-      id: 'settings',
-      label: 'Настройки',
-      icon: Settings,
-      show: true // Настройки доступны всем
+    // === НАСТРОЙКИ (всегда доступны) ===
+    { id: 'settings', label: 'Настройки', icon: Settings, permissionCode: null }
+  ];
+
+  // Фильтруем пункты меню по правам - ТОЛЬКО на основе permissions из БД
+  const menuItems = useMemo(() => {
+    if (permissionsLoading) {
+      // Пока грузится - показываем только настройки
+      return allMenuItems.filter(item => item.permissionCode === null);
     }
-  ], [user?.role, user?.access_level, canAccessSection, permissionsLoading]);
+
+    return allMenuItems.filter(item => {
+      // Настройки доступны всем
+      if (item.permissionCode === null) return true;
+      // Проверяем право напрямую в массиве permissions
+      return permissions.includes(item.permissionCode);
+    });
+  }, [permissions, permissionsLoading]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -308,7 +240,7 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
       {/* Navigation Menu */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
-          {menuItems.filter(item => item.show).map((item) => {
+          {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
 
