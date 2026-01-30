@@ -27,47 +27,67 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 
-// Маппинг старых ролей на права (fallback)
+// Маппинг старых ролей на права (fallback) - ОБНОВЛЁННЫЙ
 const LEGACY_ROLE_PERMISSIONS = {
   teamlead: [
+    // Новые коды секций
+    'section.offers_management',
+    'section.reports_management',
+    'section.landings_management',
+    'section.landings_analytics',
+    'section.creatives_analytics',
+    'section.metrics_analytics',
+    'section.users',
+    'section.settings',
+    // Старые коды (для совместимости)
     'section.offers_tl',
     'section.landing_teamlead',
     'section.landing_analytics',
     'section.analytics',
-    'section.metrics_analytics',
-    'section.users',
-    'section.settings',
-    // Новые granular права
+    // Гранулярные права на пользователей
     'users.view.all',
     'users.edit.all',
     'users.create',
     'users.delete',
     'users.manage_roles',
     'users.manage_departments',
+    // Офферы
     'offers.view',
     'offers.create',
     'offers.edit',
     'offers.assign',
+    // Лендинги
     'landings.view',
     'landings.create',
     'landings.edit',
     'landings.delete',
+    // Креативы
     'creatives.view',
     'creatives.create',
     'creatives.edit',
+    // Аналитика
     'analytics.view',
     'analytics.export'
   ],
   buyer: [
-    'section.creatives',
+    // Новые коды
     'section.offers_buyer',
+    'section.reports_buyer',
+    'section.creatives_view',
     'section.settings',
+    // Старые коды (для совместимости)
+    'section.creatives',
+    // Действия
     'creatives.view',
     'offers.view'
   ],
   editor: [
-    'section.creatives',
+    // Новые коды
+    'section.creatives_create',
     'section.settings',
+    // Старые коды
+    'section.creatives',
+    // Действия
     'creatives.view',
     'creatives.create',
     'creatives.edit'
@@ -76,21 +96,33 @@ const LEGACY_ROLE_PERMISSIONS = {
     'section.settings'
   ],
   search_manager: [
-    'section.creatives',
+    // Новые коды
+    'section.creatives_view',
     'section.settings',
+    // Старые коды
+    'section.creatives',
+    // Действия
     'creatives.view'
   ],
   content_manager: [
-    'section.landings',
+    // Новые коды
+    'section.landings_create',
     'section.settings',
+    // Старые коды
+    'section.landings',
+    // Действия
     'landings.view'
   ],
   product_manager: [
     'section.settings'
   ],
   proofreader: [
-    'section.landing_editor',
+    // Новые коды
+    'section.landings_edit',
     'section.settings',
+    // Старые коды
+    'section.landing_editor',
+    // Действия
     'landings.view',
     'landings.edit'
   ],
@@ -101,18 +133,29 @@ const LEGACY_ROLE_PERMISSIONS = {
 
 // Все права для "полного админа" (используется для is_protected пользователей)
 const ALL_ADMIN_PERMISSIONS = [
-  // Секции
-  'section.offers_tl',
+  // Новые секции
+  'section.offers_management',
   'section.offers_buyer',
+  'section.reports_management',
+  'section.reports_buyer',
+  'section.landings_management',
+  'section.landings_create',
+  'section.landings_edit',
+  'section.landings_analytics',
+  'section.creatives_create',
+  'section.creatives_view',
+  'section.creatives_analytics',
+  'section.metrics_analytics',
+  'section.users',
+  'section.settings',
+  // Старые секции (для совместимости)
+  'section.offers_tl',
   'section.landing_teamlead',
   'section.landings',
   'section.landing_editor',
   'section.landing_analytics',
   'section.analytics',
-  'section.metrics_analytics',
-  'section.users',
   'section.creatives',
-  'section.settings',
   // Пользователи
   'users.view.own_department',
   'users.view.all',
@@ -249,19 +292,47 @@ export const usePermissions = (user) => {
 
   // Проверка доступа к секции (вкладке)
   const canAccessSection = useCallback((sectionId) => {
-    // Маппинг ID секций на коды прав
+    // Маппинг ID секций на коды прав (новые + старые для совместимости)
     const sectionPermissionMap = {
-      'offers-tl': 'section.offers_tl',
+      // Новые section IDs
+      'offers-management': 'section.offers_management',
       'offers-buyer': 'section.offers_buyer',
+      'reports-management': 'section.reports_management',
+      'reports-buyer': 'section.reports_buyer',
+      'landings-management': 'section.landings_management',
+      'landings-create': 'section.landings_create',
+      'landings-edit': 'section.landings_edit',
+      'landings-analytics': 'section.landings_analytics',
+      'creatives-create': 'section.creatives_create',
+      'creatives-view': 'section.creatives_view',
+      'creatives-analytics': 'section.creatives_analytics',
+      'metrics-analytics': 'section.metrics_analytics',
+      'users': 'section.users',
+      'settings': 'section.settings',
+
+      // Старые section IDs (для обратной совместимости)
+      'offers-tl': 'section.offers_tl',
       'landing-teamlead': 'section.landing_teamlead',
       'landing-analytics': 'section.landing_analytics',
       'analytics': 'section.analytics',
-      'metrics-analytics': 'section.metrics_analytics',
-      'users': 'section.users',
       'creatives': 'section.creatives',
       'landings': 'section.landings',
       'landing-editor': 'section.landing_editor',
-      'settings': 'section.settings'
+      'action-reports': 'section.reports_management' // Fallback для старого ID
+    };
+
+    // Алиасы: проверяем и новый и старый код права
+    const permissionAliases = {
+      'section.offers_management': ['section.offers_tl'],
+      'section.landings_management': ['section.landing_teamlead'],
+      'section.landings_create': ['section.landings'],
+      'section.landings_edit': ['section.landing_editor'],
+      'section.landings_analytics': ['section.landing_analytics'],
+      'section.creatives_create': ['section.creatives'],
+      'section.creatives_view': ['section.creatives'],
+      'section.creatives_analytics': ['section.analytics'],
+      'section.reports_management': ['section.offers_tl'], // TL видит отчеты если есть offers_tl
+      'section.reports_buyer': ['section.offers_buyer'] // Buyer видит отчеты если есть offers_buyer
     };
 
     const permissionCode = sectionPermissionMap[sectionId];
@@ -271,7 +342,12 @@ export const usePermissions = (user) => {
 
     if (!permissionCode) return false;
 
-    return hasPermission(permissionCode);
+    // Проверяем основной код
+    if (hasPermission(permissionCode)) return true;
+
+    // Проверяем алиасы
+    const aliases = permissionAliases[permissionCode] || [];
+    return aliases.some(alias => hasPermission(alias));
   }, [hasPermission]);
 
   // Мемоизированный объект для оптимизации
