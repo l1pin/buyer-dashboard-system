@@ -148,40 +148,66 @@ const Toggle = ({ checked, onChange, disabled = false }) => (
 );
 
 // Компонент строки раздела
-const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission }) => {
+const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, isExcluded }) => {
   const Icon = section.icon;
+
+  // Определяем стили в зависимости от состояния
+  const getStyles = () => {
+    if (isExcluded) {
+      // Исключённое право роли (отключено пользователем)
+      return {
+        bg: 'bg-red-50 border-red-200',
+        iconBg: 'bg-red-100',
+        iconColor: 'text-red-600',
+        textColor: 'text-red-900'
+      };
+    }
+    if (isEnabled && isRolePermission) {
+      // Активное право от роли
+      return {
+        bg: 'bg-amber-50 border-amber-200',
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600',
+        textColor: 'text-amber-900'
+      };
+    }
+    if (isEnabled) {
+      // Активное дополнительное право
+      return {
+        bg: 'bg-blue-50 border-blue-200',
+        iconBg: 'bg-blue-100',
+        iconColor: 'text-blue-600',
+        textColor: 'text-blue-900'
+      };
+    }
+    // Неактивное
+    return {
+      bg: 'bg-gray-50 border-gray-200 hover:bg-gray-100',
+      iconBg: 'bg-gray-200',
+      iconColor: 'text-gray-500',
+      textColor: 'text-gray-700'
+    };
+  };
+
+  const styles = getStyles();
 
   return (
     <div className={`
       flex items-center justify-between p-3 rounded-lg border transition-all
-      ${isEnabled
-        ? isRolePermission
-          ? 'bg-amber-50 border-amber-200'
-          : 'bg-blue-50 border-blue-200'
-        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-      }
+      ${styles.bg}
       ${disabled ? 'opacity-60' : ''}
     `}>
       <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg ${
-          isEnabled
-            ? isRolePermission ? 'bg-amber-100' : 'bg-blue-100'
-            : 'bg-gray-200'
-        }`}>
-          <Icon className={`h-4 w-4 ${
-            isEnabled
-              ? isRolePermission ? 'text-amber-600' : 'text-blue-600'
-              : 'text-gray-500'
-          }`} />
+        <div className={`p-2 rounded-lg ${styles.iconBg}`}>
+          <Icon className={`h-4 w-4 ${styles.iconColor}`} />
         </div>
         <div className="flex flex-col">
-          <span className={`text-sm font-medium ${
-            isEnabled
-              ? isRolePermission ? 'text-amber-900' : 'text-blue-900'
-              : 'text-gray-700'
-          }`}>
+          <span className={`text-sm font-medium ${styles.textColor}`}>
             {section.name}
-            {isRolePermission && (
+            {isExcluded && (
+              <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>
+            )}
+            {isRolePermission && !isExcluded && (
               <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>
             )}
           </span>
@@ -196,11 +222,17 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission }
 };
 
 // Компонент группы действий
-const ActionGroup = ({ group, permissions, rolePermissions = [], onToggle, disabled }) => {
+const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermissions = [], onToggle, disabled, allowExcludeRolePermissions = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Проверка исключено ли право
+  const isExcludedPerm = (code) => {
+    return excludedPermissions.includes(code);
+  };
 
   // Проверка включено ли действие
   const isActionEnabled = (code) => {
+    if (isExcludedPerm(code)) return false;
     return permissions.includes(code) || rolePermissions.includes(code);
   };
 
@@ -242,41 +274,51 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], onToggle, disab
           {group.actions.map(action => {
             const isEnabled = isActionEnabled(action.code);
             const isRolePerm = isFromRole(action.code);
+            const isExcluded = isExcludedPerm(action.code);
             const Icon = action.icon;
+
+            // Определяем стили
+            const getActionStyles = () => {
+              if (isExcluded) {
+                return { bg: 'bg-red-50', iconColor: 'text-red-600', textColor: 'text-red-800' };
+              }
+              if (isEnabled && isRolePerm) {
+                return { bg: 'bg-amber-50', iconColor: 'text-amber-600', textColor: 'text-amber-800' };
+              }
+              if (isEnabled) {
+                return { bg: 'bg-green-50', iconColor: 'text-green-600', textColor: 'text-green-800' };
+              }
+              return { bg: 'bg-gray-50 hover:bg-gray-100', iconColor: 'text-gray-400', textColor: 'text-gray-600' };
+            };
+
+            const actionStyles = getActionStyles();
+            const canToggle = !disabled && (allowExcludeRolePermissions || !isRolePerm);
 
             return (
               <div
                 key={action.code}
                 className={`
                   flex items-center justify-between p-2 rounded-lg transition-all
-                  ${isEnabled
-                    ? isRolePerm ? 'bg-amber-50' : 'bg-green-50'
-                    : 'bg-gray-50 hover:bg-gray-100'
-                  }
-                  ${disabled || isRolePerm ? 'opacity-60' : ''}
+                  ${actionStyles.bg}
+                  ${!canToggle ? 'opacity-60' : ''}
                 `}
               >
                 <div className="flex items-center gap-2">
-                  <Icon className={`h-4 w-4 ${
-                    isEnabled
-                      ? isRolePerm ? 'text-amber-600' : 'text-green-600'
-                      : 'text-gray-400'
-                  }`} />
-                  <span className={`text-sm ${
-                    isEnabled
-                      ? isRolePerm ? 'text-amber-800' : 'text-green-800'
-                      : 'text-gray-600'
-                  }`}>
+                  <Icon className={`h-4 w-4 ${actionStyles.iconColor}`} />
+                  <span className={`text-sm ${actionStyles.textColor}`}>
                     {action.name}
-                    {isRolePerm && (
+                    {isExcluded && (
+                      <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>
+                    )}
+                    {isRolePerm && !isExcluded && (
                       <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>
                     )}
                   </span>
                 </div>
                 <Toggle
-                  checked={isEnabled}
+                  checked={isEnabled || isExcluded}
                   onChange={(checked) => onToggle(action.code, checked)}
-                  disabled={disabled || isRolePerm}
+                  disabled={!canToggle}
                 />
               </div>
             );
@@ -291,9 +333,12 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], onToggle, disab
 const PermissionsMatrix = ({
   permissions = [],
   onChange,
-  rolePermissions = [], // Права от роли (только для отображения)
+  rolePermissions = [], // Права от роли
+  excludedPermissions = [], // Исключённые права роли
+  onExcludedChange, // Callback для изменения исключений
   disabled = false,
-  showRolePermissions = true
+  showRolePermissions = true,
+  allowExcludeRolePermissions = false // Разрешить отключать права роли
 }) => {
   const [activeTab, setActiveTab] = useState('sections'); // 'sections' | 'actions'
 
@@ -327,8 +372,17 @@ const PermissionsMatrix = ({
     return PERMISSION_ALIASES[code] || code;
   };
 
-  // Проверка, включена ли секция (учитываем и custom и role permissions и алиасы)
+  // Проверка, исключено ли право
+  const isExcluded = (code) => {
+    const normalizedCode = normalizePermissionCode(code);
+    return excludedPermissions.includes(code) || excludedPermissions.includes(normalizedCode);
+  };
+
+  // Проверка, включена ли секция (учитываем и custom и role permissions и алиасы и исключения)
   const isSectionEnabled = (code) => {
+    // Если исключено - не включено
+    if (isExcluded(code)) return false;
+
     const normalizedCode = normalizePermissionCode(code);
     // Проверяем оба кода - оригинальный и нормализованный
     return permissions.includes(code) ||
@@ -337,7 +391,7 @@ const PermissionsMatrix = ({
            rolePermissions.includes(normalizedCode);
   };
 
-  // Проверка, это право от роли (нельзя отключить)
+  // Проверка, это право от роли
   const isRolePermission = (code) => {
     const normalizedCode = normalizePermissionCode(code);
     return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
@@ -345,8 +399,29 @@ const PermissionsMatrix = ({
 
   // Обработчик изменения права
   const handleToggle = (code, enabled) => {
-    if (disabled || isRolePermission(code)) return;
+    if (disabled) return;
 
+    const isFromRole = isRolePermission(code);
+
+    // Если это право от роли
+    if (isFromRole) {
+      if (!allowExcludeRolePermissions || !onExcludedChange) return;
+
+      // Переключаем исключение
+      let newExcluded;
+      if (enabled) {
+        // Убираем из исключений (включаем обратно)
+        const normalizedCode = normalizePermissionCode(code);
+        newExcluded = excludedPermissions.filter(p => p !== code && p !== normalizedCode);
+      } else {
+        // Добавляем в исключения (отключаем)
+        newExcluded = [...excludedPermissions, code];
+      }
+      onExcludedChange(newExcluded);
+      return;
+    }
+
+    // Если это НЕ право от роли - работаем с custom_permissions
     let newPermissions;
     if (enabled) {
       newPermissions = [...permissions, code];
@@ -358,8 +433,11 @@ const PermissionsMatrix = ({
     onChange(newPermissions);
   };
 
-  // Проверка включено ли действие (с учётом алиасов)
+  // Проверка включено ли действие (с учётом алиасов и исключений)
   const isActionEnabled = (code) => {
+    // Если исключено - не включено
+    if (isExcluded(code)) return false;
+
     const normalizedCode = normalizePermissionCode(code);
     return permissions.includes(code) ||
            permissions.includes(normalizedCode) ||
@@ -416,8 +494,19 @@ const PermissionsMatrix = ({
       {showRolePermissions && rolePermissions.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-xs text-amber-800">
-            <span className="font-medium">Права от роли</span> — отмечены автоматически и не могут быть отключены.
-            Здесь вы можете добавить дополнительные права.
+            <span className="font-medium">Права от роли</span> — отмечены оранжевым.
+            {allowExcludeRolePermissions
+              ? ' Вы можете отключить права роли для этого пользователя (будут отмечены красным).'
+              : ' Здесь вы можете добавить дополнительные права.'}
+          </p>
+        </div>
+      )}
+
+      {/* Инфо об исключённых правах */}
+      {excludedPermissions.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-xs text-red-800">
+            <span className="font-medium">Отключено прав: {excludedPermissions.length}</span> — эти права роли отключены для данного пользователя.
           </p>
         </div>
       )}
@@ -431,16 +520,21 @@ const PermissionsMatrix = ({
                 {category}
               </h5>
               <div className="space-y-2">
-                {sections.map(section => (
-                  <SectionRow
-                    key={section.code}
-                    section={section}
-                    isEnabled={isSectionEnabled(section.code)}
-                    isRolePermission={isRolePermission(section.code)}
-                    onToggle={(checked) => handleToggle(section.code, checked)}
-                    disabled={disabled || isRolePermission(section.code)}
-                  />
-                ))}
+                {sections.map(section => {
+                  const isFromRole = isRolePermission(section.code);
+                  const canToggle = !disabled && (allowExcludeRolePermissions || !isFromRole);
+                  return (
+                    <SectionRow
+                      key={section.code}
+                      section={section}
+                      isEnabled={isSectionEnabled(section.code)}
+                      isRolePermission={isFromRole}
+                      isExcluded={isExcluded(section.code)}
+                      onToggle={(checked) => handleToggle(section.code, checked)}
+                      disabled={!canToggle}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -453,8 +547,10 @@ const PermissionsMatrix = ({
               group={group}
               permissions={permissions}
               rolePermissions={rolePermissions}
+              excludedPermissions={excludedPermissions}
               onToggle={handleToggle}
               disabled={disabled}
+              allowExcludeRolePermissions={allowExcludeRolePermissions}
             />
           ))}
         </div>

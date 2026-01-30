@@ -248,6 +248,12 @@ export const usePermissions = (user) => {
           userPermissions = [...userPermissions, ...user.custom_permissions];
         }
 
+        // 5. Исключаем права из excluded_permissions
+        if (user.excluded_permissions?.length > 0) {
+          const excludedSet = new Set(user.excluded_permissions);
+          userPermissions = userPermissions.filter(p => !excludedSet.has(p));
+        }
+
         // Убираем дубликаты
         setPermissions([...new Set(userPermissions)]);
 

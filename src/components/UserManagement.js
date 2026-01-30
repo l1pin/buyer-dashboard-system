@@ -1188,6 +1188,7 @@ function UserManagement({ user }) {
     department: '', // Отдел (обязательно для Team Lead) - legacy
     department_id: null, // ID отдела
     custom_permissions: [], // Дополнительные права
+    excluded_permissions: [], // Исключённые права роли
     team_lead_id: null,
     team_lead_name: null,
     buyer_settings: {
@@ -1205,6 +1206,7 @@ function UserManagement({ user }) {
     department: '', // Отдел (обязательно для Team Lead) - legacy
     department_id: null, // ID отдела
     custom_permissions: [], // Дополнительные права
+    excluded_permissions: [], // Исключённые права роли
     is_protected: false,
     team_lead_id: null,
     team_lead_name: null,
@@ -1636,6 +1638,7 @@ function UserManagement({ user }) {
         department: userDepartment,
         department_id: newUser.department_id || null,
         custom_permissions: newUser.custom_permissions || [],
+        excluded_permissions: newUser.excluded_permissions || [],
         team_lead_id: newUser.team_lead_id || null,
         team_lead_name: newUser.team_lead_name || null,
         created_by_id: user.id,
@@ -1675,6 +1678,7 @@ function UserManagement({ user }) {
         department: '',
         department_id: null,
         custom_permissions: [],
+        excluded_permissions: [],
         team_lead_id: null,
         team_lead_name: null,
         buyer_settings: {
@@ -1721,6 +1725,9 @@ function UserManagement({ user }) {
               password: '',
               role: 'buyer',
               department: '',
+              department_id: null,
+              custom_permissions: [],
+              excluded_permissions: [],
               team_lead_id: null,
               team_lead_name: null,
               buyer_settings: {
@@ -1813,6 +1820,7 @@ function UserManagement({ user }) {
       department: userToEdit.department || '', // legacy
       department_id: userToEdit.department_id || null,
       custom_permissions: userToEdit.custom_permissions || [],
+      excluded_permissions: userToEdit.excluded_permissions || [],
       is_protected: userToEdit.is_protected || false,
       team_lead_id: userToEdit.team_lead_id || null,
       team_lead_name: userToEdit.team_lead_name || null,
@@ -1858,6 +1866,7 @@ function UserManagement({ user }) {
         department: userDepartment,
         department_id: editUserData.department_id || null,
         custom_permissions: editUserData.custom_permissions || [],
+        excluded_permissions: editUserData.excluded_permissions || [],
         is_protected: editUserData.is_protected,
         team_lead_id: editUserData.team_lead_id || null,
         team_lead_name: editUserData.team_lead_name || null
@@ -1897,6 +1906,7 @@ function UserManagement({ user }) {
         department: '',
         department_id: null,
         custom_permissions: [],
+        excluded_permissions: [],
         is_protected: false,
         team_lead_id: null,
         team_lead_name: null,
@@ -3059,6 +3069,7 @@ function UserManagement({ user }) {
                     department: '',
                     department_id: null,
                     custom_permissions: [],
+                    excluded_permissions: [],
                     team_lead_id: null,
                     team_lead_name: null,
                     buyer_settings: {
@@ -3260,7 +3271,7 @@ function UserManagement({ user }) {
               {isFullAdmin && (
                 <div className="pt-4 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">
-                    Дополнительные права доступа
+                    Права доступа
                   </h4>
                   <PermissionsMatrix
                     permissions={newUser.custom_permissions}
@@ -3268,8 +3279,13 @@ function UserManagement({ user }) {
                       setNewUser({ ...newUser, custom_permissions: newPermissions });
                     }}
                     rolePermissions={newUserRolePermissions}
+                    excludedPermissions={newUser.excluded_permissions}
+                    onExcludedChange={(newExcluded) => {
+                      setNewUser({ ...newUser, excluded_permissions: newExcluded });
+                    }}
                     disabled={false}
                     showRolePermissions={newUserRolePermissions.length > 0}
+                    allowExcludeRolePermissions={true}
                   />
                 </div>
               )}
@@ -3601,6 +3617,10 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    department: '',
+                    department_id: null,
+                    custom_permissions: [],
+                    excluded_permissions: [],
                     is_protected: false,
                     team_lead_id: null,
                     team_lead_name: null,
@@ -3803,7 +3823,7 @@ function UserManagement({ user }) {
               {isFullAdmin && (
                 <div className="pt-4 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">
-                    Дополнительные права доступа
+                    Права доступа
                   </h4>
                   <PermissionsMatrix
                     permissions={editUserData.custom_permissions}
@@ -3811,8 +3831,13 @@ function UserManagement({ user }) {
                       setEditUserData({ ...editUserData, custom_permissions: newPermissions });
                     }}
                     rolePermissions={rolePermissions}
+                    excludedPermissions={editUserData.excluded_permissions || []}
+                    onExcludedChange={(newExcluded) => {
+                      setEditUserData({ ...editUserData, excluded_permissions: newExcluded });
+                    }}
                     disabled={!canEditUser(editingUser)}
                     showRolePermissions={rolePermissions.length > 0}
+                    allowExcludeRolePermissions={canEditUser(editingUser)}
                   />
                 </div>
               )}
@@ -4130,6 +4155,10 @@ function UserManagement({ user }) {
                     email: '',
                     password: '',
                     role: 'buyer',
+                    department: '',
+                    department_id: null,
+                    custom_permissions: [],
+                    excluded_permissions: [],
                     is_protected: false,
                     team_lead_id: null,
                     team_lead_name: null,
