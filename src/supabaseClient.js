@@ -177,6 +177,8 @@ export const userService = {
               department_id: userData.department_id || null,
               team_lead_id: userData.team_lead_id || null,
               team_lead_name: userData.team_lead_name || null,
+              custom_permissions: userData.custom_permissions || [],
+              excluded_permissions: userData.excluded_permissions || [],
               created_by_id: userData.created_by_id,
               created_by_name: userData.created_by_name,
               is_protected: false,
@@ -282,6 +284,8 @@ export const userService = {
             department_id: userData.department_id || null,
             team_lead_id: userData.team_lead_id || null,
             team_lead_name: userData.team_lead_name || null,
+            custom_permissions: userData.custom_permissions || [],
+            excluded_permissions: userData.excluded_permissions || [],
             created_by_id: userData.created_by_id,
             created_by_name: userData.created_by_name,
             is_protected: false,
@@ -1219,6 +1223,47 @@ export const userService = {
 
     } catch (error) {
       console.error('Error in updateUserCustomPermissions:', error);
+      throw error;
+    }
+  },
+
+  // Обновить исключённые права пользователя (права роли, которые отключены)
+  async updateUserExcludedPermissions(userId, excludedPermissions) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ excluded_permissions: excludedPermissions })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in updateUserExcludedPermissions:', error);
+      throw error;
+    }
+  },
+
+  // Обновить все права пользователя (кастомные + исключённые)
+  async updateUserAllPermissions(userId, customPermissions, excludedPermissions) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          custom_permissions: customPermissions,
+          excluded_permissions: excludedPermissions
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+
+    } catch (error) {
+      console.error('Error in updateUserAllPermissions:', error);
       throw error;
     }
   }
