@@ -28,52 +28,87 @@ function Dashboard({ user, session, updateUser }) {
   const [isUserLoaded, setIsUserLoaded] = useState(false);
   const { canAccessSection, hasPermission, loading: permissionsLoading } = usePermissions(user);
 
-  // Маппинг URL путей к внутренним секциям
+  // Маппинг URL путей к внутренним секциям (новые + старые для совместимости)
   const urlToSection = {
+    // Админ
     '/admin/tables': 'table',
     '/admin/users': 'users',
-    '/workspace/creatives': 'creatives',
-    '/workspace/landings': 'landings',
-    '/workspace/landing-editor': 'landing-editor',
-    '/workspace/landing-teamlead': 'landing-teamlead',
-    '/workspace/offers': 'offers-buyer',
-    '/analytics/creatives': 'analytics',
+    // Офферы
+    '/offers/management': 'offers-management',
+    '/offers/my': 'offers-buyer',
+    '/analytics/offers': 'offers-management', // Старый URL -> новая секция
+    '/workspace/offers': 'offers-buyer', // Старый URL
+    // Отчеты
+    '/reports/management': 'reports-management',
+    '/reports/actions': 'reports-buyer',
+    // Лендинги
+    '/landings/management': 'landings-management',
+    '/landings/create': 'landings-create',
+    '/landings/edit': 'landings-edit',
+    '/analytics/landings': 'landings-analytics',
+    '/workspace/landing-teamlead': 'landings-management', // Старый URL
+    '/workspace/landings': 'landings-create', // Старый URL
+    '/workspace/landing-editor': 'landings-edit', // Старый URL
+    // Контент
+    '/creatives/create': 'creatives-create',
+    '/creatives/my': 'creatives-view',
+    '/analytics/creatives': 'creatives-analytics',
+    '/workspace/creatives': 'creatives-view', // Старый URL -> определяем по роли
+    // Аналитика
     '/analytics/metrics': 'metrics-analytics',
-    '/analytics/landings': 'landing-analytics',
-    '/analytics/offers': 'offers-tl',
-    '/reports/actions': 'action-reports',
+    // SQL
     '/db/ads_collection': 'sql-query-builder',
+    // Настройки
     '/settings': 'settings'
   };
 
   // Маппинг внутренних секций к URL путям
   const sectionToUrl = {
+    // Админ
     'table': '/admin/tables',
     'users': '/admin/users',
-    'creatives': '/workspace/creatives',
-    'landings': '/workspace/landings',
-    'landing-editor': '/workspace/landing-editor',
-    'landing-teamlead': '/workspace/landing-teamlead',
-    'offers-buyer': '/workspace/offers',
-    'analytics': '/analytics/creatives',
+    // Офферы (новые)
+    'offers-management': '/offers/management',
+    'offers-buyer': '/offers/my',
+    // Отчеты (новые)
+    'reports-management': '/reports/management',
+    'reports-buyer': '/reports/actions',
+    // Лендинги (новые)
+    'landings-management': '/landings/management',
+    'landings-create': '/landings/create',
+    'landings-edit': '/landings/edit',
+    'landings-analytics': '/analytics/landings',
+    // Контент (новые)
+    'creatives-create': '/creatives/create',
+    'creatives-view': '/creatives/my',
+    'creatives-analytics': '/analytics/creatives',
+    // Аналитика
     'metrics-analytics': '/analytics/metrics',
-    'landing-analytics': '/analytics/landings',
-    'offers-tl': '/analytics/offers',
-    'action-reports': '/reports/actions',
+    // SQL
     'sql-query-builder': '/db/ads_collection',
-    'settings': '/settings'
+    // Настройки
+    'settings': '/settings',
+    // Старые секции (для обратной совместимости)
+    'offers-tl': '/offers/management',
+    'landing-teamlead': '/landings/management',
+    'landings': '/landings/create',
+    'landing-editor': '/landings/edit',
+    'landing-analytics': '/analytics/landings',
+    'creatives': '/creatives/my',
+    'analytics': '/analytics/creatives',
+    'action-reports': '/reports/actions'
   };
 
   // Функция для получения дефолтного раздела по роли
   const getDefaultSectionForRole = (role) => {
-    if (role === 'editor') return 'landing-editor';
+    if (role === 'editor') return 'creatives-create';
     if (role === 'designer') return 'settings';
-    if (role === 'search_manager') return 'creatives';
-    if (role === 'buyer') return 'creatives';
-    if (role === 'teamlead') return 'landing-teamlead';
-    if (role === 'content_manager') return 'landings';
+    if (role === 'search_manager') return 'creatives-view';
+    if (role === 'buyer') return 'creatives-view';
+    if (role === 'teamlead') return 'landings-management';
+    if (role === 'content_manager') return 'landings-create';
     if (role === 'product_manager') return 'settings';
-    if (role === 'proofreader') return 'landing-editor';
+    if (role === 'proofreader') return 'landings-edit';
     if (role === 'gif_creator') return 'settings';
     return 'settings';
   };
@@ -81,10 +116,55 @@ function Dashboard({ user, session, updateUser }) {
   // Старая логика проверки доступности (для fallback)
   const legacySectionCheck = useCallback((section, role) => {
     switch (section) {
+      // Админ
       case 'table':
         return role === 'teamlead';
       case 'users':
         return role === 'teamlead';
+
+      // Офферы (новые)
+      case 'offers-management':
+        return role === 'teamlead';
+      case 'offers-buyer':
+        return role === 'buyer';
+
+      // Отчеты (новые)
+      case 'reports-management':
+        return role === 'teamlead';
+      case 'reports-buyer':
+        return role === 'buyer';
+
+      // Лендинги (новые)
+      case 'landings-management':
+        return role === 'teamlead';
+      case 'landings-create':
+        return role === 'content_manager';
+      case 'landings-edit':
+        return role === 'proofreader';
+      case 'landings-analytics':
+        return role === 'teamlead';
+
+      // Контент (новые)
+      case 'creatives-create':
+        return role === 'editor';
+      case 'creatives-view':
+        return role === 'editor' || role === 'search_manager' || role === 'buyer';
+      case 'creatives-analytics':
+        return role === 'teamlead';
+
+      // Аналитика
+      case 'metrics-analytics':
+        return role === 'teamlead';
+
+      // SQL
+      case 'sql-query-builder':
+        return role === 'teamlead';
+
+      // Настройки
+      case 'settings':
+        return true;
+
+      // Старые секции (для обратной совместимости)
       case 'creatives':
         return role === 'editor' || role === 'search_manager' || role === 'buyer';
       case 'landings':
@@ -97,18 +177,11 @@ function Dashboard({ user, session, updateUser }) {
         return role === 'teamlead';
       case 'analytics':
         return role === 'teamlead';
-      case 'metrics-analytics':
-        return role === 'teamlead';
       case 'offers-tl':
         return role === 'teamlead';
-      case 'offers-buyer':
-        return role === 'buyer';
       case 'action-reports':
         return role === 'teamlead' || role === 'buyer';
-      case 'sql-query-builder':
-        return role === 'teamlead'; // SQL Query Builder доступен только тимлидам
-      case 'settings':
-        return true; // Настройки доступны всем
+
       default:
         return false;
     }
@@ -201,45 +274,76 @@ function Dashboard({ user, session, updateUser }) {
     const hasAccess = (section) => isSectionAvailableForRole(section, user?.role);
 
     switch (activeSection) {
+      // === АДМИН ===
       case 'table':
         return hasAccess('table') ? <AdminPanel user={user} /> : null;
       case 'users':
         return hasAccess('users') ? <UserManagement user={user} /> : null;
-      case 'creatives':
-        if (!hasAccess('creatives')) return null;
-        // Определяем компонент по правам, а не по роли
-        // Если есть право создавать/редактировать — показываем полную панель
-        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
-          return <CreativePanel user={user} />;
-        }
+
+      // === ОФФЕРЫ ===
+      case 'offers-management':
+      case 'offers-tl': // Старый ID
+        return hasAccess('offers-management') || hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
+      case 'offers-buyer':
+        return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
+
+      // === ОТЧЕТЫ ===
+      case 'reports-management':
+        return hasAccess('reports-management') ? <ActionReports user={user} /> : null;
+      case 'reports-buyer':
+      case 'action-reports': // Старый ID
+        return hasAccess('reports-buyer') || hasAccess('action-reports') ? <ActionReports user={user} /> : null;
+
+      // === ЛЕНДИНГИ ===
+      case 'landings-management':
+      case 'landing-teamlead': // Старый ID
+        return hasAccess('landings-management') || hasAccess('landing-teamlead') ? <LandingTeamLead user={user} /> : null;
+      case 'landings-create':
+      case 'landings': // Старый ID
+        return hasAccess('landings-create') || hasAccess('landings') ? <LandingPanel user={user} /> : null;
+      case 'landings-edit':
+      case 'landing-editor': // Старый ID
+        return hasAccess('landings-edit') || hasAccess('landing-editor') ? <LandingEditor user={user} /> : null;
+      case 'landings-analytics':
+      case 'landing-analytics': // Старый ID
+        return hasAccess('landings-analytics') || hasAccess('landing-analytics') ? <LandingAnalytics user={user} /> : null;
+
+      // === КОНТЕНТ ===
+      case 'creatives-create':
+        return hasAccess('creatives-create') ? <CreativePanel user={user} /> : null;
+      case 'creatives-view':
+        if (!hasAccess('creatives-view')) return null;
         // Для search_manager — специальный компонент поиска
         if (user?.role === 'search_manager') {
           return <CreativeSearch user={user} />;
         }
-        // Для остальных (только просмотр) — показываем CreativeBuyer
+        // Для остальных — показываем CreativeBuyer
         return <CreativeBuyer user={user} />;
-      case 'landings':
-        return hasAccess('landings') ? <LandingPanel user={user} /> : null;
-      case 'landing-editor':
-        return hasAccess('landing-editor') ? <LandingEditor user={user} /> : null;
-      case 'landing-teamlead':
-        return hasAccess('landing-teamlead') ? <LandingTeamLead user={user} /> : null;
-      case 'landing-analytics':
-        return hasAccess('landing-analytics') ? <LandingAnalytics user={user} /> : null;
-      case 'analytics':
-        return hasAccess('analytics') ? <CreativeAnalytics user={user} /> : null;
+      case 'creatives-analytics':
+      case 'analytics': // Старый ID
+        return hasAccess('creatives-analytics') || hasAccess('analytics') ? <CreativeAnalytics user={user} /> : null;
+      case 'creatives': // Старый ID - определяем компонент по правам
+        if (!hasAccess('creatives') && !hasAccess('creatives-create') && !hasAccess('creatives-view')) return null;
+        if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {
+          return <CreativePanel user={user} />;
+        }
+        if (user?.role === 'search_manager') {
+          return <CreativeSearch user={user} />;
+        }
+        return <CreativeBuyer user={user} />;
+
+      // === АНАЛИТИКА ===
       case 'metrics-analytics':
         return hasAccess('metrics-analytics') ? <MetricsAnalytics user={user} /> : null;
-      case 'offers-tl':
-        return hasAccess('offers-tl') ? <OffersTL user={user} /> : null;
-      case 'offers-buyer':
-        return hasAccess('offers-buyer') ? <OffersBuyer user={user} /> : null;
-      case 'action-reports':
-        return hasAccess('action-reports') ? <ActionReports user={user} /> : null;
+
+      // === SQL ===
       case 'sql-query-builder':
         return hasAccess('sql-query-builder') ? <SqlQueryBuilder user={user} /> : null;
+
+      // === НАСТРОЙКИ ===
       case 'settings':
         return <Settings user={user} updateUser={updateUser} />;
+
       default:
         // Определяем дефолтную секцию по правам
         if (hasPermission('creatives.create') || hasPermission('creatives.edit')) {

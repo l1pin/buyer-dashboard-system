@@ -61,72 +61,97 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   };
 
   const menuItems = useMemo(() => [
+    // === ОФФЕРЫ ===
     {
-      id: 'offers-tl',
+      id: 'offers-management',
       label: 'Офферы',
       icon: Package,
-      show: canShowSection('offers-tl', user?.role === 'teamlead')
+      show: canShowSection('offers-management', user?.role === 'teamlead')
     },
     {
       id: 'offers-buyer',
       label: 'Мои офферы',
       icon: Package,
-      show: false // Временно скрыто для Media Buyer
+      show: canShowSection('offers-buyer', user?.role === 'buyer')
     },
+
+    // === ОТЧЕТЫ ===
     {
-      id: 'action-reports',
-      label: user?.role === 'teamlead' ? 'Отчеты по байерам' : 'Отчет по действиям',
+      id: 'reports-management',
+      label: 'Отчеты по байерам',
       icon: FileText,
-      show: canShowSection('action-reports', user?.role === 'teamlead' || user?.role === 'buyer')
+      show: canShowSection('reports-management', user?.role === 'teamlead')
     },
     {
-      id: 'landing-teamlead',
+      id: 'reports-buyer',
+      label: 'Отчет по действиям',
+      icon: FileText,
+      show: canShowSection('reports-buyer', user?.role === 'buyer')
+    },
+
+    // === ЛЕНДИНГИ ===
+    {
+      id: 'landings-management',
       label: 'Лендинги',
       icon: Globe,
-      show: canShowSection('landing-teamlead', user?.role === 'teamlead')
+      show: canShowSection('landings-management', user?.role === 'teamlead')
     },
     {
-      id: 'landing-analytics',
+      id: 'landings-create',
+      label: 'Лендинги',
+      icon: Globe,
+      show: canShowSection('landings-create', user?.role === 'content_manager')
+    },
+    {
+      id: 'landings-edit',
+      label: 'Лендинги',
+      icon: Globe,
+      show: canShowSection('landings-edit', user?.role === 'proofreader')
+    },
+    {
+      id: 'landings-analytics',
       label: 'Аналитика лендингов',
       icon: BarChart3,
-      show: canShowSection('landing-analytics', user?.role === 'teamlead')
+      show: canShowSection('landings-analytics', user?.role === 'teamlead')
     },
-    {
-      id: 'analytics',
-      label: 'Аналитика креативов',
-      icon: BarChart3,
-      show: canShowSection('analytics', user?.role === 'teamlead')
-    },
+
+    // === АНАЛИТИКА ===
     {
       id: 'metrics-analytics',
       label: 'Метрики аналитика',
       icon: Activity,
       show: canShowSection('metrics-analytics', user?.role === 'teamlead')
     },
+
+    // === АДМИНИСТРИРОВАНИЕ ===
     {
       id: 'users',
       label: 'Пользователи',
       icon: Users,
       show: canShowSection('users', user?.role === 'teamlead')
     },
+
+    // === КОНТЕНТ ===
     {
-      id: 'creatives',
+      id: 'creatives-create',
       label: 'Креативы',
       icon: Video,
-      show: canShowSection('creatives', user?.role === 'editor' || user?.role === 'search_manager' || user?.role === 'buyer')
+      show: canShowSection('creatives-create', user?.role === 'editor')
     },
     {
-      id: 'landings',
-      label: 'Лендинги',
-      icon: Globe,
-      show: canShowSection('landings', user?.role === 'content_manager')
+      id: 'creatives-view',
+      label: 'Креативы',
+      icon: Video,
+      show: canShowSection('creatives-view', user?.role === 'buyer' || user?.role === 'search_manager')
     },
     {
-      id: 'landing-editor',
-      label: 'Лендинги',
-      icon: Globe,
-      show: canShowSection('landing-editor', user?.role === 'proofreader')
+      id: 'creatives-analytics',
+      label: 'Аналитика креативов',
+      icon: BarChart3,
+      show: canShowSection('creatives-analytics', user?.role === 'teamlead')
     },
+
+    // === НАСТРОЙКИ ===
     {
       id: 'settings',
       label: 'Настройки',
