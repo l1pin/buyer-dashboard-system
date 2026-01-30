@@ -163,18 +163,39 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* === АДМИН === */}
         <Route path="/admin/tables" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/admin/users" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === ОФФЕРЫ (новые URL) === */}
+        <Route path="/offers/management" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/offers/my" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === ОТЧЕТЫ (новые URL) === */}
+        <Route path="/reports/management" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/reports/actions" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === ЛЕНДИНГИ (новые URL) === */}
+        <Route path="/landings/management" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/landings/create" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/landings/edit" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === КОНТЕНТ (новые URL) === */}
+        <Route path="/creatives/create" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/creatives/my" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === АНАЛИТИКА === */}
+        <Route path="/analytics/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+        <Route path="/analytics/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
+
+        {/* === СТАРЫЕ URL (обратная совместимость) === */}
         <Route path="/workspace/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/landing-editor" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/landing-teamlead" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/workspace/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/analytics/landings" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/analytics/creatives" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/analytics/metrics" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/analytics/offers" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
-        <Route path="/reports/actions" element={<Dashboard user={user} session={session} updateUser={updateUser} />} />
         <Route path="/db/ads_collection" element={
           <div className="h-screen w-screen overflow-auto bg-gray-50">
             <SqlQueryBuilder user={user} />
