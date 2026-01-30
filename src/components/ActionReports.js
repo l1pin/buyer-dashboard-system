@@ -4923,15 +4923,17 @@ function ActionReports({ user }) {
                         metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'
                       )}
                     </div>
-                    <div className="w-[5%] min-w-[35px] text-center">
-                      <button
-                        onClick={() => handleDeleteReport(report.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                        title="Удалить отчет"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {isTeamlead && (
+                      <div className="w-[5%] min-w-[35px] text-center">
+                        <button
+                          onClick={() => handleDeleteReport(report.id)}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Удалить отчет"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                 </div>
