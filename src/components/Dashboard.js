@@ -26,7 +26,14 @@ function Dashboard({ user, session, updateUser }) {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
+  const [isManualChange, setIsManualChange] = useState(false); // Флаг ручного выбора секции
   const { canAccessSection, hasPermission, loading: permissionsLoading } = usePermissions(user);
+
+  // Обработчик смены секции (вызывается из Sidebar)
+  const handleSectionChange = useCallback((section) => {
+    setIsManualChange(true); // Пометить как ручной выбор
+    setActiveSection(section);
+  }, []);
 
   // Маппинг URL путей к внутренним секциям (новые + старые для совместимости)
   const urlToSection = {
@@ -202,12 +209,18 @@ function Dashboard({ user, session, updateUser }) {
     return newSystemResult || legacySectionCheck(section, role);
   }, [canAccessSection, permissionsLoading, legacySectionCheck]);
 
-  // Определяем секцию из URL при загрузке
+  // Определяем секцию из URL при загрузке (только при первой загрузке!)
   React.useEffect(() => {
-    if (user?.role && user?.id) {
+    // Не делаем редирект если это ручной выбор секции
+    if (isManualChange) {
+      setIsManualChange(false);
+      return;
+    }
+
+    if (user?.role && user?.id && !isUserLoaded) {
       const currentPath = location.pathname;
       const sectionFromUrl = urlToSection[currentPath];
-      
+
       // Если секция из URL доступна для роли пользователя - используем её
       if (sectionFromUrl && isSectionAvailableForRole(sectionFromUrl, user.role)) {
         setActiveSection(sectionFromUrl);
@@ -221,7 +234,7 @@ function Dashboard({ user, session, updateUser }) {
       } else {
         // Если URL не соответствует ни одной секции - проверяем localStorage или используем дефолтную
         const savedSection = localStorage.getItem(`activeSection_${user.id}`);
-        
+
         if (savedSection && isSectionAvailableForRole(savedSection, user.role)) {
           setActiveSection(savedSection);
           navigate(sectionToUrl[savedSection], { replace: true });
@@ -232,10 +245,10 @@ function Dashboard({ user, session, updateUser }) {
           localStorage.setItem(`activeSection_${user.id}`, defaultSection);
         }
       }
-      
+
       setIsUserLoaded(true);
     }
-  }, [user?.role, user?.id, location.pathname, navigate]);
+  }, [user?.role, user?.id, isUserLoaded, isManualChange]);
 
   // Сохраняем activeSection в localStorage и обновляем URL при изменении секции
   React.useEffect(() => {
@@ -369,7 +382,7 @@ function Dashboard({ user, session, updateUser }) {
       <Sidebar
         user={user}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         onLogout={handleLogout}
       />
 
