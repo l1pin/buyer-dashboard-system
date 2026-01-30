@@ -153,6 +153,7 @@ const ACTION_GROUPS = [
   {
     name: 'Просмотр пользователей',
     description: 'Определяет кого видит пользователь в списке',
+    exclusive: true, // Можно выбрать только один или ни одного
     actions: [
       {
         code: 'users.view.own_department',
@@ -171,6 +172,7 @@ const ACTION_GROUPS = [
   {
     name: 'Редактирование пользователей',
     description: 'Определяет кого можно редактировать',
+    exclusive: true, // Можно выбрать только один или ни одного
     actions: [
       {
         code: 'users.edit.subordinates',
@@ -195,6 +197,7 @@ const ACTION_GROUPS = [
   {
     name: 'Управление пользователями',
     description: 'Дополнительные возможности',
+    exclusive: false, // Можно выбрать несколько или ни одного
     actions: [
       {
         code: 'users.create',
@@ -326,19 +329,45 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
 };
 
 // Группа действий
-const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermissions = [], onToggle, disabled, allowExcludeRolePermissions = false }) => {
+const ActionGroup = ({
+  group,
+  permissions,
+  rolePermissions = [],
+  excludedPermissions = [],
+  onToggle,
+  onExclusiveToggle, // Для exclusive групп - выключает остальные
+  disabled,
+  allowExcludeRolePermissions = false
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const isExcludedPerm = (code) => excludedPermissions.includes(code);
+  // Проверка: право в списке исключённых И оно есть в роли
+  const isExcludedFromRole = (code) => {
+    const inRole = rolePermissions.includes(code);
+    const excluded = excludedPermissions.includes(code);
+    return inRole && excluded;
+  };
 
+  // Проверка: право активно (есть в permissions или rolePermissions, и не исключено)
   const isActionEnabled = (code) => {
-    if (isExcludedPerm(code)) return false;
+    if (isExcludedFromRole(code)) return false;
     return permissions.includes(code) || rolePermissions.includes(code);
   };
 
+  // Проверка: право от роли
   const isFromRole = (code) => rolePermissions.includes(code);
 
   const enabledCount = group.actions.filter(a => isActionEnabled(a.code)).length;
+
+  // Обработчик клика по toggle
+  const handleToggle = (code, checked) => {
+    if (group.exclusive && checked) {
+      // Для exclusive групп: при включении выключаем остальные
+      onExclusiveToggle(code, group.actions.map(a => a.code));
+    } else {
+      onToggle(code, checked);
+    }
+  };
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -366,7 +395,7 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
           {group.actions.map(action => {
             const isEnabled = isActionEnabled(action.code);
             const isRolePerm = isFromRole(action.code);
-            const isExcluded = isExcludedPerm(action.code);
+            const isExcluded = isExcludedFromRole(action.code);
             const Icon = action.icon;
 
             const getActionStyles = () => {
@@ -377,7 +406,8 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
             };
 
             const actionStyles = getActionStyles();
-            const canToggle = !disabled && (allowExcludeRolePermissions || !isRolePerm);
+            // Можно переключать если: не disabled глобально, и (разрешено исключать права роли ИЛИ это не право роли)
+            const canToggle = !disabled && (allowExcludeRolePermissions || !isRolePerm || !isEnabled);
 
             return (
               <div key={action.code} className={`flex items-center justify-between p-2 rounded-lg transition-all ${actionStyles.bg} ${!canToggle ? 'opacity-60' : ''}`}>
@@ -393,8 +423,8 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
                   </div>
                 </div>
                 <Toggle
-                  checked={isEnabled || isExcluded}
-                  onChange={(checked) => onToggle(action.code, checked)}
+                  checked={isEnabled}
+                  onChange={(checked) => handleToggle(action.code, checked)}
                   disabled={!canToggle}
                 />
               </div>
@@ -481,7 +511,6 @@ const PermissionsMatrix = ({
     if (disabled) return;
 
     const isFromRole = isRolePermission(code);
-    const currentlyExcluded = isExcluded(code);
 
     if (isFromRole) {
       // Право от роли - управляем через excluded
@@ -509,6 +538,49 @@ const PermissionsMatrix = ({
       newPermissions = permissions.filter(p => p !== code && p !== normalizedCode);
     }
     onChange(newPermissions);
+  };
+
+  // Обработчик для exclusive групп (радио-выбор: один или ни одного)
+  const handleExclusiveToggle = (codeToEnable, allGroupCodes) => {
+    if (disabled) return;
+
+    // Собираем новые permissions и excluded
+    let newPermissions = [...permissions];
+    let newExcluded = [...excludedPermissions];
+
+    allGroupCodes.forEach(code => {
+      const isFromRole = isRolePermission(code);
+
+      if (code === codeToEnable) {
+        // Включаем это право
+        if (isFromRole) {
+          // Убираем из excluded
+          newExcluded = newExcluded.filter(p => p !== code);
+        } else {
+          // Добавляем в permissions
+          if (!newPermissions.includes(code)) {
+            newPermissions.push(code);
+          }
+        }
+      } else {
+        // Выключаем остальные
+        if (isFromRole) {
+          // Добавляем в excluded если ещё нет
+          if (!newExcluded.includes(code)) {
+            newExcluded.push(code);
+          }
+        } else {
+          // Убираем из permissions
+          newPermissions = newPermissions.filter(p => p !== code);
+        }
+      }
+    });
+
+    // Применяем изменения
+    onChange(newPermissions);
+    if (onExcludedChange) {
+      onExcludedChange(newExcluded);
+    }
   };
 
   // Проверка действия
@@ -615,6 +687,7 @@ const PermissionsMatrix = ({
               rolePermissions={rolePermissions}
               excludedPermissions={excludedPermissions}
               onToggle={handleToggle}
+              onExclusiveToggle={handleExclusiveToggle}
               disabled={disabled}
               allowExcludeRolePermissions={allowExcludeRolePermissions}
             />
