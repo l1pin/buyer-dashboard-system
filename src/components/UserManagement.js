@@ -1175,6 +1175,7 @@ function UserManagement({ user }) {
     canManageRoles,
     canManageDepartments,
     canCreateUsers,
+    canViewArchivedUsers,
     getVisibleUsers,
     hasPermission,
     permissionsLoading
@@ -2296,36 +2297,40 @@ function UserManagement({ user }) {
             <Users className="h-4 w-4" />
             Пользователи
           </button>
-          <button
-            onClick={() => setActiveTab('roles')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'roles'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Shield className="h-4 w-4" />
-            Роли
-          </button>
-          <button
-            onClick={() => setActiveTab('departments')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'departments'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Building2 className="h-4 w-4" />
-            Отделы
-          </button>
+          {canManageRoles && (
+            <button
+              onClick={() => setActiveTab('roles')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === 'roles'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              Роли
+            </button>
+          )}
+          {canManageDepartments && (
+            <button
+              onClick={() => setActiveTab('departments')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === 'departments'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Building2 className="h-4 w-4" />
+              Отделы
+            </button>
+          )}
         </div>
       </div>
 
       {/* Roles Tab */}
-      {activeTab === 'roles' && <RolesPanel user={user} />}
+      {activeTab === 'roles' && canManageRoles && <RolesPanel user={user} />}
 
       {/* Departments Tab */}
-      {activeTab === 'departments' && <DepartmentsPanel user={user} />}
+      {activeTab === 'departments' && canManageDepartments && <DepartmentsPanel user={user} />}
 
       {/* Users Tab */}
       {activeTab === 'users' && (
@@ -2554,16 +2559,18 @@ function UserManagement({ user }) {
           >
             Активные
           </button>
-          <button
-            onClick={() => setShowArchived(true)}
-            className={`flex-1 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              showArchived
-                ? 'border-blue-500 text-blue-600 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Архив
-          </button>
+          {canViewArchivedUsers && (
+            <button
+              onClick={() => setShowArchived(true)}
+              className={`flex-1 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                showArchived
+                  ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Архив
+            </button>
+          )}
         </div>
 
         {/* Users List */}

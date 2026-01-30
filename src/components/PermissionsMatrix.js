@@ -170,6 +170,19 @@ const ACTION_GROUPS = [
     ]
   },
   {
+    name: 'Архивные пользователи',
+    description: 'Доступ к просмотру архивных пользователей',
+    exclusive: false,
+    actions: [
+      {
+        code: 'users.view.archived',
+        name: 'Просмотр архивных',
+        icon: Archive,
+        description: 'Видеть вкладку "Архивные" и архивных пользователей'
+      },
+    ]
+  },
+  {
     name: 'Редактирование пользователей',
     description: 'Определяет кого можно редактировать',
     exclusive: true, // Можно выбрать только один или ни одного
@@ -209,7 +222,7 @@ const ACTION_GROUPS = [
         code: 'users.delete',
         name: 'Архивирование',
         icon: Archive,
-        description: 'Если неактивно - нет кнопки архивации и вкладки "Архивные"'
+        description: 'Если неактивно - нет кнопки архивации'
       },
       {
         code: 'users.manage_roles',
@@ -406,8 +419,14 @@ const ActionGroup = ({
             };
 
             const actionStyles = getActionStyles();
-            // Можно переключать если: не disabled глобально, и (разрешено исключать права роли ИЛИ это не право роли)
-            const canToggle = !disabled && (allowExcludeRolePermissions || !isRolePerm || !isEnabled);
+            // Можно переключать если: не disabled глобально
+            // Для прав от роли: можно включать (если выключено) или выключать (если allowExcludeRolePermissions)
+            // Для прав НЕ от роли: можно всегда
+            const canToggle = !disabled && (
+              !isRolePerm || // Право НЕ от роли - всегда можно
+              !isEnabled || // Право от роли но выключено (в excluded) - можно включить
+              allowExcludeRolePermissions // Разрешено управлять правами роли
+            );
 
             return (
               <div key={action.code} className={`flex items-center justify-between p-2 rounded-lg transition-all ${actionStyles.bg} ${!canToggle ? 'opacity-60' : ''}`}>

@@ -52,6 +52,7 @@ const LEGACY_ROLE_PERMISSIONS = {
     'section.settings',
     // Права на пользователей
     'users.view.all',
+    'users.view.archived',
     'users.edit.all',
     'users.create',
     'users.delete',
@@ -111,6 +112,7 @@ const ALL_ADMIN_PERMISSIONS = [
   // Все права на пользователей
   'users.view.own_department',
   'users.view.all',
+  'users.view.archived',
   'users.edit.subordinates',
   'users.edit.own_department',
   'users.edit.all',
@@ -320,6 +322,7 @@ export const usePermissions = (user) => {
     canEditUsers,
     canCreateUsers: hasPermission('users.create'),
     canDeleteUsers: hasPermission('users.delete'),
+    canViewArchivedUsers: hasPermission('users.view.archived'),
     canManageRoles: hasPermission('users.manage_roles'),
     canManageDepartments: hasPermission('users.manage_departments'),
 
