@@ -644,32 +644,6 @@ const PermissionsMatrix = ({
         </button>
       </div>
 
-      {/* Информация о правах роли */}
-      {showRolePermissions && rolePermissions.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <p className="text-xs text-amber-800">
-            <span className="font-medium">Права от роли</span> — отмечены оранжевым.
-            {allowExcludeRolePermissions
-              ? ' Вы можете отключить права роли для этого пользователя.'
-              : ' Здесь вы можете добавить дополнительные права.'}
-          </p>
-        </div>
-      )}
-
-      {/* Информация об исключённых (только актуальные - те что есть в rolePermissions) */}
-      {excludedPermissions.filter(code => {
-        const normalizedCode = normalizePermissionCode(code);
-        return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
-      }).length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-xs text-red-800">
-            <span className="font-medium">Отключено прав: {excludedPermissions.filter(code => {
-              const normalizedCode = normalizePermissionCode(code);
-              return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
-            }).length}</span> — эти права роли отключены для данного пользователя.
-          </p>
-        </div>
-      )}
 
       {/* Контент табов */}
       {activeTab === 'sections' ? (
