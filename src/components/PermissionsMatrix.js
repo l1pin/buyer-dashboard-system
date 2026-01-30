@@ -2,11 +2,11 @@
  * PermissionsMatrix - Компонент для настройки прав доступа с тумблерами
  *
  * Отображает матрицу прав:
- * - Разделы (sections) с переключателями View
- * - Действия с переключателями View / Edit / Export (если применимо)
+ * - Разделы (sections) - определяют видимость вкладок в сайдбаре
+ * - Действия - детальные права на работу с пользователями
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Package,
   Globe,
@@ -14,14 +14,12 @@ import {
   Activity,
   Users,
   Video,
-  Settings,
+  Palette,
+  FileText,
   Eye,
   Edit3,
-  Download,
   ChevronDown,
-  ChevronUp,
-  FileText,
-  Palette
+  ChevronUp
 } from 'lucide-react';
 
 // Определение разделов с иконками (новая структура)
@@ -63,7 +61,7 @@ const PERMISSION_ALIASES = {
   'section.creatives': 'section.creatives_create',
 };
 
-// Группы действий
+// Группы действий - ТОЛЬКО права на пользователей (без дублирования разделов)
 const ACTION_GROUPS = [
   {
     name: 'Просмотр пользователей',
@@ -87,37 +85,6 @@ const ACTION_GROUPS = [
       { code: 'users.delete', name: 'Архивирование', icon: Edit3 },
       { code: 'users.manage_roles', name: 'Управление ролями', icon: Edit3 },
       { code: 'users.manage_departments', name: 'Управление отделами', icon: Edit3 },
-    ]
-  },
-  {
-    name: 'Офферы',
-    actions: [
-      { code: 'offers.view', name: 'Просмотр', icon: Eye },
-      { code: 'offers.create', name: 'Создание', icon: Edit3 },
-      { code: 'offers.edit', name: 'Редактирование', icon: Edit3 },
-    ]
-  },
-  {
-    name: 'Лендинги',
-    actions: [
-      { code: 'landings.view', name: 'Просмотр', icon: Eye },
-      { code: 'landings.create', name: 'Создание', icon: Edit3 },
-      { code: 'landings.edit', name: 'Редактирование', icon: Edit3 },
-    ]
-  },
-  {
-    name: 'Креативы',
-    actions: [
-      { code: 'creatives.view', name: 'Просмотр', icon: Eye },
-      { code: 'creatives.create', name: 'Создание', icon: Edit3 },
-      { code: 'creatives.edit', name: 'Редактирование', icon: Edit3 },
-    ]
-  },
-  {
-    name: 'Аналитика',
-    actions: [
-      { code: 'analytics.view', name: 'Просмотр', icon: Eye },
-      { code: 'analytics.export', name: 'Экспорт', icon: Download },
     ]
   },
 ];
@@ -154,7 +121,6 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
   // Определяем стили в зависимости от состояния
   const getStyles = () => {
     if (isExcluded) {
-      // Исключённое право роли (отключено пользователем)
       return {
         bg: 'bg-red-50 border-red-200',
         iconBg: 'bg-red-100',
@@ -163,7 +129,6 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
       };
     }
     if (isEnabled && isRolePermission) {
-      // Активное право от роли
       return {
         bg: 'bg-amber-50 border-amber-200',
         iconBg: 'bg-amber-100',
@@ -172,7 +137,6 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
       };
     }
     if (isEnabled) {
-      // Активное дополнительное право
       return {
         bg: 'bg-blue-50 border-blue-200',
         iconBg: 'bg-blue-100',
@@ -180,7 +144,6 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
         textColor: 'text-blue-900'
       };
     }
-    // Неактивное
     return {
       bg: 'bg-gray-50 border-gray-200 hover:bg-gray-100',
       iconBg: 'bg-gray-200',
@@ -225,27 +188,19 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
 const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermissions = [], onToggle, disabled, allowExcludeRolePermissions = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Проверка исключено ли право
-  const isExcludedPerm = (code) => {
-    return excludedPermissions.includes(code);
-  };
+  const isExcludedPerm = (code) => excludedPermissions.includes(code);
 
-  // Проверка включено ли действие
   const isActionEnabled = (code) => {
     if (isExcludedPerm(code)) return false;
     return permissions.includes(code) || rolePermissions.includes(code);
   };
 
-  // Проверка это право от роли
-  const isFromRole = (code) => {
-    return rolePermissions.includes(code);
-  };
+  const isFromRole = (code) => rolePermissions.includes(code);
 
   const enabledCount = group.actions.filter(a => isActionEnabled(a.code)).length;
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* Header */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -254,9 +209,7 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">{group.name}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full ${
-            enabledCount > 0
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-gray-200 text-gray-500'
+            enabledCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
           }`}>
             {enabledCount}/{group.actions.length}
           </span>
@@ -268,7 +221,6 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
         )}
       </button>
 
-      {/* Content */}
       {isExpanded && (
         <div className="p-3 space-y-2 bg-white">
           {group.actions.map(action => {
@@ -277,7 +229,6 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
             const isExcluded = isExcludedPerm(action.code);
             const Icon = action.icon;
 
-            // Определяем стили
             const getActionStyles = () => {
               if (isExcluded) {
                 return { bg: 'bg-red-50', iconColor: 'text-red-600', textColor: 'text-red-800' };
@@ -297,22 +248,14 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
             return (
               <div
                 key={action.code}
-                className={`
-                  flex items-center justify-between p-2 rounded-lg transition-all
-                  ${actionStyles.bg}
-                  ${!canToggle ? 'opacity-60' : ''}
-                `}
+                className={`flex items-center justify-between p-2 rounded-lg transition-all ${actionStyles.bg} ${!canToggle ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-2">
                   <Icon className={`h-4 w-4 ${actionStyles.iconColor}`} />
                   <span className={`text-sm ${actionStyles.textColor}`}>
                     {action.name}
-                    {isExcluded && (
-                      <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>
-                    )}
-                    {isRolePerm && !isExcluded && (
-                      <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>
-                    )}
+                    {isExcluded && <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>}
+                    {isRolePerm && !isExcluded && <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>}
                   </span>
                 </div>
                 <Toggle
@@ -333,21 +276,19 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
 const PermissionsMatrix = ({
   permissions = [],
   onChange,
-  rolePermissions = [], // Права от роли
-  excludedPermissions = [], // Исключённые права роли
-  onExcludedChange, // Callback для изменения исключений
+  rolePermissions = [],
+  excludedPermissions = [],
+  onExcludedChange,
   disabled = false,
   showRolePermissions = true,
-  allowExcludeRolePermissions = false // Разрешить отключать права роли
+  allowExcludeRolePermissions = false
 }) => {
-  const [activeTab, setActiveTab] = useState('sections'); // 'sections' | 'actions'
+  const [activeTab, setActiveTab] = useState('sections');
 
-  // Группируем секции по категориям (с сохранением порядка)
   const sectionsByCategory = useMemo(() => {
     const categoryOrder = ['Офферы', 'Отчеты', 'Лендинги', 'Аналитика', 'Администрирование', 'Контент'];
     const grouped = {};
 
-    // Инициализируем категории в правильном порядке
     categoryOrder.forEach(cat => {
       grouped[cat] = [];
     });
@@ -359,7 +300,6 @@ const PermissionsMatrix = ({
       grouped[section.category].push(section);
     });
 
-    // Удаляем пустые категории
     Object.keys(grouped).forEach(key => {
       if (grouped[key].length === 0) delete grouped[key];
     });
@@ -367,85 +307,63 @@ const PermissionsMatrix = ({
     return grouped;
   }, []);
 
-  // Нормализация кода права (учитываем алиасы)
   const normalizePermissionCode = (code) => {
     return PERMISSION_ALIASES[code] || code;
   };
 
-  // Проверка, исключено ли право
   const isExcluded = (code) => {
     const normalizedCode = normalizePermissionCode(code);
     return excludedPermissions.includes(code) || excludedPermissions.includes(normalizedCode);
   };
 
-  // Проверка, включена ли секция (учитываем и custom и role permissions и алиасы и исключения)
   const isSectionEnabled = (code) => {
-    // Если исключено - не включено
     if (isExcluded(code)) return false;
-
     const normalizedCode = normalizePermissionCode(code);
-    // Проверяем оба кода - оригинальный и нормализованный
     return permissions.includes(code) ||
            permissions.includes(normalizedCode) ||
            rolePermissions.includes(code) ||
            rolePermissions.includes(normalizedCode);
   };
 
-  // Проверка, это право от роли
   const isRolePermission = (code) => {
     const normalizedCode = normalizePermissionCode(code);
     return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
   };
 
-  // Обработчик изменения права
   const handleToggle = (code, enabled) => {
     if (disabled) return;
 
     const isFromRole = isRolePermission(code);
 
-    // Если это право от роли
     if (isFromRole) {
       if (!allowExcludeRolePermissions || !onExcludedChange) return;
 
-      // Переключаем исключение
       let newExcluded;
       if (enabled) {
-        // Убираем из исключений (включаем обратно)
         const normalizedCode = normalizePermissionCode(code);
         newExcluded = excludedPermissions.filter(p => p !== code && p !== normalizedCode);
       } else {
-        // Добавляем в исключения (отключаем)
         newExcluded = [...excludedPermissions, code];
       }
       onExcludedChange(newExcluded);
       return;
     }
 
-    // Если это НЕ право от роли - работаем с custom_permissions
     let newPermissions;
     if (enabled) {
       newPermissions = [...permissions, code];
     } else {
-      // Удаляем и оригинальный код и алиас
       const normalizedCode = normalizePermissionCode(code);
       newPermissions = permissions.filter(p => p !== code && p !== normalizedCode);
     }
     onChange(newPermissions);
   };
 
-  // Проверка включено ли действие (с учётом алиасов и исключений)
   const isActionEnabled = (code) => {
-    // Если исключено - не включено
     if (isExcluded(code)) return false;
-
-    const normalizedCode = normalizePermissionCode(code);
-    return permissions.includes(code) ||
-           permissions.includes(normalizedCode) ||
-           rolePermissions.includes(code) ||
-           rolePermissions.includes(normalizedCode);
+    return permissions.includes(code) || rolePermissions.includes(code);
   };
 
-  // Подсчёт активных прав
   const activeSectionsCount = SECTIONS.filter(s => isSectionEnabled(s.code)).length;
   const totalActionsCount = ACTION_GROUPS.reduce((sum, g) => sum + g.actions.length, 0);
   const activeActionsCount = ACTION_GROUPS.reduce((sum, g) =>
@@ -481,7 +399,7 @@ const PermissionsMatrix = ({
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Действия
+          Пользователи
           <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
             activeActionsCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
           }`}>
