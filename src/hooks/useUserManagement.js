@@ -35,6 +35,7 @@ export const useUserManagement = (currentUser) => {
     canEditUsers,
     canCreateUsers,
     canDeleteUsers,
+    canViewArchivedUsers,
     canManageRoles,
     canManageDepartments,
     loading: permissionsLoading
@@ -259,6 +260,7 @@ export const useUserManagement = (currentUser) => {
     canArchiveUser,
     canChangeDepartment,
     canAssignRole,
+    canViewArchivedUsers,
     canManageRoles,
     canManageDepartments,
     isFullAdmin,
