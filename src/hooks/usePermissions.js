@@ -123,12 +123,66 @@ const ALL_ADMIN_PERMISSIONS = [
 ];
 
 // ============================================
+// КЕШИРОВАНИЕ ПРАВ В localStorage
+// ============================================
+const CACHE_KEY_PREFIX = 'permissions_cache_';
+const CACHE_VERSION = 'v2'; // Увеличить при изменении структуры
+
+const getCacheKey = (userId) => `${CACHE_KEY_PREFIX}${CACHE_VERSION}_${userId}`;
+
+const getCachedPermissions = (userId) => {
+  try {
+    const cached = localStorage.getItem(getCacheKey(userId));
+    if (cached) {
+      const { permissions, timestamp } = JSON.parse(cached);
+      // Кеш валиден 24 часа (но обновляем в фоне)
+      const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
+      if (isValid && Array.isArray(permissions)) {
+        return permissions;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to read permissions cache:', e);
+  }
+  return null;
+};
+
+const setCachedPermissions = (userId, permissions) => {
+  try {
+    localStorage.setItem(getCacheKey(userId), JSON.stringify({
+      permissions,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.warn('Failed to cache permissions:', e);
+  }
+};
+
+// ============================================
 // ХУК
 // ============================================
 export const usePermissions = (user) => {
-  const [permissions, setPermissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Инициализируем сразу с закешированными правами (мгновенное отображение!)
+  const [permissions, setPermissions] = useState(() => {
+    if (user?.id) {
+      const cached = getCachedPermissions(user.id);
+      if (cached) {
+        console.log('🚀 Using cached permissions for instant display');
+        return cached;
+      }
+    }
+    return [];
+  });
+
+  // loading = false если есть кеш (для мгновенного отображения)
+  const [loading, setLoading] = useState(() => {
+    if (user?.id) {
+      return !getCachedPermissions(user.id);
+    }
+    return true;
+  });
   const [error, setError] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Сериализуем массивы для корректного сравнения в зависимостях
   const customPermissionsKey = JSON.stringify(user?.custom_permissions || []);
@@ -143,18 +197,23 @@ export const usePermissions = (user) => {
     }
 
     const loadPermissions = async () => {
-      try {
+      // Если есть кеш - не показываем loading, обновляем в фоне
+      const cachedPerms = getCachedPermissions(user.id);
+      if (!cachedPerms) {
         setLoading(true);
-        setError(null);
+      }
+      setError(null);
 
+      try {
         let userPermissions = [];
         const customPerms = user.custom_permissions || [];
         const excludedPerms = user.excluded_permissions || [];
 
-        console.log('🔐 Loading permissions for user:', user.id);
-        console.log('   role_id:', user.role_id);
-        console.log('   custom_permissions:', customPerms);
-        console.log('   excluded_permissions:', excludedPerms);
+        // Только логируем при первой загрузке
+        if (isInitialLoad) {
+          console.log('🔐 Loading permissions for user:', user.id);
+          console.log('   role_id:', user.role_id);
+        }
 
         // 1. Проверяем is_protected - это суперадмин, все права
         if (user.is_protected) {
@@ -168,9 +227,12 @@ export const usePermissions = (user) => {
             userPermissions = ALL_ADMIN_PERMISSIONS;
           }
 
-          console.log('   Admin permissions:', userPermissions.length);
-          setPermissions([...new Set(userPermissions)]);
+          const finalPerms = [...new Set(userPermissions)];
+          console.log('   Admin permissions:', finalPerms.length);
+          setPermissions(finalPerms);
+          setCachedPermissions(user.id, finalPerms);
           setLoading(false);
+          setIsInitialLoad(false);
           return;
         }
 
@@ -186,44 +248,53 @@ export const usePermissions = (user) => {
               .map(rp => rp.permissions?.code)
               .filter(Boolean);
           }
-          console.log('   Role permissions from DB:', userPermissions);
         }
 
         // 3. Fallback на LEGACY только если role_permissions полностью пустые
         if (userPermissions.length === 0 && user.role) {
           userPermissions = LEGACY_ROLE_PERMISSIONS[user.role] || [];
-          console.log('   Using LEGACY permissions:', userPermissions);
         }
 
         // 4. ВСЕГДА добавляем custom_permissions (это ключевой момент!)
         if (customPerms.length > 0) {
           userPermissions = [...userPermissions, ...customPerms];
-          console.log('   After adding custom:', userPermissions);
         }
 
         // 5. Исключаем excluded_permissions
         if (excludedPerms.length > 0) {
           const excludedSet = new Set(excludedPerms);
           userPermissions = userPermissions.filter(p => !excludedSet.has(p));
-          console.log('   After excluding:', userPermissions);
         }
 
         // Убираем дубликаты и сохраняем
         const finalPermissions = [...new Set(userPermissions)];
-        console.log('   ✅ Final permissions:', finalPermissions);
+
+        // Кешируем права для мгновенной загрузки при следующем визите
+        setCachedPermissions(user.id, finalPermissions);
+
+        if (isInitialLoad) {
+          console.log('   ✅ Final permissions:', finalPermissions);
+        }
         setPermissions(finalPermissions);
 
       } catch (err) {
         console.error('Error loading permissions:', err);
         setError(err);
-        setPermissions([]);
+        // При ошибке используем кеш если есть
+        const cachedPerms = getCachedPermissions(user.id);
+        if (cachedPerms) {
+          setPermissions(cachedPerms);
+        } else {
+          setPermissions([]);
+        }
       } finally {
         setLoading(false);
+        setIsInitialLoad(false);
       }
     };
 
     loadPermissions();
-  }, [user?.id, user?.role_id, user?.role, user?.is_protected, customPermissionsKey, excludedPermissionsKey]);
+  }, [user?.id, user?.role_id, user?.role, user?.is_protected, customPermissionsKey, excludedPermissionsKey, isInitialLoad]);
 
   // Проверка конкретного права
   const hasPermission = useCallback((permissionCode) => {
@@ -306,10 +377,15 @@ export const usePermissions = (user) => {
     return user?.is_protected || hasPermission('users.edit.all');
   }, [user?.is_protected, hasPermission]);
 
+  // Права готовы если есть хотя бы одно право или loading завершён
+  // Это позволяет использовать кешированные права мгновенно
+  const permissionsReady = permissions.length > 0 || !loading;
+
   return {
     permissions,
     permissionsSet,
     loading,
+    permissionsReady, // true если права готовы (кеш или загружены)
     error,
     hasPermission,
     hasAnyPermission,
