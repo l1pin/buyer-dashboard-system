@@ -3283,15 +3283,15 @@ function UserManagement({ user }) {
                   <PermissionsMatrix
                     permissions={newUser.custom_permissions}
                     onChange={(newPermissions) => {
-                      setNewUser({ ...newUser, custom_permissions: newPermissions });
+                      setNewUser(prev => ({ ...prev, custom_permissions: newPermissions }));
                     }}
                     rolePermissions={newUserRolePermissions}
                     excludedPermissions={newUser.excluded_permissions}
                     onExcludedChange={(newExcluded) => {
-                      setNewUser({ ...newUser, excluded_permissions: newExcluded });
+                      setNewUser(prev => ({ ...prev, excluded_permissions: newExcluded }));
                     }}
                     disabled={false}
-                    showRolePermissions={newUserRolePermissions.length > 0}
+                    showRolePermissions={false}
                     allowExcludeRolePermissions={true}
                   />
                 </div>
@@ -3835,15 +3835,15 @@ function UserManagement({ user }) {
                   <PermissionsMatrix
                     permissions={editUserData.custom_permissions}
                     onChange={(newPermissions) => {
-                      setEditUserData({ ...editUserData, custom_permissions: newPermissions });
+                      setEditUserData(prev => ({ ...prev, custom_permissions: newPermissions }));
                     }}
                     rolePermissions={rolePermissions}
                     excludedPermissions={editUserData.excluded_permissions || []}
                     onExcludedChange={(newExcluded) => {
-                      setEditUserData({ ...editUserData, excluded_permissions: newExcluded });
+                      setEditUserData(prev => ({ ...prev, excluded_permissions: newExcluded }));
                     }}
                     disabled={!canEditUser(editingUser)}
-                    showRolePermissions={rolePermissions.length > 0}
+                    showRolePermissions={false}
                     allowExcludeRolePermissions={canEditUser(editingUser)}
                   />
                 </div>
