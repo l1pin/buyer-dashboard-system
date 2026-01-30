@@ -443,9 +443,14 @@ const PermissionsMatrix = ({
   // Нормализация кода права
   const normalizePermissionCode = (code) => PERMISSION_ALIASES[code] || code;
 
-  // Проверка исключения
+  // Проверка исключения (только если право есть в роли!)
   const isExcluded = (code) => {
     const normalizedCode = normalizePermissionCode(code);
+    // Право считается "исключённым" только если:
+    // 1. Оно есть в rolePermissions (т.е. это право роли)
+    // 2. И оно добавлено в excludedPermissions
+    const isInRole = rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
+    if (!isInRole) return false; // Если права нет в роли - оно не может быть "исключено"
     return excludedPermissions.includes(code) || excludedPermissions.includes(normalizedCode);
   };
 
@@ -463,26 +468,39 @@ const PermissionsMatrix = ({
     return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
   };
 
+  // Проверка - право отключено на уровне роли (не в rolePermissions, но это "дефолтное" право для роли)
+  // Используется только для визуального отображения
+  const isDisabledByRole = (code) => {
+    // Если право НЕ в rolePermissions - значит роль его не имеет
+    // Пользователь может добавить его через custom_permissions
+    return false; // Убираем эту логику - всё что не в роли, просто выключено и можно включить
+  };
+
   // Обработчик переключения
   const handleToggle = (code, enabled) => {
     if (disabled) return;
 
     const isFromRole = isRolePermission(code);
+    const currentlyExcluded = isExcluded(code);
 
     if (isFromRole) {
+      // Право от роли - управляем через excluded
       if (!allowExcludeRolePermissions || !onExcludedChange) return;
 
       let newExcluded;
       if (enabled) {
+        // Включаем - убираем из excluded
         const normalizedCode = normalizePermissionCode(code);
         newExcluded = excludedPermissions.filter(p => p !== code && p !== normalizedCode);
       } else {
+        // Выключаем - добавляем в excluded
         newExcluded = [...excludedPermissions, code];
       }
       onExcludedChange(newExcluded);
       return;
     }
 
+    // Право НЕ от роли - управляем через custom_permissions
     let newPermissions;
     if (enabled) {
       newPermissions = [...permissions, code];
@@ -546,11 +564,17 @@ const PermissionsMatrix = ({
         </div>
       )}
 
-      {/* Информация об исключённых */}
-      {excludedPermissions.length > 0 && (
+      {/* Информация об исключённых (только актуальные - те что есть в rolePermissions) */}
+      {excludedPermissions.filter(code => {
+        const normalizedCode = normalizePermissionCode(code);
+        return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
+      }).length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <p className="text-xs text-red-800">
-            <span className="font-medium">Отключено прав: {excludedPermissions.length}</span> — эти права роли отключены для данного пользователя.
+            <span className="font-medium">Отключено прав: {excludedPermissions.filter(code => {
+              const normalizedCode = normalizePermissionCode(code);
+              return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
+            }).length}</span> — эти права роли отключены для данного пользователя.
           </p>
         </div>
       )}
