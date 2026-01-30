@@ -1,9 +1,8 @@
 /**
- * PermissionsMatrix - Компонент для настройки прав доступа с тумблерами
+ * PermissionsMatrix - Компонент для настройки прав доступа
  *
- * Отображает матрицу прав:
- * - Разделы (sections) - определяют видимость вкладок в сайдбаре
- * - Действия - детальные права на работу с пользователями
+ * Вкладка "Разделы" - определяет видимость вкладок в сайдбаре
+ * Вкладка "Пользователи" - права на работу с пользователями
  */
 
 import React, { useState, useMemo } from 'react';
@@ -19,38 +18,213 @@ import {
   Eye,
   Edit3,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  UserPlus,
+  Archive,
+  Shield,
+  Building2
 } from 'lucide-react';
 
-// Определение разделов с иконками (новая структура)
+// ============================================
+// РАЗДЕЛЫ (определяют видимость вкладок в сайдбаре)
+// ============================================
 const SECTIONS = [
   // Раздел: Офферы
-  { code: 'section.offers_management', name: 'Управление офферами', icon: Package, category: 'Офферы', description: 'Панель управления офферами (Team Lead)' },
-  { code: 'section.offers_buyer', name: 'Мои офферы (капы)', icon: Package, category: 'Офферы', description: 'Капы и офферы байера (Media Buyer)' },
+  {
+    code: 'section.offers_management',
+    name: 'Управление офферами',
+    icon: Package,
+    category: 'Офферы',
+    description: 'Вкладка "Офферы" для Team Lead',
+    defaultRole: 'teamlead'
+  },
+  {
+    code: 'section.offers_buyer',
+    name: 'Мои офферы (капы)',
+    icon: Package,
+    category: 'Офферы',
+    description: 'Вкладка "Мои офферы" для Media Buyer',
+    defaultRole: 'buyer'
+  },
 
   // Раздел: Отчеты
-  { code: 'section.reports_management', name: 'Отчеты по байерам (управление)', icon: FileText, category: 'Отчеты', description: 'Просмотр отчетов всех байеров (Team Lead)' },
-  { code: 'section.reports_buyer', name: 'Отчеты по действиям (создание)', icon: FileText, category: 'Отчеты', description: 'Создание отчетов по своим действиям (Media Buyer)' },
+  {
+    code: 'section.reports_management',
+    name: 'Отчеты по байерам (управление)',
+    icon: FileText,
+    category: 'Отчеты',
+    description: 'Вкладка "Отчеты по байерам" для Team Lead',
+    defaultRole: 'teamlead'
+  },
+  {
+    code: 'section.reports_buyer',
+    name: 'Отчеты по действиям (создание)',
+    icon: FileText,
+    category: 'Отчеты',
+    description: 'Вкладка "Отчеты по действиям" для Media Buyer',
+    defaultRole: 'buyer'
+  },
 
   // Раздел: Лендинги
-  { code: 'section.landings_management', name: 'Лендинги (управление)', icon: Globe, category: 'Лендинги', description: 'Управление всеми лендингами (Team Lead)' },
-  { code: 'section.landings_create', name: 'Лендинги (создание)', icon: Globe, category: 'Лендинги', description: 'Создание лендингов (Content Manager)' },
-  { code: 'section.landings_edit', name: 'Лендинги (редактирование)', icon: Globe, category: 'Лендинги', description: 'Редактирование лендингов (Proofreader)' },
-  { code: 'section.landings_analytics', name: 'Аналитика лендингов', icon: BarChart3, category: 'Лендинги', description: 'Аналитика по лендингам (Team Lead)' },
+  {
+    code: 'section.landings_management',
+    name: 'Лендинги (управление)',
+    icon: Globe,
+    category: 'Лендинги',
+    description: 'Панель LandingTeamLead.js - все лендинги',
+    defaultRole: 'teamlead'
+  },
+  {
+    code: 'section.landings_create',
+    name: 'Лендинги (создание)',
+    icon: Globe,
+    category: 'Лендинги',
+    description: 'Панель LandingPanel.js - создание лендингов',
+    defaultRole: 'content_manager'
+  },
+  {
+    code: 'section.landings_edit',
+    name: 'Лендинги (редактирование)',
+    icon: Globe,
+    category: 'Лендинги',
+    description: 'Панель LandingEditor.js - редактирование',
+    defaultRole: 'proofreader'
+  },
+  {
+    code: 'section.landings_analytics',
+    name: 'Аналитика лендингов',
+    icon: BarChart3,
+    category: 'Лендинги',
+    description: 'Панель LandingAnalytics.js',
+    defaultRole: 'teamlead'
+  },
 
   // Раздел: Аналитика
-  { code: 'section.metrics_analytics', name: 'Метрики аналитика', icon: Activity, category: 'Аналитика', description: 'Аналитика метрик (Team Lead)' },
+  {
+    code: 'section.metrics_analytics',
+    name: 'Метрики аналитика',
+    icon: Activity,
+    category: 'Аналитика',
+    description: 'Вкладка "Метрики аналитика" для Team Lead',
+    defaultRole: 'teamlead'
+  },
 
   // Раздел: Администрирование
-  { code: 'section.users', name: 'Пользователи', icon: Users, category: 'Администрирование', description: 'Управление пользователями (Team Lead)' },
+  {
+    code: 'section.users',
+    name: 'Пользователи',
+    icon: Users,
+    category: 'Администрирование',
+    description: 'Вкладка "Пользователи" для Team Lead',
+    defaultRole: 'teamlead'
+  },
 
   // Раздел: Контент
-  { code: 'section.creatives_create', name: 'Креативы (создание)', icon: Palette, category: 'Контент', description: 'Создание креативов (Video Designer)' },
-  { code: 'section.creatives_view', name: 'Мои креативы (просмотр)', icon: Video, category: 'Контент', description: 'Просмотр своих креативов (Media Buyer, Search Manager)' },
-  { code: 'section.creatives_analytics', name: 'Аналитика креативов', icon: BarChart3, category: 'Контент', description: 'Аналитика креативов (Team Lead)' },
+  {
+    code: 'section.creatives_create',
+    name: 'Креативы (создание)',
+    icon: Palette,
+    category: 'Контент',
+    description: 'Панель CreativePanel.js - создание',
+    defaultRole: 'editor'
+  },
+  {
+    code: 'section.creatives_view',
+    name: 'Мои креативы (просмотр)',
+    icon: Video,
+    category: 'Контент',
+    description: 'CreativeBuyer.js / CreativeSearch.js',
+    defaultRole: 'buyer' // buyer и search_manager
+  },
+  {
+    code: 'section.creatives_analytics',
+    name: 'Аналитика креативов',
+    icon: BarChart3,
+    category: 'Контент',
+    description: 'Панель CreativeAnalytics.js',
+    defaultRole: 'teamlead'
+  },
 ];
 
-// Алиасы старых кодов на новые (для обратной совместимости)
+// ============================================
+// ДЕЙСТВИЯ (права на работу с пользователями)
+// ============================================
+const ACTION_GROUPS = [
+  {
+    name: 'Просмотр пользователей',
+    description: 'Определяет кого видит пользователь в списке',
+    actions: [
+      {
+        code: 'users.view.own_department',
+        name: 'Свой отдел',
+        icon: Eye,
+        description: 'Видеть пользователей своего отдела'
+      },
+      {
+        code: 'users.view.all',
+        name: 'Все отделы',
+        icon: Eye,
+        description: 'Видеть всех пользователей'
+      },
+    ]
+  },
+  {
+    name: 'Редактирование пользователей',
+    description: 'Определяет кого можно редактировать',
+    actions: [
+      {
+        code: 'users.edit.subordinates',
+        name: 'Только подчинённые',
+        icon: Edit3,
+        description: 'Редактировать только своих подчинённых'
+      },
+      {
+        code: 'users.edit.own_department',
+        name: 'Свой отдел',
+        icon: Edit3,
+        description: 'Редактировать пользователей своего отдела'
+      },
+      {
+        code: 'users.edit.all',
+        name: 'Все пользователи',
+        icon: Edit3,
+        description: 'Редактировать любых пользователей'
+      },
+    ]
+  },
+  {
+    name: 'Управление пользователями',
+    description: 'Дополнительные возможности',
+    actions: [
+      {
+        code: 'users.create',
+        name: 'Создание',
+        icon: UserPlus,
+        description: 'Если неактивно - нет кнопки "Добавить пользователя"'
+      },
+      {
+        code: 'users.delete',
+        name: 'Архивирование',
+        icon: Archive,
+        description: 'Если неактивно - нет кнопки архивации и вкладки "Архивные"'
+      },
+      {
+        code: 'users.manage_roles',
+        name: 'Управление ролями',
+        icon: Shield,
+        description: 'Если неактивно - нет вкладки "Роли"'
+      },
+      {
+        code: 'users.manage_departments',
+        name: 'Управление отделами',
+        icon: Building2,
+        description: 'Если неактивно - нет вкладки "Отделы"'
+      },
+    ]
+  },
+];
+
+// Алиасы для обратной совместимости
 const PERMISSION_ALIASES = {
   'section.offers_tl': 'section.offers_management',
   'section.landing_teamlead': 'section.landings_management',
@@ -61,35 +235,11 @@ const PERMISSION_ALIASES = {
   'section.creatives': 'section.creatives_create',
 };
 
-// Группы действий - ТОЛЬКО права на пользователей (без дублирования разделов)
-const ACTION_GROUPS = [
-  {
-    name: 'Просмотр пользователей',
-    actions: [
-      { code: 'users.view.own_department', name: 'Свой отдел', icon: Eye, description: 'Видеть пользователей своего отдела' },
-      { code: 'users.view.all', name: 'Все отделы', icon: Eye, description: 'Видеть всех пользователей' },
-    ]
-  },
-  {
-    name: 'Редактирование пользователей',
-    actions: [
-      { code: 'users.edit.subordinates', name: 'Только подчинённые', icon: Edit3, description: 'Редактировать только тех, где вы - тимлид' },
-      { code: 'users.edit.own_department', name: 'Свой отдел', icon: Edit3, description: 'Редактировать пользователей своего отдела' },
-      { code: 'users.edit.all', name: 'Все пользователи', icon: Edit3, description: 'Редактировать любых пользователей' },
-    ]
-  },
-  {
-    name: 'Управление пользователями',
-    actions: [
-      { code: 'users.create', name: 'Создание', icon: Edit3 },
-      { code: 'users.delete', name: 'Архивирование', icon: Edit3 },
-      { code: 'users.manage_roles', name: 'Управление ролями', icon: Edit3 },
-      { code: 'users.manage_departments', name: 'Управление отделами', icon: Edit3 },
-    ]
-  },
-];
+// ============================================
+// КОМПОНЕНТЫ
+// ============================================
 
-// Компонент Toggle Switch
+// Toggle Switch
 const Toggle = ({ checked, onChange, disabled = false }) => (
   <button
     type="button"
@@ -114,11 +264,10 @@ const Toggle = ({ checked, onChange, disabled = false }) => (
   </button>
 );
 
-// Компонент строки раздела
+// Строка раздела
 const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, isExcluded }) => {
   const Icon = section.icon;
 
-  // Определяем стили в зависимости от состояния
   const getStyles = () => {
     if (isExcluded) {
       return {
@@ -155,11 +304,7 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
   const styles = getStyles();
 
   return (
-    <div className={`
-      flex items-center justify-between p-3 rounded-lg border transition-all
-      ${styles.bg}
-      ${disabled ? 'opacity-60' : ''}
-    `}>
+    <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${styles.bg} ${disabled ? 'opacity-60' : ''}`}>
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${styles.iconBg}`}>
           <Icon className={`h-4 w-4 ${styles.iconColor}`} />
@@ -167,12 +312,8 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
         <div className="flex flex-col">
           <span className={`text-sm font-medium ${styles.textColor}`}>
             {section.name}
-            {isExcluded && (
-              <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>
-            )}
-            {isRolePermission && !isExcluded && (
-              <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>
-            )}
+            {isExcluded && <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>}
+            {isRolePermission && !isExcluded && <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>}
           </span>
           {section.description && (
             <span className="text-xs text-gray-500">{section.description}</span>
@@ -184,7 +325,7 @@ const SectionRow = ({ section, isEnabled, onToggle, disabled, isRolePermission, 
   );
 };
 
-// Компонент группы действий
+// Группа действий
 const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermissions = [], onToggle, disabled, allowExcludeRolePermissions = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -206,19 +347,18 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-900">{group.name}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            enabledCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
-          }`}>
-            {enabledCount}/{group.actions.length}
-          </span>
+        <div className="flex flex-col items-start">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900">{group.name}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${enabledCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+              {enabledCount}/{group.actions.length}
+            </span>
+          </div>
+          {group.description && (
+            <span className="text-xs text-gray-500 mt-0.5">{group.description}</span>
+          )}
         </div>
-        {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-500" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-gray-500" />
-        )}
+        {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
       </button>
 
       {isExpanded && (
@@ -230,15 +370,9 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
             const Icon = action.icon;
 
             const getActionStyles = () => {
-              if (isExcluded) {
-                return { bg: 'bg-red-50', iconColor: 'text-red-600', textColor: 'text-red-800' };
-              }
-              if (isEnabled && isRolePerm) {
-                return { bg: 'bg-amber-50', iconColor: 'text-amber-600', textColor: 'text-amber-800' };
-              }
-              if (isEnabled) {
-                return { bg: 'bg-green-50', iconColor: 'text-green-600', textColor: 'text-green-800' };
-              }
+              if (isExcluded) return { bg: 'bg-red-50', iconColor: 'text-red-600', textColor: 'text-red-800' };
+              if (isEnabled && isRolePerm) return { bg: 'bg-amber-50', iconColor: 'text-amber-600', textColor: 'text-amber-800' };
+              if (isEnabled) return { bg: 'bg-green-50', iconColor: 'text-green-600', textColor: 'text-green-800' };
               return { bg: 'bg-gray-50 hover:bg-gray-100', iconColor: 'text-gray-400', textColor: 'text-gray-600' };
             };
 
@@ -246,17 +380,17 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
             const canToggle = !disabled && (allowExcludeRolePermissions || !isRolePerm);
 
             return (
-              <div
-                key={action.code}
-                className={`flex items-center justify-between p-2 rounded-lg transition-all ${actionStyles.bg} ${!canToggle ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Icon className={`h-4 w-4 ${actionStyles.iconColor}`} />
-                  <span className={`text-sm ${actionStyles.textColor}`}>
-                    {action.name}
-                    {isExcluded && <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>}
-                    {isRolePerm && !isExcluded && <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>}
-                  </span>
+              <div key={action.code} className={`flex items-center justify-between p-2 rounded-lg transition-all ${actionStyles.bg} ${!canToggle ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-2 flex-1">
+                  <Icon className={`h-4 w-4 ${actionStyles.iconColor} flex-shrink-0`} />
+                  <div className="flex flex-col">
+                    <span className={`text-sm ${actionStyles.textColor}`}>
+                      {action.name}
+                      {isExcluded && <span className="ml-2 text-xs text-red-600 font-normal">(отключено)</span>}
+                      {isRolePerm && !isExcluded && <span className="ml-2 text-xs text-amber-600 font-normal">(от роли)</span>}
+                    </span>
+                    {action.description && <span className="text-xs text-gray-500">{action.description}</span>}
+                  </div>
                 </div>
                 <Toggle
                   checked={isEnabled || isExcluded}
@@ -272,7 +406,9 @@ const ActionGroup = ({ group, permissions, rolePermissions = [], excludedPermiss
   );
 };
 
-// Основной компонент
+// ============================================
+// ОСНОВНОЙ КОМПОНЕНТ
+// ============================================
 const PermissionsMatrix = ({
   permissions = [],
   onChange,
@@ -285,18 +421,15 @@ const PermissionsMatrix = ({
 }) => {
   const [activeTab, setActiveTab] = useState('sections');
 
+  // Группируем секции по категориям
   const sectionsByCategory = useMemo(() => {
     const categoryOrder = ['Офферы', 'Отчеты', 'Лендинги', 'Аналитика', 'Администрирование', 'Контент'];
     const grouped = {};
 
-    categoryOrder.forEach(cat => {
-      grouped[cat] = [];
-    });
+    categoryOrder.forEach(cat => { grouped[cat] = []; });
 
     SECTIONS.forEach(section => {
-      if (!grouped[section.category]) {
-        grouped[section.category] = [];
-      }
+      if (!grouped[section.category]) grouped[section.category] = [];
       grouped[section.category].push(section);
     });
 
@@ -307,29 +440,30 @@ const PermissionsMatrix = ({
     return grouped;
   }, []);
 
-  const normalizePermissionCode = (code) => {
-    return PERMISSION_ALIASES[code] || code;
-  };
+  // Нормализация кода права
+  const normalizePermissionCode = (code) => PERMISSION_ALIASES[code] || code;
 
+  // Проверка исключения
   const isExcluded = (code) => {
     const normalizedCode = normalizePermissionCode(code);
     return excludedPermissions.includes(code) || excludedPermissions.includes(normalizedCode);
   };
 
+  // Проверка включения секции
   const isSectionEnabled = (code) => {
     if (isExcluded(code)) return false;
     const normalizedCode = normalizePermissionCode(code);
-    return permissions.includes(code) ||
-           permissions.includes(normalizedCode) ||
-           rolePermissions.includes(code) ||
-           rolePermissions.includes(normalizedCode);
+    return permissions.includes(code) || permissions.includes(normalizedCode) ||
+           rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
   };
 
+  // Проверка права от роли
   const isRolePermission = (code) => {
     const normalizedCode = normalizePermissionCode(code);
     return rolePermissions.includes(code) || rolePermissions.includes(normalizedCode);
   };
 
+  // Обработчик переключения
   const handleToggle = (code, enabled) => {
     if (disabled) return;
 
@@ -359,34 +493,30 @@ const PermissionsMatrix = ({
     onChange(newPermissions);
   };
 
+  // Проверка действия
   const isActionEnabled = (code) => {
     if (isExcluded(code)) return false;
     return permissions.includes(code) || rolePermissions.includes(code);
   };
 
+  // Подсчёт
   const activeSectionsCount = SECTIONS.filter(s => isSectionEnabled(s.code)).length;
   const totalActionsCount = ACTION_GROUPS.reduce((sum, g) => sum + g.actions.length, 0);
-  const activeActionsCount = ACTION_GROUPS.reduce((sum, g) =>
-    sum + g.actions.filter(a => isActionEnabled(a.code)).length, 0
-  );
+  const activeActionsCount = ACTION_GROUPS.reduce((sum, g) => sum + g.actions.filter(a => isActionEnabled(a.code)).length, 0);
 
   return (
     <div className="space-y-4">
-      {/* Header с табами */}
+      {/* Табы */}
       <div className="flex items-center gap-2 border-b border-gray-200">
         <button
           type="button"
           onClick={() => setActiveTab('sections')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'sections'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === 'sections' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Разделы
-          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-            activeSectionsCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${activeSectionsCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             {activeSectionsCount}
           </span>
         </button>
@@ -394,33 +524,29 @@ const PermissionsMatrix = ({
           type="button"
           onClick={() => setActiveTab('actions')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'actions'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === 'actions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Пользователи
-          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-            activeActionsCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${activeActionsCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             {activeActionsCount}/{totalActionsCount}
           </span>
         </button>
       </div>
 
-      {/* Инфо о правах роли */}
+      {/* Информация о правах роли */}
       {showRolePermissions && rolePermissions.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-xs text-amber-800">
             <span className="font-medium">Права от роли</span> — отмечены оранжевым.
             {allowExcludeRolePermissions
-              ? ' Вы можете отключить права роли для этого пользователя (будут отмечены красным).'
+              ? ' Вы можете отключить права роли для этого пользователя.'
               : ' Здесь вы можете добавить дополнительные права.'}
           </p>
         </div>
       )}
 
-      {/* Инфо об исключённых правах */}
+      {/* Информация об исключённых */}
       {excludedPermissions.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <p className="text-xs text-red-800">
@@ -434,9 +560,7 @@ const PermissionsMatrix = ({
         <div className="space-y-4">
           {Object.entries(sectionsByCategory).map(([category, sections]) => (
             <div key={category}>
-              <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                {category}
-              </h5>
+              <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{category}</h5>
               <div className="space-y-2">
                 {sections.map(section => {
                   const isFromRole = isRolePermission(section.code);

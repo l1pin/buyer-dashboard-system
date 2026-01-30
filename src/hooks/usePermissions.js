@@ -2,35 +2,46 @@
  * usePermissions - Хук для работы с правами доступа
  *
  * Поддерживает:
- * - Новую систему (role_id + permissions)
+ * - Новую систему (role_id + permissions из БД)
  * - Fallback на старую систему (role текстом)
  *
- * Права на пользователей:
+ * РАЗДЕЛЫ (section.*):
+ * - section.offers_management - Офферы для Team Lead
+ * - section.offers_buyer - Мои офферы для Media Buyer
+ * - section.reports_management - Отчеты по байерам для Team Lead
+ * - section.reports_buyer - Отчеты по действиям для Media Buyer
+ * - section.landings_management - Лендинги для Team Lead (LandingTeamLead.js)
+ * - section.landings_create - Лендинги для Content Manager (LandingPanel.js)
+ * - section.landings_edit - Лендинги для Proofreader (LandingEditor.js)
+ * - section.landings_analytics - Аналитика лендингов для Team Lead
+ * - section.metrics_analytics - Метрики аналитика для Team Lead
+ * - section.users - Пользователи для Team Lead
+ * - section.creatives_create - Креативы для Video Designer (CreativePanel.js)
+ * - section.creatives_view - Мои креативы для Media Buyer/Search Manager
+ * - section.creatives_analytics - Аналитика креативов для Team Lead
+ *
+ * ПРАВА НА ПОЛЬЗОВАТЕЛЕЙ (users.*):
  * - users.view.own_department - видеть пользователей своего отдела
  * - users.view.all - видеть всех пользователей
- * - users.edit.subordinates - редактировать только подчинённых (team_lead_id)
+ * - users.edit.subordinates - редактировать только подчинённых
  * - users.edit.own_department - редактировать пользователей своего отдела
  * - users.edit.all - редактировать любых пользователей
  * - users.create - создавать пользователей
  * - users.delete - архивировать пользователей
  * - users.manage_roles - управлять ролями
  * - users.manage_departments - управлять отделами
- *
- * @example
- * const { hasPermission, hasAnyPermission, loading } = usePermissions(user);
- *
- * if (hasPermission('section.creatives')) {
- *   // показываем вкладку
- * }
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 
-// Маппинг старых ролей на права (fallback) - ОБНОВЛЁННЫЙ
+// ============================================
+// МАППИНГ РОЛЕЙ НА ПРАВА (FALLBACK)
+// Используется если role_permissions в БД пустые
+// ============================================
 const LEGACY_ROLE_PERMISSIONS = {
   teamlead: [
-    // Новые коды секций
+    // Разделы
     'section.offers_management',
     'section.reports_management',
     'section.landings_management',
@@ -39,101 +50,50 @@ const LEGACY_ROLE_PERMISSIONS = {
     'section.metrics_analytics',
     'section.users',
     'section.settings',
-    // Старые коды (для совместимости)
-    'section.offers_tl',
-    'section.landing_teamlead',
-    'section.landing_analytics',
-    'section.analytics',
-    // Гранулярные права на пользователей
+    // Права на пользователей
     'users.view.all',
     'users.edit.all',
     'users.create',
     'users.delete',
     'users.manage_roles',
     'users.manage_departments',
-    // Офферы
-    'offers.view',
-    'offers.create',
-    'offers.edit',
-    'offers.assign',
-    // Лендинги
-    'landings.view',
-    'landings.create',
-    'landings.edit',
-    'landings.delete',
-    // Креативы
-    'creatives.view',
-    'creatives.create',
-    'creatives.edit',
-    // Аналитика
-    'analytics.view',
-    'analytics.export'
   ],
   buyer: [
-    // Новые коды
     'section.offers_buyer',
     'section.reports_buyer',
     'section.creatives_view',
     'section.settings',
-    // Старые коды (для совместимости)
-    'section.creatives',
-    // Действия
-    'creatives.view',
-    'offers.view'
   ],
   editor: [
-    // Новые коды
     'section.creatives_create',
     'section.settings',
-    // Старые коды
-    'section.creatives',
-    // Действия
-    'creatives.view',
-    'creatives.create',
-    'creatives.edit'
   ],
   designer: [
-    'section.settings'
+    'section.settings',
   ],
   search_manager: [
-    // Новые коды
     'section.creatives_view',
     'section.settings',
-    // Старые коды
-    'section.creatives',
-    // Действия
-    'creatives.view'
   ],
   content_manager: [
-    // Новые коды
     'section.landings_create',
     'section.settings',
-    // Старые коды
-    'section.landings',
-    // Действия
-    'landings.view'
   ],
   product_manager: [
-    'section.settings'
+    'section.settings',
   ],
   proofreader: [
-    // Новые коды
     'section.landings_edit',
     'section.settings',
-    // Старые коды
-    'section.landing_editor',
-    // Действия
-    'landings.view',
-    'landings.edit'
   ],
   gif_creator: [
-    'section.settings'
+    'section.settings',
   ]
 };
 
-// Все права для "полного админа" (используется для is_protected пользователей)
+// Все права для суперадмина (is_protected)
 const ALL_ADMIN_PERMISSIONS = [
-  // Новые секции
+  // Все разделы
   'section.offers_management',
   'section.offers_buyer',
   'section.reports_management',
@@ -148,15 +108,7 @@ const ALL_ADMIN_PERMISSIONS = [
   'section.metrics_analytics',
   'section.users',
   'section.settings',
-  // Старые секции (для совместимости)
-  'section.offers_tl',
-  'section.landing_teamlead',
-  'section.landings',
-  'section.landing_editor',
-  'section.landing_analytics',
-  'section.analytics',
-  'section.creatives',
-  // Пользователи
+  // Все права на пользователей
   'users.view.own_department',
   'users.view.all',
   'users.edit.subordinates',
@@ -166,25 +118,11 @@ const ALL_ADMIN_PERMISSIONS = [
   'users.delete',
   'users.manage_roles',
   'users.manage_departments',
-  // Офферы
-  'offers.view',
-  'offers.create',
-  'offers.edit',
-  'offers.assign',
-  // Лендинги
-  'landings.view',
-  'landings.create',
-  'landings.edit',
-  'landings.delete',
-  // Креативы
-  'creatives.view',
-  'creatives.create',
-  'creatives.edit',
-  // Аналитика
-  'analytics.view',
-  'analytics.export'
 ];
 
+// ============================================
+// ХУК
+// ============================================
 export const usePermissions = (user) => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,17 +143,16 @@ export const usePermissions = (user) => {
 
         let userPermissions = [];
 
-        // 1. Проверяем is_protected - это "суперадмин", все права
+        // 1. Проверяем is_protected - это суперадмин, все права
         if (user.is_protected) {
           // Загружаем все права из БД
           const { data: allPermissions } = await supabase
             .from('permissions')
             .select('code');
 
-          if (allPermissions) {
+          if (allPermissions?.length > 0) {
             userPermissions = allPermissions.map(p => p.code);
           } else {
-            // Fallback если таблица не существует
             userPermissions = ALL_ADMIN_PERMISSIONS;
           }
 
@@ -273,7 +210,7 @@ export const usePermissions = (user) => {
     };
 
     loadPermissions();
-  }, [user?.id, user?.role_id, user?.role, user?.is_protected, user?.custom_permissions]);
+  }, [user?.id, user?.role_id, user?.role, user?.is_protected, user?.custom_permissions, user?.excluded_permissions]);
 
   // Проверка конкретного права
   const hasPermission = useCallback((permissionCode) => {
@@ -296,9 +233,11 @@ export const usePermissions = (user) => {
     return permissions.filter(p => p.startsWith(categoryPrefix));
   }, [permissions]);
 
-  // Проверка доступа к секции (вкладке)
+  // ============================================
+  // ПРОВЕРКА ДОСТУПА К СЕКЦИИ (ВКЛАДКЕ)
+  // ============================================
   const canAccessSection = useCallback((sectionId) => {
-    // Маппинг ID секций на коды прав (новые + старые для совместимости)
+    // Маппинг ID секций (из Sidebar/Dashboard) на коды прав
     const sectionPermissionMap = {
       // Новые section IDs
       'offers-management': 'section.offers_management',
@@ -317,46 +256,26 @@ export const usePermissions = (user) => {
       'settings': 'section.settings',
 
       // Старые section IDs (для обратной совместимости)
-      'offers-tl': 'section.offers_tl',
-      'landing-teamlead': 'section.landing_teamlead',
-      'landing-analytics': 'section.landing_analytics',
-      'analytics': 'section.analytics',
-      'creatives': 'section.creatives',
-      'landings': 'section.landings',
-      'landing-editor': 'section.landing_editor',
-      'action-reports': 'section.reports_management' // Fallback для старого ID
+      'offers-tl': 'section.offers_management',
+      'landing-teamlead': 'section.landings_management',
+      'landings': 'section.landings_create',
+      'landing-editor': 'section.landings_edit',
+      'landing-analytics': 'section.landings_analytics',
+      'creatives': 'section.creatives_view', // По умолчанию на просмотр
+      'analytics': 'section.creatives_analytics',
+      'action-reports': 'section.reports_buyer'
     };
-
-    // Алиасы: проверяем и новый и старый код права
-    const permissionAliases = {
-      'section.offers_management': ['section.offers_tl'],
-      'section.landings_management': ['section.landing_teamlead'],
-      'section.landings_create': ['section.landings'],
-      'section.landings_edit': ['section.landing_editor'],
-      'section.landings_analytics': ['section.landing_analytics'],
-      'section.creatives_create': ['section.creatives'],
-      'section.creatives_view': ['section.creatives'],
-      'section.creatives_analytics': ['section.analytics'],
-      'section.reports_management': ['section.offers_tl'], // TL видит отчеты если есть offers_tl
-      'section.reports_buyer': ['section.offers_buyer'] // Buyer видит отчеты если есть offers_buyer
-    };
-
-    const permissionCode = sectionPermissionMap[sectionId];
 
     // settings доступен всем
     if (sectionId === 'settings') return true;
 
+    const permissionCode = sectionPermissionMap[sectionId];
     if (!permissionCode) return false;
 
-    // Проверяем основной код
-    if (hasPermission(permissionCode)) return true;
-
-    // Проверяем алиасы
-    const aliases = permissionAliases[permissionCode] || [];
-    return aliases.some(alias => hasPermission(alias));
+    return hasPermission(permissionCode);
   }, [hasPermission]);
 
-  // Мемоизированный объект для оптимизации
+  // Мемоизированный Set для оптимизации
   const permissionsSet = useMemo(() => new Set(permissions), [permissions]);
 
   // Проверка прав на просмотр пользователей
@@ -369,7 +288,7 @@ export const usePermissions = (user) => {
     return hasAnyPermission(['users.edit.subordinates', 'users.edit.own_department', 'users.edit.all']);
   }, [hasAnyPermission]);
 
-  // Проверка на "полного админа" (есть все права на пользователей)
+  // Проверка на "полного админа"
   const isFullAdmin = useMemo(() => {
     return user?.is_protected || hasPermission('users.edit.all');
   }, [user?.is_protected, hasPermission]);
@@ -385,7 +304,7 @@ export const usePermissions = (user) => {
     getPermissionsByCategory,
     canAccessSection,
 
-    // Удобные шорткаты для пользователей
+    // Шорткаты для пользователей
     canViewUsers,
     canEditUsers,
     canCreateUsers: hasPermission('users.create'),
