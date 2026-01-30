@@ -4523,7 +4523,7 @@ function ActionReports({ user }) {
           <div className="w-[5%] min-w-[40px] text-center">Выкуп</div>
           <div className="w-[5%] min-w-[55px] text-center">Сезон</div>
           <div className="w-[5%] min-w-[50px] text-center">Цена</div>
-          <div className="w-[5%] min-w-[35px]"></div>
+          {isTeamlead && <div className="w-[5%] min-w-[35px]"></div>}
         </div>
       </div>
 
