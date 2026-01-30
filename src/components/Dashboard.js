@@ -27,7 +27,7 @@ function Dashboard({ user, session, updateUser }) {
   const [activeSection, setActiveSection] = useState('settings');
   const [isUserLoaded, setIsUserLoaded] = useState(false);
   const isManualChangeRef = useRef(false); // Ref для флага ручного выбора (не вызывает ре-рендер)
-  const { canAccessSection, hasPermission, loading: permissionsLoading } = usePermissions(user);
+  const { canAccessSection, hasPermission, loading: permissionsLoading, permissionsReady } = usePermissions(user);
 
   // Обработчик смены секции (вызывается из Sidebar)
   const handleSectionChange = useCallback((section) => {
@@ -120,20 +120,25 @@ function Dashboard({ user, session, updateUser }) {
     return 'settings';
   };
 
-  // Функция для проверки доступности раздела - ТОЛЬКО из БД
+  // Функция для проверки доступности раздела - ТОЛЬКО из БД/кеша
   const isSectionAvailableForRole = useCallback((section) => {
-    // Если права ещё загружаются — пока нет доступа (кроме settings)
-    if (permissionsLoading) {
-      return section === 'settings';
-    }
+    // Если права готовы (из кеша или загружены) - проверяем доступ
+    // settings всегда доступен
+    if (section === 'settings') return true;
     return canAccessSection(section);
-  }, [canAccessSection, permissionsLoading]);
+  }, [canAccessSection]);
 
   // Определяем секцию из URL при загрузке (только при первой загрузке!)
   React.useEffect(() => {
     // Не делаем редирект если это ручной выбор секции
     if (isManualChangeRef.current) {
       isManualChangeRef.current = false;
+      return;
+    }
+
+    // ВАЖНО: Ждём пока права будут готовы (из кеша или загружены)
+    // Это предотвращает редирект на дефолтную страницу при обновлении
+    if (!permissionsReady) {
       return;
     }
 
@@ -169,7 +174,7 @@ function Dashboard({ user, session, updateUser }) {
 
       setIsUserLoaded(true);
     }
-  }, [user?.role, user?.id, isUserLoaded, isSectionAvailableForRole, navigate, location.pathname]);
+  }, [user?.role, user?.id, isUserLoaded, isSectionAvailableForRole, permissionsReady, navigate, location.pathname]);
 
   // Сохраняем activeSection в localStorage и обновляем URL при изменении секции
   React.useEffect(() => {
@@ -182,8 +187,9 @@ function Dashboard({ user, session, updateUser }) {
     }
   }, [activeSection, user?.id, isUserLoaded, navigate, location.pathname]);
 
-  // Показываем лоадер пока пользователь не загрузился
-  if (!isUserLoaded || !user?.role) {
+  // Показываем лоадер только если права не готовы И нет пользователя
+  // Если есть кеш прав - сразу показываем интерфейс
+  if (!user?.role || (!isUserLoaded && !permissionsReady)) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">

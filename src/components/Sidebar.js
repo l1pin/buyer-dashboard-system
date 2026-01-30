@@ -45,7 +45,7 @@ const AdIcon = ({ className }) => (
 
 function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { canAccessSection, loading: permissionsLoading, permissions } = usePermissions(user);
+  const { canAccessSection, loading: permissionsLoading, permissions, permissionsReady } = usePermissions(user);
 
   // Все доступные пункты меню
   const allMenuItems = [
@@ -78,20 +78,27 @@ function Sidebar({ user, activeSection, onSectionChange, onLogout }) {
     { id: 'settings', label: 'Настройки', icon: Settings, permissionCode: null }
   ];
 
-  // Фильтруем пункты меню по правам - ТОЛЬКО на основе permissions из БД
+  // Фильтруем пункты меню по правам - используем кеш для мгновенного отображения
   const menuItems = useMemo(() => {
-    if (permissionsLoading) {
-      // Пока грузится - показываем только настройки
+    // Если есть права (из кеша или загружены) - фильтруем по ним
+    // Это обеспечивает мгновенное отображение меню без мерцания
+    if (permissions.length > 0) {
+      return allMenuItems.filter(item => {
+        // Настройки доступны всем
+        if (item.permissionCode === null) return true;
+        // Проверяем право напрямую в массиве permissions
+        return permissions.includes(item.permissionCode);
+      });
+    }
+
+    // Если прав нет и ещё грузятся - показываем только настройки
+    if (permissionsLoading && !permissionsReady) {
       return allMenuItems.filter(item => item.permissionCode === null);
     }
 
-    return allMenuItems.filter(item => {
-      // Настройки доступны всем
-      if (item.permissionCode === null) return true;
-      // Проверяем право напрямую в массиве permissions
-      return permissions.includes(item.permissionCode);
-    });
-  }, [permissions, permissionsLoading]);
+    // Права загружены но пустые - показываем только настройки
+    return allMenuItems.filter(item => item.permissionCode === null);
+  }, [permissions, permissionsLoading, permissionsReady]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
