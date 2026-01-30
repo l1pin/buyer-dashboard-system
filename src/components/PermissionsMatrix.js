@@ -514,15 +514,16 @@ const PermissionsMatrix = ({
 
     if (isFromRole) {
       // Право от роли - управляем через excluded
-      if (!allowExcludeRolePermissions || !onExcludedChange) return;
+      if (!onExcludedChange) return;
 
       let newExcluded;
       if (enabled) {
-        // Включаем - убираем из excluded
+        // Включаем - убираем из excluded (всегда разрешено, canToggle уже проверил)
         const normalizedCode = normalizePermissionCode(code);
         newExcluded = excludedPermissions.filter(p => p !== code && p !== normalizedCode);
       } else {
-        // Выключаем - добавляем в excluded
+        // Выключаем - добавляем в excluded (требуется allowExcludeRolePermissions)
+        if (!allowExcludeRolePermissions) return;
         newExcluded = [...excludedPermissions, code];
       }
       onExcludedChange(newExcluded);
