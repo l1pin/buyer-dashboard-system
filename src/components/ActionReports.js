@@ -30,6 +30,7 @@ import { calculateRemainingDays } from '../scripts/offers/Calculate_days';
 import { updateLeadsFromSql, aggregateMetricsBySourceIds } from '../scripts/offers/Sql_leads';
 import TooltipManager from './TooltipManager';
 import BuyerMetricsCalendar from './BuyerMetricsCalendar';
+import { toKyivDateKey, getKyivToday, getNextKyivDay, getKyivDaysDiff, createKyivMidnight } from '../utils/kyivTime';
 
 // URL для SQL API
 const CORE_URL = 'https://api.trll-notif.com.ua/adsreportcollector/core.php';
@@ -585,14 +586,17 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
     // Если бы был OR - метрики других кампаний/групп/объявлений "подмешивались" бы к результату
     const paramsCondition = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
 
+    // Получаем текущую дату по Киеву (вместо CURDATE() который зависит от timezone сервера БД)
+    const kyivToday = getKyivToday();
+
     // SQL запрос: сумма cost и valid за все дни >= startDate для новых параметров
     const sql = `
       SELECT
         SUM(CAST(cost AS DECIMAL(10,2))) as total_cost,
         SUM(CAST(valid AS SIGNED)) as total_leads,
         COUNT(DISTINCT CASE WHEN CAST(cost AS DECIMAL(10,2)) > 0 THEN adv_date END) as active_days,
-        SUM(CASE WHEN adv_date = CURDATE() THEN 1 ELSE 0 END) as today_rows,
-        SUM(CASE WHEN adv_date = CURDATE() AND CAST(cost AS DECIMAL(10,2)) > 0 THEN 1 ELSE 0 END) as today_cost_rows
+        SUM(CASE WHEN adv_date = '${kyivToday}' THEN 1 ELSE 0 END) as today_rows,
+        SUM(CASE WHEN adv_date = '${kyivToday}' AND CAST(cost AS DECIMAL(10,2)) > 0 THEN 1 ELSE 0 END) as today_cost_rows
       FROM ads_collection
       WHERE offer_id_tracker = '${offerId}'
         AND source_id_tracker IN (${sourceIdsStr})
@@ -2032,10 +2036,10 @@ function ActionReports({ user }) {
   }, [allMetrics]);
 
   // Генерация дней для календаря (от первого дня с товарами до сегодня)
+  // Использует киевское время для корректной группировки
   const calendarDays = useMemo(() => {
     const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayKey = getKyivToday(); // "2026-01-31" по Киеву
 
     // Для байеров показываем только их собственные отчеты
     const isUserTeamlead = user?.role === 'teamlead';
@@ -2043,56 +2047,55 @@ function ActionReports({ user }) {
       ? savedReports.filter(r => r.createdBy === user.id)
       : savedReports;
 
-    // Находим самую раннюю дату с отчетами
-    let startDate = today;
+    // Находим самую раннюю дату с отчетами (по киевскому времени)
+    let startDateKey = todayKey;
     if (userReports.length > 0) {
-      const reportDates = userReports.map(r => {
-        const d = new Date(r.createdAt);
-        d.setHours(0, 0, 0, 0);
-        return d;
-      });
-      startDate = new Date(Math.min(...reportDates.map(d => d.getTime())));
+      const reportDateKeys = userReports.map(r => toKyivDateKey(new Date(r.createdAt)));
+      reportDateKeys.sort();
+      startDateKey = reportDateKeys[0];
     }
 
     // Генерируем дни от startDate до today
-    const currentDate = new Date(startDate);
-    while (currentDate <= today) {
-      const date = new Date(currentDate);
-      const dateKey = date.toISOString().split('T')[0];
-      const daysAgo = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+    let currentDateKey = startDateKey;
+    while (currentDateKey <= todayKey) {
+      const date = createKyivMidnight(currentDateKey);
+      const daysAgo = getKyivDaysDiff(currentDateKey, todayKey);
 
       days.push({
         date: date,
-        dateKey: dateKey,
-        day: date.getDate(),
-        weekday: date.toLocaleString('ru', { weekday: 'short' }),
-        month: date.toLocaleString('ru', { month: 'short' }),
+        dateKey: currentDateKey,
+        day: parseInt(currentDateKey.split('-')[2]),
+        weekday: date.toLocaleString('ru', { weekday: 'short', timeZone: 'Europe/Kyiv' }),
+        month: date.toLocaleString('ru', { month: 'short', timeZone: 'Europe/Kyiv' }),
         isToday: daysAgo === 0,
         isYesterday: daysAgo === 1,
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
         daysAgo: daysAgo,
-        // Считаем товары из userReports (отфильтрованных по пользователю)
+        // Считаем товары из userReports (по киевской дате)
         tasksCount: userReports.filter(r => {
-          const reportDate = new Date(r.createdAt);
-          reportDate.setHours(0, 0, 0, 0);
-          return reportDate.getTime() === date.getTime();
+          const reportDateKey = toKyivDateKey(new Date(r.createdAt));
+          return reportDateKey === currentDateKey;
         }).length
       });
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      // Переходим к следующему дню
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      currentDateKey = toKyivDateKey(nextDate);
     }
 
     // Если нет отчетов - показываем только сегодня
     if (days.length === 0) {
+      const todayDate = createKyivMidnight(todayKey);
       days.push({
-        date: today,
-        dateKey: today.toISOString().split('T')[0],
-        day: today.getDate(),
-        weekday: today.toLocaleString('ru', { weekday: 'short' }),
-        month: today.toLocaleString('ru', { month: 'short' }),
+        date: todayDate,
+        dateKey: todayKey,
+        day: parseInt(todayKey.split('-')[2]),
+        weekday: todayDate.toLocaleString('ru', { weekday: 'short', timeZone: 'Europe/Kyiv' }),
+        month: todayDate.toLocaleString('ru', { month: 'short', timeZone: 'Europe/Kyiv' }),
         isToday: true,
         isYesterday: false,
-        isWeekend: today.getDay() === 0 || today.getDay() === 6,
+        isWeekend: todayDate.getDay() === 0 || todayDate.getDay() === 6,
         daysAgo: 0,
         tasksCount: 0
       });
@@ -2401,15 +2404,15 @@ function ActionReports({ user }) {
       return;
     }
 
-    // Определяем дату начала отслеживания
+    // Определяем дату начала отслеживания (по киевскому времени)
     const createdDate = new Date(report.createdAt);
     let startDate;
     if (report.when_day === 'today') {
-      startDate = createdDate.toISOString().split('T')[0];
+      // "Сегодня" - берём киевскую дату создания
+      startDate = toKyivDateKey(createdDate);
     } else {
-      const nextDay = new Date(createdDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      startDate = nextDay.toISOString().split('T')[0];
+      // "Завтра" - берём следующий день по Киеву
+      startDate = getNextKyivDay(createdDate);
     }
 
     // Проверяем кэш
@@ -2733,14 +2736,12 @@ function ActionReports({ user }) {
       reports = reports.filter(r => r.subAction === selectedSubActionFilter);
     }
 
-    // Фильтруем по выбранной дате
+    // Фильтруем по выбранной дате (используем киевское время)
     if (selectedDate) {
+      const selectedDateKey = toKyivDateKey(selectedDate);
       reports = reports.filter(r => {
-        const reportDate = new Date(r.createdAt);
-        reportDate.setHours(0, 0, 0, 0);
-        const selected = new Date(selectedDate);
-        selected.setHours(0, 0, 0, 0);
-        return reportDate.getTime() === selected.getTime();
+        const reportDateKey = toKyivDateKey(new Date(r.createdAt));
+        return reportDateKey === selectedDateKey;
       });
     }
 
@@ -2892,14 +2893,13 @@ function ActionReports({ user }) {
     // Проверяем, есть ли расчитанный CPL из новых параметров в кэше
     const offerId = articleOfferMap[report.article];
     if (offerId) {
-      // Определяем дату для ключа кэша (как в prefetch)
+      // Определяем дату для ключа кэша (как в prefetch) - по киевскому времени
       const createdDate = new Date(report.createdAt);
       let startDate;
       if (report.when_day === 'today') {
-        startDate = createdDate.toISOString().split('T')[0];
+        startDate = toKyivDateKey(createdDate);
       } else {
-        createdDate.setDate(createdDate.getDate() + 1);
-        startDate = createdDate.toISOString().split('T')[0];
+        startDate = getNextKyivDay(createdDate);
       }
 
       const cacheKey = `${offerId}_${startDate}`;
@@ -2986,10 +2986,10 @@ function ActionReports({ user }) {
 
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
   const updateVisibleReportsMetrics = useCallback(async (forDate = null, forceRefresh = false) => {
-    // Определяем ключ кэша для даты
+    // Определяем ключ кэша для даты (по киевскому времени)
     const dateKey = forDate
-      ? new Date(forDate).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0];
+      ? toKyivDateKey(new Date(forDate))
+      : getKyivToday();
 
     // ========== ПРОВЕРКА КЭША ==========
     // Если данные для этой даты уже загружены - используем кэш (без мерцания)
@@ -3005,17 +3005,15 @@ function ActionReports({ user }) {
       return; // Выходим - данные уже есть
     }
 
-    // Фильтруем отчеты по дате если указана
+    // Фильтруем отчеты по дате если указана (используем киевское время)
     let reportsToUpdate = savedReports;
     if (forDate) {
+      const targetDateKey = toKyivDateKey(new Date(forDate));
       reportsToUpdate = savedReports.filter(r => {
-        const reportDate = new Date(r.createdAt);
-        reportDate.setHours(0, 0, 0, 0);
-        const targetDate = new Date(forDate);
-        targetDate.setHours(0, 0, 0, 0);
-        return reportDate.getTime() === targetDate.getTime();
+        const reportDateKey = toKyivDateKey(new Date(r.createdAt));
+        return reportDateKey === targetDateKey;
       });
-      console.log(`📅 Фильтруем отчеты для даты ${forDate.toLocaleDateString('ru')}: найдено ${reportsToUpdate.length} отчетов`);
+      console.log(`📅 Фильтруем отчеты для даты ${targetDateKey}: найдено ${reportsToUpdate.length} отчетов`);
     }
 
     // Получаем уникальные артикулы из отфильтрованных отчетов
@@ -3243,13 +3241,11 @@ function ActionReports({ user }) {
   const prefetchAdsChangesForDate = useCallback(async (forDate) => {
     if (!forDate || !savedReports.length || !Object.keys(articleOfferMap).length) return;
 
-    // Фильтруем отчёты по дате
+    // Фильтруем отчёты по дате (используем киевское время)
+    const targetDateKey = toKyivDateKey(new Date(forDate));
     const reportsForDate = savedReports.filter(r => {
-      const reportDate = new Date(r.createdAt);
-      reportDate.setHours(0, 0, 0, 0);
-      const targetDate = new Date(forDate);
-      targetDate.setHours(0, 0, 0, 0);
-      return reportDate.getTime() === targetDate.getTime();
+      const reportDateKey = toKyivDateKey(new Date(r.createdAt));
+      return reportDateKey === targetDateKey;
     });
 
     if (!reportsForDate.length) return;
@@ -3281,14 +3277,13 @@ function ActionReports({ user }) {
 
         if (!offerId || !sourceIds?.length) return;
 
-        // Определяем дату
+        // Определяем дату (по киевскому времени)
         const createdDate = new Date(report.createdAt);
         let startDate;
         if (report.when_day === 'today') {
-          startDate = createdDate.toISOString().split('T')[0];
+          startDate = toKyivDateKey(createdDate);
         } else {
-          createdDate.setDate(createdDate.getDate() + 1);
-          startDate = createdDate.toISOString().split('T')[0];
+          startDate = getNextKyivDay(createdDate);
         }
 
         // Проверяем, нет ли уже в кэше

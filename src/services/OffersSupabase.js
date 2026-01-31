@@ -2,6 +2,7 @@
 // Серверная логика для работы со статусами офферов
 
 import { supabase } from '../supabaseClient';
+import { toKyivDateKey, getKyivDayStartISO, getKyivDayEndISO, getKyivDateDaysAgo } from '../utils/kyivTime';
 
 /**
  * Сервис для работы со статусами офферов
@@ -1160,23 +1161,22 @@ export const actionReportsService = {
   },
 
   /**
-   * Получить отчеты за конкретный день
-   * @param {Date} date - Дата
+   * Получить отчеты за конкретный день (по киевскому времени)
+   * @param {Date|string} date - Дата
    * @returns {Promise<Array>} Массив отчетов
    */
   async getReportsByDate(date) {
     try {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Получаем границы дня по киевскому времени
+      const dateKey = toKyivDateKey(date);
+      const startOfDayISO = getKyivDayStartISO(dateKey);
+      const endOfDayISO = getKyivDayEndISO(dateKey);
 
       const { data, error } = await supabase
         .from('action_reports')
         .select('*')
-        .gte('created_at', startOfDay.toISOString())
-        .lte('created_at', endOfDay.toISOString())
+        .gte('created_at', startOfDayISO)
+        .lte('created_at', endOfDayISO)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -1286,27 +1286,27 @@ export const actionReportsService = {
 
   /**
    * Получить статистику отчетов по дням (для календаря)
+   * Группирует по киевскому времени
    * @param {number} daysBack - Количество дней назад
    * @returns {Promise<Object>} Объект { dateString: count }
    */
   async getReportsCountByDays(daysBack = 30) {
     try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysBack);
-      startDate.setHours(0, 0, 0, 0);
+      // Начало периода по киевскому времени
+      const startDateKey = getKyivDateDaysAgo(daysBack);
+      const startDateISO = getKyivDayStartISO(startDateKey);
 
       const { data, error } = await supabase
         .from('action_reports')
         .select('created_at')
-        .gte('created_at', startDate.toISOString());
+        .gte('created_at', startDateISO);
 
       if (error) throw error;
 
-      // Группируем по дням
+      // Группируем по дням (по киевскому времени!)
       const countByDay = {};
       (data || []).forEach(report => {
-        const date = new Date(report.created_at);
-        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateKey = toKyivDateKey(new Date(report.created_at)); // Киевская дата
         countByDay[dateKey] = (countByDay[dateKey] || 0) + 1;
       });
 
