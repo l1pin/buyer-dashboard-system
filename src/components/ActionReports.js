@@ -1005,19 +1005,13 @@ const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
   </svg>
 ));
 
-// Компонент ячейки метрики с плавным переходом skeleton -> value
-// Skeleton и значение рендерятся вместе, переключение через opacity
-function MetricCell({ isLoading, children, width = 'w-10', className = '' }) {
+// Компонент ячейки метрики - без индивидуального skeleton
+// Skeleton теперь общий на всю строку метрик (RowSkeletonOverlay)
+// eslint-disable-next-line no-unused-vars
+function MetricCell({ isLoading, children, width, className = '' }) {
   return (
     <div className={`metric-cell-container relative ${className}`}>
-      {/* Skeleton - плавно исчезает */}
-      <div
-        className={`skeleton-layer ${isLoading ? 'visible' : 'hidden'}`}
-        aria-hidden={!isLoading}
-      >
-        <div className={`${width} h-4 rounded skeleton-unified`} />
-      </div>
-      {/* Значение - плавно появляется */}
+      {/* Значение - плавно появляется когда loading завершён */}
       <div
         className={`value-layer ${isLoading ? 'hidden' : 'visible'}`}
         aria-hidden={isLoading}
@@ -1028,9 +1022,21 @@ function MetricCell({ isLoading, children, width = 'w-10', className = '' }) {
   );
 }
 
+// Компонент сплошной полосы skeleton на всю строку метрик
+function RowSkeletonOverlay({ isLoading }) {
+  return (
+    <div
+      className={`row-skeleton-overlay ${isLoading ? 'visible' : 'hidden'}`}
+      aria-hidden={!isLoading}
+    >
+      <div className="row-skeleton-bar" />
+    </div>
+  );
+}
+
 // CSS стили для плавных переходов и единой skeleton полосы
 const animationStyles = `
-  /* Единая волна shimmer для всех skeleton в строке */
+  /* Единая волна shimmer для skeleton полосы */
   @keyframes skeletonWave {
     0% {
       background-position: 200% 0;
@@ -1040,8 +1046,39 @@ const animationStyles = `
     }
   }
 
-  /* Skeleton с единой волной - gradient привязан к viewport для синхронизации */
-  .skeleton-unified {
+  /* Контейнер для области метрик с overlay */
+  .metrics-row-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+
+  /* Overlay skeleton на всю строку метрик */
+  .row-skeleton-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 0.35s ease-out;
+  }
+
+  .row-skeleton-overlay.visible {
+    opacity: 1;
+  }
+
+  .row-skeleton-overlay.hidden {
+    opacity: 0;
+  }
+
+  /* Сплошная полоса skeleton */
+  .row-skeleton-bar {
+    width: 100%;
+    height: 16px;
+    border-radius: 4px;
     background: linear-gradient(
       90deg,
       #e5e7eb 0%,
@@ -1060,25 +1097,6 @@ const animationStyles = `
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  /* Слой skeleton */
-  .skeleton-layer {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.35s ease-out;
-  }
-
-  .skeleton-layer.visible {
-    opacity: 1;
-  }
-
-  .skeleton-layer.hidden {
-    opacity: 0;
-    pointer-events: none;
   }
 
   /* Слой значения */
@@ -4730,6 +4748,10 @@ function ActionReports({ user }) {
                       </span>
                     </div>
 
+                    {/* Контейнер для всех метрик с единым skeleton overlay */}
+                    <div className="metrics-row-container">
+                      <RowSkeletonOverlay isLoading={isAnyLoading} />
+
                     {/* CPL - только если есть уникальные параметры */}
                     <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[42px]">
                       {metric.hasUniqueParams ? (
@@ -4915,6 +4937,9 @@ function ActionReports({ user }) {
                     <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[50px] font-mono text-xs text-slate-800">
                       {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
                     </MetricCell>
+                    </div>
+                    {/* Конец контейнера метрик */}
+
                     {isTeamlead && (
                       <div className="w-[5%] min-w-[35px] text-center">
                         <button
