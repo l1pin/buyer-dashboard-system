@@ -581,7 +581,9 @@ async function calculateCplFromNewParams(offerId, sourceIds, startDate, newParam
       conditions.push(`adv_id IN (${advIds.map(id => `'${id}'`).join(',')})`);
     }
 
-    const paramsCondition = conditions.length > 0 ? `AND (${conditions.join(' OR ')})` : '';
+    // ВАЖНО: используем AND между условиями, чтобы фильтровать по ТОЧНОЙ комбинации параметров
+    // Если бы был OR - метрики других кампаний/групп/объявлений "подмешивались" бы к результату
+    const paramsCondition = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
 
     // SQL запрос: сумма cost и valid за все дни >= startDate для новых параметров
     const sql = `
