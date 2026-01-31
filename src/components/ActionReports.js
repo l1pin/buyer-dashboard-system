@@ -1005,39 +1005,28 @@ const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
   </svg>
 ));
 
-// Компонент skeleton для ячейки таблицы
+// Компонент skeleton для ячейки таблицы с wave эффектом
 function SkeletonCell({ width = 'w-10' }) {
   return (
-    <div className={`${width} h-4 bg-slate-200 rounded animate-pulse mx-auto skeleton-fade`} />
+    <div className={`${width} h-4 rounded mx-auto skeleton-shimmer-blue`} />
   );
 }
 
 // CSS стили для плавных переходов
 const animationStyles = `
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes skeletonFade {
+  @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
   }
 
-  .skeleton-fade {
-    animation: skeletonFade 0.15s ease-out;
-  }
-
+  /* Строка не меняет opacity при загрузке - без мерцания */
   .data-row {
-    transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+    /* Никаких transition для строки - значения анимируются отдельно */
   }
 
-  .data-row.loading {
-    opacity: 0.4;
-  }
-
-  .data-row.loaded {
-    animation: fadeInUp 0.35s ease-out;
+  /* Плавное появление только для значений метрик */
+  .metric-value {
+    animation: fadeIn 0.3s ease-out;
   }
 
   .metric-cell {
@@ -2969,21 +2958,6 @@ function ActionReports({ user }) {
   // Проверка, идет ли какое-либо обновление
   const isAnyLoading = loadingCplLeads || loadingDays || loadingStock || loadingZones || loadingAdsChangesCache;
 
-  // Ref для отслеживания предыдущего состояния loading (для анимации)
-  const prevLoadingRef = useRef(isAnyLoading);
-  const [showDataAnimation, setShowDataAnimation] = useState(false);
-
-  // Эффект для плавной анимации при переходе loading -> loaded
-  useEffect(() => {
-    if (prevLoadingRef.current && !isAnyLoading) {
-      // Переход из loading в loaded - показываем анимацию
-      setShowDataAnimation(true);
-      const timer = setTimeout(() => setShowDataAnimation(false), 400);
-      return () => clearTimeout(timer);
-    }
-    prevLoadingRef.current = isAnyLoading;
-  }, [isAnyLoading]);
-
   // ========== ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ МЕТРИК ДЛЯ ВИДИМЫХ ОТЧЕТОВ ==========
   const updateVisibleReportsMetrics = useCallback(async (forDate = null, forceRefresh = false) => {
     // Определяем ключ кэша для даты (по киевскому времени)
@@ -4591,7 +4565,7 @@ function ActionReports({ user }) {
                   className="bg-white border-b border-slate-200 hover:bg-slate-50 transition-colors"
                 >
                   {/* Основная строка с метриками */}
-                  <div className={`flex items-center text-sm px-4 py-2.5 data-row ${isAnyLoading ? 'loading' : ''} ${showDataAnimation ? 'loaded' : ''}`}>
+                  <div className="flex items-center text-sm px-4 py-2.5 data-row">
                     <div className="w-[3%] min-w-[25px] text-center text-slate-500 font-medium">
                     {index + 1}
                   </div>
