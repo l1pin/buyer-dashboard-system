@@ -1005,32 +1005,102 @@ const InfoIcon = memo(({ onClick, className = "text-gray-500 w-3 h-3" }) => (
   </svg>
 ));
 
-// Компонент skeleton для ячейки таблицы с wave эффектом
-function SkeletonCell({ width = 'w-10' }) {
+// Компонент ячейки метрики с плавным переходом skeleton -> value
+// Skeleton и значение рендерятся вместе, переключение через opacity
+function MetricCell({ isLoading, children, width = 'w-10', className = '' }) {
   return (
-    <div className={`${width} h-4 rounded mx-auto skeleton-shimmer-blue`} />
+    <div className={`metric-cell-container relative ${className}`}>
+      {/* Skeleton - плавно исчезает */}
+      <div
+        className={`skeleton-layer ${isLoading ? 'visible' : 'hidden'}`}
+        aria-hidden={!isLoading}
+      >
+        <div className={`${width} h-4 rounded skeleton-unified`} />
+      </div>
+      {/* Значение - плавно появляется */}
+      <div
+        className={`value-layer ${isLoading ? 'hidden' : 'visible'}`}
+        aria-hidden={isLoading}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
-// CSS стили для плавных переходов
+// CSS стили для плавных переходов и единой skeleton полосы
 const animationStyles = `
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  /* Единая волна shimmer для всех skeleton в строке */
+  @keyframes skeletonWave {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
-  /* Строка не меняет opacity при загрузке - без мерцания */
+  /* Skeleton с единой волной - gradient привязан к viewport для синхронизации */
+  .skeleton-unified {
+    background: linear-gradient(
+      90deg,
+      #e5e7eb 0%,
+      #e5e7eb 40%,
+      #f8fafc 50%,
+      #e5e7eb 60%,
+      #e5e7eb 100%
+    );
+    background-size: 200% 100%;
+    animation: skeletonWave 1.8s ease-in-out infinite;
+  }
+
+  /* Контейнер ячейки метрики */
+  .metric-cell-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Слой skeleton */
+  .skeleton-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.35s ease-out;
+  }
+
+  .skeleton-layer.visible {
+    opacity: 1;
+  }
+
+  .skeleton-layer.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Слой значения */
+  .value-layer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: opacity 0.35s ease-out;
+  }
+
+  .value-layer.visible {
+    opacity: 1;
+  }
+
+  .value-layer.hidden {
+    opacity: 0;
+  }
+
+  /* Строка данных */
   .data-row {
-    /* Никаких transition для строки - значения анимируются отдельно */
-  }
-
-  /* Плавное появление только для значений метрик */
-  .metric-value {
-    animation: fadeIn 0.3s ease-out;
-  }
-
-  .metric-cell {
-    transition: opacity 0.2s ease-out;
+    /* Строка стабильна, анимируются только значения внутри */
   }
 `;
 
@@ -4661,10 +4731,8 @@ function ActionReports({ user }) {
                     </div>
 
                     {/* CPL - только если есть уникальные параметры */}
-                    <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : metric.hasUniqueParams ? (
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[42px]">
+                      {metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCpl > 0 ? metric.newParamsCpl.toFixed(2) : '—'}
@@ -4674,13 +4742,11 @@ function ActionReports({ user }) {
                       ) : (
                         <span className="font-mono text-xs text-slate-400">—</span>
                       )}
-                    </div>
+                    </MetricCell>
 
                     {/* Лиды - только если есть уникальные параметры */}
-                    <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-8" />
-                      ) : metric.hasUniqueParams ? (
+                    <MetricCell isLoading={isAnyLoading} width="w-8" className="w-[4%] min-w-[35px]">
+                      {metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsLeads}
@@ -4690,13 +4756,11 @@ function ActionReports({ user }) {
                       ) : (
                         <span className="font-mono text-xs text-slate-400">—</span>
                       )}
-                    </div>
+                    </MetricCell>
 
                     {/* Расход - только если есть уникальные параметры */}
-                    <div className="w-[5%] min-w-[42px] flex items-center justify-center gap-1">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : metric.hasUniqueParams ? (
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[42px]">
+                      {metric.hasUniqueParams ? (
                         <>
                           <span className="font-mono text-xs text-slate-700 font-bold">
                             {metric.newParamsCost > 0 ? metric.newParamsCost.toFixed(2) : '0'}
@@ -4708,13 +4772,11 @@ function ActionReports({ user }) {
                       ) : (
                         <span className="font-mono text-xs text-slate-400">—</span>
                       )}
-                    </div>
+                    </MetricCell>
 
                     {/* Дней - количество дней с cost > 0 + индикатор активности сегодня (только если есть уникальные параметры) */}
-                    <div className="w-[4%] min-w-[35px] flex items-center justify-center gap-1 text-xs font-mono">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-6" />
-                      ) : metric.hasUniqueParams ? (
+                    <MetricCell isLoading={isAnyLoading} width="w-6" className="w-[4%] min-w-[35px] text-xs font-mono">
+                      {metric.hasUniqueParams ? (
                         <>
                           <span className="text-slate-700 font-bold">
                             {metric.newParamsActiveDays}
@@ -4750,49 +4812,39 @@ function ActionReports({ user }) {
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
-                    </div>
+                    </MetricCell>
 
                     {/* Рейтинг - loading при loadingCplLeads */}
-                    <div className="w-[3%] min-w-[30px] flex items-center justify-center gap-1">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-6" />
-                      ) : (
-                        <>
-                          <span className={`text-sm font-extrabold ${getRatingColor(metric.lead_rating)}`}>
-                            {metric.lead_rating || '—'}
-                          </span>
-                          {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
-                        </>
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-6" className="w-[3%] min-w-[30px]">
+                      <>
+                        <span className={`text-sm font-extrabold ${getRatingColor(metric.lead_rating)}`}>
+                          {metric.lead_rating || '—'}
+                        </span>
+                        {metric.rating_history?.length > 0 && <InfoIcon onClick={(e) => openTooltip('rating', index, { ratingHistory: metric.rating_history, article: report.article }, e)} />}
+                      </>
+                    </MetricCell>
 
                     {/* ROI - loading при loadingZones */}
-                    <div className="w-[5%] min-w-[38px] flex items-center justify-center">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        (() => {
-                          const zoneColors = getZoneColors(metric.offer_zone);
-                          if (metric.actual_roi_percent != null) {
-                            if (zoneColors) {
-                              return (
-                                <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
-                                  {Number(metric.actual_roi_percent).toFixed(1)}%
-                                </span>
-                              );
-                            }
-                            return <span className="font-mono text-xs text-slate-700">{Number(metric.actual_roi_percent).toFixed(1)}%</span>;
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[38px]">
+                      {(() => {
+                        const zoneColors = getZoneColors(metric.offer_zone);
+                        if (metric.actual_roi_percent != null) {
+                          if (zoneColors) {
+                            return (
+                              <span className={`font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border ${zoneColors.bg} ${zoneColors.text} ${zoneColors.border}`}>
+                                {Number(metric.actual_roi_percent).toFixed(1)}%
+                              </span>
+                            );
                           }
-                          return <span className="text-gray-400 text-xs">—</span>;
-                        })()
-                      )}
-                    </div>
+                          return <span className="font-mono text-xs text-slate-700">{Number(metric.actual_roi_percent).toFixed(1)}%</span>;
+                        }
+                        return <span className="text-gray-400 text-xs">—</span>;
+                      })()}
+                    </MetricCell>
 
                     {/* CPL зона - среднее red зоны за даты с уникальными параметрами */}
-                    <div className="w-[6%] min-w-[50px] flex items-center justify-center gap-1">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-12" />
-                      ) : metric.hasUniqueParams ? (
+                    <MetricCell isLoading={isAnyLoading} width="w-12" className="w-[6%] min-w-[50px]">
+                      {metric.hasUniqueParams ? (
                         <>
                           {metric.newParamsAvgFirstZone != null ? (
                             <span className="font-mono inline-flex items-center px-1 py-0.5 rounded-full text-[10px] border bg-red-100 text-red-800 border-red-200">
@@ -4809,91 +4861,60 @@ function ActionReports({ user }) {
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>
                       )}
-                    </div>
+                    </MetricCell>
 
                     {/* Прибыль */}
-                    <div className="w-[5%] min-w-[42px] text-center text-xs font-mono text-green-600 font-medium">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        metric.profit != null ? `$${metric.profit}` : '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[42px] text-xs font-mono text-green-600 font-medium">
+                      {metric.profit != null ? `$${metric.profit}` : '—'}
+                    </MetricCell>
 
                     {/* Дни - loading при loadingDays */}
-                    <div className="w-[4%] min-w-[32px] text-center text-xs text-slate-700">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-8" />
-                      ) : (
-                        metric.days_remaining ?? '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-8" className="w-[4%] min-w-[32px] text-xs text-slate-700">
+                      {metric.days_remaining ?? '—'}
+                    </MetricCell>
 
                     {/* Ост. - loading при loadingStock */}
-                    <div className="w-[4%] min-w-[32px] text-center text-xs font-mono text-slate-800">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-8" />
-                      ) : (
-                        metric.stock_quantity ?? '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-8" className="w-[4%] min-w-[32px] text-xs font-mono text-slate-800">
+                      {metric.stock_quantity ?? '—'}
+                    </MetricCell>
 
                     {/* Приход - дней до прихода */}
-                    <div className="w-[5%] min-w-[38px] text-center text-xs font-mono">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-8" />
-                      ) : (
-                        (() => {
-                          const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
-                          if (daysUntil === null) {
-                            return <span className="text-slate-400">—</span>;
-                          }
-                          return (
-                            <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
-                              {daysUntil}
-                            </span>
-                          );
-                        })()
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-8" className="w-[5%] min-w-[38px] text-xs font-mono">
+                      {(() => {
+                        const daysUntil = calculateDaysUntilArrival(metric.next_calculated_arrival);
+                        if (daysUntil === null) {
+                          return <span className="text-slate-400">—</span>;
+                        }
+                        return (
+                          <span className={daysUntil < 0 ? 'text-red-600' : 'text-green-600'}>
+                            {daysUntil}
+                          </span>
+                        );
+                      })()}
+                    </MetricCell>
 
                     {/* Апрув - loading при loadingZones */}
-                    <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        metric.approve_percent != null ? `${metric.approve_percent}%` : '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[40px] text-xs text-slate-700">
+                      {metric.approve_percent != null ? `${metric.approve_percent}%` : '—'}
+                    </MetricCell>
 
                     {/* Выкуп - loading при loadingZones */}
-                    <div className="w-[5%] min-w-[40px] text-center text-xs text-slate-700">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        metric.sold_percent != null ? `${metric.sold_percent}%` : '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[40px] text-xs text-slate-700">
+                      {metric.sold_percent != null ? `${metric.sold_percent}%` : '—'}
+                    </MetricCell>
 
                     {/* Сезон */}
-                    <div className="w-[5%] min-w-[55px] text-center whitespace-nowrap">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        <span className="text-sm">{offerSeasons[report.article]?.length > 0
-                          ? offerSeasons[report.article].join('')
-                          : <span className="text-slate-400 text-xs">—</span>
-                        }</span>
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[55px] whitespace-nowrap">
+                      <span className="text-sm">{offerSeasons[report.article]?.length > 0
+                        ? offerSeasons[report.article].join('')
+                        : <span className="text-slate-400 text-xs">—</span>
+                      }</span>
+                    </MetricCell>
+
                     {/* Цена */}
-                    <div className="w-[5%] min-w-[50px] text-center font-mono text-xs text-slate-800">
-                      {isAnyLoading ? (
-                        <SkeletonCell width="w-10" />
-                      ) : (
-                        metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'
-                      )}
-                    </div>
+                    <MetricCell isLoading={isAnyLoading} width="w-10" className="w-[5%] min-w-[50px] font-mono text-xs text-slate-800">
+                      {metric.offer_price ? `${Number(metric.offer_price).toFixed(0)}₴` : '—'}
+                    </MetricCell>
                     {isTeamlead && (
                       <div className="w-[5%] min-w-[35px] text-center">
                         <button
